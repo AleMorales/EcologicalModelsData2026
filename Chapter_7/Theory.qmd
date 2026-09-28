@@ -1,0 +1,520 @@
+---
+title: "Fitting ecological response curves"
+format:
+  html:
+    toc: true
+    number-sections: true
+execute:
+  echo: true
+  warning: false
+  message: false
+  eval: false
+---
+
+# Introduction
+
+How quickly does a predator consume prey as prey density increases? In
+[Chapter 6](../Chapter_6/Theory.qmd), a Holling type II function described the
+expected intake rate. Real measurements will not all fall on that curve. To
+estimate its parameters from data, we also need a probability model for the
+observations around it.
+
+This chapter combines a **response function** with an **observation model**.
+We will fit one predictor at a time, estimate uncertainty, compare candidate
+models, and check whether their simulated observations resemble the data.
+We will first write a likelihood as an ordinary R function, then write the
+same model in RTMB. This prepares us to add random effects to nonlinear
+curves in Chapter 8.
+The supplied practical datasets are simulated ecological examples. Their
+generating parameters are not given to you when you analyse them.
+
+# Learning goals
+
+After this chapter, you should be able to:
+
+- specify a response function, observation distribution, parameter domain,
+  and observational unit for a single-predictor dataset;
+- write and optimise the resulting log-likelihood, check convergence, and
+  interpret estimates and confidence intervals in ecological units;
+- express an observation model in RTMB, use its derivatives for fitting,
+  and recognise when its automatic differentiation may be unsuitable;
+- compare models fitted to the same observations using information criteria
+  and held-out predictive performance;
+- simulate from a fitted model and interpret scaled quantile residuals;
+- use a simulation study to investigate bias and confidence-interval coverage.
+
+# From a curve to a model for observations {#sec-response-observation}
+
+Let $x_i$ be the prey density for intake measurement $i$, and let $Y_i$
+be the measured rate. A possible expected response is
+
+$$
+\mu_i=m(x_i;a,b)=\frac{a x_i}{b+x_i}, \qquad x_i\geq0,\ a,b>0.
+$$
+
+The parameter $a$ is the limiting intake rate; $b$ is the prey density at
+half that rate. The function returns one expected rate for each density.
+It does not say how far an observed $Y_i$ might lie from that expectation.
+
+If rates vary approximately symmetrically around the curve, a first
+observation model is
+
+$$
+Y_i\mid x_i\sim\operatorname{Normal}(\mu_i,\sigma^2),
+\qquad \sigma>0.
+$$
+
+Here $\sigma$ describes variation in individual intake measurements, in the
+same units as the rate. We also assume observations are independent after
+conditioning on their predictor values. With these assumptions, the model
+has three unknown parameters: $a$, $b$, and $\sigma$. Because a normal
+distribution also permits negative rates, check whether that part of its
+support matters near low prey density.
+
+::: {.callout-note title="Mean curve and observations"}
+The curve describes $E[Y_i\mid x_i]$. The distribution describes possible
+observations at that $x_i$. A close-looking curve alone does not specify a
+likelihood or show that the chosen distribution is suitable.
+:::
+
+The points in this illustration were simulated from a known curve with
+normal variation. Their spread shows why a likelihood needs both parts:
+
+```{r}
+#| echo: false
+#| eval: true
+#| fig-cap: "Simulated predator intake measurements around a Holling type II mean curve."
+set.seed(seed = 710)
+prey_density = rep(seq(from = 3, to = 30, by = 3), each = 4)
+expected_intake = 12 * prey_density / (6 + prey_density)
+observed_intake = rnorm(n = length(prey_density),
+                        mean = expected_intake, sd = 1)
+plot(prey_density, observed_intake,
+     xlab = "Prey density (illustrative units)",
+     ylab = "Intake rate (illustrative units)", pch = 16)
+curve(12 * x / (6 + x), from = 0, to = 30, add = TRUE, lwd = 2)
+legend("bottomright", legend = c("Simulated observations", "Mean curve"),
+       pch = c(16, NA), lty = c(NA, 1), bty = "n")
+```
+
+The response determines which distributions are possible. A count of cones
+can use a Poisson model with a positive mean curve. Presence or absence can
+use a Bernoulli model with a probability curve between zero and one:
+
+| Response | Example conditional model | What the curve must return |
+|---|---|---|
+| Continuous intake rate | $Y_i\mid x_i\sim\operatorname{Normal}(\mu_i,\sigma^2)$ | A mean in rate units |
+| Number of cones | $Y_i\mid x_i\sim\operatorname{Poisson}(\mu_i)$ | A positive expected count |
+| Presence or absence | $Y_i\mid x_i\sim\operatorname{Bernoulli}(p_i)$ | A probability in $[0,1]$ |
+
+The observation model is a scientific assumption, not a label determined by
+the response variable alone. Counts can be more variable than a Poisson
+model allows; continuous variation can be asymmetric. Later diagnostics
+help us find such disagreements.
+
+:::: {.callout-important title="Try it: identify the random part"}
+Suppose $p(x)=1/[1+e^{-k(x-c)}]$ predicts species presence. Which part of
+the model says that two sites with the same $x$ may have different outcomes?
+
+::: {.callout-tip title="Answer" collapse="true"}
+The Bernoulli observation model does. The function gives the same $p(x)$
+at both sites, while each presence/absence observation remains random.
+:::
+::::
+
+# Fit a response curve by maximum likelihood {#sec-fit-response}
+
+For independent normal observations, the log-likelihood is the sum of the
+log densities at the observed rates:
+
+$$
+\ell(a,b,\sigma)=\sum_{i=1}^n
+\log f_{\mathrm N}\{y_i;m(x_i;a,b),\sigma\}.
+$$
+
+Here $y_i$ is the observed value of $Y_i$. As in [Chapter 5](../Chapter_5/Theory.qmd),
+`optim()` minimises a function by default, so we minimise the negative
+log-likelihood. We optimise the logarithms of positive parameters and
+transform the estimates back afterwards.
+
+From the Chapter 7 theory page, the predator data are in
+`Practicals/shapes2.csv`:
+
+```r
+intake_data = read.csv("Practicals/shapes2.csv")
+
+intake_curve = function(x, a, b) {
+  a * x / (b + x)
+}
+
+intake_nll = function(par, x, y) {
+  a = exp(par[1])
+  b = exp(par[2])
+  sigma = exp(par[3])
+  mu = intake_curve(x = x, a = a, b = b)
+  -sum(dnorm(x = y, mean = mu, sd = sigma, log = TRUE))
+}
+
+fit = optim(
+  par = c(log_a = log(max(intake_data$y)),
+          log_b = log(median(intake_data$x)),
+          log_sigma = log(sd(intake_data$y))),
+  fn = intake_nll,
+  x = intake_data$x, y = intake_data$y,
+  method = "BFGS", hessian = TRUE
+)
+fit$convergence
+estimates = c(a = exp(fit$par["log_a"]),
+              b = exp(fit$par["log_b"]),
+              sigma = exp(fit$par["log_sigma"]))
+estimates
+```
+
+Check the convergence code, the fitted curve against the points, and whether
+the estimates make ecological sense. Try another plausible starting value
+if the fit is unstable. A convergence code of zero is reassuring, but it
+does not establish that the model describes the observations well.
+
+## Write the same model in RTMB
+
+The manual likelihood above makes every part of the model visible. We will
+now express the same likelihood using [RTMB](https://cran.r-project.org/web/packages/RTMB/vignettes/RTMB-introduction.html),
+an R interface to Template Model Builder (TMB). RTMB records the calculations
+in the objective function and supplies derivatives through **automatic
+differentiation**. These derivatives can help an optimiser find and check a
+solution; they do not guarantee convergence or a suitable statistical model.
+We will return to how differentiation works in Chapter 9.
+
+```r
+library(RTMB)
+
+intake_rtmb = function(par) {
+  a = exp(par$log_a)
+  b = exp(par$log_b)
+  sigma = exp(par$log_sigma)
+  mu = intake_curve(intake_data$x, a, b)
+  y = intake_data$y
+  y %~% dnorm(mean = mu, sd = sigma)
+}
+
+intake_parameters = list(
+  log_a = log(max(intake_data$y)),
+  log_b = log(median(intake_data$x)),
+  log_sigma = log(sd(intake_data$y))
+)
+intake_obj = MakeADFun(intake_rtmb, intake_parameters, silent = TRUE)
+c(in_R = intake_rtmb(intake_parameters),
+  recorded = intake_obj$fn(intake_obj$par))
+rtmb_fit = optim(par = intake_obj$par, fn = intake_obj$fn,
+                 gr = intake_obj$gr, method = "BFGS")
+rtmb_fit$convergence
+exp(rtmb_fit$par)
+c(manual = fit$value, RTMB = rtmb_fit$value)
+```
+
+The `par` argument is now a named list; `$` selects each parameter. The
+data remain available to the objective through the surrounding R
+environment. The left side of `%~%` is the observed response. The right
+side is its distribution, whose mean comes from the deterministic curve.
+RTMB converts that expression to a **negative** log-likelihood, including
+the distribution's normalising terms. `MakeADFun()` returns an objective
+`fn`, a gradient `gr`, and a Hessian method `he`. Its parameter names and
+order come from the starting list. The two fits should give nearly the
+same estimates and negative log-likelihood. Small numerical differences
+can arise because the derivatives and stopping rules differ. Evaluating
+the R objective before fitting provides a useful first debugging check.
+
+The practical advantage for Chapter 8 is that the same RTMB syntax can
+also include random effects. For example, a parameter named `u` can
+be marked with `random = "u"` in `MakeADFun()`. RTMB can then approximate
+the likelihood after integrating over `u`, using a Laplace approximation.
+We will introduce that calculation with the new models, rather than
+requiring you to carry out the integration yourself.
+
+::: {.callout-warning title="When RTMB is awkward"}
+Automatic differentiation follows a smooth calculation. A curve with a
+sharp change at an *unknown* threshold, or a branch that depends on a
+parameter, can have undefined or misleading derivatives at the change.
+Such [piecewise calculations need special care](https://cran.r-project.org/web/packages/RTMB/vignettes/RTMB-tips.html).
+It can also be harder to debug a model after RTMB has recorded its
+calculation: the automatic differentiation tape runs through TMB's
+compiled machinery, which you cannot step through like ordinary R code.
+Check the objective on sensible parameter values in R first, compare its
+value with a manually calculated likelihood when possible, and inspect
+`intake_obj$fn(intake_obj$par)` and `intake_obj$gr(intake_obj$par)` before
+trusting a fitted result.
+:::
+
+## Return to confidence intervals
+
+The Hessian from this fit describes curvature on the **log-parameter
+scale**. Under the regularity conditions discussed in Chapter 5, its inverse
+approximates the covariance matrix on that scale. An approximate 95%
+quadratic interval for the limiting rate $a$ is:
+
+```r
+se_log = sqrt(diag(solve(fit$hessian)))
+z = qnorm(p = 0.975)
+a_interval = exp(fit$par["log_a"] + c(-1, 1) * z * se_log["log_a"])
+a_interval
+```
+
+The endpoints are transformed back to rate units. For the RTMB fit,
+`intake_obj$he(rtmb_fit$par)` supplies the Hessian of the same negative
+log-likelihood at its optimum. The same inverse-Hessian calculation
+applies on the log-parameter scale. For a profile interval,
+hold a candidate value of $a$ fixed and re-optimise **both** $b$ and
+$\sigma$ at every candidate value. The profile follows the best possible
+fit at each $a$; a slice that fixes $b$ and $\sigma$ at their original
+estimates is different. Both methods remain approximate and depend on the
+observation model and independence assumption.
+
+::: {.callout-warning title="A confidence interval is conditional"}
+If several measurements come from the same leaf or one population followed
+over time, they may be dependent. Treating every row as independent can
+make an interval too narrow. A calculation from the Hessian cannot repair
+an unsuitable observation model.
+:::
+
+## Check an interval by simulation
+
+When we simulate data, we choose the generating parameters and know their
+values. We can repeatedly simulate responses at specified predictor values,
+refit the model, and check how often each interval contains the fixed
+generating value. That proportion estimates **coverage** for this simulation
+setting. The mean of the fitted estimates minus the generating value
+estimates **bias**.
+
+For an honest study, repeat the entire fitting and interval procedure in
+each simulated dataset. Record failed fits rather than quietly removing
+them, and vary features such as sample size or the range of predictor
+values. The result describes the procedure under the chosen generating
+model; it is not proof that the model generated the supplied data.
+
+# Compare candidate models {#sec-response-comparison}
+
+An ecological question may support several curves. A Holling type II and
+a saturating exponential can both increase towards a plateau, but differ
+between low and high prey density. Compare candidates that represent
+plausible explanations and use the same observational unit and response.
+
+## Information criteria
+
+A model with more free parameters can often fit the observed data more
+closely. Information criteria balance fit against model complexity. For
+$k$ estimated parameters and maximised log-likelihood $\hat\ell$,
+
+$$
+\mathrm{AIC}=2k-2\hat\ell,
+\qquad
+\mathrm{BIC}=k\log(n)-2\hat\ell.
+$$
+
+Both use the same fitted likelihood, but BIC's penalty per parameter
+grows with sample size. Count observation-distribution parameters such as
+$\sigma$ or a negative binomial shape parameter in $k$. On our `optim()`
+fits, `fit$value` is the *negative* log-likelihood, so
+`2 * k + 2 * fit$value` calculates AIC. A lower value is preferred by
+that criterion **among the candidates compared**. The value does not
+measure absolute model adequacy.
+
+Only compare likelihoods computed for the same observed response on the
+same scale, using the same rows and compatible probability masses or
+densities. For example, dropping missing rows for one model but not
+another makes an AIC comparison misleading. AIC and BIC can rank
+misspecified candidates, so residual checks remain necessary. These
+conditions also appear in [R's AIC documentation](https://search.r-project.org/R/refmans/stats/html/AIC.html).
+
+::: {.callout-note title="What a small difference means"}
+A small AIC or BIC difference gives little reason to claim that one
+curve has a clearly preferable score. Neither criterion identifies a
+biological mechanism or assigns a probability that a candidate is true.
+:::
+
+## Cross-validation
+
+**Cross-validation** checks prediction on observations that were not used
+to estimate a model's parameters. In five-fold cross-validation, divide
+the observations into five parts. For each part, fit each candidate to
+the other four parts, then score the held-out observations. Repeat until
+every part has been held out once.
+
+A useful score here is the sum of held-out log probabilities or densities.
+It uses the whole predictive distribution, so it can assess continuous,
+count, and binary models. Prefer the *larger* held-out log score. Refit
+all parameters, including $\sigma$ or dispersion, within each training
+set. Using the full-data estimates for held-out predictions would leak
+information across the split.
+
+Random folds suit observations that can reasonably be treated as
+independent. For population measurements ordered in time, training on
+later measurements to predict earlier ones answers a different question.
+If the goal is future prediction, hold out later times and fit to earlier
+times. [Time-based resampling guidance](https://rsample.tidymodels.org/articles/Common_Patterns.html)
+uses this ordering for the same reason.
+
+:::: {.callout-important title="Try it: score a held-out observation"}
+A model assigns probability $0.8$ to a held-out species presence. Another
+assigns probability $0.3$. Which model receives the higher log score
+for this observation?
+
+::: {.callout-tip title="Answer" collapse="true"}
+The first: $\log(0.8)>\log(0.3)$. This one observation does not establish
+which model predicts better across the whole dataset.
+:::
+::::
+
+# Check the fitted observation model {#sec-response-residuals}
+
+An ordinary residual such as $y_i-\hat\mu_i$ changes its meaning across
+response distributions. It may also change its spread with the predictor
+even when a count model is correct. **Simulation-based scaled quantile
+residuals** provide a common scale: values between 0 and 1.
+
+For each observation, simulate many possible responses from the fitted
+model at its predictor value. Locate the observed response within those
+simulations. An observation near the lower end gives a residual near 0;
+one near the upper end gives a residual near 1. When the simulation
+matches the observation process, the residuals should be approximately
+uniform across 0 to 1 and show no systematic pattern against the
+predictor. For discrete responses, randomisation handles ties. This is
+the approach used by [DHARMa's scaled quantile residuals](https://search.r-project.org/CRAN/refmans/DHARMa/html/getQuantile.html).
+
+Our fits are ordinary `optim()` results, for which DHARMa does not know
+the response distribution. We therefore generate a matrix with one row
+per observation and one column per simulation, then supply it to
+`DHARMa::createDHARMa()`:
+
+```r
+set.seed(seed = 701)
+mu_hat = intake_curve(
+  x = intake_data$x,
+  a = estimates["a"], b = estimates["b"]
+)
+sigma_hat = estimates["sigma"]
+simulated_rates = replicate(
+  n = 500,
+  expr = rnorm(n = nrow(intake_data), mean = mu_hat, sd = sigma_hat)
+)
+scaled = DHARMa::createDHARMa(
+  simulatedResponse = simulated_rates,
+  observedResponse = intake_data$y,
+  fittedPredictedResponse = mu_hat,
+  integerResponse = FALSE
+)
+plot(scaled)
+DHARMa::plotResiduals(scaled, predictor = intake_data$x)
+```
+
+Run this code after installing DHARMa in your R environment. For counts or
+presence/absence, simulate with `rpois()` or `rbinom()` as specified by the
+fitted model and set `integerResponse = TRUE`. The package's
+[`createDHARMa()` documentation](https://search.r-project.org/CRAN/refmans/DHARMa/html/createDHARMa.html)
+describes this interface for custom simulations.
+
+Look for a non-uniform residual distribution, a trend against $x$, changing
+spread, or unusual concentrations near 0 or 1. For time measurements,
+also plot against time in order. A diagnostic indicates where the model
+disagrees with observations; it does not, on its own, tell us whether the
+curve, observation distribution, dependence assumption, or data quality
+caused the disagreement. Randomisation and a finite number of simulations
+also make the exact plot vary between runs, so set a seed.
+
+::: {.callout-warning title="What was simulated?"}
+Simulate complete observations from the fitted distribution at each
+predictor value. Simulating only the fitted mean curve produces no
+observation-level variation and cannot support this residual check.
+:::
+
+# A fitting workflow
+
+1. Plot the observations and check their units, support, missing values,
+   repeated measurements, and predictor range.
+2. Choose a small set of plausible mean curves and observation models.
+3. Write the likelihood, check it at sensible parameter values, fit every
+   parameter (using RTMB for the smooth models in the practical), inspect
+   convergence, and plot fitted curves against the data.
+4. Estimate confidence intervals for ecologically meaningful parameters.
+5. Compare compatible candidates by AIC or BIC and, when appropriate,
+   cross-validated predictive scores.
+6. Simulate observations from the fitted model and inspect scaled
+   residuals. Revise the model or qualify the conclusion when a pattern
+   remains.
+
+# Chapter quiz
+
+:::: {.callout-important title="Question 1: the missing component"}
+You have written $m(x)=ax/(b+x)$ and plotted it over the data. What must
+you add before calculating a likelihood?
+
+::: {.callout-tip title="Answer" collapse="true"}
+Specify a distribution for observations around the curve, its remaining
+parameters, and the dependence assumptions for the observational units.
+:::
+::::
+
+:::: {.callout-important title="Question 2: a positive parameter"}
+Why might you estimate $\log b$ rather than $b$ directly? On which scale
+should the final ecological interval be reported?
+
+::: {.callout-tip title="Answer" collapse="true"}
+Exponentiating an unconstrained estimate keeps $b$ positive. Calculate
+the interval consistently on the fitted scale, then transform its
+endpoints back to the units of the predictor.
+:::
+::::
+
+:::: {.callout-important title="Question 3: comparing models"}
+Two models use different subsets of rows because only one removed
+missing responses. Can their AIC values be compared as calculated?
+
+::: {.callout-tip title="Answer" collapse="true"}
+No. Fit both to the same observed responses and rows before comparing
+their AIC values.
+:::
+::::
+
+:::: {.callout-important title="Question 4: held-out prediction"}
+Why must an observation held out in cross-validation be absent from
+*every* estimation step for its fold?
+
+::: {.callout-tip title="Answer" collapse="true"}
+Using it to choose parameters or dispersion would let information from
+the assessment observation influence its own prediction.
+:::
+::::
+
+:::: {.callout-important title="Question 5: scaled residuals"}
+A residual plot slopes upwards as the predictor increases. What can you
+conclude, and what can you not conclude?
+
+::: {.callout-tip title="Answer" collapse="true"}
+The simulated model does not reproduce how the observations change with
+the predictor. The plot alone does not identify which assumption or
+ecological process caused that pattern.
+:::
+::::
+
+:::: {.callout-important title="Question 6: coverage"}
+What must be known to estimate a confidence interval's coverage in a
+simulation study, and why is this unavailable for an ordinary dataset?
+
+::: {.callout-tip title="Answer" collapse="true"}
+We must know the fixed generating parameter and repeat sampling and
+interval construction. The generating parameter is unknown in an
+ordinary dataset.
+:::
+::::
+
+:::: {.callout-important title="Question 7: choosing RTMB"}
+What does RTMB provide to the optimiser, and why might a response curve
+with an unknown sharp threshold need extra care?
+
+::: {.callout-tip title="Answer" collapse="true"}
+RTMB supplies derivatives of the recorded likelihood calculation.
+At a sharp threshold the derivative may be undefined, and a branch
+chosen according to a parameter may not be recorded as intended.
+Check the R objective and consider a smooth curve or a different
+fitting strategy for that model.
+:::
+::::

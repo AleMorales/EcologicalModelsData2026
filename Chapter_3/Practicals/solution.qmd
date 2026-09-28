@@ -1,14 +1,249 @@
 ---
-title: "Chapter 3: Statistical estimators"
+title: "Chapter 3: Probability for continuous data — solutions"
 date: today
 ---
 
-```{r, echo = FALSE}
-#| label: metadata-block
-#| output: asis
-quarto::write_yaml_metadata_block(
-  show_solution = TRUE
+The fully worked first exercise is on the
+[student practical page](no_solution.qmd). These solutions follow the same
+assumed models, tasks, and seeds as Exercises 2–4 on that page.
+
+# Exercise 2: Body mass under a lognormal model
+
+
+The lognormal parameters describe $\log(X)$. On the original scale, the
+median is $e^\mu$ and the mean is $e^{\mu+\sigma^2/2}$, where `meanlog` is
+$\mu$ and `sdlog` is $\sigma$.
+
+```{r}
+mass_meanlog = log(30)
+mass_sdlog = 0.5
+
+median_mass = exp(mass_meanlog)
+mean_mass = exp(mass_meanlog + mass_sdlog^2 / 2)
+c(median_g = median_mass, mean_g = mean_mass)
+```
+
+The median is 30 g and the mean is approximately 34 g. A few possible
+large masses in the right tail pull the mean above the median.
+
+`plnorm()` gives the cumulative probability. For mass *above* 50 g, we
+request its upper tail. `qlnorm()` gives the mass below which 95% of the
+model's probability falls.
+
+```{r}
+prob_over_50 = plnorm(
+  q = 50, meanlog = mass_meanlog, sdlog = mass_sdlog,
+  lower.tail = FALSE
+)
+mass_95 = qlnorm(p = 0.95, meanlog = mass_meanlog, sdlog = mass_sdlog)
+c(prob_over_50 = prob_over_50, percentile_95_g = mass_95)
+```
+
+These are predictions under the assumed model for a randomly selected
+animal's mass. The quantile is a mass in grams, not a probability.
+
+Generate a sample and compare its shape on the two scales. The model density
+must be placed over a **density-scaled** histogram on the original scale.
+
+```{r}
+set.seed(seed = 202)
+body_mass = rlnorm(n = 500, meanlog = mass_meanlog, sdlog = mass_sdlog)
+
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(1, 2))
+
+hist(
+  x = body_mass, breaks = 25, probability = TRUE,
+  col = "grey85", border = "white",
+  xlab = "Body mass (g)", ylab = "Density per gram",
+  main = "Original scale"
+)
+curve(
+  dlnorm(x = x, meanlog = mass_meanlog, sdlog = mass_sdlog),
+  add = TRUE, lwd = 2
+)
+
+hist(
+  x = log(body_mass), breaks = 25, probability = TRUE,
+  col = "grey85", border = "white",
+  xlab = "Log body mass", ylab = "Density",
+  main = "Log scale"
+)
+
+par(old_par)
+```
+
+The original masses are positive and right-skewed; their logarithms are
+more symmetric. The histogram and curve need not agree exactly for 500
+simulated values. Because the data were generated from this very model, this
+comparison checks what sampling variation looks like. It cannot establish
+that a lognormal model fits body masses measured in a field study.
+
+# Exercise 3: Vegetation cover under a beta model
+
+
+For beta shape parameters $a=2$ and $b=5$, the model mean and variance are
+$a/(a+b)$ and $ab/[(a+b)^2(a+b+1)]$.
+
+```{r}
+cover_a = 2
+cover_b = 5
+
+mean_cover = cover_a / (cover_a + cover_b)
+variance_cover = cover_a * cover_b /
+  ((cover_a + cover_b)^2 * (cover_a + cover_b + 1))
+
+c(mean_fraction = mean_cover,
+  mean_percent = 100 * mean_cover,
+  variance_fraction_squared = variance_cover)
+```
+
+The expected fraction covered is approximately 0.286, or 28.6% of a
+quadrat. The variance describes variation in squared fraction units.
+
+```{r}
+prob_below_20_percent = pbeta(
+  q = 0.20, shape1 = cover_a, shape2 = cover_b
+)
+cover_95 = qbeta(p = 0.95, shape1 = cover_a, shape2 = cover_b)
+
+c(prob_below_20_percent = prob_below_20_percent,
+  percentile_95_fraction = cover_95)
+```
+
+The first result is the model probability of less than 20% cover. The
+second is a cover fraction below which 95% of modelled quadrats fall.
+For a continuous model, using $<$ or $\leq$ at 0.20 gives the same
+probability.
+
+```{r}
+set.seed(seed = 303)
+cover_fraction = rbeta(n = 500, shape1 = cover_a, shape2 = cover_b)
+
+hist(
+  x = cover_fraction, breaks = 25, probability = TRUE,
+  col = "grey85", border = "white",
+  xlab = "Vegetation cover (fraction)", ylab = "Density",
+  main = "Simulated cover and beta model"
+)
+curve(
+  dbeta(x = x, shape1 = cover_a, shape2 = cover_b),
+  add = TRUE, lwd = 2
 )
 ```
 
-{{< include material.qmd >}}
+The histogram shows one simulated sample. Its bars need not follow the
+theoretical curve exactly. A standard continuous beta model assigns zero
+probability to cover of exactly zero or one. Before modelling field
+observations at those boundaries, we would ask whether they represent
+genuine bare or fully covered quadrats and account for how they arose.
+
+# Exercise 4: Two measurements on each tree
+
+
+Recreate the paired measurements with the exercise's seed. The values at
+the same position in the vectors belong to one simulated tree.
+
+```{r}
+set.seed(seed = 404)
+n_trees = 300
+z_height = rnorm(n = n_trees)
+z_other = rnorm(n = n_trees)
+
+tree_height = 22 + 4 * z_height
+tree_diameter = 30 + 5 * (0.7 * z_height + sqrt(1 - 0.7^2) * z_other)
+
+plot(
+  x = tree_diameter, y = tree_height, pch = 16,
+  col = grDevices::adjustcolor("black", alpha.f = 0.35),
+  xlab = "Tree diameter (cm)", ylab = "Tree height (m)",
+  main = "Simulated trees"
+)
+```
+
+Heights and diameters tend to increase together, although there is
+variation among trees. The scatterplot shows an association in a simulated
+sample. It does not establish that changing a tree's diameter would cause
+its height to change.
+
+A histogram of *all* heights estimates the marginal distribution of height:
+
+```{r}
+hist(
+  x = tree_height, breaks = 15,
+  col = "grey85", border = "white",
+  xlab = "Tree height (m)", ylab = "Number of trees",
+  main = "All simulated trees"
+)
+```
+
+Now select trees by diameter and compare their height distributions. These
+are **conditional on diameter ranges**, rather than height distributions
+for all trees.
+
+```{r}
+small_trees = tree_diameter < 27
+large_trees = tree_diameter > 33
+height_limits = range(tree_height)
+
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(1, 2))
+
+hist(
+  x = tree_height[small_trees], breaks = 10,
+  xlim = height_limits, probability = TRUE,
+  col = "grey85", border = "white",
+  xlab = "Tree height (m)", ylab = "Density",
+  main = "Diameter below 27 cm"
+)
+hist(
+  x = tree_height[large_trees], breaks = 10,
+  xlim = height_limits, probability = TRUE,
+  col = "grey85", border = "white",
+  xlab = "Tree height (m)", ylab = "Density",
+  main = "Diameter above 33 cm"
+)
+
+par(old_par)
+
+c(
+  mean_height_small_m = mean(tree_height[small_trees]),
+  mean_height_large_m = mean(tree_height[large_trees])
+)
+```
+
+The larger-diameter group tends to contain taller trees in this simulation.
+The common horizontal scale makes their positions easier to compare. The
+histograms are sample summaries, so their shapes also vary with sample size
+and bin choice.
+
+Finally, use the supplied grid to display the **model's joint density**.
+
+```{r}
+diameter_grid = seq(from = 10, to = 50, length.out = 100)
+height_grid = seq(from = 8, to = 36, length.out = 100)
+rho = 0.7
+
+joint_density = outer(
+  X = diameter_grid, Y = height_grid,
+  FUN = function(diameter, height) {
+    dx = (diameter - 30) / 5
+    hy = (height - 22) / 4
+    exp(-(dx^2 - 2 * rho * dx * hy + hy^2) / (2 * (1 - rho^2))) /
+      (2 * pi * 5 * 4 * sqrt(1 - rho^2))
+  }
+)
+
+contour(
+  x = diameter_grid, y = height_grid, z = joint_density,
+  nlevels = 8,
+  xlab = "Tree diameter (cm)", ylab = "Tree height (m)",
+  main = "Assumed joint density"
+)
+```
+
+Each line connects combinations with equal **density**. The tilted
+contours show that greater diameter tends to accompany greater height
+under the model. A line or the region inside it does not automatically
+correspond to a specified probability; probability for a region depends
+on the density across its area.

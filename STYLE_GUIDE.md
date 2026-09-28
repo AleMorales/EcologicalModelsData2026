@@ -224,8 +224,11 @@ assume every `no_solution.qmd` must contain no explanatory answers at all.
   `dplyr` and `ggplot2` are already taught in Chapter 1 and are appropriate when
   useful. Use `package::function()` or load the package explicitly. Explain any
   newly introduced dependency; do not introduce a framework for a small example.
-- Use the native `|>` pipe when a pipeline helps; nested calls remain acceptable.
-  Prefer transparent vector operations and readable loops over clever abstractions.
+- Do not use pipe operators (`|>` or `%>%`) in course code. Functions from packages
+  such as `dplyr` remain appropriate; call them directly, nesting calls when clear or
+  assigning intermediate results to named objects. Prefer transparent steps over
+  long nested expressions. For example, assign the result of `group_by()` to an
+  object, then pass that object to `summarise()`.
 - Set a seed before each reproducible simulation example or batch of repetitions.
   Do not reset the same seed inside every repetition when independent simulated
   samples are intended. Explicitly varied seeds are appropriate for the Chapter 2

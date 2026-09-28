@@ -1,14 +1,209 @@
 ---
-title: "Chapter 5: Deterministic models"
+title: "Chapter 5: Maximum likelihood"
 date: today
 ---
 
-```{r, echo = FALSE}
-#| label: metadata-block
-#| output: asis
-quarto::write_yaml_metadata_block(
-  show_solution = FALSE
+These exercises use illustrative or simulated ecological data, not field
+observations. First calculate the small-sample likelihoods **on paper,
+without R**. A calculator is fine for exponentials and logarithms.
+Then use R for larger samples and numerical optimisation. The
+[Chapter 5 theory](../Theory.qmd) introduces each method.
+
+# Exercise 1: Seedlings in quadrats
+
+Suppose the count $X_i$ in each equal-area quadrat follows an independent
+Poisson model with an unknown common mean $\lambda$ seedlings per
+quadrat. Four illustrative quadrats contain 0, 1, 2, and 3 seedlings.
+
+1. Write the Poisson probability mass for one count. By hand, write
+   each of the four likelihood contributions and multiply them to
+   obtain $L(\lambda\mid0,1,2,3)$.
+2. By hand, take the logarithm of the product and simplify
+   $\ell(\lambda\mid0,1,2,3)$ into a sum. Calculate the likelihood
+   and log-likelihood at $\lambda=1$ and $\lambda=2$. Which of these
+   two candidate means gives the observations greater likelihood?
+3. Calculate the sample mean. Use it to give the maximum likelihood
+   estimate and its ecological units.
+4. Check the hand calculations with `dpois()`. Write a negative
+   log-likelihood using `log = TRUE`, fit $\lambda$ with `optim()`
+   on the log scale, check convergence, and compare its answer with
+   the sample mean.
+
+## Solution
+
+The observational unit is one quadrat. Under the assumed model,
+
+$$
+P(X_i=x_i\mid\lambda)
+=\frac{e^{-\lambda}\lambda^{x_i}}{x_i!}.
+$$
+
+Independence lets us multiply the four contributions. For the
+observed counts, these are
+$e^{-\lambda}\lambda^0/0!$,
+$e^{-\lambda}\lambda^1/1!$,
+$e^{-\lambda}\lambda^2/2!$, and
+$e^{-\lambda}\lambda^3/3!$. Therefore,
+
+$$
+\begin{aligned}
+L(\lambda\mid0,1,2,3)
+&=\prod_{x\in\{0,1,2,3\}}
+  \frac{e^{-\lambda}\lambda^x}{x!}\\
+&=\frac{e^{-4\lambda}\lambda^{0+1+2+3}}
+        {0!\,1!\,2!\,3!}
+=\frac{e^{-4\lambda}\lambda^6}{12}.
+\end{aligned}
+$$
+
+Taking logs changes the product into a sum:
+
+$$
+\begin{aligned}
+\ell(\lambda\mid0,1,2,3)
+&=\sum_{x\in\{0,1,2,3\}}
+  [-\lambda+x\log\lambda-\log(x!)]\\
+&=-4\lambda+6\log\lambda-\log(12).
+\end{aligned}
+$$
+
+Substitute the two candidates:
+
+| Candidate mean | Likelihood | Log-likelihood |
+|---|---:|---:|
+| $\lambda=1$ | $e^{-4}/12\approx0.001526$ | $-4-\log12\approx-6.485$ |
+| $\lambda=2$ | $64e^{-8}/12\approx0.001789$ | $-8+6\log2-\log12\approx-6.326$ |
+
+The likelihood is greater at $\lambda=2$ than at $\lambda=1$.
+This comparison says nothing about the probability that either
+parameter value is true. The MLE is the sample mean,
+$(0+1+2+3)/4=1.5$ seedlings per quadrat. It can lie between the two
+candidates we compared.
+
+In R, sum the log probabilities directly. The negative sign gives
+`optim()` a function to minimise. Exponentiating `log_lambda` keeps
+the candidate Poisson mean positive.
+
+```{r}
+counts = c(0, 1, 2, 3)
+candidate_values = c(1, 2)
+likelihood = vapply(
+  X = candidate_values,
+  FUN = function(lambda) {
+    prod(dpois(x = counts, lambda = lambda))
+  },
+  FUN.VALUE = numeric(1)
 )
+log_likelihood = vapply(
+  X = candidate_values,
+  FUN = function(lambda) {
+    sum(dpois(x = counts, lambda = lambda, log = TRUE))
+  },
+  FUN.VALUE = numeric(1)
+)
+data.frame(lambda = candidate_values, likelihood, log_likelihood)
+
+poisson_nll = function(log_lambda, counts) {
+  lambda = exp(log_lambda)
+  -sum(dpois(x = counts, lambda = lambda, log = TRUE))
+}
+fit = optim(
+  par = log(1), fn = poisson_nll, counts = counts,
+  method = "BFGS"
+)
+fit$convergence
+c(optim_estimate = exp(fit$par), sample_mean = mean(counts))
 ```
 
-{{< include material.qmd >}}
+The optimiser should return a convergence code of zero and an
+estimate close to 1.5 seedlings per quadrat. The likelihood
+comparison used only two candidates; optimisation searched beyond
+them. With more counts, computing a product directly can underflow,
+which is why the fitting function sums log probabilities.
+
+# Exercise 2: Tree heights and two parameters
+
+Assume independent tree heights follow
+$H_i\sim\operatorname{Normal}(\mu,\sigma^2)$, where both $\mu$ and
+$\sigma>0$ are measured in metres. For a first hand calculation,
+consider the illustrative heights 21 m and 23 m.
+
+1. Without R, write the normal **density** contribution for each
+   height under candidate A, $(\mu,\sigma)=(22,1)$ m, and candidate B,
+   $(22,3)$ m. Multiply each pair to obtain its likelihood. Calculate
+   each log-likelihood as a sum. Which pair fits these two heights
+   better? Explain why a density contribution is not the probability
+   of an exact height.
+2. Set seed 522 and simulate 30 independent heights with generating
+   values $\mu=22$ m and $\sigma=4$ m. Write a negative log-likelihood
+   for $\mu$ and $\log\sigma$. Fit both parameters with `optim()`,
+   check convergence, and report the estimates in metres.
+3. Draw a contour plot of the relative log-likelihood over a sensible
+   grid of $\mu$ and $\sigma$. Mark the estimate and generating values.
+   Explain why they need not coincide.
+4. Describe how you would form a slice for $\mu$ and a profile for
+   $\mu$. Which one re-estimates $\sigma$?
+
+Hint: use `dnorm(x = heights, mean = mu, sd = sigma, log = TRUE)`
+inside the fitting function. The generating values are known only
+because you simulated the sample.
+
+# Exercise 3: Overdispersed seedling counts
+
+The [negative binomial model in Chapter 2](../../Chapter_2/Theory.qmd#sec-discrete_distributions)
+has mean $\mu>0$ seedlings per quadrat and shape $k>0$.
+Its variance is $\mu+\mu^2/k$. When $k=1$, the probability mass
+simplifies to
+
+$$
+P(X=x\mid\mu,k=1)
+=\frac{1}{1+\mu}
+ \left(\frac{\mu}{1+\mu}\right)^x.
+$$
+
+1. Two illustrative quadrats contain 0 and 1 seedlings. **By hand**,
+   write both likelihood contributions and their product with $k=1$.
+   Evaluate the likelihood and log-likelihood at $\mu=1$ and $\mu=2$.
+   Which candidate mean has greater likelihood for these counts?
+2. Set seed 533. Simulate 80 independent quadrat counts with
+   $\mu=4$ and $k=1.5$. Compare their sample mean and variance with
+   the model mean and variance. Explain why this comparison alone
+   cannot identify an ecological cause of overdispersion.
+3. Write a negative log-likelihood using `dnbinom(..., log = TRUE)`.
+   Fit $\mu$ and $k$ with `optim()` on log scales. Use sensible
+   starting values, check convergence, and report both estimates
+   on their original scales.
+4. Compare observed relative frequencies with fitted negative
+   binomial probabilities in a plot. What would make you question
+   the fit, especially at zero and in the upper tail?
+
+# Exercise 4: Uncertainty in mean tree height
+
+Suppose 30 independent tree heights follow a normal model with
+unknown mean $\mu$ and standard deviation $\sigma$. Generate an
+illustrative sample with:
+
+```{r}
+set.seed(seed = 544)
+heights = rnorm(n = 30, mean = 22, sd = 4)
+```
+
+1. Fit $\mu$ and $\log\sigma$ by maximum likelihood using
+   `optim(..., hessian = TRUE)`. Check convergence and report both
+   estimates in metres.
+2. Invert the Hessian and obtain approximate standard errors on
+   the fitted scale. Construct a 95% quadratic interval for $\mu$.
+   Construct one for $\log\sigma$ and back-transform its endpoints.
+   Explain why these intervals are approximate.
+3. For each candidate $\mu$, maximise the normal log-likelihood over
+   $\sigma$. Use the profile log-likelihood and the cutoff
+   $-qchisq(0.95,1)/2$ relative to its maximum to find a 95% profile
+   interval for $\mu$. A plot can help locate the two crossings.
+4. Compare the intervals for $\mu$ and interpret them in ecological
+   units. State one assumption that matters for their coverage.
+   Would either interval give a 95% probability that the fixed
+   population mean lies between its realised endpoints?
+
+Hint: for a fixed candidate $\mu$ in a normal model, the value of
+$\sigma$ that maximises likelihood is
+$\sqrt{\operatorname{mean}[(h_i-\mu)^2]}$.

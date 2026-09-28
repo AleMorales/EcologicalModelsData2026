@@ -1,14 +1,490 @@
 ---
-title: "Chapter 6: Regression models"
+title: "Chapter 6: Deterministic functions in ecology — solutions"
 date: today
 ---
 
-```{r, echo = FALSE}
-#| label: metadata-block
-#| output: asis
-quarto::write_yaml_metadata_block(
-  show_solution = TRUE
+The [student practical](no_solution.qmd) includes the fully worked
+Exercise 1. These solutions answer Exercises 2–8 with the paper
+reasoning first and R checks afterwards. The examples are illustrative,
+not field observations.
+
+# Exercise 2: Values at the ends of curves
+
+For the light-intensity curve, $D(0)=20e^0=20$ light units.
+As $z\to\infty$, $e^{-0.4z}\to0$, so the intensity approaches
+zero. To find the half-depth, solve
+
+$$
+\begin{aligned}
+20e^{-0.4z}&=10,\\
+e^{-0.4z}&=\frac12,\\
+-0.4z&=\log(1/2)=-\log2,\\
+z&=\frac{\log2}{0.4}\approx1.73\text{ m}.
+\end{aligned}
+$$
+
+For $H(N)=15N/(5+N)$, $H(0)=0$. Dividing top and bottom by
+$N$ gives $H(N)=15/(5/N+1)\to15$. If $N$ is much smaller than
+5, then $5+N\approx5$ and $H(N)\approx3N$. At $N=5$,
+$H(5)=15(5)/10=7.5$, half the asymptote.
+
+For $C(N)=8/(2+N)$, $C(0)=4$ and $C(N)\to0$ as $N$ grows.
+Its derivative, $C'(N)=-8/(2+N)^2$, is negative throughout
+$N\geq0$, confirming that the predicted per-plant seed production
+falls with planting density.
+
+For $S(N)=3N^2/(4+N^2)$, $S(0)=0$. Dividing top and bottom
+by $N^2$ shows that $S(N)\to3$. When $N$ is small relative
+to 2, $N^2\ll4$, so $S(N)\approx(3/4)N^2$. It initially
+rises quadratically rather than linearly.
+
+The following plots check the limits and the different initial shapes:
+
+```{r}
+old_par = par(mfrow = c(2, 2))
+curve(20 * exp(-0.4 * x), from = 0, to = 12,
+      xlab = "Canopy depth (m)", ylab = "Light intensity (arbitrary units)")
+curve(15 * x / (5 + x), from = 0, to = 40,
+      xlab = "Density N", ylab = "Consumption H(N)")
+curve(8 / (2 + x), from = 0, to = 20,
+      xlab = "Planting density N", ylab = "Seeds per plant C(N)")
+curve(3 * x^2 / (4 + x^2), from = 0, to = 15,
+      xlab = "Density N", ylab = "Response S(N)")
+par(old_par)
+```
+
+# Exercise 3: Derivative workshop
+
+For $f(x)=3+2x^2$, the constant has derivative zero and the
+power rule gives
+
+$$
+f'(x)=0+2(2x)=4x,\qquad f'(2)=8.
+$$
+
+For $g(t)=12e^{-0.3t}$, the chain rule contributes the
+derivative $-0.3$ of the exponent:
+
+$$
+g'(t)=12e^{-0.3t}(-0.3)=-3.6e^{-0.3t},
+\qquad g'(0)=-3.6.
+$$
+
+The negative slope says light or another declining quantity
+decreases as $t$ increases. Its numerical units depend on the
+units assigned to $g$ and $t$.
+
+For $h(N)=10N/(4+N)$, let $u=10N$ and $v=4+N$.
+Then $u'=10$ and $v'=1$. The quotient rule gives
+
+$$
+\begin{aligned}
+h'(N)
+&=\frac{10(4+N)-10N}{(4+N)^2}\\
+&=\frac{40}{(4+N)^2},
+\qquad h'(0)=\frac{40}{16}=2.5.
+\end{aligned}
+$$
+
+The numerator stays fixed while the positive denominator grows,
+so the slope decreases but remains positive.
+
+For $R(N)=5Ne^{-0.2N}$, the product rule differentiates $5N$
+and the exponential separately. The chain rule contributes
+$-0.2$ when differentiating the exponential:
+
+$$
+\begin{aligned}
+R'(N)
+&=5e^{-0.2N}+5N(-0.2)e^{-0.2N}\\
+&=5e^{-0.2N}(1-0.2N).
+\end{aligned}
+$$
+
+Finally, for $j(N)=N^2/(9+N^2)$, use the quotient rule with
+$u=N^2$, $u'=2N$, $v=9+N^2$, and $v'=2N$:
+
+$$
+\begin{aligned}
+j'(N)
+&=\frac{2N(9+N^2)-N^2(2N)}{(9+N^2)^2}\\
+&=\frac{18N}{(9+N^2)^2},
+\qquad j'(0)=0.
+\end{aligned}
+$$
+
+The power rule supplies the derivatives in the numerator and
+denominator; no nested function needs an additional chain-rule
+step in this example.
+
+One numerical check evaluates the functions immediately either
+side of $x=1$. It should be close to each analytical derivative
+at $x=1$:
+
+```{r}
+central_slope = function(fun, x, step = 0.0001) {
+  (fun(x + step) - fun(x - step)) / (2 * step)
+}
+f = function(x) 3 + 2 * x^2
+g = function(t) 12 * exp(-0.3 * t)
+h = function(N) 10 * N / (4 + N)
+ricker = function(N) 5 * N * exp(-0.2 * N)
+j = function(N) N^2 / (9 + N^2)
+
+analytical = c(
+  f = 4,
+  g = -3.6 * exp(-0.3),
+  h = 40 / 5^2,
+  ricker = 5 * exp(-0.2) * (1 - 0.2),
+  j = 18 / 10^2
+)
+numerical = c(
+  f = central_slope(f, 1),
+  g = central_slope(g, 1),
+  h = central_slope(h, 1),
+  ricker = central_slope(ricker, 1),
+  j = central_slope(j, 1)
+)
+data.frame(analytical, numerical)
+```
+
+Agreement at one point checks the arithmetic locally. The
+paper derivations establish how the slope depends on the
+whole input range.
+
+# Exercise 4: Peaks and an inflection point
+
+For $Q(N)=6N-N^2$,
+$Q'(N)=6-2N$. This derivative is positive for $N<3$,
+zero at 3, and negative for $N>3$. Thus $Q$ rises then falls,
+with a maximum of $Q(3)=18-9=9$. At both boundaries of
+$0\leq N\leq6$, $Q=0$. The boundary check confirms that
+9 is the global maximum on the specified domain.
+
+For the Ricker curve,
+$R'(N)=5e^{-0.2N}(1-0.2N)$. Since the first factor is
+positive, the slope changes from positive to negative when
+$1-0.2N=0$, or $N=5$. The peak height is
+
+$$
+R(5)=5(5)e^{-1}=\frac{25}{e}\approx9.20.
+$$
+
+$R(0)=0$ and $R(N)\to0$ as $N\to\infty$, so the peak is
+the global maximum for $N\geq0$.
+
+For the logistic, write $k=0.8$ and $L'=kL(1-L)$.
+Apply the product and chain rules:
+
+$$
+\begin{aligned}
+L''
+&=k\left[L'(1-L)-LL'\right]\\
+&=kL'(1-2L)\\
+&=k^2L(1-L)(1-2L).
+\end{aligned}
+$$
+
+At $x=5$, the exponent is zero and $L(5)=1/2$. The
+factor $1-2L$ changes from positive to negative there,
+so $(5,1/2)$ is the inflection point. Its slope is
+$L'(5)=0.8(1/2)(1/2)=0.2$ response units per input unit.
+
+```{r}
+#| fig-width: 11
+#| fig-height: 4
+old_par = par(mfrow = c(1, 3), mar = c(4, 4, 1, 1))
+curve(6 * x - x^2, from = 0, to = 6, xaxt = "n",
+      xlab = "Input N", ylab = "Recruitment index Q(N)")
+axis(side = 1, at = c(0, 3, 6))
+points(x = 3, y = 9, pch = 19)
+curve(5 * x * exp(-0.2 * x), from = 0, to = 25,
+      xaxt = "n",
+      xlab = "Adult density N", ylab = "Recruitment R(N)")
+axis(side = 1, at = c(0, 5, 10, 15, 20, 25))
+points(x = 5, y = 25 / exp(1), pch = 19)
+curve(1 / (1 + exp(-0.8 * (x - 5))), from = 0, to = 10,
+      ylim = c(0, 1), xaxt = "n",
+      xlab = "Input x", ylab = "Logistic response L(x)")
+axis(side = 1, at = c(0, 5, 10))
+points(x = 5, y = 0.5, pch = 19)
+abline(h = 1, lty = 2)
+par(old_par)
+```
+
+The logistic rises towards 1 as $x\to\infty$ but never equals
+1 at a finite $x$. It therefore has an upper asymptote,
+not a finite maximum on the whole real line.
+
+# Exercise 5: Half-saturation and parameterisation
+
+Dividing numerator and denominator by $\alpha H$ gives
+
+$$
+\frac{\alpha N}{1+\alpha HN}
+=\frac{(1/H)N}{1/(\alpha H)+N}.
+$$
+
+Thus $a=1/H$ and $b=1/(\alpha H)$. Solving these equations
+in the other direction gives $H=1/a$ and $\alpha=a/b$.
+This algebra shows that the two parameterisations produce
+the same response at every valid $N$.
+
+For $\alpha=0.6$ square metres per hour and $H=0.25$
+hours per prey,
+
+$$
+a=\frac1{0.25}=4\ \text{prey per hour},
+\qquad
+b=\frac1{0.6(0.25)}
+=\frac{20}{3}\approx6.67\ \text{prey per square metre}.
+$$
+
+The asymptote is 4 prey per hour for one predator. The initial
+slope is $a/b=\alpha=0.6$ square metres per hour. The
+half-saturation density is $b\approx6.67$ prey per square
+metre, where the predicted rate is 2 prey per hour.
+
+For the second curve, $b=a/(a/b)=9/1.5=6$ prey per square
+metre. Therefore $\alpha=a/b=1.5$ square metres per hour
+and $H=1/a=1/9\approx0.111$ hours per prey.
+
+```{r}
+form_ab = function(N, a, b) {
+  a * N / (b + N)
+}
+form_alpha_h = function(N, alpha, H) {
+  alpha * N / (1 + alpha * H * N)
+}
+curve(
+  form_ab(N = x, a = 4, b = 20 / 3),
+  from = 0, to = 30,
+  xlab = "Prey density (prey per square metre)",
+  ylab = "Prey eaten by one predator per hour",
+  lty = 1
+)
+curve(
+  form_alpha_h(N = x, alpha = 0.6, H = 0.25),
+  from = 0, to = 30, add = TRUE, lty = 2
+)
+legend(
+  "bottomright", legend = c("a, b form", "alpha, H form"),
+  lty = c(1, 2), bty = "n"
 )
 ```
 
-{{< include material.qmd >}}
+The two curves overlap. A graph checks selected plotted values;
+the algebra establishes their equality throughout the domain.
+
+# Exercise 6: Shift and scale
+
+Substitute $z=(N-3)/4$ into $g(z)=z/(1+z)$ and multiply
+top and bottom by 4:
+
+$$
+F(N)
+=2+10\frac{(N-3)/4}{1+(N-3)/4}
+=2+\frac{10(N-3)}{4+N-3}
+=2+\frac{10(N-3)}{N+1}.
+$$
+
+Relative to $g$, the new curve shifts right by 3 input units,
+stretches horizontally by a factor of 4, scales vertically
+by 10, and shifts up by 2 output units. Its stated domain is
+$N\geq3$.
+
+At the start, $F(3)=2$. As $N\to\infty$, the fraction tends
+to 10, so $F(N)\to12$. Halfway between 2 and 12 is 7:
+
+$$
+2+\frac{10(N-3)}{N+1}=7
+\quad\Longrightarrow\quad
+2(N-3)=N+1
+\quad\Longrightarrow\quad N=7.
+$$
+
+The quotient rule gives
+
+$$
+F'(N)
+=10\frac{(N+1)-(N-3)}{(N+1)^2}
+=\frac{40}{(N+1)^2},
+\qquad F'(3)=\frac{40}{16}=2.5.
+$$
+
+The input $z=(N-3)/4$ was defined for $z\geq0$, so the
+transformed ecological curve is intended for $N\geq3$.
+Evaluating the algebraic expression at lower densities would
+extend the model beyond that domain; it even has a pole at
+$N=-1$.
+
+```{r}
+base_curve = function(z) z / (1 + z)
+shifted_curve = function(N) {
+  2 + 10 * (N - 3) / (4 + N - 3)
+}
+old_par = par(mfrow = c(1, 2))
+curve(base_curve(x), from = 0, to = 6,
+      ylim = c(0, 1), xlab = "Input z", ylab = "Base response g(z)")
+abline(h = 1, lty = 2)
+curve(shifted_curve(x), from = 3, to = 27,
+      ylim = c(0, 12), xlab = "Input N",
+      ylab = "Shifted response F(N)")
+points(x = c(3, 7), y = c(2, 7), pch = 19)
+abline(h = 12, lty = 2)
+par(old_par)
+```
+
+# Exercise 7: Transformations and a local approximation
+
+Because $D(t)>0$, we can take logs:
+
+$$
+\log D(t)=\log(30e^{-0.2t})
+=\log30-0.2t.
+$$
+
+The line has intercept $\log30\approx3.401$ and slope
+$-0.2$ per unit time. The logarithm is defined only for
+positive $D$; zero and negative observations cannot be
+put directly on this log scale.
+
+For $Y(x)=2x^{1.5}$ with $x>0$,
+
+$$
+\log Y=\log2+1.5\log x.
+$$
+
+The log-log slope is 1.5. Doubling $x$ multiplies $Y$
+by $2^{1.5}\approx2.83$, regardless of the starting
+positive $x$.
+
+For $F(N)=12N/(6+N)$, the derivatives from the theory give
+
+$$
+F(0)=0,\qquad
+F'(N)=\frac{72}{(6+N)^2},\qquad
+F''(N)=-\frac{144}{(6+N)^3}.
+$$
+
+Therefore $F'(0)=2$ and $F''(0)=-2/3$. The second-order
+Taylor approximation around zero is
+
+$$
+T_2(N)
+=F(0)+F'(0)N+\frac{F''(0)}2N^2
+=2N-\frac13N^2.
+$$
+
+At $N=1$, the exact value is $12/7\approx1.714$ and
+the approximation is $5/3\approx1.667$. At $N=10$,
+the exact value is $120/16=7.5$, while the approximation
+is $20-100/3=-40/3\approx-13.33$. The approximation is
+useful near zero and becomes ecologically implausible
+farther away.
+
+```{r}
+N = c(1, 10)
+exact = 12 * N / (6 + N)
+approximation = 2 * N - N^2 / 3
+data.frame(N, exact, approximation)
+```
+
+A straight line on a transformed scale is an identity
+for the proposed deterministic function. A Taylor
+polynomial is a local description of its shape. Neither
+specifies the distribution of observations around the
+function, so neither supplies a likelihood.
+
+# Exercise 8: Choose and explore curve shapes
+
+The Ricker form $R(N)=rNe^{-qN}$ matches the stated
+pattern: it is zero at $N=0$, rises, has an interior peak,
+and tends back towards zero at high $N$. A straight line
+does not have an interior peak, while a Holling type II
+curve keeps rising towards a positive asymptote.
+
+For a Ricker curve the peak is at $N=1/q$ and has height
+$r/(qe)$. A peak at 5 adults per hectare gives
+$q=1/5=0.2$ hectares per adult. Setting the height to
+10 recruits per hectare gives
+
+$$
+\frac{r}{qe}=10
+\quad\Longrightarrow\quad
+r=10qe=2e\approx5.44
+\text{ recruits per adult}.
+$$
+
+These units also make $qN$ dimensionless and
+$rN$ a recruit density. A mathematical match to the
+stated pattern does not establish the process responsible
+for the decline.
+
+For $M(x)=12x/(6+x)$ and $E(x)=12(1-e^{-x/6})$,
+both values at zero are zero and both limits at large
+$x$ are 12. Their derivatives are
+
+$$
+M'(x)=\frac{72}{(6+x)^2},
+\qquad
+E'(x)=2e^{-x/6},
+$$
+
+so both initial slopes are 2. At $x=6$,
+
+$$
+M(6)=6,\qquad
+E(6)=12(1-e^{-1})\approx7.59.
+$$
+
+The exponential form approaches the shared asymptote
+more rapidly over this part of the input range, even
+though the two curves share the stated landmarks.
+
+```{r}
+q = 1 / 5
+r = 2 * exp(1)
+old_par = par(mfrow = c(1, 2))
+curve(r * x * exp(-q * x), from = 0, to = 30,
+      xlab = "Adult density (adults per hectare)",
+      ylab = "Recruit density (recruits per hectare)")
+points(x = 5, y = 10, pch = 19)
+curve(12 * x / (6 + x), from = 0, to = 30,
+      ylim = c(0, 12),
+      xlab = "Input x", ylab = "Saturating response",
+      lty = 1)
+curve(12 * (1 - exp(-x / 6)), from = 0, to = 30,
+      add = TRUE, lty = 2)
+legend("bottomright",
+       legend = c("Rational", "Exponential"),
+       lty = c(1, 2), bty = "n")
+par(old_par)
+```
+
+The contour calculation evaluates the same response for
+combinations of prey density and handling time:
+
+```{r}
+response = function(N, H) {
+  0.6 * N / (1 + 0.6 * H * N)
+}
+density_values = seq(from = 0, to = 30, length.out = 60)
+handling_values = seq(from = 0.15, to = 0.5, length.out = 60)
+response_grid = outer(
+  X = density_values, Y = handling_values,
+  FUN = response
+)
+contour(
+  x = density_values, y = handling_values, z = response_grid,
+  xlab = "Prey density (prey per square metre)",
+  ylab = "Handling time (hours per prey)"
+)
+```
+
+At any fixed positive prey density, longer handling time
+reduces the predicted consumption rate. For $N=0$ the
+rate is zero whatever $H$ is. To fit any of these
+deterministic curves to observed counts, we would also
+need a probability model describing the observations
+conditional on the predictor and curve parameters.

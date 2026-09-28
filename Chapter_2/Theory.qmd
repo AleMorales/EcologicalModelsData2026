@@ -8,7 +8,7 @@ execute:
   echo: true
   warning: false
   message: false
-  eval: false
+  eval: true
 ---
 
 # Introduction
@@ -50,6 +50,14 @@ $$
 $$
 
 The possible values form the **sample space** of $X$.
+
+The **support** of a random variable is the set of values that have positive probability
+under its model. For this seed-survival example, the support is the finite set
+$\{0,1,2,3,4\}$. A discrete random variable can also have a **countably infinite**
+support: its values can be listed one by one, but the list has no final value. For
+example, a model for a count with no fixed upper limit may have support
+$\{0,1,2,3,\ldots\}$. The values can be counted in order, even though there are
+infinitely many of them.
 
 ::: {.callout-note title="Discrete random variable"}
 A discrete random variable takes values from a finite or countably infinite set. Its
@@ -172,7 +180,7 @@ dbinom(x = 2, size = seed_count, prob = seed_survival_probability)
 
 ### 2. Cumulative probability
 
-The cumulative probability function computes the probability for all possible values of $X \eq x$
+The cumulative probability function computes the probability for all possible values of $X = x$
 (also know as **tail probability**):
 
 $$
@@ -268,7 +276,7 @@ inverting the axes. For the same example as before that would be:
 #| echo: false
 #| eval: true
 #| fig-cap: "Binomial quantiles"
-x = 0:n
+x = 0:seed_count
 cumulative = pbinom(x, size = seed_count, prob = seed_survival_probability)
 
 plot(
@@ -345,6 +353,36 @@ For a distribution in R:
 
 The first argument is conventionally named `x`, `q`, `p`, or `n`, respectively.
 :::
+
+:::: {.callout-important title="Practice: orchid fruit set"}
+
+In a restoration plot, six tagged orchid flowers each have probability $0.5$ of setting
+fruit. Let $X$ be the number of these flowers that set fruit.
+
+1. What values can $X$ take?
+2. Use R to calculate the probability that exactly four flowers set fruit and the
+   probability that at most four set fruit.
+3. Find the 0.75 quantile of $X$. In words, what does this quantile tell you?
+4. Which R function prefix (`d`, `p`, `q`, or `r`) did you use for each calculation?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The count can be any integer from 0 to 6. The exact-count probability uses `dbinom()`,
+the cumulative probability uses `pbinom()`, and the quantile uses `qbinom()`.
+
+```r
+flower_count = 6
+fruit_set_probability = 0.5
+
+dbinom(x = 4, size = flower_count, prob = fruit_set_probability) # 0.23
+pbinom(q = 4, size = flower_count, prob = fruit_set_probability) # 0.89
+qbinom(p = 0.75, size = flower_count, prob = fruit_set_probability) # 4
+```
+
+Under this model, at least 75% of the probability is on counts of four or fewer.
+
+:::
+::::
 
 ## Independence and Expectations {#sec-independence_expectations}
 
@@ -496,30 +534,52 @@ the square root of variance and has the same units as the original variable, mak
 usually easier to interpret.
 :::
 
-For example, when $X\sim\operatorname{Binomial}(4,0.4)$,
+:::: {.callout-important title="Practice: fruit set on orchid plants"}
 
-$$
-E[X]=4(0.4)=1.6
-$$
+Suppose eight tagged flowers on each of two orchid plants have the same fruit-set
+probability, $p=0.6$. Let $T$ be the total number of flowers setting fruit across
+both plants. For this exercise, model the outcomes of the 16 flower as independent.
 
-and
+1. Use the probability mass function to find the probability of every possible value of
+   $T$.
+2. Calculate the mean and variance of $T$ using the probability mass function from point 1.
+3. Explain what the mean represents. Give one ecological reason why independence among
+   the flowers might be doubtful.
 
-$$
-\operatorname{Var}(X)=4(0.4)(0.6)=0.96.
-$$
+::: {.callout-tip title="Solution" collapse="true"}
 
-The expected value means that the average number of surviving seeds would approach
-1.6 across many comparable quadrats. It does not mean that a particular quadrat
-must contain 1.6 surviving seeds. The variance describes how much counts vary
-around this average; smaller values indicate more concentrated counts, while
-larger values indicate greater spread. Because variance is measured in squared
-units, the standard deviation is often easier to interpret. Here,
+The possible counts range from 0 to 16. First calculate the probability of each count,
+then use the weighted-sum formulas for the mean and variance:
 
-$$
-\operatorname{SD}(X)=\sqrt{0.96}\approx 0.98
-$$
+```r
+fruit_count_values = seq.int(from = 0, to = 16)
+fruit_probabilities = dbinom(
+  x = fruit_count_values,
+  size = 16,
+  prob = 0.6
+)
 
-so a typical deviation from the mean is about one surviving seed.
+expected_fruit_count = sum(fruit_count_values * fruit_probabilities)
+fruit_count_variance = sum(
+  (fruit_count_values - expected_fruit_count)^2 * fruit_probabilities
+)
+
+expected_fruit_count
+fruit_count_variance
+```
+
+The mean is 9.6 and the variance is 3.84. The mean is the
+long-run average fruit count across comparable groups of 16 flowers; a particular
+group must have an integer count. Independence means one flower's outcome does not
+change the probability distribution for another. However, the description indicates that
+flowers are grouped as pairs within plants. The two flowers on a plant would be affected by
+the physiological status, diseases or pollinator activity of that plant, but this would not
+affect other flowers in other plants. This means that knowing something about one flower
+gives us some information about the other flower on the same plant (at least more than about
+other flowers in other plants). With this information, the assumption of independence no
+longer seems suitable. We will learn how to deal with this type of dependence in [Chapter 8](../Chapter_8/Theory.qmd).
+:::
+::::
 
 # Samples and populations {#sec-sample_population}
 
@@ -636,6 +696,19 @@ all_frequencies[,6] = dbinom(x = seed_values,
 round(all_frequencies, 3)
 ```
 
+:::: {.callout-important title="Practice: fruit-set frequency"}
+In a sample of 24 tagged orchid flowers, 15 set fruit. Calculate the relative frequency
+of fruit set. Explain what this value estimates and why it need not equal the underlying
+fruit-set probability exactly.
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The relative frequency is $15/24=0.625$. It estimates the probability that a flower sets
+fruit in the population represented by the sample. A different sample could give a
+different relative frequency, especially when the sample is small.
+:::
+::::
+
 ## Empirical distribution
 
 Given the relationship between frequencies and probabilities, we can define a so-called
@@ -671,12 +744,12 @@ sample_survivors = rbinom(n = n_quadrats,
                           size = seed_count,
                           prob = seed_survival_probability)
 count_survivors = table(factor(sample_survivors,levels = seed_values))
-relative_frequency = as.numeric(count_survivors)/n
+relative_frequency = as.numeric(count_survivors)/n_quadrats
 cumulative_relative_frequency = cumsum(relative_frequency)
 
 # The four panels
 par_val = par(no.readonly = TRUE)
-par(mfrow = c(2, 2), mar = c(5.1, 4.1, 2, 0.5), las = 1)
+par(mfrow = c(1, 2), mar = c(5.1, 4.1, 2, 0.5), las = 1)
 # Small samples first
 plot(x, relative_frequency, type = "p", col = 2, xlab = "Number surviving",
      ylab = "Probability", xlim = c(0,seed_count), ylim = range(mass, relative_frequency),
@@ -697,11 +770,11 @@ arithmetic mean of the sample:
 
 ```{r}
 set.seed(123)
-sample_survivors = rbinom(n = n_quadrat,
+sample_survivors = rbinom(n = n_quadrats,
                           size = seed_count,
                           prob = seed_survival_probability)
 count_survivors = table(factor(sample_survivors, levels = seed_values))
-relative_frequency = count_survivors/n
+relative_frequency = count_survivors/n_quadrats
 weighted_average = sum(relative_frequency*seed_values)
 sample_mean      = mean(sample_survivors)
 c(weighted_average, sample_mean)
@@ -779,7 +852,7 @@ cumprob = pbinom(q = seed_values,
                  prob = seed_survival_probability)
 sample_survivors = rbinom(n = n_quadrats,
                           size = seed_count,
-                          prob = seed_survival_probabilityrob)
+                          prob = seed_survival_probability)
 count_survivors = table(factor(sample_survivors,levels = seed_values))
 relative_frequency = as.numeric(count_survivors/n_quadrats)
 cumulative_relative_frequency = cumsum(relative_frequency)
@@ -787,9 +860,9 @@ cumulative_relative_frequency = cumsum(relative_frequency)
 n_quadrats = 1000
 sample_survivors_large = rbinom(n = n_quadrats,
                                 size = seed_count,
-                                prob = seed_survival_probabilityrob)
+                                prob = seed_survival_probability)
 count_survivors_large = table(factor(sample_survivors_large,levels = seed_values))
-relative_frequency = as.numeric(count_survivors_large/n_quadrats)
+relative_frequency_large = as.numeric(count_survivors_large/n_quadrats)
 cumulative_relative_frequency_large = cumsum(relative_frequency_large)
 
 # The four panels
@@ -805,16 +878,94 @@ plot(x, cumulative_relative_frequency, col = 2, type = "s", xlab = "Number survi
 lines(x, cumprob, type = "s")
 # Large samples second
 plot(x, relative_frequency_large, type = "p", col = 2, xlab = "Number surviving",
-     ylab = "Probability", xlim = c(0,4), ylim = (range(mass_large, relative_frequency_large)),
+     ylab = "Probability", xlim = c(0,4), ylim = (range(mass, relative_frequency_large)),
      pch = 16, cex = 1.5)
-lines(x, mass_large, lwd = 3, t = "h")
+lines(x, mass, lwd = 3, t = "h")
 plot(x, cumulative_relative_frequency_large, col = 2, type = "s", xlab = "Number surviving",
      ylab = "Cumulative probability", ylim = c(0,1))
-lines(x, cumprob_large, type = "s")
+lines(x, cumprob, type = "s")
 par(par_val)
 ```
 
-# Probability distributions for count data
+:::: {.callout-important title="Practice: orchid flowering across plots"}
+
+Suppose each restoration plot contains 12 orchid plants. Each plant flowers with
+probability 0.25, independently of the others. Let $X$ be the number of flowering
+plants in a plot. This is a binomial model. Simulate counts for 12 plots and for 500
+plots. For each sample, calculate the empirical mean and plot the empirical distribution.
+Compare both distributions with the theoretical probability mass function. What changes in
+the result from the larger sample? How much can you rely on a single simulation?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+One possible simulation is:
+
+```r
+set.seed(246)
+
+plants_per_plot = 12
+flowering_probability = 0.25
+
+small_plot_counts = rbinom(
+  n = 12,
+  size = plants_per_plot,
+  prob = flowering_probability
+)
+large_plot_counts = rbinom(
+  n = 500,
+  size = plants_per_plot,
+  prob = flowering_probability
+)
+
+mean(small_plot_counts)
+mean(large_plot_counts)
+
+count_values = seq.int(from = 0, to = plants_per_plot)
+small_plot_table = table(factor(
+  x = small_plot_counts,
+  levels = count_values
+))
+large_plot_table = table(factor(
+  x = large_plot_counts,
+  levels = count_values
+))
+
+small_frequency = as.numeric(small_plot_table) / length(small_plot_counts)
+large_frequency = as.numeric(large_plot_table) / length(large_plot_counts)
+theoretical_mass = dbinom(
+  x = count_values,
+  size = plants_per_plot,
+  prob = flowering_probability
+)
+
+plot(
+  x = count_values,
+  y = small_frequency,
+  type = "h",
+  lwd = 2,
+  ylim = c(0, max(c(small_frequency, large_frequency, theoretical_mass))),
+  xlab = "Flowering plants per plot",
+  ylab = "Probability"
+)
+points(x = count_values, y = large_frequency, col = 2, pch = 16)
+points(x = count_values, y = theoretical_mass, pch = 4)
+legend(
+  x = "topright",
+  legend = c("12 plots", "500 plots", "Binomial model"),
+  col = c(1, 2, 1),
+  pch = c(NA, 16, 4),
+  lty = c(1, NA, NA)
+)
+```
+
+The larger sample will generally give a more stable empirical distribution and mean
+closer to the theoretical values. A particular simulation need not be closer in every
+summary, and the empirical distribution will not exactly match the theoretical one.
+
+:::
+::::
+
+# Probability distributions for count data {#sec-discrete_distributions}
 
 There are many distributions that can be used to model count data. In the examples above
 we used the binomial distribution although we never explicitly describe what it is. In this
@@ -1025,6 +1176,32 @@ plot(
 )
 ```
 
+:::: {.callout-important title="Practice: flowering stems per orchid plot"}
+
+A survey covers two square metres of a restoration site. Assume flowering stems occur
+at an average rate of 1.2 per square metre. Calculate the probability of finding exactly
+three stems in the surveyed area. Why does this model allow counts greater than three,
+even though three is the count in the question?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The expected count across two square metres is $\lambda=2(1.2)=2.4$. The probability is:
+
+```r
+rate_per_square_metre = 1.2
+survey_area = 2
+expected_stems = rate_per_square_metre * survey_area
+
+dpois(x = 3, lambda = expected_stems)
+```
+
+The Poisson model has support $0,1,2,\ldots$, so counts larger than three are possible.
+The probability of exactly three is approximately 0.209, but the model does not set
+three as a maximum.
+
+:::
+::::
+
 ## Overdispersion
 
 The Poisson distribution assumes that the mean and variance are equal. Ecological counts
@@ -1086,6 +1263,21 @@ bounded-count process such as a binomial process. This is a useful exploratory d
 not a definitive test. We will more formal methods to make decisions about which models to
 use on [Chapter 5](../Chapter_5/Theory.qmd).
 
+:::: {.callout-important title="Practice: variation in orchid stem counts"}
+
+Across a sample of restoration plots, the mean flowering-stem count is 3 and the sample
+variance is 12. Calculate the dispersion ratio and describe what it suggests relative to
+a Poisson model. Can this ratio tell you why the counts vary so much?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The dispersion ratio is $12/3=4$. It suggests that the observed variation is greater
+than expected under a Poisson model with the same mean. The ratio alone cannot identify
+the cause; for example, plots may differ in habitat, or counts may be clustered.
+
+:::
+::::
+
 ## The negative binomial distribution
 
 The negative binomial distribution is often used for count data with greater
@@ -1135,8 +1327,8 @@ as $k$ becomes large.
 In R, the ecological parameter $k$ is supplied as the `size` argument, while
 the mean is supplied as `mu`:
 
-```{r}
-dnbinom(x, size = k, mu = mu)
+```r
+dnbinom(x, size = k, mu = mu) # Not run
 ```
 
 ### Example: seedlings in quadrats
@@ -1220,3 +1412,174 @@ plot(
   main = "Negative binomial probability mass"
 )
 ```
+
+:::: {.callout-important title="Practice: orchid stem counts with different dispersion"}
+
+Suppose the mean number of flowering stems per plot is $\mu=3$. Calculate the negative
+binomial variance for $k=1.5$ and $k=6$. Which value gives greater overdispersion? How
+does increasing $k$ relate to the Poisson model?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+Using $\operatorname{Var}(X)=\mu+\mu^2/k$, the variances are 9 and 4.5, respectively.
+The smaller value of $k$ gives greater overdispersion. As $k$ increases, the variance
+approaches the mean, which is the Poisson mean–variance relationship.
+
+:::
+::::
+
+# Chapter quiz
+
+Try each question before opening its solution.
+
+:::: {.callout-important title="Question 1: lichen patches"}
+
+On a fixed section of rock, let $X$ be the number of lichen patches found. Give the
+possible values of $X$ if the survey area can contain at most 18 patches. Is this a
+finite or countably infinite support?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+$X$ can take the integer values 0 through 18. Its support is finite because the survey
+area has a maximum number of patches in this scenario.
+
+:::
+::::
+
+:::: {.callout-important title="Question 2: freshwater larvae"}
+
+A proposed distribution for the number of larvae in a sample assigns probabilities
+0.15, 0.25, 0.40, and 0.30 to counts 0, 1, 2, and 3. Is this a valid probability
+distribution? Explain.
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+No. Although each probability is non-negative, they sum to 1.10 rather than 1.
+Probabilities over all possible outcomes must sum to one.
+
+:::
+::::
+
+:::: {.callout-important title="Question 3: coral spawning"}
+
+For a model of the number of coral colonies spawning on a reef, which R function prefix
+would you use to calculate (a) the probability of exactly five colonies, (b) the
+probability of five or fewer, (c) the 0.9 quantile, and (d) a random sample?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+Use the `d` prefix for an exact probability, `p` for a cumulative probability, `q` for
+a quantile, and `r` to generate a random sample.
+
+:::
+::::
+
+:::: {.callout-important title="Question 4: acorn production"}
+
+Suppose acorn production by two oak trees is modelled with independent random variables.
+In this model, what does independence say about the probability of a particular joint
+outcome? Give one ecological factor that might make the assumption questionable.
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+Under independence, the probability of a particular pair of outcomes is the product of
+their separate probabilities. Shared weather or soil conditions could make production
+by the two trees dependent.
+
+:::
+::::
+
+:::: {.callout-important title="Question 5: trout eggs"}
+
+For a group of 12 trout eggs, suppose each egg hatches with probability 0.25 and the
+outcomes are independent. Calculate the expected number hatched and the variance.
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+For a binomial model, $E[X]=np=12(0.25)=3$ and
+$\operatorname{Var}(X)=np(1-p)=12(0.25)(0.75)=2.25$.
+
+:::
+::::
+
+:::: {.callout-important title="Question 6: mussel settlement"}
+
+A model predicts an expected count of 2.4 newly settled mussels per tile. Can one tile
+have 2.4 mussels? What does the expected value describe?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+A tile cannot have a fractional mussel. The expected value describes the long-run average
+count across comparable tiles under the model.
+
+:::
+::::
+
+:::: {.callout-important title="Question 7: moth emergence"}
+
+In a sample of 30 host plants, moths emerged from 9. Calculate the relative frequency
+of emergence. Is this value necessarily the true probability of emergence for all
+relevant host plants?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+The relative frequency is $9/30=0.3$. It is a sample-based estimate of the probability,
+not necessarily the exact population probability. Another sample could produce a
+different relative frequency.
+
+:::
+::::
+
+:::: {.callout-important title="Question 8: caddisfly larvae"}
+
+You sample the number of caddisfly larvae in many equal-sized stream sections. As the
+number of sections grows, what do you generally expect to happen to the empirical
+distribution relative to the distribution that generated the data? Is exact agreement
+expected for a finite sample?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+With more independent observations from the same distribution, the empirical distribution
+generally becomes closer to the generating distribution. Exact agreement is not expected
+in a finite sample, and individual simulations can vary.
+
+:::
+::::
+
+:::: {.callout-important title="Question 9: choose a count model"}
+
+Choose a plausible starting model for each scenario and briefly explain your choice:
+
+1. The number of eggs hatching out of 15 eggs, with the same hatch probability for each.
+2. The number of mayfly larvae in a standard sample, when the count is unbounded and
+   its mean and variance are approximately equal.
+3. The number of burrowing crabs per beach section, when counts are unbounded and the
+   sample variance is substantially greater than the mean.
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+1. A binomial model, because there is a fixed number of trials and a common success
+   probability.
+2. A Poisson model is a plausible starting point because the support is non-negative
+   integer counts and the mean and variance are approximately equal.
+3. A negative binomial model is a plausible starting point because it allows an
+   unbounded count with variance greater than the mean. These are starting points; the
+   data and assumptions still need to be checked.
+
+:::
+::::
+
+:::: {.callout-important title="Question 10: bumblebee nests"}
+
+Across meadow plots, the sample mean number of bumblebee nests is 2 and the sample
+variance is 6. Calculate the dispersion ratio and explain what it suggests relative to
+a Poisson model. Does it identify the ecological cause?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+The ratio is $6/2=3$, suggesting greater variation than expected under a Poisson model
+with the same mean. The ratio does not identify a cause; clustering, habitat differences,
+or dependence could contribute.
+
+:::
+::::

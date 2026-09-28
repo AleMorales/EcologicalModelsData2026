@@ -3,9 +3,11 @@ title: "Introduction to Probability (Count data) - Solutions"
 date: today
 ---
 
-# Exercise 2: Checking for overdispersion
+The fully worked first exercise is on the
+[student practical page](no_solution.qmd). These solutions follow the same
+assumed models, tasks, and seeds as Exercises 2–4 on that page.
 
-## Solution
+# Exercise 2: Checking for overdispersion
 
 Load the data and compare the sample variance with the mean. For a Poisson distribution, the
 mean and variance are equal, so a variance much larger than the mean suggests overdispersion.
@@ -29,17 +31,20 @@ substantial overdispersion when the treatments are pooled.
 Now calculate the summaries separately for each spray treatment:
 
 ```{r}
-spray_summary = InsectSprays |>
-  dplyr::group_by(spray) |>
-  dplyr::summarise(
-    n = dplyr::n(),
-    mean = mean(count),
-    variance = var(count),
-    dispersion_ratio = variance / mean,
-    .groups = "drop"
-  )
+library(dplyr)
 
-round(spray_summary, 3)
+spray_groups = group_by(InsectSprays, spray)
+
+spray_summary = summarise(
+  spray_groups,
+  n = n(),
+  mean = mean(count),
+  variance = var(count),
+  dispersion_ratio = variance / mean,
+  .groups = "drop"
+)
+
+spray_summary
 ```
 
 Five of the six treatments have a variance-to-mean ratio greater than one, though the amount of overdispersion varies. These summaries are exploratory: each treatment has only 12 observations.
@@ -123,8 +128,6 @@ legend(
 The fitted negative binomial matches the empirical mean and variance by construction, and allows more variation than a Poisson model. However, pooling treatments combines groups with very different count levels. A single negative binomial distribution may therefore not capture all the patterns in the empirical distribution.
 
 # Exercise 3: Overdispersed quadrat counts
-
-## Solution
 
 For a negative binomial distribution with \(\mu=6\) and \(k=0.8\),
 
@@ -216,317 +219,6 @@ legend(
 ```
 
 # Exercise 4: Asymptotic convergence
-
-## Solution
-
-For a Poisson distribution with \(\lambda=3\), the population mean and variance are both 3, and the population median is also 3.
-
-First simulate one sample of each size. Calculate the empirical variance using the divisor \(n\), rather than using `var()`.
-
-```{r}
-lambda = 3
-sample_sizes = c(10, 1000)
-
-initial_results = data.frame(
-  n = integer(),
-  mean = numeric(),
-  median = numeric(),
-  variance = numeric()
-)
-
-set.seed(123)
-
-for (sample_size in sample_sizes) {
-  observations = rpois(sample_size, lambda = lambda)
-  sample_mean = mean(observations)
-
-  initial_results = rbind(
-    initial_results,
-    data.frame(
-      n = sample_size,
-      mean = sample_mean,
-      median = median(observations),
-      variance = mean((observations - sample_mean)^2)
-    )
-  )
-}
-
-initial_results
-```
-
-Repeat the simulations four times, using a different seed for each repetition:
-
-```{r}
-seeds = c(11, 22, 33, 44)
-
-repeated_results = data.frame(
-  seed = integer(),
-  n = integer(),
-  mean = numeric(),
-  median = numeric(),
-  variance = numeric()
-)
-
-for (seed in seeds) {
-  set.seed(seed)
-
-  for (sample_size in sample_sizes) {
-    observations = rpois(sample_size, lambda = lambda)
-    sample_mean = mean(observations)
-
-    repeated_results = rbind(
-      repeated_results,
-      data.frame(
-        seed = seed,
-        n = sample_size,
-        mean = sample_mean,
-        median = median(observations),
-        variance = mean((observations - sample_mean)^2)
-      )
-    )
-  }
-}
-
-repeated_results
-```
-
-Compare the results with the population values, then summarize the variation in the sample statistics across repetitions:
-
-```{r}
-population_values = data.frame(
-  n = sample_sizes,
-  mean = lambda,
-  median = qpois(0.5, lambda = lambda),
-  variance = lambda
-)
-
-population_values
-
-aggregate(
-  cbind(mean, median, variance) ~ n,
-  data = repeated_results,
-  FUN = sd
-)
-```
-
-The population values are the same for both sample sizes. With \(n=10\), the sample mean, median, and variance can differ noticeably from their population values. With \(n=1{,}000\), they will generally be closer to 3 and vary less across repetitions.
-
-The mean changes smoothly between samples, while the median is a quantile and changes in discrete steps. For even sample sizes, R’s median can also be halfway between two integer counts. Because the empirical variance uses divisor \(n\), it tends to be slightly below the population variance for finite samples; this difference becomes negligible as sample size increases. The four repetitions illustrate the general pattern, though more repetitions would provide a clearer picture of the variation.
-```<!-- filepath: c:\Websites\EcologicalModelsLabs\Chapter_2\Practicals\material.qmd -->
-
-# Exercise 2: Checking for overdispersion
-
-## Solution
-
-Load the data and compare the sample variance with the mean. For a Poisson distribution, the mean and variance are equal, so a variance much larger than the mean suggests overdispersion.
-
-```{r}
-data(InsectSprays, package = "datasets")
-
-pooled_mean = mean(InsectSprays$count)
-pooled_variance = var(InsectSprays$count)
-
-c(
-  mean = pooled_mean,
-  variance = pooled_variance,
-  dispersion_ratio = pooled_variance / pooled_mean
-)
-```
-
-The mean is about **9.67**, the variance is about **48.65**, and the variance-to-mean ratio is about **5.03**. This is substantial overdispersion when the treatments are pooled.
-
-Now calculate the summaries separately for each spray treatment:
-
-```{r}
-spray_summary = InsectSprays |>
-  dplyr::group_by(spray) |>
-  dplyr::summarise(
-    n = dplyr::n(),
-    mean = mean(count),
-    variance = var(count),
-    dispersion_ratio = variance / mean,
-    .groups = "drop"
-  )
-
-round(spray_summary, 3)
-```
-
-Five of the six treatments have a variance-to-mean ratio greater than one, though the amount of overdispersion varies. These summaries are exploratory: each treatment has only 12 observations.
-
-Ignoring spray, a **negative binomial model** is a reasonable choice because the pooled counts are strongly overdispersed. When accounting for spray, a Poisson model with spray as a predictor is a useful starting point. The within-treatment summaries suggest checking whether a negative binomial model is needed to account for any remaining overdispersion.
-
-For the negative binomial parameterization used in R,
-
-$$
-\operatorname{Var}(X)=\mu+\frac{\mu^2}{k},
-$$
-
-so the shape parameter is
-
-$$
-k=\frac{\mu^2}{\operatorname{Var}(X)-\mu}.
-$$
-
-To match the empirical distribution’s variance, calculate variance using the divisor \(n\). This differs slightly from `var()`, which uses the divisor \(n-1\).
-
-```{r}
-counts = InsectSprays$count
-mu_hat = mean(counts)
-empirical_variance = mean((counts - mu_hat)^2)
-
-k_hat = mu_hat^2 / (empirical_variance - mu_hat)
-
-c(
-  mean = mu_hat,
-  empirical_variance = empirical_variance,
-  k = k_hat
-)
-```
-
-The empirical variance is about **47.97**, giving an estimated shape parameter of about **2.44**.
-
-Compare the empirical probability mass with that of the fitted negative binomial:
-
-```{r}
-support = 0:max(counts)
-
-empirical_mass = as.numeric(
-  table(factor(counts, levels = support))
-) / length(counts)
-
-negative_binomial_mass = dnbinom(
-  support,
-  size = k_hat,
-  mu = mu_hat
-)
-
-plot(
-  support,
-  empirical_mass,
-  type = "h",
-  lwd = 5,
-  col = "grey65",
-  xlab = "Count",
-  ylab = "Probability",
-  main = "Empirical and negative binomial probability mass"
-)
-
-lines(
-  support,
-  negative_binomial_mass,
-  type = "b",
-  pch = 16,
-  col = "steelblue"
-)
-
-legend(
-  "topright",
-  legend = c("Empirical", "Negative binomial"),
-  col = c("grey65", "steelblue"),
-  lty = 1,
-  pch = c(NA, 16),
-  lwd = c(5, 1)
-)
-```
-
-The fitted negative binomial matches the empirical mean and variance by construction, and allows more variation than a Poisson model. However, pooling treatments combines groups with very different count levels. A single negative binomial distribution may therefore not capture all the patterns in the empirical distribution.
-
-# Exercise 3: Overdispersed quadrat counts
-
-## Solution
-
-For a negative binomial distribution with \(\mu=6\) and \(k=0.8\),
-
-$$
-E[X]=\mu=6
-$$
-
-and
-
-$$
-\operatorname{Var}(X)
-=
-\mu+\frac{\mu^2}{k}
-=
-6+\frac{6^2}{0.8}
-=
-51.
-$$
-
-We can verify these values using the probability mass function and weighted sums. The distribution’s support is infinite; using values from 0 to 1,000 makes the omitted tail negligible.
-
-```{r}
-mu = 6
-k = 0.8
-
-x_theory = 0:1000
-probability = dnbinom(x_theory, size = k, mu = mu)
-
-c(
-  probability_sum = sum(probability),
-  weighted_mean = sum(x_theory * probability),
-  weighted_variance = sum((x_theory - mu)^2 * probability)
-)
-```
-
-Generate a sample of size 500, then calculate its mean and empirical variance. The empirical variance uses the divisor \(n\), as in the empirical distribution.
-
-```{r}
-set.seed(123)
-
-sample_counts = rnbinom(
-  n = 500,
-  size = k,
-  mu = mu
-)
-
-sample_mean = mean(sample_counts)
-sample_variance = mean((sample_counts - sample_mean)^2)
-
-c(
-  mean = sample_mean,
-  empirical_variance = sample_variance,
-  variance_mean_ratio = sample_variance / sample_mean,
-  variance_using_var = var(sample_counts)
-)
-```
-
-The sample summaries vary between simulations, but should be broadly consistent with a mean of 6 and a variance of 51. The theoretical variance-to-mean ratio is \(51/6=8.5\); the sample ratio will not necessarily equal it.
-
-A Poisson distribution with the same mean has variance 6, while the negative binomial has variance 51. The negative binomial therefore has more probability near zero and in the upper tail.
-
-```{r}
-x = 0:40
-
-negative_binomial_mass = dnbinom(x, size = k, mu = mu)
-poisson_mass = dpois(x, lambda = mu)
-
-matplot(
-  x,
-  cbind(negative_binomial_mass, poisson_mass),
-  type = "b",
-  pch = c(16, 1),
-  lty = c(1, 2),
-  lwd = 2,
-  col = c("firebrick", "steelblue"),
-  xlab = "Count",
-  ylab = "Probability",
-  main = "Negative binomial and Poisson probability mass"
-)
-
-legend(
-  "topright",
-  legend = c("Negative binomial", "Poisson"),
-  col = c("firebrick", "steelblue"),
-  pch = c(16, 1),
-  lty = c(1, 2),
-  lwd = 2
-)
-```
-
-# Exercise 4: Asymptotic convergence
-
-## Solution
 
 For a Poisson distribution with \(\lambda=3\), the population mean and variance are both 3, and the population median is also 3.
 
