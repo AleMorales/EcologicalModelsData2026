@@ -1,0 +1,2721 @@
+---
+title: "Maximum Likelihood and Likelihood-Based Inference"
+format:
+  html:
+    toc: true
+    number-sections: true
+execute:
+  echo: true
+  warning: false
+  message: false
+  eval: false
+---
+
+# Introduction
+
+The previous chapters introduced probability distributions and statistical estimation.
+
+We considered:
+
+- counts of seedlings in quadrats;
+- numbers of animals detected during surveys;
+- tree heights;
+- animal body mass;
+- vegetation cover.
+
+We also learned that the parameters of a probability distribution are usually unknown in ecological research. We use observed data to estimate these parameters.
+
+In Chapter 3, we used the **method of moments**. This method is often convenient because it can produce simple formulas. For example, the method-of-moments estimator of a Poisson mean is the sample mean.
+
+However, the method of moments does not always use the complete probability model. It can also be difficult to apply to complex ecological models.
+
+This chapter introduces **maximum likelihood estimation**.
+
+Maximum likelihood provides a general framework for estimating parameters from a probability model. It is particularly important when fitting bespoke ecological models for which no simple estimator is available.
+
+We will continue to use simulated data. Simulation is useful because we specify the true parameter values before generating the observations. We can therefore compare our estimates and confidence intervals with the truth.
+
+The main examples will be:
+
+- Poisson counts of seedlings in quadrats;
+- Normally distributed tree heights;
+- overdispersed seedling counts from a negative binomial distribution.
+
+## Learning goals
+
+After studying this chapter, you should be able to:
+
+- define a likelihood function;
+- distinguish likelihood from probability;
+- construct a log-likelihood for independent observations;
+- define and calculate a maximum likelihood estimate;
+- use `optim()` to minimize a negative log-likelihood;
+- use parameter transformations to enforce constraints;
+- describe finite-sample properties of maximum likelihood estimators;
+- explain consistency and asymptotic normality;
+- interpret likelihood surfaces, slices, and profiles;
+- calculate quadratic confidence intervals using a Hessian;
+- calculate profile likelihood confidence intervals;
+- compare quadratic and profile likelihood intervals;
+- fit a distribution to simulated ecological data using maximum likelihood.
+
+# From probability models to likelihood
+
+Suppose we count seedlings in several quadrats.
+
+Let
+
+$$
+X_i=\text{number of seedlings in quadrat }i.
+$$
+
+A Poisson model assumes that
+
+$$
+X_i\sim\operatorname{Poisson}(\lambda),
+$$
+
+where $\lambda$ is the expected number of seedlings per quadrat.
+
+In a probability calculation, we might know the value of $\lambda$ and calculate the probability of observing a particular count.
+
+For example:
+
+$$
+P(X_i=5\mid\lambda=4).
+$$
+
+In an ecological study, we usually observe the counts and try to learn about the unknown value of $\lambda$.
+
+Suppose the observed counts are
+
+$$
+x_1,\ldots,x_n.
+$$
+
+The probability model describes the probability of these observations for a given value of $\lambda$.
+
+After the data have been observed, we can instead treat the observations as fixed and consider how well different parameter values explain those observations.
+
+This change in viewpoint produces the likelihood function.
+
+## Probability and likelihood
+
+For a single Poisson observation,
+
+$$
+P(X=x\mid\lambda)
+=
+\frac{e^{-\lambda}\lambda^x}{x!}.
+$$
+
+Before observing $x$, this expression is viewed as a function of the possible values of $x$.
+
+After observing a value $x$, the same expression is viewed as a function of $\lambda$:
+
+$$
+L(\lambda\mid x)
+=
+\frac{e^{-\lambda}\lambda^x}{x!}.
+$$
+
+This is the **likelihood function**.
+
+The numerical expression is the same, but the interpretation is different.
+
+| Probability | Likelihood |
+|---|---|
+| Parameters are fixed | Observed data are fixed |
+| Data are allowed to vary | Parameters are allowed to vary |
+| Answers questions about possible observations | Compares parameter values using observed data |
+
+Likelihood is not a probability distribution for the parameter.
+
+In particular:
+
+- likelihood values do not generally add or integrate to one;
+- likelihood does not describe probability that a parameter value is true;
+- only relative likelihood values are usually important.
+
+## Likelihood for independent observations
+
+Suppose $X_1,\ldots,X_n$ are independent observations with probability mass function or density $f(x\mid\theta)$.
+
+The joint probability or density of the observations is
+
+$$
+f(x_1,\ldots,x_n\mid\theta)
+=
+\prod_{i=1}^n f(x_i\mid\theta).
+$$
+
+When the observations are treated as fixed, this becomes the likelihood:
+
+$$
+L(\theta\mid x_1,\ldots,x_n)
+=
+\prod_{i=1}^n f(x_i\mid\theta).
+$$
+
+The likelihood is therefore constructed from the probability model.
+
+Independence is important because it allows the joint likelihood to be written as a product of individual contributions.
+
+If observations are not independent, the likelihood must account for their dependence.
+
+## Discrete observations
+
+For discrete observations, the likelihood is a product of probability masses.
+
+For Poisson counts:
+
+$$
+L(\lambda\mid x_1,\ldots,x_n)
+=
+\prod_{i=1}^n
+\frac{e^{-\lambda}\lambda^{x_i}}{x_i!}.
+$$
+
+## Continuous observations
+
+For continuous observations, the likelihood is a product of densities.
+
+Suppose tree heights follow
+
+$$
+X_i\sim\operatorname{Normal}(\mu,\sigma^2).
+$$
+
+The likelihood is
+
+$$
+L(\mu,\sigma\mid x_1,\ldots,x_n)
+=
+\prod_{i=1}^n
+\frac{1}{\sigma\sqrt{2\pi}}
+\exp\left[
+-\frac{(x_i-\mu)^2}{2\sigma^2}
+\right].
+$$
+
+The density at an exact value is not a probability. Nevertheless, the density provides the appropriate contribution to the likelihood for continuous data.
+
+# The log-likelihood
+
+Likelihoods are products:
+
+$$
+L(\theta)=\prod_{i=1}^n f(x_i\mid\theta).
+$$
+
+Products can become extremely small when the sample size is large. Computers may represent such values as zero because of numerical underflow.
+
+It is therefore more convenient to work with the logarithm of the likelihood.
+
+The **log-likelihood** is
+
+$$
+\ell(\theta)
+=
+\log L(\theta).
+$$
+
+Using the logarithm of a product gives
+
+$$
+\ell(\theta)
+=
+\sum_{i=1}^n
+\log f(x_i\mid\theta).
+$$
+
+The parameter value that maximizes the likelihood also maximizes the log-likelihood because the logarithm is a strictly increasing function.
+
+Thus,
+
+$$
+\operatorname*{arg\,max}_{\theta}L(\theta)
+=
+\operatorname*{arg\,max}_{\theta}\ell(\theta).
+$$
+
+Log-likelihoods are useful because they:
+
+- replace products with sums;
+- reduce numerical underflow;
+- are usually easier to differentiate;
+- are provided directly by many R distribution functions.
+
+In R, the argument `log = TRUE` requests a log probability or log density.
+
+# Example 1: the Poisson likelihood
+
+Suppose the number of seedlings per quadrat follows
+
+$$
+X_i\sim\operatorname{Poisson}(\lambda).
+$$
+
+We simulate one sample with a known true parameter.
+
+```{r}
+set.seed(1)
+
+true_lambda = 4
+n_quadrats = 30
+
+seedling_counts = rpois(
+  n = n_quadrats,
+  lambda = true_lambda
+)
+
+seedling_counts
+```
+
+The individual contribution to the likelihood is
+
+$$
+P(X_i=x_i\mid\lambda)
+=
+\frac{e^{-\lambda}\lambda^{x_i}}{x_i!}.
+$$
+
+For independent quadrats, the likelihood is
+
+$$
+L(\lambda)
+=
+\prod_{i=1}^n
+\frac{e^{-\lambda}\lambda^{x_i}}{x_i!}.
+$$
+
+The corresponding log-likelihood is
+
+$$
+\ell(\lambda)
+=
+\sum_{i=1}^n
+\left[
+-\lambda+x_i\log(\lambda)-\log(x_i!)
+\right].
+$$
+
+We can define the likelihood and log-likelihood in R.
+
+```{r}
+poisson_likelihood = function(lambda, data) {
+  if (lambda <= 0) {
+    return(0)
+  }
+
+  prod(
+    dpois(
+      data,
+      lambda = lambda
+    )
+  )
+}
+
+poisson_log_likelihood = function(lambda, data) {
+  if (lambda <= 0) {
+    return(-Inf)
+  }
+
+  sum(
+    dpois(
+      data,
+      lambda = lambda,
+      log = TRUE
+    )
+  )
+}
+```
+
+The likelihood values are usually very small.
+
+```{r}
+poisson_likelihood(
+  lambda = true_lambda,
+  data = seedling_counts
+)
+
+poisson_log_likelihood(
+  lambda = true_lambda,
+  data = seedling_counts
+)
+```
+
+The log-likelihood is easier to work with numerically.
+
+## Plotting the likelihood
+
+We can evaluate the likelihood over a grid of possible values of $\lambda$.
+
+```{r}
+lambda_grid = seq(
+  0.1,
+  10,
+  length.out = 500
+)
+
+poisson_loglik_values = sapply(
+  lambda_grid,
+  poisson_log_likelihood,
+  data = seedling_counts
+)
+
+poisson_relative_likelihood = exp(
+  poisson_loglik_values -
+    max(poisson_loglik_values)
+)
+
+plot(
+  lambda_grid,
+  poisson_relative_likelihood,
+  type = "l",
+  lwd = 2,
+  col = "navy",
+  xlab = expression(lambda),
+  ylab = "Relative likelihood",
+  main = "Likelihood for the Poisson mean",
+  ylim = c(0, 1.05)
+)
+
+abline(
+  v = true_lambda,
+  col = "firebrick",
+  lwd = 2,
+  lty = 2
+)
+
+legend(
+  "topright",
+  legend = c("Relative likelihood", "True parameter"),
+  col = c("navy", "firebrick"),
+  lwd = 2,
+  lty = c(1, 2),
+  bty = "n"
+)
+```
+
+The relative likelihood is obtained by dividing every likelihood value by the maximum likelihood value:
+
+$$
+R(\lambda)
+=
+\frac{L(\lambda)}
+{L(\widehat{\lambda})}.
+$$
+
+The maximum relative likelihood is therefore one.
+
+Relative likelihood is easier to plot than the raw likelihood because the largest value is always one.
+
+# The method of maximum likelihood
+
+The **maximum likelihood estimator** is the parameter value that maximizes the likelihood:
+
+$$
+\widehat{\theta}_{\mathrm{ML}}
+=
+\operatorname*{arg\,max}_{\theta}
+L(\theta).
+$$
+
+Because likelihood and log-likelihood have the same maximum,
+
+$$
+\widehat{\theta}_{\mathrm{ML}}
+=
+\operatorname*{arg\,max}_{\theta}
+\ell(\theta).
+$$
+
+The numerical value obtained from one particular sample is called the maximum likelihood estimate.
+
+## Maximum likelihood for the Poisson mean
+
+For Poisson observations, the log-likelihood is
+
+$$
+\ell(\lambda)
+=
+\sum_{i=1}^n
+\left[
+-\lambda+x_i\log(\lambda)-\log(x_i!)
+\right].
+$$
+
+Rearranging terms gives
+
+$$
+\ell(\lambda)
+=
+-n\lambda+
+\left(\sum_{i=1}^n x_i\right)\log(\lambda)
+-
+\sum_{i=1}^n\log(x_i!).
+$$
+
+Differentiating with respect to $\lambda$ gives
+
+$$
+\frac{d\ell}{d\lambda}
+=
+-n+
+\frac{\sum_{i=1}^n x_i}{\lambda}.
+$$
+
+Setting this derivative equal to zero gives
+
+$$
+-n+
+\frac{\sum_{i=1}^n x_i}{\widehat{\lambda}}
+=
+0.
+$$
+
+Solving for $\widehat{\lambda}$ gives
+
+$$
+\widehat{\lambda}_{\mathrm{ML}}
+=
+\frac{1}{n}
+\sum_{i=1}^n x_i
+=
+\overline{x}.
+$$
+
+Thus, for the Poisson mean,
+
+$$
+\widehat{\lambda}_{\mathrm{ML}}
+=
+\overline{X}.
+$$
+
+This is the same estimator obtained by the method of moments in Chapter 3.
+
+The two methods happen to give the same answer for this example. They are nevertheless different methods.
+
+- The method of moments matches sample and theoretical moments.
+- Maximum likelihood maximizes the probability or density of the observed data.
+
+# Numerical optimization with `optim()`
+
+For many ecological models, the likelihood cannot be maximized analytically.
+
+We can then use numerical optimization.
+
+R's `optim()` function minimizes a function. To maximize a log-likelihood, we minimize the negative log-likelihood:
+
+$$
+-\ell(\theta).
+$$
+
+The general procedure is:
+
+1. write the log-likelihood;
+2. define the negative log-likelihood;
+3. choose starting values;
+4. call `optim()`;
+5. check convergence;
+6. extract the parameter estimates.
+
+## Fitting the Poisson model with `optim()`
+
+The Poisson mean must be positive:
+
+$$
+\lambda>0.
+$$
+
+We can ensure this by optimizing over an unconstrained parameter $\eta$ and defining
+
+$$
+\lambda=e^\eta.
+$$
+
+The parameter $\eta$ is the logarithm of $\lambda$:
+
+$$
+\eta=\log(\lambda).
+$$
+
+We define the negative log-likelihood using $\eta$.
+
+```{r}
+poisson_negative_log_likelihood = function(
+    log_lambda,
+    data
+) {
+  lambda = exp(log_lambda)
+
+  -sum(
+    dpois(
+      data,
+      lambda = lambda,
+      log = TRUE
+    )
+  )
+}
+```
+
+We can now use `optim()`.
+
+```{r}
+poisson_fit = optim(
+  par = log(3),
+  fn = poisson_negative_log_likelihood,
+  data = seedling_counts,
+  method = "BFGS",
+  hessian = TRUE
+)
+
+poisson_fit
+```
+
+A convergence code of zero usually indicates that the optimization algorithm terminated successfully.
+
+```{r}
+poisson_fit$convergence
+```
+
+The optimized parameter is on the logarithmic scale. We transform it back to the original scale.
+
+```{r}
+lambda_hat_optim = exp(
+  poisson_fit$par
+)
+
+lambda_hat_mom = mean(seedling_counts)
+
+c(
+  true_lambda = true_lambda,
+  method_of_moments = lambda_hat_mom,
+  maximum_likelihood = lambda_hat_optim
+)
+```
+
+The optimization estimate and the method-of-moments estimate should be the same up to numerical precision.
+
+## Why transformations are useful
+
+Many ecological parameters have constraints.
+
+Examples include:
+
+| Parameter | Constraint | Useful transformation |
+|---|---|---|
+| Mean count | $\mu>0$ | $\mu=\exp(\eta)$ |
+| Standard deviation | $\sigma>0$ | $\sigma=\exp(\eta)$ |
+| Variance | $\sigma^2>0$ | $\sigma^2=\exp(\eta)$ |
+| Probability | $0<p<1$ | $p=\dfrac{e^\eta}{1+e^\eta}$ |
+
+Transformations avoid asking the optimizer to evaluate invalid parameter values.
+
+They also make optimization more stable in many situations.
+
+## Fitted Poisson distribution
+
+We can compare the observed distribution with the fitted Poisson distribution.
+
+```{r}
+poisson_support = 0:max(
+  c(
+    seedling_counts,
+    qpois(
+      0.999,
+      lambda = lambda_hat_optim
+    )
+  )
+)
+
+observed_mass = as.numeric(
+  prop.table(
+    table(
+      factor(
+        seedling_counts,
+        levels = poisson_support
+      )
+    )
+  )
+)
+
+fitted_mass = dpois(
+  poisson_support,
+  lambda = lambda_hat_optim
+)
+
+barplot(
+  rbind(
+    observed_mass,
+    fitted_mass
+  ),
+  beside = TRUE,
+  names.arg = poisson_support,
+  col = c("grey70", "steelblue"),
+  xlab = "Number of seedlings",
+  ylab = "Probability",
+  legend.text = c(
+    "Observed frequency",
+    "Fitted Poisson distribution"
+  ),
+  args.legend = list(x = "topright"),
+  main = "Observed and fitted seedling counts"
+)
+```
+
+The fitted distribution is not expected to match the observed frequencies exactly. The parameters were estimated from a finite sample, and the sample contains random variation.
+
+# Properties of maximum likelihood estimators
+
+Like any estimator, a maximum likelihood estimator can be studied through its sampling distribution.
+
+Important properties include:
+
+- bias;
+- variance;
+- mean squared error;
+- consistency;
+- asymptotic normality;
+- asymptotic efficiency.
+
+Some properties concern finite samples. Others describe what happens as the sample size becomes large.
+
+## Finite-sample properties
+
+Maximum likelihood estimators are not necessarily unbiased in finite samples.
+
+This is the same point illustrated in Chapter 3 using the Normal variance estimator.
+
+Suppose
+
+$$
+X_i\sim\operatorname{Normal}(\mu,\sigma^2).
+$$
+
+The maximum likelihood estimators are
+
+$$
+\widehat{\mu}_{\mathrm{ML}}
+=
+\overline{X}
+$$
+
+and
+
+$$
+\widehat{\sigma^2}_{\mathrm{ML}}
+=
+\frac{1}{n}
+\sum_{i=1}^n
+(X_i-\overline{X})^2.
+$$
+
+The denominator is $n$, not $n-1$.
+
+The expectation of this estimator is
+
+$$
+E[\widehat{\sigma^2}_{\mathrm{ML}}]
+=
+\frac{n-1}{n}\sigma^2.
+$$
+
+Therefore, the estimator is biased downward:
+
+$$
+\operatorname{Bias}
+\left(
+\widehat{\sigma^2}_{\mathrm{ML}}
+\right)
+=
+-\frac{\sigma^2}{n}.
+$$
+
+The unbiased sample variance uses
+
+$$
+s^2=
+\frac{1}{n-1}
+\sum_{i=1}^n
+(X_i-\overline{X})^2.
+$$
+
+The maximum likelihood estimator is not unbiased, but its bias becomes smaller as $n$ increases.
+
+## Simulating the Normal variance estimators
+
+```{r}
+set.seed(10)
+
+true_mu_normal = 22
+true_sigma_normal = 4
+n_trees_normal = 25
+B = 5000
+
+normal_variance_mles = replicate(
+  B,
+  {
+    heights = rnorm(
+      n = n_trees_normal,
+      mean = true_mu_normal,
+      sd = true_sigma_normal
+    )
+
+    height_mean = mean(heights)
+
+    mean(
+      (heights - height_mean)^2
+    )
+  }
+)
+
+normal_variance_unbiased = replicate(
+  B,
+  {
+    heights = rnorm(
+      n = n_trees_normal,
+      mean = true_mu_normal,
+      sd = true_sigma_normal
+    )
+
+    var(heights)
+  }
+)
+
+normal_variance_results = rbind(
+  true_variance = true_sigma_normal^2,
+  average_mle = mean(normal_variance_mles),
+  average_unbiased_estimate =
+    mean(normal_variance_unbiased),
+  bias_of_mle =
+    mean(normal_variance_mles) -
+    true_sigma_normal^2,
+  bias_of_unbiased_estimator =
+    mean(normal_variance_unbiased) -
+    true_sigma_normal^2,
+  variance_of_mle = var(normal_variance_mles),
+  variance_of_unbiased_estimator =
+    var(normal_variance_unbiased)
+)
+
+round(normal_variance_results, 3)
+```
+
+The maximum likelihood estimator should have a small negative bias.
+
+The estimator using `var()` should have bias close to zero.
+
+This example shows that maximum likelihood does not guarantee exact finite-sample unbiasedness.
+
+## Invariance
+
+Maximum likelihood estimators have an important invariance property.
+
+If $\widehat{\theta}$ is the maximum likelihood estimator of $\theta$, then the maximum likelihood estimator of $g(\theta)$ is
+
+$$
+g(\widehat{\theta}).
+$$
+
+For example, if $\widehat{\lambda}$ is the MLE of $\lambda$, then:
+
+- $\log(\widehat{\lambda})$ is the MLE of $\log(\lambda)$;
+- $\widehat{\lambda}^2$ is the MLE of $\lambda^2$;
+- $1/\widehat{\lambda}$ is the MLE of $1/\lambda$.
+
+This property is useful when parameters are estimated on transformed scales.
+
+## Consistency
+
+An estimator is **consistent** if it approaches the true parameter as the sample size increases.
+
+For the Poisson mean estimator,
+
+$$
+\widehat{\lambda}_n
+=
+\frac{1}{n}
+\sum_{i=1}^nX_i,
+$$
+
+consistency means that
+
+$$
+\widehat{\lambda}_n
+\xrightarrow{p}
+\lambda.
+$$
+
+In practical terms, larger samples tend to produce estimates that are closer to the true parameter.
+
+Consistency usually requires that:
+
+- the model is correctly specified;
+- observations provide sufficient information about the parameter;
+- the parameter is identifiable;
+- the likelihood behaves regularly.
+
+## Simulating consistency
+
+```{r}
+set.seed(11)
+
+consistency_sample_sizes = c(5, 20, 100)
+B_consistency = 3000
+
+par(mfrow = c(1, 3))
+
+for (sample_size in consistency_sample_sizes) {
+  estimates = replicate(
+    B_consistency,
+    mean(
+      rpois(
+        sample_size,
+        lambda = true_lambda
+      )
+    )
+  )
+
+  hist(
+    estimates,
+    breaks = 30,
+    probability = TRUE,
+    xlim = c(0, 10),
+    col = "grey85",
+    border = "white",
+    main = paste("n =", sample_size),
+    xlab = expression(hat(lambda))
+  )
+
+  abline(
+    v = true_lambda,
+    col = "navy",
+    lwd = 2,
+    lty = 2
+  )
+}
+
+par(mfrow = c(1, 1))
+```
+
+As the sample size increases, the distribution of estimates becomes narrower around the true parameter.
+
+## Asymptotic normality
+
+Many maximum likelihood estimators are approximately Normally distributed when the sample size is sufficiently large.
+
+For a scalar parameter $\theta$,
+
+$$
+\widehat{\theta}
+\approx
+\operatorname{Normal}
+\left(
+\theta,
+\operatorname{Var}(\widehat{\theta})
+\right).
+$$
+
+A common asymptotic result is
+
+$$
+\sqrt{n}
+(\widehat{\theta}-\theta)
+\overset{d}{\longrightarrow}
+\operatorname{Normal}
+\left(
+0,
+I(\theta)^{-1}
+\right),
+$$
+
+where $I(\theta)$ is the Fisher information per observation.
+
+Equivalently,
+
+$$
+\widehat{\theta}
+\approx
+\operatorname{Normal}
+\left(
+\theta,
+\frac{1}{n}I(\theta)^{-1}
+\right).
+$$
+
+This result explains why standard errors and Normal-based confidence intervals are often useful.
+
+For the Poisson mean,
+
+$$
+\widehat{\lambda}
+\approx
+\operatorname{Normal}
+\left(
+\lambda,
+\frac{\lambda}{n}
+\right)
+$$
+
+when the sample size is sufficiently large.
+
+## Asymptotic efficiency
+
+Under suitable regularity conditions, maximum likelihood estimators are asymptotically efficient.
+
+This means that, for large samples, they often have the smallest possible variance among a broad class of estimators.
+
+This does not mean that maximum likelihood is always best in every finite sample.
+
+The approximation can be poor when:
+
+- the sample size is small;
+- the likelihood is strongly skewed;
+- parameters are near a boundary;
+- the model is poorly identified;
+- the model is misspecified.
+
+# Likelihood surfaces
+
+When there is more than one parameter, the likelihood is a surface rather than a curve.
+
+Consider the Normal tree-height model:
+
+$$
+X_i\sim\operatorname{Normal}(\mu,\sigma^2).
+$$
+
+The likelihood is
+
+$$
+L(\mu,\sigma)
+=
+\prod_{i=1}^n
+\frac{1}{\sigma\sqrt{2\pi}}
+\exp\left[
+-\frac{(x_i-\mu)^2}{2\sigma^2}
+\right].
+$$
+
+The likelihood depends on two parameters:
+
+- $\mu$, the mean tree height;
+- $\sigma$, the standard deviation of tree height.
+
+We simulate a sample of tree heights.
+
+```{r}
+set.seed(20)
+
+true_mu_surface = 22
+true_sigma_surface = 4
+n_trees_surface = 25
+
+tree_heights_surface = rnorm(
+  n = n_trees_surface,
+  mean = true_mu_surface,
+  sd = true_sigma_surface
+)
+```
+
+We define a Normal log-likelihood.
+
+```{r}
+normal_log_likelihood = function(
+    mu,
+    sigma,
+    data
+) {
+  if (sigma <= 0) {
+    return(-Inf)
+  }
+
+  sum(
+    dnorm(
+      data,
+      mean = mu,
+      sd = sigma,
+      log = TRUE
+    )
+  )
+}
+```
+
+We can estimate the parameters numerically by optimizing over $\mu$ and $\log(\sigma)$.
+
+```{r}
+normal_negative_log_likelihood = function(
+    par,
+    data
+) {
+  mu = par[1]
+  sigma = exp(par[2])
+
+  -normal_log_likelihood(
+    mu = mu,
+    sigma = sigma,
+    data = data
+  )
+}
+
+normal_fit = optim(
+  par = c(
+    mu = mean(tree_heights_surface),
+    log_sigma = log(sd(tree_heights_surface))
+  ),
+  fn = normal_negative_log_likelihood,
+  data = tree_heights_surface,
+  method = "BFGS",
+  hessian = TRUE
+)
+
+normal_mu_hat = normal_fit$par[1]
+normal_sigma_hat = exp(normal_fit$par[2])
+
+c(
+  true_mu = true_mu_surface,
+  estimated_mu = normal_mu_hat,
+  true_sigma = true_sigma_surface,
+  estimated_sigma = normal_sigma_hat
+)
+```
+
+## Plotting a likelihood surface
+
+We evaluate the log-likelihood over a grid of possible values.
+
+```{r}
+mu_grid = seq(
+  15,
+  29,
+  length.out = 160
+)
+
+sigma_grid = seq(
+  1,
+  9,
+  length.out = 160
+)
+
+normal_loglik_surface = outer(
+  mu_grid,
+  sigma_grid,
+  Vectorize(
+    function(mu, sigma) {
+      normal_log_likelihood(
+        mu = mu,
+        sigma = sigma,
+        data = tree_heights_surface
+      )
+    }
+  )
+)
+
+normal_relative_loglik_surface =
+  normal_loglik_surface -
+  max(normal_loglik_surface)
+```
+
+The relative log-likelihood has a maximum of zero.
+
+```{r}
+contour(
+  mu_grid,
+  sigma_grid,
+  normal_relative_loglik_surface,
+  levels = c(-20, -10, -5, -2, -1, -0.5, -0.1),
+  xlab = expression(mu),
+  ylab = expression(sigma),
+  main = "Normal relative log-likelihood surface"
+)
+
+points(
+  normal_mu_hat,
+  normal_sigma_hat,
+  pch = 19,
+  col = "firebrick"
+)
+
+points(
+  true_mu_surface,
+  true_sigma_surface,
+  pch = 4,
+  col = "navy",
+  lwd = 2
+)
+
+legend(
+  "topright",
+  legend = c(
+    "Maximum likelihood estimate",
+    "True parameter"
+  ),
+  pch = c(19, 4),
+  col = c("firebrick", "navy"),
+  bty = "n"
+)
+```
+
+The contours show combinations of $\mu$ and $\sigma$ with similar relative log-likelihoods.
+
+The maximum likelihood estimate is at the centre of the highest-likelihood region.
+
+The true parameter values need not be exactly at the maximum because the data are a finite random sample.
+
+A likelihood surface is not a probability surface. It describes how well different parameter combinations explain the observed data.
+
+# Likelihood slices
+
+A **likelihood slice** varies one parameter while holding the other parameter fixed.
+
+For example, we can vary $\mu$ while holding $\sigma$ at its maximum likelihood estimate:
+
+$$
+\ell(\mu,\widehat{\sigma}).
+$$
+
+```{r}
+normal_mu_slice = sapply(
+  mu_grid,
+  function(mu) {
+    normal_log_likelihood(
+      mu = mu,
+      sigma = normal_sigma_hat,
+      data = tree_heights_surface
+    )
+  }
+)
+
+normal_sigma_slice = sapply(
+  sigma_grid,
+  function(sigma) {
+    normal_log_likelihood(
+      mu = normal_mu_hat,
+      sigma = sigma,
+      data = tree_heights_surface
+    )
+  }
+)
+
+normal_loglik_max = normal_log_likelihood(
+  mu = normal_mu_hat,
+  sigma = normal_sigma_hat,
+  data = tree_heights_surface
+)
+```
+
+We plot the two slices as relative log-likelihoods.
+
+```{r}
+par(mfrow = c(1, 2))
+
+plot(
+  mu_grid,
+  normal_mu_slice - normal_loglik_max,
+  type = "l",
+  lwd = 2,
+  col = "navy",
+  xlab = expression(mu),
+  ylab = "Relative log-likelihood",
+  main = "Slice for the mean"
+)
+
+abline(
+  v = normal_mu_hat,
+  col = "firebrick",
+  lty = 2,
+  lwd = 2
+)
+
+plot(
+  sigma_grid,
+  normal_sigma_slice - normal_loglik_max,
+  type = "l",
+  lwd = 2,
+  col = "navy",
+  xlab = expression(sigma),
+  ylab = "Relative log-likelihood",
+  main = "Slice for the standard deviation"
+)
+
+abline(
+  v = normal_sigma_hat,
+  col = "firebrick",
+  lty = 2,
+  lwd = 2
+)
+
+par(mfrow = c(1, 1))
+```
+
+A slice is useful for visualizing the likelihood near the estimate.
+
+However, a slice does not re-estimate the other parameter. This can make a slice too narrow or otherwise misleading when parameters are correlated.
+
+# Profile likelihoods
+
+A **profile likelihood** varies one parameter while re-estimating the other parameters.
+
+Suppose $\mu$ is the parameter of interest and $\sigma$ is a nuisance parameter.
+
+The profile log-likelihood for $\mu$ is
+
+$$
+\ell_p(\mu)
+=
+\max_{\sigma}\ell(\mu,\sigma).
+$$
+
+For every fixed value of $\mu$, the value of $\sigma$ that gives the highest likelihood is found.
+
+This differs from the slice
+
+$$
+\ell(\mu,\widehat{\sigma}),
+$$
+
+which holds $\sigma$ fixed at its overall estimate.
+
+## Profiling the mean
+
+We can use `optimize()` to find the best value of $\sigma$ for each fixed value of $\mu$.
+
+We again use $\log(\sigma)$ so that the standard deviation remains positive.
+
+```{r}
+normal_profile_mu = function(
+    mu,
+    data
+) {
+  profile_fit = optimize(
+    f = function(log_sigma) {
+      -normal_log_likelihood(
+        mu = mu,
+        sigma = exp(log_sigma),
+        data = data
+      )
+    },
+    interval = log(c(0.1, 50))
+  )
+
+  list(
+    log_likelihood = -profile_fit$objective,
+    sigma = exp(profile_fit$minimum)
+  )
+}
+
+normal_mu_profile_results = lapply(
+  mu_grid,
+  normal_profile_mu,
+  data = tree_heights_surface
+)
+
+normal_mu_profile_loglik = vapply(
+  normal_mu_profile_results,
+  function(result) result$log_likelihood,
+  numeric(1)
+)
+```
+
+We can compare the slice and profile likelihood for $\mu$.
+
+```{r}
+plot(
+  mu_grid,
+  normal_mu_slice - normal_loglik_max,
+  type = "l",
+  lwd = 2,
+  col = "grey40",
+  xlab = expression(mu),
+  ylab = "Relative log-likelihood",
+  main = "Slice and profile likelihood for the mean"
+)
+
+lines(
+  mu_grid,
+  normal_mu_profile_loglik - normal_loglik_max,
+  lwd = 2,
+  col = "navy",
+  lty = 2
+)
+
+abline(
+  v = normal_mu_hat,
+  col = "firebrick",
+  lwd = 2,
+  lty = 3
+)
+
+legend(
+  "bottomleft",
+  legend = c(
+    "Slice",
+    "Profile likelihood",
+    "Maximum likelihood estimate"
+  ),
+  col = c("grey40", "navy", "firebrick"),
+  lwd = 2,
+  lty = c(1, 2, 3),
+  bty = "n"
+)
+```
+
+The profile likelihood is at least as high as the slice at each value of $\mu$ because it is allowed to choose the best value of $\sigma$.
+
+## Profiling the standard deviation
+
+We can also profile $\sigma$ while re-estimating $\mu$.
+
+```{r}
+normal_profile_sigma = function(
+    sigma,
+    data
+) {
+  profile_fit = optimize(
+    f = function(mu) {
+      -normal_log_likelihood(
+        mu = mu,
+        sigma = sigma,
+        data = data
+      )
+    },
+    interval = range(data) + c(-20, 20)
+  )
+
+  list(
+    log_likelihood = -profile_fit$objective,
+    mu = profile_fit$minimum
+  )
+}
+
+normal_sigma_profile_results = lapply(
+  sigma_grid,
+  normal_profile_sigma,
+  data = tree_heights_surface
+)
+
+normal_sigma_profile_loglik = vapply(
+  normal_sigma_profile_results,
+  function(result) result$log_likelihood,
+  numeric(1)
+)
+```
+
+The slice and profile for $\sigma$ can be compared as follows.
+
+```{r}
+plot(
+  sigma_grid,
+  normal_sigma_slice - normal_loglik_max,
+  type = "l",
+  lwd = 2,
+  col = "grey40",
+  xlab = expression(sigma),
+  ylab = "Relative log-likelihood",
+  main = "Slice and profile likelihood for sigma"
+)
+
+lines(
+  sigma_grid,
+  normal_sigma_profile_loglik - normal_loglik_max,
+  lwd = 2,
+  col = "navy",
+  lty = 2
+)
+
+abline(
+  v = normal_sigma_hat,
+  col = "firebrick",
+  lwd = 2,
+  lty = 3
+)
+
+legend(
+  "topright",
+  legend = c(
+    "Slice",
+    "Profile likelihood",
+    "Maximum likelihood estimate"
+  ),
+  col = c("grey40", "navy", "firebrick"),
+  lwd = 2,
+  lty = c(1, 2, 3),
+  bty = "n"
+)
+```
+
+Profile likelihoods are particularly useful when a model contains several nuisance parameters.
+
+# Quadratic approximation to the likelihood
+
+Near the maximum likelihood estimate, the log-likelihood can often be approximated by a quadratic function.
+
+For a scalar parameter $\theta$,
+
+$$
+\ell(\theta)
+\approx
+\ell(\widehat{\theta})
+-
+\frac{1}{2}
+\frac{
+(\theta-\widehat{\theta})^2
+}{
+\operatorname{Var}(\widehat{\theta})
+}.
+$$
+
+For a vector of parameters,
+
+$$
+\ell(\boldsymbol{\theta})
+\approx
+\ell(\widehat{\boldsymbol{\theta}})
+-
+\frac{1}{2}
+(\boldsymbol{\theta}-\widehat{\boldsymbol{\theta}})^\mathsf{T}
+H
+(\boldsymbol{\theta}-\widehat{\boldsymbol{\theta}}),
+$$
+
+where $H$ is the Hessian matrix of the negative log-likelihood.
+
+The Hessian contains second derivatives:
+
+$$
+H_{jk}
+=
+\frac{\partial^2[-\ell(\boldsymbol{\theta})]}
+{\partial\theta_j\partial\theta_k}.
+$$
+
+At the maximum likelihood estimate, the inverse Hessian is an estimate of the covariance matrix:
+
+$$
+\widehat{\operatorname{Var}}
+(\widehat{\boldsymbol{\theta}})
+=
+H^{-1}.
+$$
+
+The standard errors are the square roots of the diagonal elements.
+
+## The Hessian from `optim()`
+
+We already requested the Hessian when fitting the Normal model.
+
+```{r}
+normal_hessian = normal_fit$hessian
+
+normal_vcov_transformed = solve(
+  normal_hessian
+)
+
+normal_se_transformed = sqrt(
+  diag(normal_vcov_transformed)
+)
+
+normal_vcov_transformed
+normal_se_transformed
+```
+
+The parameters optimized by `normal_fit()` were:
+
+- $\mu$;
+- $\log(\sigma)$.
+
+The second standard error is therefore the standard error of $\log(\sigma)$.
+
+The covariance matrix also contains the covariance between the two parameter estimates.
+
+This covariance can be important when parameters are correlated.
+
+## Quadratic confidence intervals
+
+A quadratic or Wald confidence interval is approximately
+
+$$
+\widehat{\theta}
+\pm
+1.96\operatorname{SE}(\widehat{\theta}).
+$$
+
+For $\mu$, this can be calculated directly.
+
+For $\sigma$, it is more sensible to calculate the interval on the logarithmic scale and then back-transform the endpoints.
+
+```{r}
+z_critical = qnorm(0.975)
+
+normal_wald_ci = rbind(
+  mu = c(
+    lower =
+      normal_mu_hat -
+      z_critical * normal_se_transformed[1],
+    estimate = normal_mu_hat,
+    upper =
+      normal_mu_hat +
+      z_critical * normal_se_transformed[1]
+  ),
+  sigma = exp(
+    c(
+      lower =
+        normal_fit$par[2] -
+        z_critical * normal_se_transformed[2],
+      estimate = normal_fit$par[2],
+      upper =
+        normal_fit$par[2] +
+        z_critical * normal_se_transformed[2]
+    )
+  )
+)
+
+round(normal_wald_ci, 3)
+```
+
+The interval for $\sigma$ is asymmetric on the original scale because the logarithmic endpoints have been exponentiated.
+
+This is usually preferable to a symmetric interval on the original scale that might extend below zero.
+
+## Visualizing the quadratic approximation
+
+The quadratic approximation for the profile likelihood of $\mu$ is
+
+$$
+\ell_{\mathrm{quad}}(\mu)
+=
+\ell(\widehat{\mu},\widehat{\sigma})
+-
+\frac{1}{2}
+\left(
+\frac{\mu-\widehat{\mu}}
+{\operatorname{SE}(\widehat{\mu})}
+\right)^2.
+$$
+
+```{r}
+normal_mu_quadratic = normal_loglik_max -
+  0.5 *
+  (
+    (mu_grid - normal_mu_hat) /
+      normal_se_transformed[1]
+  )^2
+
+normal_sigma_quadratic = normal_loglik_max -
+  0.5 *
+  (
+    (log(sigma_grid) -
+      log(normal_sigma_hat)) /
+      normal_se_transformed[2]
+  )^2
+```
+
+```{r}
+par(mfrow = c(1, 2))
+
+plot(
+  mu_grid,
+  normal_mu_profile_loglik - normal_loglik_max,
+  type = "l",
+  lwd = 2,
+  col = "navy",
+  xlab = expression(mu),
+  ylab = "Relative log-likelihood",
+  main = "Quadratic approximation for mu"
+)
+
+lines(
+  mu_grid,
+  normal_mu_quadratic - normal_loglik_max,
+  col = "firebrick",
+  lwd = 2,
+  lty = 2
+)
+
+plot(
+  sigma_grid,
+  normal_sigma_profile_loglik - normal_loglik_max,
+  type = "l",
+  lwd = 2,
+  col = "navy",
+  xlab = expression(sigma),
+  ylab = "Relative log-likelihood",
+  main = "Quadratic approximation for sigma"
+)
+
+lines(
+  sigma_grid,
+  normal_sigma_quadratic - normal_loglik_max,
+  col = "firebrick",
+  lwd = 2,
+  lty = 2
+)
+
+par(mfrow = c(1, 1))
+```
+
+The quadratic approximation is most accurate near the maximum.
+
+It may become poor farther from the estimate, especially when the likelihood is skewed or has a boundary.
+
+# Profile likelihood confidence intervals
+
+A profile likelihood interval is based on the likelihood-ratio statistic.
+
+For one parameter, define
+
+$$
+D(\theta)
+=
+2\left[
+\ell(\widehat{\theta})
+-
+\ell_p(\theta)
+\right].
+$$
+
+Under suitable regularity conditions,
+
+$$
+D(\theta)
+\approx
+\chi^2_1.
+$$
+
+An approximate 95% profile likelihood confidence interval therefore contains values satisfying
+
+$$
+D(\theta)
+\leq
+\chi^2_{1,0.95}.
+$$
+
+Equivalently, the profile log-likelihood must satisfy
+
+$$
+\ell_p(\theta)
+\geq
+\ell(\widehat{\theta})
+-
+\frac{1}{2}
+\chi^2_{1,0.95}.
+$$
+
+The cutoff is therefore:
+
+```{r}
+profile_critical_value = qchisq(
+  0.95,
+  df = 1
+)
+
+profile_threshold = -0.5 *
+  profile_critical_value
+
+profile_threshold
+```
+
+The confidence interval consists of the parameter values for which the relative profile log-likelihood is above this threshold.
+
+## Profile interval for the Normal mean
+
+We define functions that calculate the profile log-likelihood for a fixed value of $\mu$.
+
+```{r}
+normal_mu_profile_function = function(mu) {
+  normal_profile_mu(
+    mu = mu,
+    data = tree_heights_surface
+  )$log_likelihood
+}
+
+normal_mu_profile_lower = uniroot(
+  function(mu) {
+    normal_mu_profile_function(mu) -
+      normal_loglik_max -
+      profile_threshold
+  },
+  interval = c(15, normal_mu_hat)
+)$root
+
+normal_mu_profile_upper = uniroot(
+  function(mu) {
+    normal_mu_profile_function(mu) -
+      normal_loglik_max -
+      profile_threshold
+  },
+  interval = c(normal_mu_hat, 29)
+)$root
+```
+
+## Profile interval for the standard deviation
+
+```{r}
+normal_sigma_profile_function = function(sigma) {
+  normal_profile_sigma(
+    sigma = sigma,
+    data = tree_heights_surface
+  )$log_likelihood
+}
+
+normal_sigma_profile_lower = uniroot(
+  function(sigma) {
+    normal_sigma_profile_function(sigma) -
+      normal_loglik_max -
+      profile_threshold
+  },
+  interval = c(1, normal_sigma_hat)
+)$root
+
+normal_sigma_profile_upper = uniroot(
+  function(sigma) {
+    normal_sigma_profile_function(sigma) -
+      normal_loglik_max -
+      profile_threshold
+  },
+  interval = c(normal_sigma_hat, 9)
+)$root
+```
+
+The profile confidence intervals are:
+
+```{r}
+normal_profile_ci = rbind(
+  mu = c(
+    lower = normal_mu_profile_lower,
+    estimate = normal_mu_hat,
+    upper = normal_mu_profile_upper
+  ),
+  sigma = c(
+    lower = normal_sigma_profile_lower,
+    estimate = normal_sigma_hat,
+    upper = normal_sigma_profile_upper
+  )
+)
+
+round(normal_profile_ci, 3)
+```
+
+The quadratic and profile intervals can be compared directly.
+
+```{r}
+round(
+  rbind(
+    quadratic = normal_wald_ci,
+    profile = normal_profile_ci
+  ),
+  3
+)
+```
+
+The profile interval may be asymmetric even when the quadratic interval is approximately symmetric on the optimization scale.
+
+## Plotting the profile confidence intervals
+
+```{r}
+par(mfrow = c(1, 2))
+
+plot(
+  mu_grid,
+  normal_mu_profile_loglik - normal_loglik_max,
+  type = "l",
+  lwd = 2,
+  col = "navy",
+  xlab = expression(mu),
+  ylab = "Relative log-likelihood",
+  main = "Profile interval for mu"
+)
+
+abline(
+  h = profile_threshold,
+  col = "firebrick",
+  lty = 2,
+  lwd = 2
+)
+
+abline(
+  v = c(
+    normal_mu_profile_lower,
+    normal_mu_profile_upper
+  ),
+  col = "firebrick",
+  lty = 3,
+  lwd = 2
+)
+
+plot(
+  sigma_grid,
+  normal_sigma_profile_loglik - normal_loglik_max,
+  type = "l",
+  lwd = 2,
+  col = "navy",
+  xlab = expression(sigma),
+  ylab = "Relative log-likelihood",
+  main = "Profile interval for sigma"
+)
+
+abline(
+  h = profile_threshold,
+  col = "firebrick",
+  lty = 2,
+  lwd = 2
+)
+
+abline(
+  v = c(
+    normal_sigma_profile_lower,
+    normal_sigma_profile_upper
+  ),
+  col = "firebrick",
+  lty = 3,
+  lwd = 2
+)
+
+par(mfrow = c(1, 1))
+```
+
+The horizontal line shows the likelihood-ratio cutoff.
+
+The vertical lines show where the profile likelihood crosses the cutoff.
+
+# Quadratic and profile intervals
+
+Quadratic and profile likelihood intervals have different strengths.
+
+| Method | Advantages | Limitations |
+|---|---|---|
+| Quadratic approximation | Fast; simple; easy to automate | Assumes a locally quadratic likelihood; can perform poorly with skewness or boundaries |
+| Profile likelihood | Allows asymmetry; re-estimates nuisance parameters | More computationally expensive; usually relies on an asymptotic approximation |
+
+## Advantages of quadratic intervals
+
+Quadratic intervals are useful because they are:
+
+- computationally inexpensive;
+- easy to calculate from the Hessian;
+- convenient for models with many parameters;
+- often accurate when the sample size is large;
+- useful for summarizing covariance between parameters.
+
+They are particularly effective when the likelihood surface is approximately elliptical near its maximum.
+
+## Limitations of quadratic intervals
+
+Quadratic intervals can be unreliable when:
+
+- the sample size is small;
+- the likelihood is strongly skewed;
+- a parameter is close to a boundary;
+- the parameter is weakly identified;
+- the model is highly nonlinear;
+- parameters are strongly correlated;
+- the Hessian is poorly conditioned.
+
+A symmetric confidence interval for a positive parameter can also extend below zero.
+
+Transforming the parameter can help, but it does not guarantee that the approximation is accurate.
+
+## Advantages of profile likelihood intervals
+
+Profile intervals:
+
+- account for nuisance parameters;
+- allow asymmetric intervals;
+- follow the actual shape of the likelihood more closely;
+- are often more useful for nonlinear models;
+- can reveal weak identification or irregular likelihood shapes.
+
+## Limitations of profile likelihood intervals
+
+Profile likelihood intervals are not exact automatically.
+
+They usually use the approximation
+
+$$
+D(\theta)\approx\chi^2_1.
+$$
+
+This approximation can also be poor in small samples or for parameters near boundaries.
+
+Profile likelihoods are also slower because a new optimization is required for each value of the parameter of interest.
+
+Simulation or bootstrap calibration may be useful when the asymptotic approximation is doubtful.
+
+# A complete example: fitting a negative binomial distribution
+
+We now fit a distribution to a sample using a likelihood function and nonlinear optimization.
+
+This example uses the negative binomial seedling-count model introduced in Chapter 1.
+
+Suppose
+
+$$
+X_i\sim\operatorname{NegativeBinomial}(\mu,k),
+$$
+
+where:
+
+- $\mu$ is the mean number of seedlings per quadrat;
+- $k$ controls overdispersion.
+
+The mean and variance are
+
+$$
+E[X]=\mu
+$$
+
+and
+
+$$
+\operatorname{Var}(X)
+=
+\mu+\frac{\mu^2}{k}.
+$$
+
+In R, the corresponding probability mass is calculated with:
+
+```r
+dnbinom(x, size = k, mu = mu)
+```
+
+The parameter called `size` in R is the same as the ecological overdispersion parameter $k$ used here.
+
+## Simulating overdispersed seedling counts
+
+```{r}
+set.seed(30)
+
+true_mu_negative_binomial = 4
+true_k_negative_binomial = 1.5
+n_quadrats_negative_binomial = 80
+
+negative_binomial_counts = rnbinom(
+  n = n_quadrats_negative_binomial,
+  size = true_k_negative_binomial,
+  mu = true_mu_negative_binomial
+)
+
+c(
+  true_mean = true_mu_negative_binomial,
+  true_variance =
+    true_mu_negative_binomial +
+    true_mu_negative_binomial^2 /
+      true_k_negative_binomial,
+  sample_mean = mean(negative_binomial_counts),
+  sample_variance = var(negative_binomial_counts)
+)
+```
+
+The sample mean and variance will not exactly equal the theoretical values.
+
+The sample variance should generally be larger than the sample mean because the data are overdispersed relative to a Poisson distribution.
+
+## Constructing the negative binomial likelihood
+
+For independent observations, the likelihood is
+
+$$
+L(\mu,k)
+=
+\prod_{i=1}^n
+P(X_i=x_i\mid\mu,k).
+$$
+
+The log-likelihood is
+
+$$
+\ell(\mu,k)
+=
+\sum_{i=1}^n
+\log
+P(X_i=x_i\mid\mu,k).
+$$
+
+We define the negative log-likelihood using $\log(\mu)$ and $\log(k)$ as the optimization parameters.
+
+```{r}
+negative_binomial_negative_log_likelihood = function(
+    par,
+    data
+) {
+  mu = exp(par[1])
+  k = exp(par[2])
+
+  -sum(
+    dnbinom(
+      data,
+      size = k,
+      mu = mu,
+      log = TRUE
+    )
+  )
+}
+```
+
+The transformations
+
+$$
+\mu=e^{\eta_\mu}
+\]
+
+and
+
+$$
+k=e^{\eta_k}
+$$
+
+ensure that both parameters remain positive.
+
+## Choosing starting values
+
+Starting values can affect the speed and success of numerical optimization.
+
+The sample mean provides a natural starting value for $\mu$.
+
+A method-of-moments starting value for $k$ can be obtained from
+
+$$
+s^2\approx\mu+\frac{\mu^2}{k}.
+$$
+
+Solving for $k$ gives
+
+$$
+k\approx
+\frac{\mu^2}{s^2-\mu}.
+$$
+
+This formula is only useful when the sample variance is greater than the sample mean.
+
+```{r}
+negative_binomial_sample_mean = mean(
+  negative_binomial_counts
+)
+
+negative_binomial_sample_variance = var(
+  negative_binomial_counts
+)
+
+negative_binomial_start_mu = max(
+  negative_binomial_sample_mean,
+  0.1
+)
+
+negative_binomial_start_k = negative_binomial_start_mu^2 /
+  max(
+    negative_binomial_sample_variance -
+      negative_binomial_sample_mean,
+    0.1
+  )
+
+c(
+  starting_mu = negative_binomial_start_mu,
+  starting_k = negative_binomial_start_k
+)
+```
+
+These values are only starting values. They are not the final estimates.
+
+## Maximum likelihood estimation with `optim()`
+
+```{r}
+negative_binomial_fit = optim(
+  par = log(
+    c(
+      mu = negative_binomial_start_mu,
+      k = negative_binomial_start_k
+    )
+  ),
+  fn = negative_binomial_negative_log_likelihood,
+  data = negative_binomial_counts,
+  method = "BFGS",
+  hessian = TRUE,
+  control = list(
+    maxit = 1000
+  )
+)
+
+negative_binomial_fit$convergence
+```
+
+A convergence code of zero generally indicates successful termination.
+
+We transform the estimates back to the original scale.
+
+```{r}
+negative_binomial_estimates = c(
+  mu = exp(negative_binomial_fit$par[1]),
+  k = exp(negative_binomial_fit$par[2])
+)
+
+rbind(
+  true = c(
+    mu = true_mu_negative_binomial,
+    k = true_k_negative_binomial
+  ),
+  maximum_likelihood = negative_binomial_estimates
+)
+```
+
+The estimates will not usually equal the true values exactly because the data are a finite random sample.
+
+## Comparing the fitted distribution with the data
+
+```{r}
+negative_binomial_support = 0:max(
+  c(
+    negative_binomial_counts,
+    qnbinom(
+      0.999,
+      size = negative_binomial_estimates["k"],
+      mu = negative_binomial_estimates["mu"]
+    )
+  )
+)
+
+negative_binomial_observed_mass = as.numeric(
+  prop.table(
+    table(
+      factor(
+        negative_binomial_counts,
+        levels = negative_binomial_support
+      )
+    )
+  )
+)
+
+negative_binomial_fitted_mass = dnbinom(
+  negative_binomial_support,
+  size = negative_binomial_estimates["k"],
+  mu = negative_binomial_estimates["mu"]
+)
+
+barplot(
+  rbind(
+    negative_binomial_observed_mass,
+    negative_binomial_fitted_mass
+  ),
+  beside = TRUE,
+  names.arg = negative_binomial_support,
+  col = c("grey70", "tomato"),
+  xlab = "Number of seedlings",
+  ylab = "Probability",
+  legend.text = c(
+    "Observed frequency",
+    "Fitted negative binomial"
+  ),
+  args.legend = list(x = "topright"),
+  main = "Fitted negative binomial distribution"
+)
+```
+
+The fitted model describes the overall pattern of the observed counts.
+
+It will not reproduce every feature of the sample exactly.
+
+# Quadratic uncertainty for the negative binomial model
+
+The Hessian is calculated on the logarithmic scale because that is the scale used for optimization.
+
+```{r}
+negative_binomial_vcov_log = solve(
+  negative_binomial_fit$hessian
+)
+
+negative_binomial_se_log = sqrt(
+  diag(negative_binomial_vcov_log)
+)
+
+negative_binomial_vcov_log
+negative_binomial_se_log
+```
+
+The approximate confidence intervals can be calculated on the log scale and back-transformed.
+
+```{r}
+negative_binomial_quadratic_ci = rbind(
+  mu = exp(
+    c(
+      lower =
+        negative_binomial_fit$par[1] -
+        z_critical *
+          negative_binomial_se_log[1],
+      estimate = negative_binomial_fit$par[1],
+      upper =
+        negative_binomial_fit$par[1] +
+        z_critical *
+          negative_binomial_se_log[1]
+    )
+  ),
+  k = exp(
+    c(
+      lower =
+        negative_binomial_fit$par[2] -
+        z_critical *
+          negative_binomial_se_log[2],
+      estimate = negative_binomial_fit$par[2],
+      upper =
+        negative_binomial_fit$par[2] +
+        z_critical *
+          negative_binomial_se_log[2]
+    )
+  )
+)
+
+round(negative_binomial_quadratic_ci, 3)
+```
+
+These intervals describe uncertainty based on the local quadratic approximation to the negative log-likelihood.
+
+# A profile likelihood for the negative binomial mean
+
+The same profiling idea can be used for the negative binomial model.
+
+To profile $\mu$, we fix $\mu$ and re-estimate $k$.
+
+```{r}
+negative_binomial_profile_mu = function(
+    log_mu,
+    data,
+    start_log_k
+) {
+  nuisance_fit = optim(
+    par = start_log_k,
+    fn = function(log_k) {
+      negative_binomial_negative_log_likelihood(
+        par = c(log_mu, log_k),
+        data = data
+      )
+    },
+    method = "BFGS"
+  )
+
+  list(
+    log_likelihood = -nuisance_fit$value,
+    log_k = nuisance_fit$par[1]
+  )
+}
+```
+
+We evaluate the profile over a grid of possible mean values.
+
+```{r}
+negative_binomial_log_mu_grid = seq(
+  log(0.5),
+  log(15),
+  length.out = 120
+)
+
+negative_binomial_profile_mu_results = lapply(
+  negative_binomial_log_mu_grid,
+  negative_binomial_profile_mu,
+  data = negative_binomial_counts,
+  start_log_k = negative_binomial_fit$par[2]
+)
+
+negative_binomial_profile_mu_loglik = vapply(
+  negative_binomial_profile_mu_results,
+  function(result) result$log_likelihood,
+  numeric(1)
+)
+
+negative_binomial_loglik_max =
+  -negative_binomial_fit$value
+
+negative_binomial_profile_mu_relative =
+  negative_binomial_profile_mu_loglik -
+  negative_binomial_loglik_max
+```
+
+```{r}
+plot(
+  exp(negative_binomial_log_mu_grid),
+  negative_binomial_profile_mu_relative,
+  type = "l",
+  lwd = 2,
+  col = "navy",
+  xlab = expression(mu),
+  ylab = "Relative profile log-likelihood",
+  main = "Profile likelihood for the negative binomial mean"
+)
+
+abline(
+  h = profile_threshold,
+  col = "firebrick",
+  lwd = 2,
+  lty = 2
+)
+
+abline(
+  v = negative_binomial_estimates["mu"],
+  col = "firebrick",
+  lwd = 2,
+  lty = 3
+)
+```
+
+The profile likelihood confidence interval can be found by locating the two crossings of the likelihood-ratio threshold.
+
+```{r}
+negative_binomial_profile_mu_function = function(
+    log_mu
+) {
+  negative_binomial_profile_mu(
+    log_mu = log_mu,
+    data = negative_binomial_counts,
+    start_log_k = negative_binomial_fit$par[2]
+  )$log_likelihood
+}
+
+negative_binomial_profile_mu_lower = uniroot(
+  function(log_mu) {
+    negative_binomial_profile_mu_function(log_mu) -
+      negative_binomial_loglik_max -
+      profile_threshold
+  },
+  interval = c(
+    log(0.5),
+    negative_binomial_fit$par[1]
+  )
+)$root
+
+negative_binomial_profile_mu_upper = uniroot(
+  function(log_mu) {
+    negative_binomial_profile_mu_function(log_mu) -
+      negative_binomial_loglik_max -
+      profile_threshold
+  },
+  interval = c(
+    negative_binomial_fit$par[1],
+    log(15)
+  )
+)$root
+
+negative_binomial_profile_mu_ci = exp(
+  c(
+    lower = negative_binomial_profile_mu_lower,
+    estimate = negative_binomial_fit$par[1],
+    upper = negative_binomial_profile_mu_upper
+  )
+)
+
+negative_binomial_profile_mu_ci
+```
+
+The quadratic and profile intervals for $\mu$ can be compared.
+
+```{r}
+rbind(
+  quadratic =
+    negative_binomial_quadratic_ci["mu", ],
+  profile =
+    negative_binomial_profile_mu_ci
+)
+```
+
+The profile interval may be wider or more asymmetric than the quadratic interval.
+
+# Checking an optimization result
+
+A convergence code of zero is useful, but it is not a complete diagnostic.
+
+When fitting a bespoke likelihood, it is good practice to check:
+
+- the convergence code;
+- the estimated parameter values;
+- the fitted distribution;
+- the likelihood value;
+- whether different starting values give similar results;
+- whether the Hessian is positive definite;
+- whether the likelihood has multiple maxima;
+- whether the fitted model is ecologically plausible.
+
+For example, we can repeat the negative binomial fit using several starting values.
+
+```{r}
+negative_binomial_starting_values = list(
+  c(log(1), log(0.5)),
+  c(log(4), log(1.5)),
+  c(log(10), log(10))
+)
+
+negative_binomial_starting_results = lapply(
+  negative_binomial_starting_values,
+  function(start) {
+    fit = optim(
+      par = start,
+      fn = negative_binomial_negative_log_likelihood,
+      data = negative_binomial_counts,
+      method = "BFGS"
+    )
+
+    c(
+      convergence = fit$convergence,
+      negative_log_likelihood = fit$value,
+      mu = exp(fit$par[1]),
+      k = exp(fit$par[2])
+    )
+  }
+)
+
+do.call(
+  rbind,
+  negative_binomial_starting_results
+)
+```
+
+Similar results from different starting values increase confidence that the same maximum has been found.
+
+They do not prove that the result is the global maximum, but they are a useful diagnostic.
+
+# A general maximum likelihood workflow
+
+The same general procedure can be used for many ecological models:
+
+1. specify the probability model;
+2. identify the parameters;
+3. write the likelihood;
+4. write the log-likelihood;
+5. define the negative log-likelihood;
+6. transform constrained parameters;
+7. choose sensible starting values;
+8. optimize using `optim()`;
+9. check convergence;
+10. inspect the fitted model;
+11. calculate uncertainty;
+12. examine likelihood profiles when necessary;
+13. validate the procedure using simulation.
+
+The model does not need to correspond to a standard distribution already implemented in R.
+
+For example, a bespoke likelihood could describe:
+
+- survival probabilities that vary with body size;
+- detection probability that changes with vegetation density;
+- nonlinear population growth;
+- recruitment depending on several environmental variables;
+- a mixture of ecological and observation processes.
+
+The essential ingredients are:
+
+- a probability model;
+- a likelihood contribution for each observation;
+- a function that calculates the total log-likelihood;
+- an optimization procedure.
+
+# What can go wrong?
+
+Maximum likelihood is powerful, but it is not automatic.
+
+## Invalid parameter values
+
+The optimizer may try negative means, standard deviations, or variances.
+
+Parameter transformations or explicit constraints can prevent this.
+
+## Poor starting values
+
+Some likelihoods are difficult to optimize from arbitrary starting values.
+
+Method-of-moments estimates, simpler models, or ecological knowledge can provide useful starting values.
+
+## Local maxima
+
+A likelihood may contain several local maxima.
+
+Different starting values can help identify this problem.
+
+## Flat likelihoods
+
+If the likelihood changes very little over a range of parameter values, the parameter may be weakly identified.
+
+The estimate may then be sensitive to small changes in the data.
+
+## Boundary estimates
+
+A parameter may be estimated close to a boundary, such as a probability close to zero or one.
+
+Asymptotic Normal approximations can be unreliable in this situation.
+
+## Numerical underflow
+
+Products of probabilities or densities can become extremely small.
+
+Using log probabilities and log densities avoids many numerical problems.
+
+## Model misspecification
+
+A maximum likelihood estimate is optimal relative to the specified model.
+
+If the model is ecologically inappropriate, maximizing its likelihood does not make the model appropriate.
+
+Likelihood-based inference must therefore be combined with ecological reasoning and model checking.
+
+# Summary
+
+Likelihood changes the perspective of a probability model.
+
+Before observing data, we consider how probable different observations are for a fixed parameter.
+
+After observing data, we use the likelihood to compare different parameter values.
+
+For independent observations,
+
+$$
+L(\theta)
+=
+\prod_{i=1}^n f(x_i\mid\theta).
+$$
+
+The log-likelihood is
+
+$$
+\ell(\theta)
+=
+\sum_{i=1}^n
+\log f(x_i\mid\theta).
+$$
+
+The maximum likelihood estimator is
+
+$$
+\widehat{\theta}_{\mathrm{ML}}
+=
+\operatorname*{arg\,max}_{\theta}
+\ell(\theta).
+$$
+
+Many likelihoods cannot be maximized analytically. R's `optim()` function can estimate parameters by minimizing the negative log-likelihood.
+
+Parameter transformations are useful for enforcing constraints such as:
+
+$$
+\mu>0,
+\qquad
+\sigma>0,
+\qquad
+0<p<1.
+$$
+
+Maximum likelihood estimators can be biased in finite samples. Under suitable conditions, they are consistent, approximately Normally distributed in large samples, and asymptotically efficient.
+
+A likelihood surface displays the likelihood for several parameters simultaneously.
+
+A slice varies one parameter while holding others fixed.
+
+A profile likelihood varies one parameter while re-estimating nuisance parameters.
+
+The Hessian provides a local quadratic approximation to the likelihood. This approximation can be used to calculate standard errors and quadratic confidence intervals.
+
+Profile likelihood confidence intervals are based on the likelihood-ratio statistic:
+
+$$
+2\left[
+\ell(\widehat{\theta})
+-
+\ell_p(\theta)
+\right].
+$$
+
+Quadratic intervals are fast and convenient but can perform poorly when the likelihood is skewed or near a boundary.
+
+Profile intervals are more computationally expensive but can represent asymmetry and nuisance-parameter uncertainty more accurately.
+
+The general maximum likelihood workflow is:
+
+1. specify the ecological model;
+2. write the likelihood;
+3. calculate the log-likelihood;
+4. optimize the negative log-likelihood;
+5. check the result;
+6. quantify uncertainty;
+7. validate the procedure using simulation.
+
+# Exercises
+
+## Exercise 1: Poisson likelihood
+
+Suppose the number of animals detected per survey follows a Poisson distribution.
+
+1. Simulate 40 observations with $\lambda=3$.
+2. Write a Poisson log-likelihood function.
+3. Plot the relative likelihood over a suitable range of values.
+4. Calculate the maximum likelihood estimate analytically.
+5. Estimate the parameter using `optim()`.
+6. Compare the two estimates.
+
+## Exercise 2: Normal maximum likelihood
+
+Suppose tree heights follow a Normal distribution with
+
+$$
+\mu=22,
+\qquad
+\sigma=4.
+$$
+
+1. Simulate 25 tree heights.
+2. Estimate $\mu$ and $\sigma$ using maximum likelihood.
+3. Compare the Normal variance MLE with `var()`.
+4. Repeat the simulation 5,000 times.
+5. Estimate the finite-sample bias of both variance estimators.
+6. Explain why the two estimators use different denominators.
+
+## Exercise 3: Likelihood surface
+
+Using the tree-height example:
+
+1. Calculate the Normal log-likelihood over a grid of $\mu$ and $\sigma$ values.
+2. Plot the relative log-likelihood surface.
+3. Mark the true parameter values.
+4. Mark the maximum likelihood estimate.
+5. Produce likelihood slices for both parameters.
+6. Explain why a slice and a profile likelihood are different.
+
+## Exercise 4: Profile likelihood intervals
+
+Using the tree-height example:
+
+1. Calculate the profile likelihood for $\mu$.
+2. Calculate the profile likelihood for $\sigma$.
+3. Use the likelihood-ratio cutoff to construct 95% profile likelihood intervals.
+4. Calculate quadratic confidence intervals.
+5. Compare the two types of intervals.
+6. Repeat the exercise with a much smaller sample size.
+
+## Exercise 5: Negative binomial estimation
+
+Simulate negative binomial counts with
+
+$$
+\mu=6,
+\qquad
+k=0.8.
+$$
+
+1. Write a negative binomial log-likelihood.
+2. Use log transformations for both parameters.
+3. Fit the model using `optim()`.
+4. Compare the estimates with the true values.
+5. Plot the observed and fitted distributions.
+6. Calculate quadratic confidence intervals.
+7. Construct a profile likelihood interval for $\mu$.
+
+## Exercise 6: A new distribution
+
+Simulate 100 observations from a Lognormal distribution with
+
+```r
+meanlog = log(30)
+sdlog = 0.5
+```
+
+1. Write a Lognormal negative log-likelihood.
+2. Estimate `meanlog` and `sdlog` using `optim()`.
+3. Compare the estimates with the true values.
+4. Calculate quadratic confidence intervals.
+5. Plot the fitted density over a histogram of the observations.
+6. Explain why the parameters must not be interpreted as the mean and standard deviation on the original scale.

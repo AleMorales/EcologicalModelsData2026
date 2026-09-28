@@ -1,0 +1,1496 @@
+---
+title: "Statistical Estimation and Sampling Distributions"
+format:
+  html:
+    toc: true
+    number-sections: true
+execute:
+  echo: true
+  warning: false
+  message: false
+  eval: false
+---
+
+# Introduction
+
+The previous chapters treated probability distributions as if their parameters were known.
+
+For example, we considered:
+
+- the number of seedlings in a quadrat;
+- the number of animals detected during a survey;
+- tree heights;
+- animal body mass;
+- vegetation cover.
+
+We specified distributions such as
+
+$$
+X\sim\operatorname{Poisson}(\lambda)
+$$
+
+or
+
+$$
+X\sim\operatorname{Normal}(\mu,\sigma^2).
+$$
+
+In ecological research, however, the parameters are usually unknown. We observe data and use those data to learn about the population or ecological process that generated them.
+
+For example:
+
+- What is the average number of seedlings per quadrat?
+- What is the mean tree height?
+- How variable are tree heights?
+- How much would the estimated mean change if we collected another sample?
+- How large should a sample be for an estimate to be reliable?
+
+This chapter introduces the basic ideas of **frequentist statistical estimation**.
+
+We will use simulated data throughout the chapter. Simulation is useful because we specify the true parameter values before generating the data. We can therefore compare our estimates with the truth.
+
+The main examples will be:
+
+- Poisson counts of seedlings in quadrats;
+- Normally distributed tree heights.
+
+These examples connect directly to the distributions introduced in the previous chapters.
+
+## Learning goals
+
+After studying this chapter, you should be able to:
+
+- distinguish parameters, estimators, and estimates;
+- calculate simple method-of-moments estimators;
+- describe the sampling distribution of an estimator;
+- explain estimator bias and variance;
+- calculate and interpret standard errors;
+- construct and interpret confidence intervals;
+- explain consistency and asymptotic normality in practical terms;
+- simulate sampling distributions;
+- evaluate estimator properties using repeated simulation;
+- understand why estimation is important for ecological modeling.
+
+# From probability models to statistical models
+
+Suppose we measure the number of seedlings in several quadrats.
+
+Let
+
+$$
+X_i=\text{number of seedlings in quadrat }i.
+$$
+
+If we assume that counts follow a Poisson distribution, then
+
+$$
+X_i\sim\operatorname{Poisson}(\lambda).
+$$
+
+The parameter $\lambda$ is the expected number of seedlings per quadrat.
+
+In a probability exercise, we might know that $\lambda=4$ and calculate probabilities such as
+
+$$
+P(X_i=0).
+$$
+
+In an ecological study, we usually observe counts such as
+
+$$
+3,\quad 5,\quad 2,\quad 7,\quad 4
+$$
+
+and try to learn about the unknown value of $\lambda$.
+
+The probability model describes how the data were generated. Statistical estimation uses the observed data to learn about the unknown parameters of that model.
+
+## Parameters
+
+A **parameter** is a fixed numerical characteristic of a population or probability distribution.
+
+Examples include:
+
+- $\lambda$, the mean of a Poisson distribution;
+- $\mu$, the mean of a Normal distribution;
+- $\sigma^2$, the variance of a Normal distribution;
+- $p$, the probability of success in a binomial distribution.
+
+In the frequentist approach, the parameter is considered fixed but unknown.
+
+For example, the true average number of seedlings per quadrat may be $\lambda=4$. The value 4 is fixed, but we may not know it.
+
+## Estimators and estimates
+
+An **estimator** is a rule for calculating information about a parameter from a sample.
+
+An estimator is a random variable because it depends on random observations.
+
+An **estimate** is the numerical value obtained when an estimator is applied to one particular sample.
+
+For example, the estimator of the Poisson mean may be
+
+$$
+\widehat{\lambda}
+=
+\frac{1}{n}\sum_{i=1}^n X_i
+=
+\overline{X}.
+$$
+
+The symbol $\widehat{\lambda}$ refers to the estimator before a particular sample is observed. After observing data, it becomes a numerical estimate.
+
+| Term | Meaning |
+|---|---|
+| $\lambda$ | The fixed but unknown parameter |
+| $\widehat{\lambda}$ | An estimator of $\lambda$ |
+| $\widehat{\lambda}=4.3$ | An estimate calculated from one sample |
+
+We use a hat to indicate that a quantity is an estimate of a parameter.
+
+## A simulated example
+
+Suppose the true mean number of seedlings per quadrat is $\lambda=4$.
+
+```{r}
+set.seed(1)
+
+true_lambda = 4
+seedling_counts = rpois(
+  n = 20,
+  lambda = true_lambda
+)
+
+lambda_hat = mean(seedling_counts)
+
+c(
+  true_parameter = true_lambda,
+  estimate = lambda_hat
+)
+```
+
+The estimate will usually not be exactly equal to the true parameter.
+
+This is expected. The sample is only one of many possible samples that could have been generated from the Poisson distribution.
+
+# Method of moments
+
+The **method of moments** estimates parameters by matching sample moments to theoretical moments.
+
+A moment is an expected value involving powers of a random variable.
+
+The first theoretical moment is the mean:
+
+$$
+E[X].
+$$
+
+The first sample moment is the sample mean:
+
+$$
+m_1=\frac{1}{n}\sum_{i=1}^n X_i=\overline{X}.
+$$
+
+The second theoretical raw moment is
+
+$$
+E[X^2].
+$$
+
+The second sample raw moment is
+
+$$
+m_2=\frac{1}{n}\sum_{i=1}^n X_i^2.
+$$
+
+The method-of-moments procedure is:
+
+1. write the theoretical moments of the distribution;
+2. calculate the corresponding sample moments;
+3. set the sample moments equal to the theoretical moments;
+4. solve for the unknown parameters.
+
+Method-of-moments estimators are often simple to derive. They are useful for learning the basic ideas of estimation and can provide starting values for more advanced methods.
+
+They are not necessarily unbiased or statistically optimal.
+
+# Example 1: estimating a Poisson mean
+
+Suppose
+
+$$
+X_i\sim\operatorname{Poisson}(\lambda),
+$$
+
+where $X_i$ is the number of seedlings in quadrat $i$.
+
+The theoretical mean of a Poisson random variable is
+
+$$
+E[X_i]=\lambda.
+$$
+
+The first sample moment is the sample mean:
+
+$$
+\overline{X}
+=
+\frac{1}{n}\sum_{i=1}^n X_i.
+$$
+
+Equating the sample and theoretical moments gives
+
+$$
+\overline{X}=\lambda.
+$$
+
+Therefore, the method-of-moments estimator is
+
+$$
+\widehat{\lambda}_{\mathrm{MM}}=\overline{X}.
+$$
+
+## Estimating the mean from one sample
+
+Suppose we sample 30 quadrats.
+
+```{r}
+set.seed(10)
+
+n_quadrats = 30
+true_lambda = 4
+
+seedlings = rpois(
+  n = n_quadrats,
+  lambda = true_lambda
+)
+
+lambda_hat = mean(seedlings)
+
+c(
+  true_lambda = true_lambda,
+  estimated_lambda = lambda_hat
+)
+```
+
+The true value is known here because we generated the data ourselves. In a real ecological study, the true value would not usually be known.
+
+The estimate may be slightly smaller or larger than the true value. This does not necessarily indicate a problem with the estimator.
+
+Different random samples produce different estimates.
+
+# Sampling distributions
+
+The **sampling distribution** of an estimator is the distribution of its values across repeated samples from the same population or probability model.
+
+For example, imagine repeatedly doing the following:
+
+1. sample 30 quadrats;
+2. calculate the mean number of seedlings;
+3. record the estimate;
+4. repeat many times.
+
+The resulting collection of estimates is an approximation to the sampling distribution of $\widehat{\lambda}$.
+
+The sampling distribution is not the same as the distribution of individual observations.
+
+- The distribution of observations describes seedling counts in individual quadrats.
+- The sampling distribution describes estimated means from groups of quadrats.
+
+## Simulating a sampling distribution
+
+We can simulate many independent samples and calculate one estimate from each sample.
+
+```{r}
+set.seed(11)
+
+B = 5000
+n_quadrats = 30
+true_lambda = 4
+
+lambda_hats = replicate(
+  B,
+  mean(rpois(n_quadrats, lambda = true_lambda))
+)
+
+head(lambda_hats)
+```
+
+Here, `B` is the number of repeated samples.
+
+Each value in `lambda_hats` is the estimated mean from one simulated study.
+
+We can compare the simulated sampling distribution with its theoretical mean and variance.
+
+For a Poisson random variable,
+
+$$
+E[X]=\lambda
+$$
+
+and
+
+$$
+\operatorname{Var}(X)=\lambda.
+$$
+
+Because $\widehat{\lambda}$ is the mean of $n$ independent observations,
+
+$$
+E[\widehat{\lambda}]=\lambda
+$$
+
+and
+
+$$
+\operatorname{Var}(\widehat{\lambda})=\frac{\lambda}{n}.
+$$
+
+```{r}
+c(
+  theoretical_mean = true_lambda,
+  simulated_mean = mean(lambda_hats),
+  theoretical_variance = true_lambda / n_quadrats,
+  simulated_variance = var(lambda_hats)
+)
+```
+
+The simulated values will not exactly equal the theoretical values because we used a finite number of repetitions.
+
+The histogram shows the sampling distribution.
+
+```{r}
+hist(
+  lambda_hats,
+  breaks = 35,
+  probability = TRUE,
+  col = "grey85",
+  border = "white",
+  main = "Sampling distribution of the Poisson mean estimate",
+  xlab = expression(hat(lambda))
+)
+
+curve(
+  dnorm(
+    x,
+    mean = true_lambda,
+    sd = sqrt(true_lambda / n_quadrats)
+  ),
+  add = TRUE,
+  col = "firebrick",
+  lwd = 2
+)
+
+abline(
+  v = true_lambda,
+  col = "navy",
+  lwd = 2,
+  lty = 2
+)
+
+legend(
+  "topright",
+  legend = c("Normal approximation", "True parameter"),
+  col = c("firebrick", "navy"),
+  lwd = 2,
+  lty = c(1, 2),
+  bty = "n"
+)
+```
+
+The red curve is a Normal approximation to the sampling distribution.
+
+The blue line shows the true value of $\lambda$.
+
+The estimates vary from sample to sample, but they tend to cluster around the true parameter.
+
+# Bias, variance, and mean squared error
+
+An estimator can be evaluated by considering its behavior over repeated samples.
+
+## Bias
+
+The **bias** of an estimator is
+
+$$
+\operatorname{Bias}(\widehat{\theta})
+=
+E[\widehat{\theta}]-\theta.
+$$
+
+An estimator is unbiased if
+
+$$
+E[\widehat{\theta}]=\theta.
+$$
+
+For the Poisson mean estimator,
+
+$$
+E[\widehat{\lambda}]=\lambda,
+$$
+
+so
+
+$$
+\operatorname{Bias}(\widehat{\lambda})=0.
+$$
+
+In a simulation, we estimate the bias by calculating the average estimate and subtracting the true parameter.
+
+```{r}
+simulated_bias = mean(lambda_hats) - true_lambda
+
+simulated_bias
+```
+
+The simulated bias will usually not be exactly zero because the simulation itself uses a finite number of repetitions.
+
+## Variance
+
+The variance of an estimator is
+
+$$
+\operatorname{Var}(\widehat{\theta})
+=
+E\left[
+\left(
+\widehat{\theta}-E[\widehat{\theta}]
+\right)^2
+\right].
+$$
+
+It measures how much the estimator varies across repeated samples.
+
+For the Poisson mean estimator,
+
+$$
+\operatorname{Var}(\widehat{\lambda})
+=
+\frac{\lambda}{n}.
+$$
+
+Increasing the sample size reduces the variance of the estimator.
+
+## Mean squared error
+
+The **mean squared error**, or MSE, is
+
+$$
+\operatorname{MSE}(\widehat{\theta})
+=
+E\left[
+(\widehat{\theta}-\theta)^2
+\right].
+$$
+
+MSE combines variance and bias:
+
+$$
+\operatorname{MSE}(\widehat{\theta})
+=
+\operatorname{Var}(\widehat{\theta})
++
+\operatorname{Bias}(\widehat{\theta})^2.
+$$
+
+We can estimate the MSE from the simulated estimates.
+
+```{r}
+simulated_variance = var(lambda_hats)
+simulated_mse = mean((lambda_hats - true_lambda)^2)
+
+c(
+  bias = simulated_bias,
+  variance = simulated_variance,
+  mse = simulated_mse
+)
+```
+
+For an unbiased estimator, the MSE is equal to the variance.
+
+## The effect of sample size
+
+The following simulation compares different sample sizes.
+
+```{r}
+set.seed(12)
+
+sample_sizes = c(5, 20, 100)
+
+poisson_properties = do.call(
+  rbind,
+  lapply(sample_sizes, function(sample_size) {
+    estimates = replicate(
+      B,
+      mean(rpois(sample_size, lambda = true_lambda))
+    )
+
+    c(
+      n = sample_size,
+      bias = mean(estimates) - true_lambda,
+      variance = var(estimates),
+      mse = mean((estimates - true_lambda)^2)
+    )
+  })
+)
+
+round(poisson_properties, 3)
+```
+
+The estimated variance and MSE generally become smaller as the sample size increases.
+
+The individual seedling counts do not become less variable. Instead, the average calculated from a larger sample becomes more stable.
+
+# Standard errors
+
+The **standard error** of an estimator is its standard deviation across repeated samples:
+
+$$
+\operatorname{SE}(\widehat{\theta})
+=
+\sqrt{\operatorname{Var}(\widehat{\theta})}.
+$$
+
+The standard error measures the typical sampling variability of an estimate.
+
+It is important to distinguish between:
+
+- the standard deviation of individual observations;
+- the standard error of an estimator.
+
+For the Poisson mean estimator,
+
+$$
+\operatorname{SE}(\widehat{\lambda})
+=
+\sqrt{\frac{\lambda}{n}}.
+$$
+
+Because $\lambda$ is unknown, we estimate the standard error using the estimate:
+
+$$
+\widehat{\operatorname{SE}}(\widehat{\lambda})
+=
+\sqrt{\frac{\widehat{\lambda}}{n}}.
+$$
+
+This is an example of a **plug-in estimate**. We use the estimated parameter in a formula that would otherwise require the unknown parameter.
+
+## A standard error from one sample
+
+```{r}
+set.seed(13)
+
+one_sample = rpois(
+  n = n_quadrats,
+  lambda = true_lambda
+)
+
+one_estimate = mean(one_sample)
+
+estimated_se = sqrt(
+  one_estimate / n_quadrats
+)
+
+c(
+  estimate = one_estimate,
+  estimated_standard_error = estimated_se,
+  theoretical_standard_error = sqrt(true_lambda / n_quadrats)
+)
+```
+
+The estimated standard error will not usually equal the actual standard deviation of the estimator.
+
+It is an estimate of that standard deviation based on one sample.
+
+## Evaluating standard errors by simulation
+
+We can compare:
+
+- the actual standard deviation of the simulated estimates;
+- the average estimated standard error;
+- the theoretical standard error.
+
+```{r}
+set.seed(14)
+
+poisson_results = replicate(
+  B,
+  {
+    counts = rpois(
+      n = n_quadrats,
+      lambda = true_lambda
+    )
+
+    estimate = mean(counts)
+    estimated_se = sqrt(estimate / n_quadrats)
+
+    c(
+      estimate = estimate,
+      estimated_se = estimated_se
+    )
+  }
+)
+
+c(
+  actual_sampling_sd = sd(poisson_results["estimate", ]),
+  average_estimated_se = mean(poisson_results["estimated_se", ]),
+  theoretical_se = sqrt(true_lambda / n_quadrats)
+)
+```
+
+The actual sampling standard deviation and the average estimated standard error should be similar.
+
+# Confidence intervals
+
+A confidence interval gives a range of plausible values for an unknown parameter.
+
+A commonly used large-sample interval is
+
+$$
+\widehat{\theta}
+\pm
+1.96\operatorname{SE}(\widehat{\theta}).
+$$
+
+The value 1.96 is the 97.5th percentile of the standard Normal distribution.
+
+## A confidence interval for a Poisson mean
+
+Using the estimated standard error, a 95% Wald confidence interval for $\lambda$ is
+
+$$
+\widehat{\lambda}
+\pm
+1.96
+\sqrt{\frac{\widehat{\lambda}}{n}}.
+$$
+
+```{r}
+critical_value = qnorm(0.975)
+
+poisson_interval = c(
+  lower = one_estimate - critical_value * estimated_se,
+  estimate = one_estimate,
+  upper = one_estimate + critical_value * estimated_se
+)
+
+poisson_interval
+```
+
+The frequentist interpretation of a 95% confidence interval concerns the procedure used to construct the interval.
+
+If we repeatedly collected samples and constructed intervals in the same way, approximately 95% of those intervals would contain the true parameter, assuming that the model and approximation are appropriate.
+
+It is not correct to say that there is a 95% probability that the fixed parameter is inside one particular interval.
+
+## Evaluating confidence-interval coverage
+
+We can evaluate the coverage of the Poisson interval by simulation.
+
+```{r}
+set.seed(15)
+
+count_matrix = matrix(
+  rpois(
+    n = n_quadrats * B,
+    lambda = true_lambda
+  ),
+  nrow = n_quadrats,
+  ncol = B
+)
+
+interval_estimates = colMeans(count_matrix)
+interval_se = sqrt(interval_estimates / n_quadrats)
+
+interval_lower = interval_estimates -
+  critical_value * interval_se
+
+interval_upper = interval_estimates +
+  critical_value * interval_se
+
+coverage = mean(
+  interval_lower <= true_lambda &
+    true_lambda <= interval_upper
+)
+
+c(
+  nominal_coverage = 0.95,
+  simulated_coverage = coverage,
+  mean_interval_width = mean(interval_upper - interval_lower)
+)
+```
+
+The simulated coverage will not usually be exactly 0.95.
+
+Coverage depends on:
+
+- the sample size;
+- the true parameter value;
+- the distribution of the data;
+- the method used to construct the interval.
+
+The Wald interval is based on a Normal approximation. It can perform poorly when counts are small or when the expected count is close to zero. It can also produce a negative lower limit, even though a Poisson mean cannot be negative.
+
+# Example 2: estimating Normal parameters
+
+We now consider a continuous ecological variable.
+
+Suppose tree heights are modeled as
+
+$$
+X_i\sim\operatorname{Normal}(\mu,\sigma^2).
+$$
+
+This continues the tree-height example from Chapter 2.
+
+Assume that the true values are
+
+$$
+\mu=22
+\qquad\text{and}\qquad
+\sigma=4.
+$$
+
+The first theoretical moment is
+
+$$
+E[X]=\mu.
+$$
+
+The second raw moment is
+
+$$
+E[X^2]=\mu^2+\sigma^2.
+$$
+
+The corresponding sample moments are
+
+$$
+m_1=\overline{X}
+$$
+
+and
+
+$$
+m_2=\frac{1}{n}\sum_{i=1}^n X_i^2.
+$$
+
+Equating the first moments gives
+
+$$
+\widehat{\mu}_{\mathrm{MM}}=\overline{X}.
+$$
+
+Equating the second moments gives
+
+$$
+m_2=\widehat{\mu}_{\mathrm{MM}}^2+\widehat{\sigma^2}_{\mathrm{MM}}.
+$$
+
+Solving for the variance gives
+
+$$
+\widehat{\sigma^2}_{\mathrm{MM}}
+=
+m_2-\overline{X}^2.
+$$
+
+This can also be written as
+
+$$
+\widehat{\sigma^2}_{\mathrm{MM}}
+=
+\frac{1}{n}
+\sum_{i=1}^n
+(X_i-\overline{X})^2.
+$$
+
+Notice that the denominator is $n$.
+
+## Estimating tree-height parameters from one sample
+
+```{r}
+set.seed(20)
+
+n_trees = 25
+true_mu = 22
+true_sigma = 4
+
+tree_heights = rnorm(
+  n = n_trees,
+  mean = true_mu,
+  sd = true_sigma
+)
+
+mu_hat = mean(tree_heights)
+
+sigma2_mom_hat = mean(
+  (tree_heights - mu_hat)^2
+)
+
+sigma2_unbiased_hat = var(tree_heights)
+
+c(
+  true_mean = true_mu,
+  estimated_mean = mu_hat,
+  true_variance = true_sigma^2,
+  method_of_moments_variance = sigma2_mom_hat,
+  unbiased_sample_variance = sigma2_unbiased_hat
+)
+```
+
+The function `var()` uses the denominator $n-1$:
+
+$$
+s^2=
+\frac{1}{n-1}
+\sum_{i=1}^n
+(X_i-\overline{X})^2.
+$$
+
+The two variance estimates are different because they use different denominators.
+
+# Bias in the Normal variance estimator
+
+The method-of-moments estimator with denominator $n$ is biased for the Normal variance.
+
+Its expected value is
+
+$$
+E[\widehat{\sigma^2}_{\mathrm{MM}}]
+=
+\frac{n-1}{n}\sigma^2.
+$$
+
+Therefore,
+
+$$
+\operatorname{Bias}
+\left(
+\widehat{\sigma^2}_{\mathrm{MM}}
+\right)
+=
+-\frac{\sigma^2}{n}.
+$$
+
+The bias is negative, so the estimator tends to underestimate the true variance.
+
+The estimator using denominator $n-1$ is unbiased:
+
+$$
+E[s^2]=\sigma^2.
+$$
+
+This example illustrates an important point:
+
+> A simple estimator is not automatically unbiased.
+
+It also shows why it is useful to study estimators through repeated simulation.
+
+## Simulating the sampling distributions
+
+```{r}
+set.seed(21)
+
+normal_estimates = t(
+  replicate(
+    B,
+    {
+      heights = rnorm(
+        n = n_trees,
+        mean = true_mu,
+        sd = true_sigma
+      )
+
+      height_mean = mean(heights)
+
+      c(
+        mu_hat = height_mean,
+        sigma2_mom = mean((heights - height_mean)^2),
+        sigma2_unbiased = var(heights)
+      )
+    }
+  )
+)
+
+normal_truth = c(
+  mu_hat = true_mu,
+  sigma2_mom = true_sigma^2,
+  sigma2_unbiased = true_sigma^2
+)
+
+normal_mse = colMeans(
+  sweep(
+    normal_estimates,
+    MARGIN = 2,
+    STATS = normal_truth,
+    FUN = "-"
+  )^2
+)
+
+normal_summary = rbind(
+  average_estimate = colMeans(normal_estimates),
+  bias = colMeans(normal_estimates) - normal_truth,
+  variance = apply(normal_estimates, 2, var),
+  mse = normal_mse
+)
+
+round(normal_summary, 3)
+```
+
+The estimated mean should be close to the true mean of 22.
+
+The method-of-moments variance estimator should have a small negative bias.
+
+The estimator using `var()` should have bias close to zero.
+
+The variance and MSE describe different properties of the estimators. An estimator with zero bias does not necessarily have the smallest variance or MSE.
+
+## Plotting the sampling distributions
+
+```{r}
+par(mfrow = c(1, 2))
+
+hist(
+  normal_estimates[, "mu_hat"],
+  breaks = 35,
+  probability = TRUE,
+  col = "grey85",
+  border = "white",
+  main = "Tree-height mean estimates",
+  xlab = expression(hat(mu))
+)
+
+curve(
+  dnorm(
+    x,
+    mean = true_mu,
+    sd = true_sigma / sqrt(n_trees)
+  ),
+  add = TRUE,
+  col = "firebrick",
+  lwd = 2
+)
+
+abline(
+  v = true_mu,
+  col = "navy",
+  lwd = 2,
+  lty = 2
+)
+
+hist(
+  normal_estimates[, "sigma2_mom"],
+  breaks = 35,
+  probability = TRUE,
+  col = "grey85",
+  border = "white",
+  main = "Normal variance estimates",
+  xlab = expression(hat(sigma)^2)
+)
+
+abline(
+  v = true_sigma^2,
+  col = "navy",
+  lwd = 2,
+  lty = 2
+)
+
+par(mfrow = c(1, 1))
+```
+
+The sampling distribution of the mean is approximately symmetric and centered on the true mean.
+
+The sampling distribution of the method-of-moments variance estimator is centered slightly below the true variance.
+
+# Standard errors and confidence intervals for a Normal mean
+
+For Normally distributed observations,
+
+$$
+\operatorname{SE}(\overline{X})
+=
+\frac{\sigma}{\sqrt{n}}.
+$$
+
+Because $\sigma$ is unknown, we estimate the standard error using the sample standard deviation:
+
+$$
+\widehat{\operatorname{SE}}(\overline{X})
+=
+\frac{s}{\sqrt{n}}.
+$$
+
+A confidence interval for the Normal mean uses a $t$ quantile:
+
+$$
+\overline{X}
+\pm
+t_{n-1,0.975}
+\frac{s}{\sqrt{n}}.
+$$
+
+## One confidence interval
+
+```{r}
+set.seed(22)
+
+tree_heights_for_ci = rnorm(
+  n = n_trees,
+  mean = true_mu,
+  sd = true_sigma
+)
+
+height_mean = mean(tree_heights_for_ci)
+height_sd = sd(tree_heights_for_ci)
+height_se = height_sd / sqrt(n_trees)
+
+t_critical = qt(
+  0.975,
+  df = n_trees - 1
+)
+
+height_interval = c(
+  lower = height_mean - t_critical * height_se,
+  estimate = height_mean,
+  upper = height_mean + t_critical * height_se
+)
+
+height_interval
+```
+
+If the Normal model is appropriate, this interval has 95% coverage under repeated sampling.
+
+## Evaluating coverage by simulation
+
+```{r}
+set.seed(23)
+
+normal_samples = matrix(
+  rnorm(
+    n = n_trees * B,
+    mean = true_mu,
+    sd = true_sigma
+  ),
+  nrow = n_trees,
+  ncol = B
+)
+
+normal_xbar = colMeans(normal_samples)
+normal_s = apply(normal_samples, 2, sd)
+
+normal_se = normal_s / sqrt(n_trees)
+
+normal_lower = normal_xbar -
+  t_critical * normal_se
+
+normal_upper = normal_xbar +
+  t_critical * normal_se
+
+normal_coverage = mean(
+  normal_lower <= true_mu &
+    true_mu <= normal_upper
+)
+
+c(
+  theoretical_se = true_sigma / sqrt(n_trees),
+  empirical_sampling_se = sd(normal_xbar),
+  average_estimated_se = mean(normal_se),
+  nominal_coverage = 0.95,
+  simulated_coverage = normal_coverage,
+  mean_interval_width = mean(normal_upper - normal_lower)
+)
+```
+
+This simulation evaluates both the standard-error estimator and the confidence-interval procedure.
+
+# Asymptotic behavior
+
+The word **asymptotic** refers to what happens as the sample size becomes large.
+
+It does not mean that a sample must be infinitely large in practice. Instead, asymptotic results describe useful approximations that often become better as the sample size increases.
+
+Two important properties are consistency and asymptotic normality.
+
+## Consistency
+
+An estimator is **consistent** if it gets closer to the true parameter as the sample size increases.
+
+For the Poisson mean estimator,
+
+$$
+\widehat{\lambda}_n
+=
+\frac{1}{n}\sum_{i=1}^n X_i,
+$$
+
+consistency means that
+
+$$
+\widehat{\lambda}_n
+$$
+
+tends to become closer to $\lambda$ as $n$ grows.
+
+The formal notation is
+
+$$
+\widehat{\lambda}_n
+\xrightarrow{p}
+\lambda.
+$$
+
+This means that the probability of the estimate being far from the true value becomes smaller as the sample size increases.
+
+You do not need to prove this result to understand its practical meaning.
+
+## Simulating consistency
+
+```{r}
+set.seed(30)
+
+B_asymptotic = 5000
+asymptotic_sizes = c(5, 20, 100)
+
+par(mfrow = c(1, 3))
+
+for (sample_size in asymptotic_sizes) {
+  estimates = replicate(
+    B_asymptotic,
+    mean(rpois(sample_size, lambda = true_lambda))
+  )
+
+  hist(
+    estimates,
+    breaks = 30,
+    probability = TRUE,
+    xlim = c(0, 10),
+    col = "grey85",
+    border = "white",
+    main = paste("n =", sample_size),
+    xlab = expression(hat(lambda))
+  )
+
+  abline(
+    v = true_lambda,
+    col = "navy",
+    lwd = 2,
+    lty = 2
+  )
+}
+
+par(mfrow = c(1, 1))
+```
+
+As the sample size increases, the sampling distribution becomes narrower around the true parameter.
+
+We can summarize the same pattern numerically.
+
+```{r}
+consistency_summary = do.call(
+  rbind,
+  lapply(asymptotic_sizes, function(sample_size) {
+    estimates = replicate(
+      B_asymptotic,
+      mean(rpois(sample_size, lambda = true_lambda))
+    )
+
+    c(
+      n = sample_size,
+      bias = mean(estimates) - true_lambda,
+      standard_error = sd(estimates),
+      rmse = sqrt(mean((estimates - true_lambda)^2))
+    )
+  })
+)
+
+round(consistency_summary, 3)
+```
+
+The standard error and RMSE generally decrease as the sample size increases.
+
+## The rate of improvement
+
+For the Poisson mean estimator,
+
+$$
+\operatorname{SE}(\widehat{\lambda})
+=
+\sqrt{\frac{\lambda}{n}}.
+$$
+
+Therefore, the standard error decreases approximately as
+
+$$
+\frac{1}{\sqrt{n}}.
+$$
+
+This means that increasing the sample size by a factor of four approximately halves the standard error.
+
+```{r}
+set.seed(31)
+
+n_values = c(5, 10, 20, 50, 100, 200, 500)
+
+empirical_se = sapply(
+  n_values,
+  function(sample_size) {
+    estimates = replicate(
+      3000,
+      mean(rpois(sample_size, lambda = true_lambda))
+    )
+
+    sd(estimates)
+  }
+)
+
+plot(
+  n_values,
+  empirical_se,
+  log = "xy",
+  type = "b",
+  pch = 19,
+  col = "navy",
+  xlab = "Sample size",
+  ylab = "Empirical standard error",
+  main = "Standard error and sample size"
+)
+
+lines(
+  n_values,
+  sqrt(true_lambda / n_values),
+  type = "b",
+  pch = 17,
+  col = "firebrick"
+)
+
+legend(
+  "topright",
+  legend = c("Simulation", "Theoretical value"),
+  col = c("navy", "firebrick"),
+  pch = c(19, 17),
+  lty = 1,
+  bty = "n"
+)
+```
+
+The graph illustrates an important practical limitation: increasing sample size improves precision, but the improvement becomes progressively smaller.
+
+# Asymptotic normality
+
+Many estimators have an approximately Normal sampling distribution when the sample size is sufficiently large.
+
+For the Poisson mean estimator,
+
+$$
+\frac{
+\widehat{\lambda}-\lambda
+}{
+\sqrt{\lambda/n}
+}
+$$
+
+becomes approximately standard Normal as $n$ increases.
+
+Equivalently,
+
+$$
+\widehat{\lambda}
+\approx
+\operatorname{Normal}
+\left(
+\lambda,
+\frac{\lambda}{n}
+\right)
+$$
+
+for sufficiently large $n$.
+
+This result explains why Normal approximations and confidence intervals are often useful, even when the original observations are counts.
+
+## Simulating the Normal approximation
+
+```{r}
+set.seed(32)
+
+normal_approximation_sizes = c(5, 100)
+
+par(mfrow = c(1, 2))
+
+for (sample_size in normal_approximation_sizes) {
+  estimates = replicate(
+    B_asymptotic,
+    mean(rpois(sample_size, lambda = true_lambda))
+  )
+
+  standardized_estimates = (
+    estimates - true_lambda
+  ) / sqrt(true_lambda / sample_size)
+
+  hist(
+    standardized_estimates,
+    breaks = 30,
+    probability = TRUE,
+    xlim = c(-4, 4),
+    col = "grey85",
+    border = "white",
+    main = paste("n =", sample_size),
+    xlab = "Standardized estimate"
+  )
+
+  curve(
+    dnorm(x),
+    add = TRUE,
+    col = "firebrick",
+    lwd = 2
+  )
+}
+
+par(mfrow = c(1, 1))
+```
+
+For the smaller sample size, the sampling distribution may retain some discreteness and asymmetry.
+
+For the larger sample size, the distribution is closer to the standard Normal curve.
+
+In an actual analysis, the true value of $\lambda$ is unknown. We therefore replace it with an estimate when calculating a standard error.
+
+# A simulation workflow for evaluating estimators
+
+Simulation provides a general way to study an estimator.
+
+The basic workflow is:
+
+1. choose a probability model;
+2. specify true parameter values;
+3. generate one sample;
+4. calculate the estimator;
+5. repeat many times;
+6. summarize the resulting estimates;
+7. compare the results with theoretical expectations.
+
+The following function implements this workflow for the Poisson mean.
+
+```{r}
+evaluate_poisson_mean = function(n, lambda, B = 5000) {
+  estimates = replicate(
+    B,
+    mean(rpois(n, lambda = lambda))
+  )
+
+  c(
+    average_estimate = mean(estimates),
+    bias = mean(estimates) - lambda,
+    empirical_variance = var(estimates),
+    empirical_standard_error = sd(estimates),
+    rmse = sqrt(mean((estimates - lambda)^2))
+  )
+}
+```
+
+We can use the function for several sample sizes.
+
+```{r}
+set.seed(33)
+
+workflow_results = rbind(
+  n_5 = evaluate_poisson_mean(
+    n = 5,
+    lambda = true_lambda
+  ),
+  n_20 = evaluate_poisson_mean(
+    n = 20,
+    lambda = true_lambda
+  ),
+  n_100 = evaluate_poisson_mean(
+    n = 100,
+    lambda = true_lambda
+  )
+)
+
+round(workflow_results, 3)
+```
+
+The simulation results should show that:
+
+- the average estimate is close to the true parameter;
+- the bias is close to zero;
+- the standard error decreases as the sample size increases;
+- the RMSE decreases as the sample size increases.
+
+Simulation results are themselves subject to random variation. Increasing `B` usually makes the results more stable.
+
+# What simulation can and cannot tell us
+
+Simulation is especially useful because the truth is known.
+
+We can directly evaluate:
+
+- bias;
+- variance;
+- standard error;
+- mean squared error;
+- confidence-interval coverage;
+- the effect of sample size;
+- the quality of asymptotic approximations.
+
+In real ecological data analysis, the true parameter is usually unknown. We cannot calculate the actual bias of an estimate from one observed data set.
+
+Simulation also depends on the model used to generate the data. If the simulated model is unrealistic, the simulation may not accurately represent the performance of an estimator in the ecological system.
+
+For example, the Poisson simulations assumed:
+
+- independent quadrats;
+- the same expected count in every quadrat;
+- no spatial dependence;
+- no variation in detection probability.
+
+Real ecological data may violate these assumptions.
+
+Simulation is therefore a tool for understanding statistical procedures under specified conditions. It does not replace ecological reasoning.
+
+# Frequentist interpretation
+
+The frequentist approach treats:
+
+- the parameter as fixed;
+- the data as random;
+- the estimator as random because it depends on the data.
+
+This leads to repeated-sampling interpretations.
+
+For example:
+
+- the bias of an estimator is its average error over repeated samples;
+- the standard error is its standard deviation over repeated samples;
+- confidence-interval coverage is the proportion of repeated intervals containing the true parameter.
+
+These interpretations concern the behavior of a method over many hypothetical repetitions.
+
+# From method of moments to maximum likelihood
+
+The method of moments estimates parameters by matching sample moments to theoretical moments.
+
+It is useful because it is:
+
+- simple;
+- intuitive;
+- often easy to calculate;
+- useful for building starting values.
+
+However, it does not necessarily use all the information in the probability model.
+
+In the next chapter, we introduce **maximum likelihood estimation**.
+
+Maximum likelihood uses the probability model to identify parameter values that make the observed data most plausible. It provides a general framework that can be used for the nonlinear ecological models developed later in the course.
+
+The ideas introduced in this chapter remain important:
+
+- parameters describe ecological processes;
+- estimators are rules for learning about parameters;
+- estimates vary between samples;
+- standard errors describe estimator uncertainty;
+- simulation can evaluate statistical procedures;
+- larger samples generally produce more precise estimates.

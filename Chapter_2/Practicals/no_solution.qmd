@@ -1,0 +1,330 @@
+---
+title: "Introduction to Probability (Count data)"
+date: today
+---
+
+# Exercise 1: Seedling survival
+
+Assume that each of 25 seedlings has probability $0.65$ of surviving. Assume a Binomial model to describe this process.
+
+1. Calculate the probability that exactly 15 survive.
+2. Calculate the probability that at least 15 survive.
+3. Calculate the expected number and variance of survivors.
+4. Simulate 1,000 groups of 25 seedlings and compare the observed frequencies with the theoretical probabilities.
+
+## Solution
+
+Assume that each of 25 seedlings has probability $0.65$ of surviving. Assume a Binomial model to describe this process.
+
+Let
+
+$$
+X=\text{the number of seedlings that survive}.
+$$
+
+The process has:
+
+- a fixed number of trials, $n=25$;
+- two possible outcomes for each seedling: survives or does not survive;
+- the same survival probability, $p=0.65$;
+- independent seedlings.
+
+Therefore,
+
+$$
+X\sim\operatorname{Binomial}(n=25,p=0.65).
+$$
+
+In R, the Binomial distribution uses:
+
+- `dbinom()` for probability mass;
+- `pbinom()` for cumulative probabilities;
+- `rbinom()` for simulation.
+
+```{r}
+n = 25
+p_survive = 0.65
+```
+
+### 1. Probability that exactly 15 survive
+
+We want to calculate
+
+$$
+P(X=15).
+$$
+
+The Binomial probability mass function is
+
+$$
+P(X=x)=
+\binom{n}{x}p^x(1-p)^{n-x}.
+$$
+
+Substituting $x=15$, $n=25$, and $p=0.65$ gives
+
+$$
+\begin{aligned}
+P(X=15)
+&=
+\binom{25}{15}(0.65)^{15}(1-0.65)^{25-15}\\
+&=
+\binom{25}{15}(0.65)^{15}(0.35)^{10}\\
+&=
+\frac{25!}{15!10!}(0.65)^{15}(0.35)^{10}\\
+&\approx 0.1409.
+\end{aligned}
+$$
+
+Thus, the probability that exactly 15 seedlings survive is approximately **0.1409**, or **14.09%**.
+
+In R, `dbinom()` performs this calculation:
+
+```{r}
+prob_exactly_15 = dbinom(
+  x = 15,
+  size = n,
+  prob = p_survive
+)
+
+prob_exactly_15
+```
+
+The combinatorial term can also be calculated directly in R:
+
+```{r}
+choose(25, 15)
+```
+
+### 2. Probability that at least 15 survive
+
+“At least 15” means 15 or more:
+
+$$
+P(X\geq 15)=P(X=15)+P(X=16)+\cdots+P(X=25).
+$$
+
+By using the complement,
+
+$$
+P(X\geq 15)
+=
+1-P(X\leq 14).
+$$
+
+Using the Binomial formula, this is
+
+$$
+P(X\geq 15)
+=
+1-\sum_{x=0}^{14}
+\binom{25}{x}(0.65)^x(0.35)^{25-x}.
+$$
+
+Evaluating this sum gives
+
+$$
+P(X\geq 15)\approx 0.7712.
+$$
+
+Therefore, the probability that at least 15 seedlings survive is approximately **0.7712**, or **77.12%**.
+
+In R, `pbinom()` calculates $P(X\leq x)$. The argument `lower.tail = FALSE` calculates the upper tail:
+
+```{r}
+prob_at_least_15 = pbinom(
+  q = 14,
+  size = n,
+  prob = p_survive,
+  lower.tail = FALSE
+)
+
+prob_at_least_15
+```
+
+The value `q = 14` is used because
+
+$$
+P(X>14)=P(X\geq 15).
+$$
+
+The same result can be obtained explicitly:
+
+```{r}
+1 - pbinom(
+  q = 14,
+  size = n,
+  prob = p_survive
+)
+```
+
+### 3. Expected number and variance of survivors
+
+For a Binomial random variable,
+
+$$
+E[X]=np
+$$
+
+and
+
+$$
+\operatorname{Var}(X)=np(1-p).
+$$
+
+The expected number of survivors is therefore
+
+$$
+\begin{aligned}
+E[X]
+&=25(0.65)\\
+&=16.25.
+\end{aligned}
+$$
+
+The variance is
+
+$$
+\begin{aligned}
+\operatorname{Var}(X)
+&=25(0.65)(1-0.65)\\
+&=25(0.65)(0.35)\\
+&=5.6875.
+\end{aligned}
+$$
+
+In R:
+
+```{r}
+expected_survivors = n * p_survive
+
+variance_survivors = n * p_survive * (1 - p_survive)
+
+c(
+  expected = expected_survivors,
+  variance = variance_survivors
+)
+```
+
+The expected value, 16.25, does not need to be an integer. It represents the long-run average number of survivors across many groups of 25 seedlings.
+
+### 4. Simulating 1,000 groups
+
+We can simulate 1,000 groups using `rbinom()`:
+
+```{r}
+set.seed(123)
+
+simulated_survivors = rbinom(
+  n = 1000,
+  size = n,
+  prob = p_survive
+)
+
+head(simulated_survivors)
+```
+
+Each value in `simulated_survivors` is the number of survivors in one simulated group.
+
+To calculate the observed relative frequency for every possible number of survivors, use `table()`:
+
+```{r}
+support = 0:n
+
+observed_frequency = as.numeric(
+  table(factor(simulated_survivors, levels = support))
+) / length(simulated_survivors)
+
+theoretical_probability = dbinom(
+  x = support,
+  size = n,
+  prob = p_survive
+)
+
+comparison = data.frame(
+  survivors = support,
+  observed = observed_frequency,
+  theoretical = theoretical_probability
+)
+
+round(comparison, 4)
+```
+
+The `factor()` step ensures that all possible values from 0 to 25 are included, even if a value does not occur in the simulation.
+
+We can compare the observed and theoretical probabilities graphically:
+
+```{r}
+barplot(
+  rbind(observed_frequency, theoretical_probability),
+  beside = TRUE,
+  names.arg = support,
+  col = c("grey70", "steelblue"),
+  xlab = "Number of seedlings surviving",
+  ylab = "Probability",
+  legend.text = c("Observed frequency", "Theoretical probability"),
+  args.legend = list(x = "topright"),
+  main = "Observed and theoretical seedling survival"
+)
+```
+
+The observed frequencies will not exactly equal the theoretical probabilities because only 1,000 groups were simulated. They should generally be similar. With a larger number of simulated groups, the observed frequencies would usually become closer to the theoretical probabilities.
+
+We can also compare the simulated and theoretical values for the first two questions:
+
+```{r}
+c(
+  observed_exactly_15 = mean(simulated_survivors == 15),
+  theoretical_exactly_15 = prob_exactly_15,
+  observed_at_least_15 = mean(simulated_survivors >= 15),
+  theoretical_at_least_15 = prob_at_least_15
+)
+```
+
+# Exercise 2: Checking for overdispersion
+
+We are going to use a built-in dataset in R on counts of tobacco hornworm, in agricultural
+experimental units treated with six different insecticides. We can load the data as follows:
+
+```{r}
+#| eval: false
+data(InsectSprays, package = "datasets")
+```
+
+1. Calculate the mean and variance for `count`. Is there evidence of overdispersion?
+
+2. Repeat the same calculations but not do it separately for each `spray` treatment (tip: use
+the tools for data transformation we learnt in Chapter 1). Is there still evidence of overdispersion?
+
+3. Which model would you use `count` when ignoring the `spray` treatment and which model would
+you try when doing it separately for each `spray` treatment?
+
+4. Calculate the parameters of the negative binomial using the mean and the variance of the
+sample (tip: check the formulae in the theory chapter). Compare the probability mass of the
+empirical distribution and the negative binomial with the parameters that you just calculated.
+How well does the model capture the variation in the data?
+
+# Exercise 3: Overdispersed quadrat counts
+
+Let's assume negative binomial distribution with a mean ($\mu = 6$) and shape
+parameters ($k = 0.8$).
+
+1. Calculate the theoretical mean and variance using the formulas. Then verify them
+using dnbinom() and weighted sums.
+2. Generate a sample of size 500.
+3. Calculate the mean and variance of this sample in R.
+4. Compare the negative binomial distribution with a Poisson distribution having the same mean.
+How do they differ? What is the variance/mean ratio of the sample? Plot their probability mass functions.
+
+
+# Exercise 4: Asymptotic convergence
+
+Simulate Poisson observations with $\lambda=3$ for two sample sizes: 10 and 1,000.
+
+1. Calculate the mean, median and variance for each sample (use the actual variance of the
+sample, not `var()`).
+2. Repeat point 1 four times using different random seeds (tip: use a foor loop). How much
+do the sample properties vary?
+3. Compare these sample properties to the population values at the two sample sizes. How does
+the median and mean differ in their behavior? What is happening to the variation across
+repeated samples as sample size increases?
