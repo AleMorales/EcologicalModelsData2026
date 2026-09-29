@@ -59,6 +59,10 @@ vegetation cover are useful continuations in the later drafts. State whether dat
 are simulated, built in, or supplied in a file. Do not present simulation as field
 evidence or invent the provenance of a dataset.
 
+Use different datasets for a chapter's theory example and its practical
+exercises. A dataset from an earlier chapter may return in a later chapter
+when the new analysis answers a different question; explain that connection.
+
 For a distribution, describe its support, parameters, ecological interpretation,
 mean and variance, and R functions. Where relevant, connect the four faces in the
 Chapter 2 order: probability mass or density, cumulative probability, quantiles,
@@ -90,6 +94,12 @@ from binomial trial count when both occur. For the negative binomial, use mean
 $\mu$ and shape $k$ with $\operatorname{Var}(X)=\mu+\mu^2/k$, mapped to R's `mu`
 and `size`. Explain any alternative parameterisation explicitly. For a normal
 model written with variance $\sigma^2$, R's `sd` argument takes $\sigma$.
+Use $\sigma^2$ for variance parameters, with descriptive subscripts when a
+model has several variance components, such as $\sigma^2_{\mathrm{group}}$
+and $\sigma^2_{\mathrm{obs}}$. Describe and parameterise these components
+as variances, not precisions; do not use $\tau^2$ for a group variance.
+When a density function or fitting code uses a standard deviation
+$\sigma$, explain that its square is the corresponding model variance.
 
 Use “approximately” for rounded results and asymptotic approximations. Describe
 simulation summaries as varying across samples. Do not promise monotonic
