@@ -3,12 +3,164 @@ title: "Chapter 8: Grouped ecological response curves"
 date: today
 ---
 
-```{r, echo = FALSE}
-#| label: metadata-block
-#| output: asis
-quarto::write_yaml_metadata_block(
-  show_solution = FALSE
-)
+# Introduction
+
+These exercises use `datasets::Loblolly`, a dataset built into R. It contains
+84 tree-height observations: `height` is in feet, `age` is in years, and
+`Seed` identifies a tree. There are 14 trees, each measured at six ages. The
+[Chapter 8 theory](../Theory.qmd) introduces the grouped-model ideas used here.
+
+Work through the exercises in order. RTMB performs the marginalisation after
+you mark effects as random; you do not need to implement Laplace approximation
+yourself.
+
+We will use the saturating growth curve
+
+$$
+m(t;A,R_0,k)=A-(A-R_0)e^{-kt}, \qquad A>0,\quad k>0.
+$$
+
+Here $t$ is age, $R_0$ is the extrapolated height at age zero, $A$ is the
+asymptotic height, and $k$ controls the approach to that asymptote. The first
+observed age is greater than zero, so interpret $R_0$ as an extrapolation rather
+than a directly observed height.
+
+# Exercise 1: Grouping and complete pooling
+
+1. Load `datasets::Loblolly`, make an integer `tree_index` suitable for RTMB,
+   and count trees and observations per tree. Identify the observational and
+   grouping units.
+2. Plot height against age for each tree. Use both line type or symbol and colour
+   to distinguish trees.
+3. Fit a complete-pooling normal model with the growth curve above. Check the
+   convergence code, report $A$, $R_0$, $k$, and
+   $\sigma^2_{\mathrm{obs}}$ with their units, and overlay the fitted common
+   curve.
+4. Describe one systematic feature of the tree trajectories that this common
+   curve misses.
+
+## Solution
+
+`Loblolly` is supplied with R, so we can copy it to an object for this analysis.
+An observation is one recorded height at one age for one tree. A tree is the
+grouping unit. `as.integer()` changes the factor levels to consecutive indices
+that can index a parameter vector.
+
+```r
+library(RTMB)
+
+trees = datasets::Loblolly
+trees$tree_index = as.integer(trees$Seed)
+table(trees$tree_index)
+c(number_trees = length(unique(trees$tree_index)),
+  number_observations = nrow(trees))
+
+tree_colours = rep(c("black", "#0072B2", "#D55E00", "#009E73"),
+                    length.out = 14)
+tree_symbols = rep(c(16, 17, 15, 18), length.out = 14)
+plot(trees$age, trees$height, type = "n",
+     xlab = "Age (years)", ylab = "Height (feet)")
+for (j in 1:14) {
+  tree_data = trees[trees$tree_index == j, ]
+  lines(tree_data$age, tree_data$height, lty = (j - 1) %% 4 + 1,
+        col = tree_colours[j])
+  points(tree_data$age, tree_data$height, pch = tree_symbols[j],
+         col = tree_colours[j])
+}
 ```
 
-{{< include material.qmd >}}
+The normal model describes heights conditional on age as independent around the
+common curve. Its `sd` argument is a standard deviation, so we estimate
+`sigma_obs` on a log scale and square it to report
+$\sigma^2_{\mathrm{obs}}$ in squared feet.
+
+```r
+tree_mean = function(age, A, R0, k) {
+  A - (A - R0) * exp(-k * age)
+}
+
+complete_model = function(par) {
+  A = exp(par$log_A)
+  k = exp(par$log_k)
+  sigma_obs = exp(par$log_sigma_obs)
+  mu = tree_mean(trees$age, A = A, R0 = par$R0, k = k)
+  trees$height %~% dnorm(mean = mu, sd = sigma_obs)
+}
+
+complete_start = list(
+  log_A = log(max(trees$height) + 5),
+  R0 = min(trees$height),
+  log_k = log(0.05),
+  log_sigma_obs = log(sd(trees$height))
+)
+complete_obj = MakeADFun(complete_model, complete_start, silent = TRUE)
+complete_fit = optim(par = complete_obj$par, fn = complete_obj$fn,
+                     gr = complete_obj$gr, method = "BFGS")
+complete_fit$convergence
+
+complete_estimates = c(
+  A_feet = exp(complete_fit$par["log_A"]),
+  R0_feet = complete_fit$par["R0"],
+  k_per_year = exp(complete_fit$par["log_k"]),
+  sigma2_obs_squared_feet = exp(complete_fit$par["log_sigma_obs"])^2
+)
+complete_estimates
+
+age_grid = seq(min(trees$age), max(trees$age), length.out = 200)
+lines(age_grid,
+      tree_mean(age_grid, A = complete_estimates["A_feet"],
+                R0 = complete_estimates["R0_feet"],
+                k = complete_estimates["k_per_year"]),
+      lwd = 3)
+```
+
+You should inspect the code returned by `complete_fit$convergence`; zero is
+reassuring but does not verify the model. The common curve misses systematic
+between-tree differences: some trajectories lie mainly above it while others
+lie below it.
+
+
+
+# Exercise 2: No pooling
+
+Keep $R_0$, $k$, and $\sigma^2_{\mathrm{obs}}$ shared, but give every tree a
+separate asymptote $A_j$ on the log scale.
+
+1. Fit this model with RTMB and check convergence.
+2. Plot the fitted curve for every tree and identify the large differences from
+   the complete-pooling curve.
+3. State which parameters and data remain shared. Are the 14 log asymptotes
+   random effects?
+
+
+# Exercise 3: Partial pooling and shrinkage
+
+Use a log-asymptote random effect so every tree asymptote remains positive:
+
+$$
+\log A_j=\log A+u_j,\qquad
+u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{tree}}).
+$$
+
+1. Fit this model in RTMB, using `random = "u"`, and inspect convergence.
+2. Report $A$, $R_0$, $k$, $\sigma^2_{\mathrm{tree}}$, and
+   $\sigma^2_{\mathrm{obs}}$. State that the tree variance is on the
+   log-asymptote scale and that the observation variance is in squared feet.
+3. Draw conditional tree curves and compare their asymptotes with the no-pooling
+   curves. Identify the shrinkage pattern.
+4. Explain what RTMB did when `u` was declared random.
+
+
+
+# Exercise 4: Interpretation and checking
+
+1. Use the Hessian from the partial-pooling fit to calculate an approximate 95%
+   interval for the common asymptote $A$ on the feet scale. State the relevant
+   assumptions.
+2. Explain the difference between a fitted curve for an observed tree and a
+   prediction for a new tree.
+3. Simulate complete hierarchical data from the partial-pooling fit: simulate
+   one tree effect per tree and then one observation per recorded age. Plot the
+   simulated and observed trajectories for comparison.
+4. Give at least two limitations of this analysis, including the 14 groups and
+   the decision to vary only one curve component.

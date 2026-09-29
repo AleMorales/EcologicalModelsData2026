@@ -14,6 +14,10 @@ scope and approves the teaching material; generated text is a draft until review
 
 ## Read before working
 
+- Read [Chapter_1/Theory.qmd](Chapter_1/Theory.qmd) before making course-content
+  changes. It is the overview of the course and its chapters; use it to identify
+  the relevant theory, practical, and prerequisite files before reading those
+  files in detail.
 - Read [STYLE_GUIDE.md](STYLE_GUIDE.md) before writing or editing course material.
   It defines prose, notation, Quarto, and R conventions.
 - Read the target page, its associated practical or theory, and relevant earlier
@@ -25,16 +29,16 @@ scope and approves the teaching material; generated text is a draft until review
 
 ## Reference material and review status
 
-The following status was supplied by the author when these instructions were
-created. Update it when the author confirms further review.
+The course has currently been generated through Chapter 9. Generation does not
+imply human review; record later review decisions here when the author confirms
+them.
 
 | Material | Status and use |
 |---|---|
 | `Chapter_1/Practicals/material.qmd` and its wrappers | Completed practical; primary reference for teaching voice, introductory R, and conditional solutions |
 | `Chapter_2/Theory.qmd` | Completed theory; primary reference for conceptual explanations, ecological examples, notation, and figures |
 | `Chapter_2/Practicals/no_solution.qmd` and `solution.qmd` | Completed practical; primary reference for exercises, worked reasoning, and interpretation |
-| `Chapter_3/Theory.qmd`, `Chapter_4/Theory.qmd`, `Chapter_5/Theory.qmd` | Drafts without human revision; sources of proposed content, not authoritative style or verified statements |
-| Other pages | Existing material; review status unspecified, not assumed complete |
+| `Chapter_3` through `Chapter_9` | Generated course material; review status unspecified, not assumed complete |
 
 The author requires `=` for all R assignment throughout the course, including
 function definitions. Apply this rule to existing and new code. The references contain occasional
@@ -64,8 +68,11 @@ Apply these roles as needed within the task; they do not require separate agents
   before relying on formula-based fitting interfaces.
 - The current progression is R foundations (Chapter 1), discrete probability
   (Chapter 2), continuous probability (Chapter 3), estimation and sampling
-  distributions (Chapter 4), and maximum likelihood (Chapter 5). Verify later
-  topics against the actual files before referring students to them.
+  distributions (Chapter 4), maximum likelihood (Chapter 5), deterministic
+  functions (Chapter 6), fitted ecological response curves (Chapter 7), grouped
+  response curves (Chapter 8), and numerical optimisation (Chapter 9). Verify
+  chapter details against
+  `Chapter_1/Theory.qmd` and the actual files before referring students to them.
 - Use simulation to connect known model parameters to samples, estimates, and
   repeated-sampling behaviour. Introduce unfamiliar R tools when they are needed.
 - Retain method of moments as a bridge to estimation. Do not replace the course's
@@ -83,9 +90,11 @@ Apply these roles as needed within the task; they do not require separate agents
 2. Check the surrounding concepts and consult the style guide. Resolve routine
    editorial choices autonomously; ask only when a substantive ambiguity would
    change the scientific meaning or course scope.
-3. Edit source `.qmd` files. Preserve the existing practical architecture: Chapter
-   1 uses shared `material.qmd` and wrappers; Chapter 2 uses separate documents.
-   Do not reorganize chapters or migrate practicals as a side effect of editing.
+3. Edit source `.qmd` files. Chapter 1 exclusively uses shared
+   `Practicals/material.qmd` with `solution.qmd` and `no_solution.qmd` wrappers.
+   From Chapter 2 onward, each practical must be self-contained: both
+   `solution.qmd` and `no_solution.qmd` contain their relevant text and code.
+   Do not introduce shared `material.qmd` files in later chapters.
 4. Keep exercises and solutions aligned in numbering, data, notation, and learning
    goals. A deliberately worked example may appear on the student page: Chapter
    2's first exercise is an existing example. Do not remove it automatically.
@@ -97,6 +106,10 @@ Apply these roles as needed within the task; they do not require separate agents
 6. Report what changed and which checks actually ran. Clearly identify unverified
    numerical claims or unavailable tooling; never claim a successful render or
    execution without performing it.
+7. After making any course-content or repository-guidance change, review
+   `AGENTS.md` and update it when the change establishes new progress, a durable
+   convention, a file-structure rule, or an author decision. Report whether it
+   was updated or confirmed unchanged.
 
 Do not edit generated HTML, cache files, or vendored extensions to change course
 content. Do not install packages during rendering. Preserve source attribution

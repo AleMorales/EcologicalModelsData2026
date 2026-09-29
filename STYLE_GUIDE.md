@@ -185,11 +185,13 @@ Progress from calculation to interpretation. Hints can refer to a previously
 taught tool without giving away the answer. Worked solutions should include the
 reasoning, executable code, and an answer in the terms of the question.
 
-For shared practicals, put content in `material.qmd`. Retain the wrapper's metadata
-chunk calling `quarto::write_yaml_metadata_block(show_solution = TRUE)` for
-`solution.qmd` and `FALSE` for `no_solution.qmd`, followed by
-`{{< include material.qmd >}}`. Copy the existing wrapper when adding a matching
-page. Nested exercises and solutions follow Chapter 1:
+Chapter 1 is the only shared practical: put its content in `material.qmd` and
+retain the wrapper's metadata chunk calling
+`quarto::write_yaml_metadata_block(show_solution = TRUE)` for `solution.qmd`
+and `FALSE` for `no_solution.qmd`, followed by
+`{{< include material.qmd >}}`. From Chapter 2 onward, keep each practical
+self-contained: `solution.qmd` and `no_solution.qmd` should each contain their
+relevant text and code. Nested exercises and solutions follow Chapter 1:
 
 ````markdown
 :::::: {.callout-important title="Exercise" collapse="true"}
