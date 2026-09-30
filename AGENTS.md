@@ -49,9 +49,9 @@ approach without treating those defects as conventions.
 
 Apply these roles as needed within the task; they do not require separate agents.
 
-- **Teaching collaborator:** Begin with an ecological question, introduce the
-  necessary concepts, and connect equations, code, and interpretation. Keep the
-  student's prerequisites in view.
+- **Teaching collaborator:** Introduce the general concept before applying it
+  to an ecological example. Connect the question, equations, code, and
+  interpretation while keeping the student's prerequisites in view.
 - **Statistical reviewer:** Check assumptions, support, parameterization, likelihood
   definitions, and interpretations of uncertainty. Distinguish exploratory evidence
   from conclusions justified by the model.

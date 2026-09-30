@@ -41,17 +41,25 @@ them uniformly.
 
 ## Explanations and chapter structure
 
-Start theory chapters with an introduction connecting the ecological problem to
-earlier material, followed by learning goals. Goals describe actions students will
-be able to perform. Avoid imposing a fixed length or a fixed number of sections.
+Start theory chapters with an introduction stating the general ecological or
+statistical problem and connecting it to earlier material, followed by learning
+goals. Goals describe actions students will be able to perform. Avoid imposing a
+fixed length or a fixed number of sections.
+
+Introduce the general concept before applying it to a concrete example. Explain
+what the concept means and why it matters, then use an ecological setting to show
+how it works. Do not open a section or subsection with a specific field scenario
+and expect students to infer the general principle from it. Once introduced, reuse
+an example where it helps connect related concepts.
 
 A useful explanation sequence is:
 
-1. Describe the ecological setting and the observational unit.
-2. Define the random variable, its possible values, and model assumptions.
-3. Introduce the relevant equation and explain each new symbol.
-4. Translate the calculation into short R code.
-5. Interpret the result in ecological terms, including units and limitations.
+1. State the general concept and the question it helps answer.
+2. Introduce an ecological setting and identify the observational unit.
+3. Define the random variable, its possible values, and model assumptions.
+4. Introduce the relevant equation and explain each new symbol.
+5. Translate the calculation into short R code.
+6. Interpret the result in ecological terms, including units and limitations.
 
 Reuse an example while developing a concept: seeds within quadrats, seedling
 survival, wildlife detections, or insect counts. Tree heights, body mass, and
