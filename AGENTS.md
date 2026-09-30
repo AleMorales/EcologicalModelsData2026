@@ -66,6 +66,11 @@ Apply these roles as needed within the task; they do not require separate agents
 - Keep maximum likelihood and ecological interpretation at the centre of the
   course. Build understanding of explicit probability and likelihood functions
   before relying on formula-based fitting interfaces.
+- When motivating ecological models, explain how interpretable response
+  parameters, model comparison, and explicit observation models can answer
+  questions beyond a zero-effect test. Acknowledge that standard regression and
+  mixed models remain useful, and connect these skills to prediction and
+  uncertainty without expanding the course into forecasting methods.
 - The current progression is R foundations (Chapter 1), discrete probability
   (Chapter 2), continuous probability (Chapter 3), estimation and sampling
   distributions (Chapter 4), maximum likelihood (Chapter 5), deterministic
@@ -78,6 +83,10 @@ Apply these roles as needed within the task; they do not require separate agents
 - Retain method of moments as a bridge to estimation. Do not replace the course's
   likelihood focus with hypothesis testing, p-values, Bayesian inference, or a
   survey of modelling packages unless the author requests that change.
+- The course does not work with dynamical models. When motivating probability,
+  emphasise observation error, parameter uncertainty, and process variation.
+  Summarise initial-condition, driver, scenario, and numerical uncertainty as
+  wider forecasting applications without developing dynamical-model methods.
 - Exercises should ask students to calculate, simulate, plot, compare, and explain.
   Solutions should explain why the code answers the ecological question.
 - Support AI use as tutoring that helps students understand and debug their work;
