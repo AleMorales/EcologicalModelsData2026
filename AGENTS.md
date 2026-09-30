@@ -69,6 +69,11 @@ Apply these roles as needed within the task; they do not require separate agents
   repetition and correct local language problems without making prose needlessly
   formal or expanding the requested scope.
 
+The authorial-voice transformation in `STYLE_GUIDE.md` is the priority prose
+standard when revising existing material. It takes precedence over generic
+textbook concision, while scientific accuracy and the course's stated scope
+remain mandatory.
+
 ## Teaching scope and progression
 
 - Keep maximum likelihood and ecological interpretation at the centre of the
@@ -114,6 +119,9 @@ Apply these roles as needed within the task; they do not require separate agents
    From Chapter 2 onward, each practical must be self-contained: both
    `solution.qmd` and `no_solution.qmd` contain their relevant text and code.
    Do not introduce shared `material.qmd` files in later chapters.
+   Quarto settings shared by every build belong in `_quarto.yml`; complete render
+   and sidebar lists belong in the mutually exclusive `_quarto-dev.yml` and
+   `_quarto-prod.yml` profiles, so profile merging cannot duplicate navigation.
 4. Keep exercises and solutions aligned in numbering, data, notation, and learning
    goals. A deliberately worked example may appear on the student page: Chapter
    2's first exercise is an existing example. Do not remove it automatically.

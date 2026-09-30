@@ -12,6 +12,125 @@ case headings, British English, dollar-delimited mathematics, and modern Quarto
 chunk options. These choices do not imply that the existing files already follow
 them uniformly.
 
+## PRIORITY: transform material into the author's voice
+
+**This section takes priority over the other prose-style preferences in this
+guide.** When revising material that predates the author's new Chapter 1 voice,
+do more than correct wording or make it more concise. Recast it so that it sounds
+like an ecologist speaking candidly to students about the gap between ecological
+questions, field data, and conventional statistics. Preserve the scientific claim,
+the course sequence, and any necessary qualification; change the route by which
+the reader reaches the idea.
+
+The intended voice is personal, direct, curious, and sometimes lightly
+provocative. It is not a neutral institutional textbook voice. The author is a
+teacher and fellow ecologist, not an all-knowing authority: the text can share
+the motivation for the book, acknowledge live debates, and say where a method is
+useful without pretending that it solves every problem. Technical precision,
+fairness to other approaches, and careful copy editing remain non-negotiable.
+Informal language must never become a reason to make a false, unsupported, or
+overstated statistical claim.
+
+### What should change in a revision
+
+Use the following contrasts as an editing target. They describe a change in
+emphasis and structure, not an instruction to reproduce particular phrases.
+
+- **Old:** begin with an abstract course description or a finished conclusion.
+  **New:** begin with a recognisable ecological tension, question, or frustration,
+  then show why the chapter's idea helps. For example, connect an elegant model
+  learned in class to the messy, unbalanced, non-Normal data that fieldwork often
+  produces.
+- **Old:** present modelling and statistics as a tidy, predefined sequence of
+  tools. **New:** explain why students need to bring the two together: ecological
+  theory supplies interpretable relationships, while statistical machinery lets
+  us confront those relationships with variable observations.
+- **Old:** use detached phrasing such as "this course introduces" or "an analysis
+  should". **New:** speak to the reader and reason alongside them: use **you** for
+  their questions and actions, **we** for shared reasoning, and occasional **I**
+  where the author's experience or judgement genuinely helps orient the reader.
+- **Old:** state that a method has limitations in general terms. **New:** name the
+  practical consequence. Explain, for instance, why a balanced factorial design,
+  a straight-line response, or a zero-effect question may fail to express the
+  ecological question or the way the data arose.
+- **Old:** contrast methods only at the level of technical labels. **New:** put
+  competing questions side by side. Replace a binary question such as "Does
+  temperature affect development?" with an estimable ecological question about
+  the rate of change, a thermal optimum, effect size, or biological consequence.
+- **Old:** hide uncertainty behind polished, impersonal claims. **New:** say what
+  is debated, conditional, approximate, or outside the book's scope. Explain the
+  practical choice the book makes and why, rather than treating it as inevitable.
+- **Old:** avoid any authorial position in the name of neutrality. **New:** allow
+  a clear position--explicit probability models and ecologically interpretable
+  parameters are more useful than reducing every question to a p-value--while
+  recognising that linear, generalised linear, mixed  models remain
+  useful in some circumstances.
+- **Old:** use an ecological example merely to illustrate a definition. **New:**
+  make the example do argumentative work: it should show what an ecologist wants
+  to know, what the observation process complicates, and how the model can give a
+  more informative answer.
+
+### How to write in this voice
+
+- Let motivation come before formalism. Open a section by identifying what a
+  student might be trying to understand, where the familiar approach becomes
+  unsatisfying, and what the new idea makes possible. Then define terms, state
+  assumptions, introduce equations, and show code.
+- Use conversational transitions and well-placed questions: "So what do we do
+  then?", "The important point is...", or "Do not confuse...". Use them to move
+  the argument forward, not as decoration. Vary sentence length so a dense idea
+  can be followed by a short, clear conclusion.
+- Make the author visible where it has teaching value. A short first-person
+  reflection, a disciplinary observation, or an admission that a concept is
+  genuinely subtle can make the explanation more trustworthy. Do not manufacture
+  personal anecdotes, opinions, reading history, or experiences on the author's
+  behalf.
+- Prefer concrete ecological language over generic statistical slogans. Name the
+  organism, driver, response, measurement difficulty, and consequence when they
+  clarify the point. Show how a parameter answers an ecological question rather
+  than calling it merely "meaningful" or "important".
+- Use lightly informal, vivid wording to make a difficult idea memorable, but
+  keep it deliberate and sparse. A phrase such as "messy field data" can help;
+  a stream of jokes, rhetorical questions, or slang makes the explanation feel
+  less trustworthy.
+- Treat standard statistics as limited defaults, not villains. Explain why
+  p-values, significance tests, linear responses, Normal models, and formula
+  interfaces can be inadequate for a particular question. Do not imply that they
+  are universally wrong, obsolete, or incapable of modelling nonlinearity,
+  grouping, or uncertainty.
+- Explain statistical debates pragmatically. When discussing frequentist and
+  Bayesian ideas, probability interpretations, or model selection, identify the
+  practical decision made in this book and its limits. Do not turn an introductory
+  chapter into a philosophical survey or make unsupported claims about what an
+  entire research community believes.
+- Keep the ecology, probability model, data-generating process, and inference
+  connected. The voice should make the course feel more grounded, not replace a
+  definition, assumption, derivation, or interpretation that students need.
+
+### Revision workflow and final check
+
+When transforming an existing passage, first identify its scientific job: the
+question it answers, the prerequisite ideas, the claims that require
+qualification, and the examples or equations that must remain consistent with
+the surrounding chapter. Rewrite the passage around the reader's problem and
+the ecological stakes. Only then tighten the prose, correct grammar, and apply
+the conventions elsewhere in this guide.
+
+Before finishing, ask:
+
+1. Does the opening give a student a reason to care before it becomes technical?
+2. Does the passage sound like a thoughtful ecologist speaking to students, rather
+   than a generic course catalogue or a research-paper introduction?
+3. Does it make a concrete connection between the ecological question, the data,
+   and the model or parameter?
+4. Does it replace a purely binary or method-centred framing with a quantitative,
+   ecologically relevant question where appropriate?
+5. Are informal turns of phrase serving the explanation rather than obscuring it?
+6. Have all personal claims, historical claims, quotations, links, and
+   disciplinary generalisations been retained only when supplied or verified?
+7. Have grammar, spelling, terminology, mathematical notation, and statistical
+   qualifications been checked independently of the voice transformation?
+
 ## Voice and vocabulary
 
 - Address students as **you** for actions and use **we** for shared reasoning:
@@ -161,9 +280,13 @@ Preserve the target page's settings rather than applying this template blindly.
 Practicals also use `date: today`; Chapter 1's material uses the installed
 `wordcount-html` extension. Do not remove that setup as an incidental cleanup.
 
-Use plain fenced `r` blocks for code students should run themselves. Use `{r}`
-blocks for executable Quarto chunks, with options on `#|` lines. Theory pages
-usually disable evaluation globally and enable it for selected figures:
+Always use executable Quarto R chunks, written as ```` ```{r}```` rather than
+display-only ```` ```r```` blocks. This applies to code examples that students
+run themselves as well as code that the document evaluates. When code should be
+shown but not run during rendering, keep the executable chunk and set
+`#| eval: false` (or disable evaluation globally with `execute: eval: false`).
+Use chunk options on `#|` lines. Theory pages usually disable evaluation globally
+and enable it for selected figures:
 
 ````markdown
 ```{r}
@@ -216,7 +339,7 @@ relevant text and code. Nested exercises and solutions follow Chapter 1:
 
 For 25 seedlings with survival probability 0.65, the expected count is:
 
-```r
+```{r}
 expected_survivors = 25 * 0.65
 ```
 
