@@ -13,10 +13,13 @@ execute:
 
 # Introduction
 
-In this chapter, we learn how to use probability distributions to describe ecological variation and
-connect a model to the counts we observe. We focus on **discrete random variables**, which take
-separate, countable values such as $0, 1, 2, \ldots$. [Chapter 3](../Chapter_3/Theory.qmd)
-extends these ideas to continuous measurements.
+In this chapter, we learn how to use probability distributions to make sense of the counts that
+ecological fieldwork actually gives us. You may count surviving seedlings, flowering plants, or
+camera detections, but a count from one quadrat or night is never the whole ecological story.
+Probability gives us a way to describe the variation we expect among comparable observations,
+then to ask whether a particular model is a useful approximation. We focus on **discrete random
+variables**, which take separate, countable values such as $0, 1, 2, \ldots$.
+[Chapter 3](../Chapter_3/Theory.qmd) extends these ideas to continuous measurements.
 
 # Learning goals
 
@@ -33,10 +36,11 @@ After studying this chapter, you should be able to:
 
 # Random variables and probability distributions
 
-A **random variable** is a quantity whose value is uncertain before an observation.
-For a count, its possible values are non-negative integers. Suppose we place four seeds
-in each quadrat, a marked area used for sampling, and later count how many survive in
-one quadrat. Let $X$ be that count:
+When we put a quadrat in the field, we do not know in advance how many of its seeds will survive.
+There may be variation in microsites, herbivory, weather, or observation. A **random variable**
+is the quantity whose value is uncertain before we make that observation. For a count, its possible
+values are non-negative integers. Suppose we place four seeds in each quadrat, a marked area used
+for sampling, and later count how many survive in one quadrat. Let $X$ be that count:
 
 $$
 X=\text{the number of seeds surviving in a quadrat}.
@@ -48,11 +52,11 @@ $$
 0,1,2,3,4.
 $$
 
-These are the possible counts. The **support** is the set of values assigned positive
-probability by a model. If every count from zero to four has positive probability,
-the support is $\{0, 1, 2, 3, 4\}$. A discrete model can also have **countably
-infinite** support, such as $\{0, 1, 2, 3, \ldots\}$ for counts with no fixed
-upper limit.
+These are the possible counts. The **support** is the subset that the model says can occur with
+positive probability. If every count from zero to four has positive probability, the support is
+$\{0, 1, 2, 3, 4\}$. Later we will meet counts with no fixed upper limit, such as the number of
+insects in a trap. Their support can be **countably infinite**:
+$\{0, 1, 2, 3, \ldots\}$.
 
 ::: {.callout-note title="Discrete random variable"}
 A discrete random variable takes values from a finite or countably infinite set. Its
@@ -60,7 +64,9 @@ probability distribution assigns a probability to each possible value, and the
 probabilities sum to one.
 :::
 
-For each possible value of $X$ we can assign a probability. For example:
+The point is not that we can predict the exact count in every quadrat. We cannot. Instead, a
+probability distribution makes our expectations about the range of possible counts explicit. For
+example, it might assign these probabilities:
 
 | $x$ | $P(X=x)$ |
 |---:|---:|
@@ -82,8 +88,9 @@ $$
 \sum_x P(X=x)=1.
 $$
 
-The notation $X$ refers to the random variable, while $x$ refers to one possible or observed value
-of that variable.
+The capital letter $X$ refers to the random variable, while the lower-case $x$ refers to one
+possible or observed value. This distinction looks fussy at first, but it will keep the model and
+the data separate when we start estimating parameters later in the course.
 
 We can also add probabilities for a set of counts. For example:
 
@@ -91,8 +98,8 @@ $$
 P(X \leq 3) = \sum_{x=0}^{3} P(X=x).
 $$
 
-For larger supports, we use a **probability mass function** to calculate the
-probability assigned to each count (see @sec-four_faces).
+For larger supports, listing every probability quickly becomes impractical. We use a **probability
+mass function** to calculate the probability assigned to each count (see @sec-four_faces).
 
 ::: {.callout-note title="Probability distribution"}
 A probability distribution assigns probabilities to the possible values of a random
@@ -100,24 +107,28 @@ variable. Its probability mass function and cumulative distribution function are
 two ways to describe those probabilities (see @sec-four_faces).
 :::
 
-We will use a binomial model for seed survival to learn four related R operations.
-In @sec-discrete_distributions, we examine its assumptions and probability mass
-function alongside two other count models. [Chapter 7](../Chapter_7/Theory.qmd#sec-response-comparison)
-introduces criteria for comparing fitted models.
+We will use a binomial model for seed survival to learn four related R operations. This is a
+deliberately simple starting point: the model lets us focus on what a distribution says before we
+ask whether its assumptions are believable for real seedling data. In @sec-discrete_distributions,
+we examine its assumptions and probability mass function alongside two other count models.
+[Chapter 7](../Chapter_7/Theory.qmd#sec-response-comparison) introduces criteria for comparing
+fitted models.
 
 ## The four faces of a discrete distribution {#sec-four_faces}
 
 ### 1. Probability mass
 
-The probability mass assigned to $X=x$ is
+The first question we might ask is, “What is the chance of this exact count?” The probability mass
+assigned to $X=x$ is
 
 $$
 P(X=x).
 $$
 
-For example, $P(X=4)$ is the probability that all four seeds in a quadrat survive.
-The masses across possible counts show the model's shape. Later, we will use mass
-functions to estimate parameters and check fitted models against observations.
+For example, $P(X=4)$ is the probability that all four seeds in a quadrat survive. Looking across
+all the masses shows us the model's shape: which counts it treats as common and which as rare.
+Later, we will use mass functions to estimate parameters and check fitted models against
+observations.
 
 Suppose each seed has survival probability $0.4$, independently of the others.
 We can display the binomial probability mass with bars or vertical lines:
@@ -169,8 +180,9 @@ dbinom(x = 2, size = seed_count, prob = seed_survival_probability)
 
 ### 2. Cumulative probability
 
-The **cumulative distribution function** adds the probability masses up to and
-including a count $x$:
+Exact counts are useful, but ecological questions often concern a threshold: will no more than two
+seeds survive, or will the count exceed a level that matters for recruitment? The **cumulative
+distribution function** adds the probability masses up to and including a count $x$:
 
 $$
 F_X(x)=P(X\leq x).
@@ -236,10 +248,11 @@ This is equivalent to subtracting the lower-tail probability from one:
 
 ### 3. Quantiles
 
-A **quantile** gives a count associated with a specified cumulative probability.
-For a discrete distribution, the cumulative function jumps, so it has no ordinary
-inverse for every probability between zero and one. Instead, the $\alpha$-quantile
-is the smallest count whose cumulative probability reaches or exceeds $\alpha$:
+Sometimes we want to turn the question around: rather than supplying a count and asking for its
+probability, we supply a probability and ask which count reaches it. A **quantile** gives that
+count. For a discrete distribution, the cumulative function jumps, so it has no ordinary inverse
+for every probability between zero and one. Instead, the $\alpha$-quantile is the smallest count
+whose cumulative probability reaches or exceeds $\alpha$:
 
 $$
 q_\alpha=\min\{x:F_X(x)\geq\alpha\}.
@@ -291,9 +304,10 @@ qbinom(
 
 ### 4. Sampling
 
-Simulating counts from a model helps us see how observations vary when the model
-parameters are fixed. In a simulated sample, each count is one realisation of the
-random variable. One way to generate each count is:
+At this point, it is tempting to treat the smooth probability plot as if it were a set of field
+data. It is not. A model with fixed parameters can still produce many different samples.
+Simulating counts lets us see that variation directly. In a simulated sample, each count is one
+realisation of the random variable. One way to generate each count is:
 
 1. Generate a random number between zero and one.
 
@@ -352,7 +366,7 @@ fruit. Let $X$ be the number of these flowers that set fruit.
 The count can be any integer from 0 to 6. The exact-count probability uses `dbinom()`,
 the cumulative probability uses `pbinom()`, and the quantile uses `qbinom()`.
 
-```r
+```{r}
 flower_count = 6
 fruit_set_probability = 0.5
 
@@ -371,8 +385,9 @@ Under this model, at least 75% of the probability is on counts of four or fewer.
 
 ### Independence
 
-Two random variables are **independent** if knowing the value of one does not
-change the probabilities for the other. Consider germination of two planted seeds.
+Independence is one of those assumptions that makes probability calculations beautifully neat and
+ecological data rather awkward. Two random variables are **independent** if knowing the value of
+one does not change the probabilities for the other. Consider germination of two planted seeds.
 Let $X_1$ and $X_2$ indicate whether the first and second seed germinate:
 each variable takes value $1$ for germination and $0$ otherwise. Their possible
 values are $\{0, 1\}$; the variables themselves are $X_1$ and $X_2$.
@@ -392,18 +407,18 @@ probability distribution of another. It is not guaranteed merely because observa
 were collected at different locations or times.
 :::
 
-Dependence can arise through spatial clustering, shared weather, competition,
-or repeated measurements of the same individual. [Chapter 8](../Chapter_8/Theory.qmd)
-examines grouped observations. Sampling seeds from different quadrats alone does
-not establish independence.
+Real seeds often share a parent plant, a soil patch, a drought, or a hungry herbivore. Dependence
+can therefore arise through spatial clustering, shared weather, competition, or repeated
+measurements of the same individual. [Chapter 8](../Chapter_8/Theory.qmd) examines grouped
+observations. Sampling seeds from different quadrats alone does not establish independence.
 
 #### Independent and identically distributed random variables
 
-We often assume that observations are both independent and **identically
-distributed**: each follows the same probability distribution. We call these
-assumptions **independent and identically distributed (i.i.d.)**. They simplify
-calculations used in later parameter estimation, but we must assess whether
-they are reasonable for the ecological setting.
+We often make a stronger working assumption: observations are both independent and **identically
+distributed**, meaning that each follows the same probability distribution. We call this
+**independent and identically distributed (i.i.d.)**. It gives us a tractable starting point for
+later parameter estimation, but it is not a prize awarded because data were collected in the same
+way. We need to decide whether it is reasonable for the ecological setting.
 
 If both seeds have the same germination probability $p_g$ and their outcomes
 are independent, the probability that both germinate is:
@@ -414,18 +429,18 @@ $$
 
 ### Expectations
 
-An **expectation** is a probability-weighted average of a quantity calculated
-from a random variable. The mean and variance describe a distribution's centre
-and spread. We can compare these theoretical properties with sample summaries;
-[Chapter 4](../Chapter_4/Theory.qmd#sec-estimates) uses that connection in
-the method of moments.
+When we say that a model expects four seedlings per quadrat, we are not predicting four seedlings
+in every quadrat. We are describing a long-run pattern across many comparable quadrats. An
+**expectation** is a probability-weighted average of a quantity calculated from a random variable.
+The mean and variance describe a distribution's centre and spread. We can compare these theoretical
+properties with sample summaries; [Chapter 4](../Chapter_4/Theory.qmd#sec-estimates) uses that
+connection in the method of moments.
 
 
 #### Expected value
 
-For a discrete random variable $X$, the expected value is a probability-weighted average
-of all possible values. That is, we sum all possible values of $X$ weighted by their
-individual probabilities.
+For a discrete random variable $X$, the expected value is a probability-weighted average of all
+possible values. We take each possible count, multiply it by its probability, and add the results.
 
 $$
 E[X] = \sum_x xP(X=x).
@@ -462,8 +477,9 @@ contain 1.6 surviving seeds, even though the expected number may be 1.6.
 
 #### Variance and standard deviation
 
-The **variance** is the expected squared distance from the mean. It measures
-how widely a distribution spreads its probability across possible values:
+The mean tells us where a model is centred; it does not tell us whether most quadrats look alike.
+The **variance** is the expected squared distance from the mean. It measures how widely a
+distribution spreads its probability across possible values:
 
 $$
 \operatorname{Var}(X) = E[(X-E[X])^2] = \sum_x P(X=x)(x-E[X])^2.
@@ -512,7 +528,7 @@ both plants. For this exercise, model the outcomes of the 16 flowers as independ
 The possible counts range from 0 to 16. First calculate the probability of each count,
 then use the weighted-sum formulas for the mean and variance:
 
-```r
+```{r}
 # Calculate the probability mass for all possible totals.
 fruit_count_values = seq.int(from = 0, to = 16)
 fruit_probabilities = dbinom(
@@ -541,8 +557,10 @@ introduces models for grouped observations.
 
 # Samples and populations {#sec-sample_population}
 
-So far, we have used probability distributions to describe possible counts.
-How do those models relate to the counts collected in an ecological study?
+So far we have been working from a model outwards: specify probabilities, then calculate what the
+model expects. In a study we have the opposite problem. We start with a limited, messy collection
+of counts and want to learn about a broader ecological setting. How do those observations connect
+to a probability model?
 
 ::: {.callout-note title="Sample and population"}
 The **population** is the set of units or observations about which we want to
@@ -550,22 +568,22 @@ learn. A **sample** contains the units or observations we collect. A probability
 distribution is a model for variation in their values, not the population itself.
 :::
 
-For example, we might want to learn about seed survival across all quadrats in a
-restoration site, while observing only some of them. To use a model to learn about
-the site, we need assumptions about how the quadrats were selected and how their
-counts vary. Random sampling can support this connection; a biased selection of
-quadrats may not represent the population we care about.
+For example, we might want to learn about seed survival across a restoration site while observing
+only some quadrats. We cannot quietly turn those observed quadrats into a claim about the whole
+site. To make that connection, we need assumptions about how quadrats were selected and how their
+counts vary. Random sampling can support it; a convenient or biased selection may not represent the
+population we care about.
 
-A probability model represents variation and uncertainty without claiming that
-ecological processes are fundamentally random. Its assumptions are approximations
-that we check against the study design and observations.^[George E. P. Box
+A probability model represents variation and uncertainty without declaring ecological processes
+to be fundamentally random. It is an approximation that we should confront with the study design
+and observations, rather than a story we tell after seeing a convenient graph.^[George E. P. Box
 summarised this idea as "all models are wrong but some are useful".]
 
 ## From frequency to probability
 
-For a sample of counts, the **relative frequency** of a value is the number
-of times it appears divided by the sample size. Here we simulate ten quadrats
-from the binomial model used earlier:
+One bridge from observations to probability is frequency. For a sample of counts, the **relative
+frequency** of a value is the number of times it appears divided by the sample size. Here we
+simulate ten quadrats from the binomial model used earlier:
 
 ```{r}
 # Simulate ten quadrats from the binomial model.
@@ -608,10 +626,10 @@ data.frame(
 )
 ```
 
-The two columns differ because the sample contains only ten quadrats. Under
-independent sampling from the same fixed distribution, the relative frequency
-of each count approaches its model probability as sample size grows. This is
-an application of the **law of large numbers**.
+The two columns differ because the sample contains only ten quadrats. That is not a failure of the
+model: it is what sampling variation looks like. Under independent sampling from the same fixed
+distribution, the relative frequency of each count approaches its model probability as sample size
+grows. This is an application of the **law of large numbers**.
 
 ::: {.callout-note title="Frequencies converge to probabilities"}
 For independent observations from the same distribution, the relative
@@ -619,8 +637,9 @@ frequency of any specified value approaches its probability mass as sample
 size grows. A larger realised sample need not be closer for every value.
 :::
 
-We can compare simulated relative frequencies at sample sizes from 10 to
-100,000. The entries vary between simulations, even though the model is fixed:
+We can push the simulation further and compare relative frequencies at sample sizes from 10 to
+100,000. The entries vary between simulations, even though the model is fixed. More data give us
+more stable evidence about the model; they do not make a particular realised sample magically exact:
 
 ```{r}
 # Compare relative frequencies for several sample sizes with the model.
@@ -667,19 +686,20 @@ different relative frequency, especially when the sample is small.
 
 ## Empirical distribution
 
-The **empirical distribution** assigns each observed count its relative frequency.
-It lets us compare a sample with the probability distribution assumed for the
-population it represents.
+Instead of keeping the observations as a raw list, we can turn them into an **empirical
+distribution**. It assigns each observed count its relative frequency, giving us something we can
+put beside the probability distribution proposed for the population.
 
 ::: {.callout-note title="Empirical distribution"}
 A distribution whose mass at each count equals that count's relative frequency
 in the sample.
 :::
 
-Like a theoretical distribution, an empirical distribution has a cumulative
-function: the fraction of observations at or below each count. The figure compares
-both functions for ten quadrats simulated from the seed-survival model. Here ten
-is the number of quadrats sampled; four is the number of seeds in each quadrat.
+Like a theoretical distribution, an empirical distribution has a cumulative function: the fraction
+of observations at or below each count. The figure compares both functions for ten quadrats
+simulated from the seed-survival model. Here ten is the number of quadrats sampled; four is the
+number of seeds in each quadrat. Keeping those two numbers separate matters, because they describe
+different parts of the study.
 
 ```{r}
 #| echo: false
@@ -797,15 +817,16 @@ A finite sample can sometimes agree exactly; agreement is not guaranteed
 at any finite size.
 :::
 
-This is why larger samples can make empirical summaries more stable, provided
-the model and sampling assumptions hold. It supports the method of moments in
-[Chapter 4](../Chapter_4/Theory.qmd#sec-estimates). Quantiles at jumps in a
-discrete cumulative function require separate care; the statement above does
-not claim that every empirical quantile converges in the same way.
+This is why larger samples can make empirical summaries more stable, provided the model and
+sampling assumptions hold. It supports the method of moments in
+[Chapter 4](../Chapter_4/Theory.qmd#sec-estimates). Quantiles at jumps in a discrete cumulative
+function require separate care; the statement above does not claim that every empirical quantile
+converges in the same way.
 
-The next figure compares two simulated sample sizes with the same binomial
-model. The larger sample generally follows the model more closely, although
-individual values can move away from their targets in a particular simulation.
+The next figure compares two simulated sample sizes from the same binomial model. The larger sample
+generally follows the model more closely, although an individual value can still move away from its
+target in a particular simulation. That small caveat is worth keeping in mind whenever someone says
+that “more data” has solved an uncertainty problem.
 
 ```{r}
 #| echo: false
@@ -876,7 +897,7 @@ the result from the larger sample? How much can you rely on a single simulation?
 
 One possible simulation is:
 
-```r
+```{r}
 # Simulate the two sample sizes and compare each with the same model.
 set.seed(246)
 
@@ -944,15 +965,16 @@ summary, and the empirical distribution need not exactly match the theoretical o
 
 # Probability distributions for count data {#sec-discrete_distributions}
 
-We now examine three models for counts: binomial, Poisson, and negative
-binomial. For each, check which counts are possible, what its parameters mean,
-how its mean and variance relate, and whether its assumptions suit the sampling
-process. The [distribution supplement](../Supplements/distributions.qmd)
-covers further examples.
+We now have enough language to ask a practical modelling question: what kind of count have we
+actually collected, and what does a sensible starting model need to capture? We examine three
+models: binomial, Poisson, and negative binomial. For each one, check which counts are possible,
+what its parameters mean, how its mean and variance relate, and whether its assumptions suit the
+sampling process. The [distribution supplement](../Supplements/distributions.qmd) covers further
+examples.
 
-The probability mass function specifies each model's probabilities. Support
-and ecological interpretation help us choose plausible candidates; after
-fitting them to the same observations, we can use the comparison criteria in
+The probability mass function specifies each model's probabilities. Support and ecological
+interpretation help us choose plausible candidates, but neither one gives a model a free pass.
+After fitting candidates to the same observations, we can use the comparison criteria in
 [Chapter 7](../Chapter_7/Theory.qmd#sec-response-comparison).
 
 ::: {.callout-warning title="Choosing a probability distribution"}
@@ -964,10 +986,12 @@ which it was originally derived.
 
 ## The binomial distribution
 
-The binomial distribution models the number of successes among a fixed number
-of trials. Each trial has two possible outcomes, the same success probability,
-and an outcome independent of the other trials. For example, a success could
-mean that a planted seed survives.
+The binomial distribution is useful when every sampling unit contains a fixed number of genuine
+yes-or-no opportunities. It models the number of successes among those trials. Each trial has two
+possible outcomes, the same success probability, and an outcome independent of the other trials.
+For example, a success could mean that a planted seed survives. If the number of seeds differs
+among quadrats, or one seed's fate changes another's, we need to think more carefully before using
+this model.
 
 The binomial model has two parameters:
 
@@ -1004,9 +1028,9 @@ $$
 
 ### Example: seedling survival
 
-Suppose 20 seedlings are planted in each plot and each survives independently
-with probability $0.7$. Let $X$ be the number surviving in one plot. This is
-an assumed model, not a set of observed field data.
+Suppose 20 seedlings are planted in each plot and each survives independently with probability
+$0.7$. Let $X$ be the number surviving in one plot. These are assumed model values, not observed
+field data. They let us see what the binomial assumptions imply before we try to fit anything.
 
 The probability that exactly 14 survive is:
 
@@ -1065,18 +1089,19 @@ success_probability = 1 - variance_survivors / mean_survivors
 estimated_trial_count = mean_survivors / success_probability
 ```
 
-Sample means and variances will not generally recover exact model parameters.
-[Chapter 4](../Chapter_4/Theory.qmd#sec-estimates) uses sample summaries to
-construct estimates and explains why estimates vary between samples.
+With real data, sample means and variances will not generally recover exact model parameters.
+That is not bad algebra; it is parameter uncertainty. [Chapter 4](../Chapter_4/Theory.qmd#sec-estimates)
+uses sample summaries to construct estimates and explains why estimates vary between samples.
 
 ## The Poisson distribution
 
-The Poisson distribution is a starting model for counts in a fixed unit of
-time, area, or sampling effort. For $\lambda>0$, its support is
-$\{0, 1, 2, \ldots\}$; at $\lambda=0$, only zero has positive probability.
-Under the model, the mean and variance are equal. A sample with similar
-mean and variance is consistent with that feature, but does not establish
-that the Poisson assumptions hold.
+The Poisson distribution is a common starting point when we count events in a fixed unit of time,
+area, or sampling effort: insects caught per trap-night, seedlings per quadrat, or camera detections
+per night. It does not say that the organisms arrive like clockwork. It gives us a deliberately
+restricted baseline in which the mean and variance are equal. For $\lambda>0$, its support is
+$\{0, 1, 2, \ldots\}$; at $\lambda=0$, only zero has positive probability. A sample with similar
+mean and variance is consistent with this feature, but it does not establish that the Poisson
+assumptions hold.
 
 The Poisson distribution has one parameter:
 
@@ -1105,9 +1130,8 @@ $$
 
 ### Example: wildlife detections
 
-Suppose a camera records an average of $0.8$ detections per night. If the
-expected detection count scales with observation time, three nights have
-expected count
+Suppose a camera records an average of $0.8$ detections per night. If the expected detection count
+scales with observation time, three nights have expected count
 
 $$
 \lambda = 3(0.8) = 2.4.
@@ -1147,9 +1171,10 @@ ppois(
 )
 ```
 
-Unlike a binomial count, a Poisson count has no fixed upper limit. A count
-of 100 detections is possible under this model, although extremely unlikely
-when $\lambda=2.4$. Detections need not correspond to distinct animals.
+Unlike a binomial count, a Poisson count has no fixed upper limit. A count of 100 detections is
+possible under this model, although extremely unlikely when $\lambda=2.4$. Also, do not read
+“detections” as “animals”: one animal may trigger the camera more than once, and some animals may
+never be detected. The observation process matters as much as the arithmetic.
 
 ```{r}
 #| echo: false
@@ -1182,7 +1207,7 @@ even though three is the count in the question?
 
 The expected count across two square metres is $\lambda=2(1.2)=2.4$. The probability is:
 
-```r
+```{r}
 # Convert the observation effort into the Poisson mean before calculating a probability.
 rate_per_square_metre = 1.2
 survey_area = 2
@@ -1200,12 +1225,12 @@ three as a maximum.
 
 ## Overdispersion
 
-The Poisson model has equal mean and variance. Counts that vary more than this
-model predicts are **overdispersed relative to the Poisson model**. For example,
-seedling counts may differ strongly among quadrats if some have better habitat.
-The negative binomial distribution allows greater variance. Overdispersion
-can also reflect detection differences or dependence, so we must examine
-the ecological and observation processes before choosing a replacement model.
+The Poisson model earns its place partly because it gives us a clear diagnostic. Its mean and
+variance are equal. Counts that vary more than that prediction are **overdispersed relative to the
+Poisson model**. For example, seedling counts may differ strongly among quadrats because some have
+better habitat. But extra variation can also reflect differences in detection or dependence among
+observations. So overdispersion tells us that the simple model is struggling; it does not tell us
+why.
 
 ::: {.callout-warning title="Overdispersion is a statistical description"}
 Overdispersion means that the observed variation is greater than the variation expected
@@ -1216,10 +1241,9 @@ can all produce overdispersion.
 
 ### A simple diagnostic for overdispersion
 
-A first exploratory check compares the sample variance from `var()` with
-the sample mean. If the observations are reasonably described as independent
-Poisson counts with the same mean, these quantities tend to be similar.
-The **dispersion ratio** summarises their comparison:
+A first exploratory check compares the sample variance from `var()` with the sample mean. If the
+observations are reasonably described as independent Poisson counts with the same mean, these
+quantities tend to be similar. The **dispersion ratio** summarises their comparison:
 
 $$
 \text{dispersion ratio}
@@ -1253,9 +1277,9 @@ c(sample_mean, sample_variance, dispersion_ratio)
 A ratio close to one is consistent with the Poisson mean–variance relationship;
 a substantially larger ratio suggests overdispersion relative to that model.
 A ratio below one suggests less variation than the Poisson model predicts.
-The ratio alone cannot identify the cause or confirm a distribution.
-[Chapter 7](../Chapter_7/Theory.qmd#sec-response-comparison) introduces
-criteria for comparing fitted candidate models.
+Treat the ratio as a clue, not a verdict: it cannot identify the cause or confirm a distribution.
+[Chapter 7](../Chapter_7/Theory.qmd#sec-response-comparison) introduces criteria for comparing
+fitted candidate models.
 
 :::: {.callout-important title="Practice: variation in orchid stem counts"}
 
@@ -1274,11 +1298,12 @@ the cause; for example, plots may differ in habitat, or counts may be clustered.
 
 ## The negative binomial distribution
 
-The negative binomial distribution is a starting model for counts with more
-variation than a Poisson model with the same mean. Its support is
-$\{0, 1, 2, \ldots\}$. Differences among sampling units are one possible
-reason for the extra variation, though this distribution alone does not
-identify its cause.
+When the variation is plainly larger than a Poisson model allows, the negative binomial distribution
+is a useful starting model. It has support $\{0, 1, 2, \ldots\}$ and can accommodate more variation
+than a Poisson model with the same mean. Differences among sampling units are one possible reason:
+some quadrats may be much better habitat than others. But fitting a negative binomial distribution
+does not reveal that mechanism by itself. It describes the extra variation; ecological reasoning and
+study design are still needed to explain it.
 
 The negative binomial model has two parameters:
 
@@ -1309,9 +1334,8 @@ $$
 \operatorname{Var}(X)=\mu+\frac{\mu^2}{k}.
 $$
 
-For $\mu>0$ and finite $k$, the variance exceeds the mean. Smaller $k$
-gives greater variance at a fixed $\mu$. As $k$ increases, the variance
-approaches the mean:
+For $\mu>0$ and finite $k$, the variance exceeds the mean. At a fixed $\mu$, smaller $k$ gives
+greater variance. As $k$ increases, the extra variation fades and the variance approaches the mean:
 
 $$
 \mu+\frac{\mu^2}{k}\longrightarrow\mu.
@@ -1320,14 +1344,16 @@ $$
 Thus, the negative binomial distribution approaches the Poisson distribution
 as $k$ becomes large.
 
-In R, `dnbinom()` takes $k$ through its `size` argument and $\mu$ through
-`mu`. Its `pnbinom()` and `rnbinom()` counterparts provide cumulative
-probabilities and simulated counts.
+In R, `dnbinom()` takes $k$ through its `size` argument and $\mu$ through `mu`. This naming can be
+confusing because `size` does not mean the sample size here; it is the negative binomial shape
+parameter. Its `pnbinom()` and `rnbinom()` counterparts provide cumulative probabilities and
+simulated counts.
 
 ### Example: seedlings in quadrats
 
-Suppose the mean number of seedlings per quadrat is $\mu=4$, and the
-shape parameter is $k=1.5$. These are assumed model values.
+Suppose the mean number of seedlings per quadrat is $\mu=4$, and the shape parameter is $k=1.5$.
+Again, these are assumed model values. They describe a situation where comparable quadrats have the
+same average count but can still differ rather dramatically.
 
 The expected number of seedlings is
 
@@ -1344,9 +1370,9 @@ $$
 \approx 14.67.
 $$
 
-Across comparable quadrats, the model predicts four seedlings on average
-and variance of approximately $14.67$ seedlings squared. This variation
-does not by itself identify its ecological cause.
+Across comparable quadrats, the model predicts four seedlings on average and variance of
+approximately $14.67$ seedlings squared. That is much more variation than the Poisson model would
+allow at the same mean. The model has described the pattern, not yet identified its ecological cause.
 
 We can verify these calculations in R:
 
@@ -1435,7 +1461,8 @@ approaches the mean, which is the Poisson mean–variance relationship.
 
 # Chapter quiz
 
-Try each question before opening its solution.
+Probability only becomes useful when you can move comfortably between an ecological question, the
+possible observations, and a model's assumptions. Try each question before opening its solution.
 
 :::: {.callout-important title="Question 1: lichen patches"}
 
