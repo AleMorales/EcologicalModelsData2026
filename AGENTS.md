@@ -78,6 +78,8 @@ Apply these roles as needed within the task; they do not require separate agents
   response curves (Chapter 8), and numerical optimisation (Chapter 9). Verify
   chapter details against
   `Chapter_1/Theory.qmd` and the actual files before referring students to them.
+- Chapter 7 introduces model comparison for fitted candidate models. Point
+  introductory promises about model comparison there, rather than to Chapter 5.
 - Use simulation to connect known model parameters to samples, estimates, and
   repeated-sampling behaviour. Introduce unfamiliar R tools when they are needed.
 - Retain method of moments as a bridge to estimation. Do not replace the course's
