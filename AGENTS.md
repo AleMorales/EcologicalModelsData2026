@@ -43,7 +43,15 @@ them.
 The author requires `=` for all R assignment throughout the course, including
 function definitions. Apply this rule to existing and new code. The references contain occasional
 typos, inconsistent formatting, and stale cross-references; preserve the teaching
-approach without treating those defects as conventions.
+approach without treating those defects as conventions. For beginner-facing
+examples, prefer ordinary numeric literals and `NA` over typed literals such as
+`2L` and `NA_real_`, unless the distinction is part of the lesson. Add short
+explanatory comments to R chunks so students can follow the purpose of groups
+of lines and new programming operations.
+
+Every chapter should begin with `# Introduction`, whose first sentence starts
+with “In this chapter, we learn how to...”, followed by `# Learning goals`.
+List learning goals in the order in which the chapter develops them.
 
 ## Responsibilities
 

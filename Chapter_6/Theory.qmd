@@ -13,11 +13,11 @@ execute:
 
 # Introduction
 
-How does the number of prey eaten by one predator change as prey become more
-abundant? At low prey density, encounters may limit consumption. At high density,
-handling each prey item may limit it instead. We can describe this expected
-response with a **deterministic function**: the same input and parameter values
-always give the same output.
+In this chapter, we learn how to use deterministic functions to describe how an
+expected ecological response changes with a predictor. A **deterministic
+function** gives the same output whenever its inputs and parameter values are
+held fixed. It lets us study the shape and interpretation of an expected response
+before deciding how observations might vary around that response.
 
 In [Chapter 5](../Chapter_5/Theory.qmd), we used probability models and
 likelihood to estimate parameters from observations. Here we first study the
@@ -25,6 +25,11 @@ shapes of functions that could describe an ecological response. We will calculat
 their slopes, limits, peaks, and other landmarks before deciding how observations
 might vary around a curve. This gives us a way to interpret a fitted curve later,
 rather than treating it as a line drawn by software.
+
+For example, how does the number of prey eaten by one predator change as prey
+become more abundant? At low prey density, encounters may limit consumption. At
+high density, handling each prey item may limit it instead. A deterministic
+function can describe this expected response.
 
 The functions and numerical values in this chapter are illustrative. A curve
 that looks plausible does not, by itself, establish an ecological mechanism.
@@ -83,10 +88,12 @@ We can translate the formula directly into an R function. The input comes
 first, followed by the parameters:
 
 ```r
+# Define the response for prey density N and two ecological parameters.
 holling_type_ii = function(N, a, b) {
   a * N / (b + N)
 }
 
+# Evaluate the response at several prey densities.
 holling_type_ii(N = c(0, 3, 6, 12), a = 12, b = 6)
 ```
 
@@ -94,6 +101,7 @@ Base R works on a vector of input values here because multiplication and
 division are vectorised. To see the whole shape, use `curve()`:
 
 ```r
+# Plot the response across a useful range of prey densities.
 curve(
   holling_type_ii(N = x, a = 12, b = 6),
   from = 0, to = 30,
@@ -110,9 +118,11 @@ see its effect:
 #| echo: false
 #| eval: true
 #| fig-cap: "Holling type II responses with the same upper limit and different half-saturation densities."
+# Define the response before drawing curves with two half-saturation densities.
 holling_type_ii = function(N, a, b) {
   a * N / (b + N)
 }
+# Draw the first response, then add the second with a different line type.
 curve(
   holling_type_ii(N = x, a = 12, b = 3),
   from = 0, to = 30, ylim = c(0, 12),
@@ -140,16 +150,20 @@ prey density $N$ and handling time $H$. Here $H$ is a parameter that we vary
 to explore the model, not a measured predictor in a fitted analysis:
 
 ```r
+# Define the response for each prey-density and handling-time combination.
 response = function(N, H, alpha = 0.6) {
   alpha * N / (1 + alpha * H * N)
 }
 
+# Choose values for the two quantities that we vary across the grid.
 density_values = seq(from = 0, to = 30, length.out = 60)
 handling_values = seq(from = 0.15, to = 0.5, length.out = 60)
+# Calculate the response for every density and handling-time combination.
 response_grid = outer(
   X = density_values, Y = handling_values,
   FUN = response
 )
+# Show the predicted response as contours over the two inputs.
 contour(
   x = density_values, y = handling_values, z = response_grid,
   xlab = "Prey density (prey per square metre)",
@@ -201,15 +215,20 @@ the peak between those two ends.
 
 :::: {.callout-important title="Try it on paper"}
 
-For $G(N)=8N/(4+N)$, calculate $G(0)$ and
-$\lim_{N\to\infty}G(N)$. Then write the straight-line approximation
-when $N$ is small compared with 4. Keep R closed until you have all three.
+For $G(N)=8N/(4+N)$:
+
+1. Calculate $G(0)$ and $\lim_{N\to\infty}G(N)$.
+2. Write the straight-line approximation when $N$ is small compared with 4.
+3. Explain what the limiting value and approximation say about the curve's
+   behaviour. Keep R closed until you have completed each task.
 
 ::: {.callout-tip title="Solution" collapse="true"}
 
 $G(0)=0$. Dividing top and bottom by $N$ gives
 $G(N)=8/(4/N+1)\to8$. For $N\ll4$, the denominator is
 approximately 4, so $G(N)\approx2N$. The horizontal asymptote is 8.
+Thus the response starts at zero, initially rises by about two output units per
+input unit, and later flattens towards 8.
 
 :::
 ::::
@@ -413,9 +432,11 @@ formula from being used at ecologically unintended inputs.
 #| echo: false
 #| eval: true
 #| fig-cap: "A saturating response shifted right by three input units and up by two output units."
+# Define a shifted and scaled saturating response.
 shifted_response = function(x, A = 10, s = 4, c = 3, d = 2) {
   d + A * (x - c) / (s + x - c)
 }
+# Draw the curve and mark its start and halfway point.
 curve(
   shifted_response(x),
   from = 3, to = 27, ylim = c(0, 12),

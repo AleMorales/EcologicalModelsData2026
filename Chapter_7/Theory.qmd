@@ -13,40 +13,45 @@ execute:
 
 # Introduction
 
-How quickly does a predator consume prey as prey density increases? In
-[Chapter 6](../Chapter_6/Theory.qmd), a Holling type II function described the
-expected intake rate. Real measurements will not all fall on that curve. To
-estimate its parameters from data, we also need a probability model for the
-observations around it.
+In this chapter, we learn how to fit an ecological response curve together
+with a probability model for observations around that curve. This lets us use
+maximum likelihood to estimate the curve's parameters, describe their
+uncertainty, compare plausible models, and check whether the fitted model can
+reproduce key features of the data.
 
-This chapter combines a **response function** with an **observation model**.
-We will fit one predictor at a time, estimate uncertainty, compare candidate
-models, and check whether their simulated observations resemble the data.
-We will first write a likelihood as an ordinary R function, then write the
-same model in RTMB. This prepares us to add random effects to nonlinear
-curves in Chapter 8.
+In [Chapter 6](../Chapter_6/Theory.qmd), we used a Holling type II function to
+describe an expected intake rate. Here, we return to that function for a
+predator consuming prey at different prey densities. Real intake measurements
+will not all fall on the expected curve, so we need an observation model as
+well as a response function. We first write that likelihood as an ordinary R
+function, then express the same model in RTMB. This prepares us to add random
+effects to nonlinear curves in Chapter 8.
+
 The supplied practical datasets are simulated ecological examples. Their
-generating parameters are not given to you when you analyse them.
+generating models and parameter values are not given when you analyse them.
 
 # Learning goals
 
-After this chapter, you should be able to:
+After studying this chapter, you should be able to:
 
 - specify a response function, observation distribution, parameter domain,
   and observational unit for a single-predictor dataset;
 - write and optimise the resulting log-likelihood, check convergence, and
-  interpret estimates and confidence intervals in ecological units;
+  interpret estimates in ecological units;
 - express an observation model in RTMB, use its derivatives for fitting,
   and recognise when its automatic differentiation may be unsuitable;
+- calculate and interpret approximate confidence intervals, then use a
+  simulation study to investigate their bias and coverage;
 - compare models fitted to the same observations using information criteria
   and held-out predictive performance;
-- simulate from a fitted model and interpret scaled quantile residuals;
-- use a simulation study to investigate bias and confidence-interval coverage.
+- simulate from a fitted model and interpret scaled quantile residuals.
 
 # From a curve to a model for observations {#sec-response-observation}
 
-Let $x_i$ be the prey density for intake measurement $i$, and let $Y_i$
-be the measured rate. A possible expected response is
+For one intake-rate measurement at a specified prey density, let $x_i$ be the
+recorded prey density and let $Y_i$ be the recorded intake rate. The supplied
+data use recorded units, so replace these labels with physical units when they
+are available. A possible expected response is
 
 $$
 \mu_i=m(x_i;a,b)=\frac{a x_i}{b+x_i}, \qquad x_i\geq0,\ a,b>0.
@@ -65,11 +70,11 @@ Y_i\mid x_i\sim\operatorname{Normal}(\mu_i,\sigma^2),
 $$
 
 Here $\sigma$ describes variation in individual intake measurements, in the
-same units as the rate. We also assume observations are independent after
-conditioning on their predictor values. With these assumptions, the model
-has three unknown parameters: $a$, $b$, and $\sigma$. Because a normal
-distribution also permits negative rates, check whether that part of its
-support matters near low prey density.
+same units as the rate. We also assume measurements are independent after
+conditioning on their predictor values. With these assumptions, the model has
+three unknown parameters: $a$, $b$, and $\sigma$. Because a normal distribution
+also permits negative rates, check whether that part of its support matters
+near low prey density.
 
 ::: {.callout-note title="Mean curve and observations"}
 The curve describes $E[Y_i\mid x_i]$. The distribution describes possible
@@ -84,11 +89,13 @@ normal variation. Their spread shows why a likelihood needs both parts:
 #| echo: false
 #| eval: true
 #| fig-cap: "Simulated predator intake measurements around a Holling type II mean curve."
+# Simulate four intake measurements at each prey density.
 set.seed(seed = 710)
 prey_density = rep(seq(from = 3, to = 30, by = 3), each = 4)
 expected_intake = 12 * prey_density / (6 + prey_density)
 observed_intake = rnorm(n = length(prey_density),
                         mean = expected_intake, sd = 1)
+# Plot the observations and add their generating mean curve.
 plot(prey_density, observed_intake,
      xlab = "Prey density (illustrative units)",
      ylab = "Intake rate (illustrative units)", pch = 16)
@@ -125,28 +132,32 @@ at both sites, while each presence/absence observation remains random.
 # Fit a response curve by maximum likelihood {#sec-fit-response}
 
 For independent normal observations, the log-likelihood is the sum of the
-log densities at the observed rates:
+normal log densities at the observed rates. For $n$ intake measurements,
+$f_{\mathrm N}$ denotes the normal density:
 
 $$
 \ell(a,b,\sigma)=\sum_{i=1}^n
 \log f_{\mathrm N}\{y_i;m(x_i;a,b),\sigma\}.
 $$
 
-Here $y_i$ is the observed value of $Y_i$. As in [Chapter 5](../Chapter_5/Theory.qmd),
-`optim()` minimises a function by default, so we minimise the negative
-log-likelihood. We optimise the logarithms of positive parameters and
-transform the estimates back afterwards.
+Here $y_i$ is the observed value of $Y_i$. As in
+[Chapter 5](../Chapter_5/Theory.qmd), `optim()` minimises a function by
+default, so we minimise the negative log-likelihood. We optimise the logarithms
+of positive parameters and transform the estimates back afterwards.
 
-From the Chapter 7 theory page, the predator data are in
-`Practicals/shapes2.csv`:
+The supplied predator data are in `Practicals/shapes2.csv`, relative to this
+theory page:
 
 ```r
+# Load the supplied simulated intake data.
 intake_data = read.csv("Practicals/shapes2.csv")
 
+# Define the Holling type II mean curve.
 intake_curve = function(x, a, b) {
   a * x / (b + x)
 }
 
+# Calculate the negative normal log-likelihood on log parameter scales.
 intake_nll = function(par, x, y) {
   a = exp(par[1])
   b = exp(par[2])
@@ -155,6 +166,7 @@ intake_nll = function(par, x, y) {
   -sum(dnorm(x = y, mean = mu, sd = sigma, log = TRUE))
 }
 
+# Choose positive starting values and minimise the negative log-likelihood.
 fit = optim(
   par = c(log_a = log(max(intake_data$y)),
           log_b = log(median(intake_data$x)),
@@ -163,6 +175,7 @@ fit = optim(
   x = intake_data$x, y = intake_data$y,
   method = "BFGS", hessian = TRUE
 )
+# Check convergence, then return estimates on their ecological scales.
 fit$convergence
 estimates = c(a = exp(fit$par["log_a"]),
               b = exp(fit$par["log_b"]),
@@ -186,27 +199,33 @@ solution; they do not guarantee convergence or a suitable statistical model.
 We will return to how differentiation works in Chapter 9.
 
 ```r
+# Load RTMB before recording the likelihood calculation.
 library(RTMB)
 
+# Define the same likelihood with RTMB's distribution notation.
 intake_rtmb = function(par) {
   a = exp(par$log_a)
   b = exp(par$log_b)
   sigma = exp(par$log_sigma)
-  mu = intake_curve(intake_data$x, a, b)
+  mu = intake_curve(x = intake_data$x, a = a, b = b)
   y = intake_data$y
   y %~% dnorm(mean = mu, sd = sigma)
 }
 
+# Supply starting values, then record the objective and its derivatives.
 intake_parameters = list(
   log_a = log(max(intake_data$y)),
   log_b = log(median(intake_data$x)),
   log_sigma = log(sd(intake_data$y))
 )
 intake_obj = MakeADFun(intake_rtmb, intake_parameters, silent = TRUE)
+# Check that the ordinary R and recorded objectives agree before fitting.
 c(in_R = intake_rtmb(intake_parameters),
   recorded = intake_obj$fn(intake_obj$par))
+# Use the recorded gradient to minimise the negative log-likelihood.
 rtmb_fit = optim(par = intake_obj$par, fn = intake_obj$fn,
                  gr = intake_obj$gr, method = "BFGS")
+# Check convergence and compare the two fitted objective values.
 rtmb_fit$convergence
 exp(rtmb_fit$par)
 c(manual = fit$value, RTMB = rtmb_fit$value)
@@ -253,8 +272,10 @@ approximates the covariance matrix on that scale. An approximate 95%
 quadratic interval for the limiting rate $a$ is:
 
 ```r
+# Use the inverse Hessian to estimate standard errors on the log scale.
 se_log = sqrt(diag(solve(fit$hessian)))
 z = qnorm(p = 0.975)
+# Transform the interval endpoints back to intake-rate units.
 a_interval = exp(fit$par["log_a"] + c(-1, 1) * z * se_log["log_a"])
 a_interval
 ```
@@ -285,11 +306,12 @@ generating value. That proportion estimates **coverage** for this simulation
 setting. The mean of the fitted estimates minus the generating value
 estimates **bias**.
 
-For an honest study, repeat the entire fitting and interval procedure in
-each simulated dataset. Record failed fits rather than quietly removing
-them, and vary features such as sample size or the range of predictor
-values. The result describes the procedure under the chosen generating
-model; it is not proof that the model generated the supplied data.
+For a simulation study, repeat the entire fitting and interval procedure in
+each simulated dataset. Record failed fits rather than quietly removing them,
+and vary features such as sample size or the range of predictor values. The
+result describes the procedure under the chosen generating model; it is not
+proof that the model generated the supplied data. Exercise 3 in the
+[Chapter 7 practical](Practicals/no_solution.qmd) provides a full example.
 
 # Compare candidate models {#sec-response-comparison}
 
@@ -386,7 +408,9 @@ per observation and one column per simulation, then supply it to
 `DHARMa::createDHARMa()`:
 
 ```r
+# Fix the random simulation sequence for a reproducible residual check.
 set.seed(seed = 701)
+# Calculate fitted means, then simulate complete intake measurements.
 mu_hat = intake_curve(
   x = intake_data$x,
   a = estimates["a"], b = estimates["b"]
@@ -396,6 +420,7 @@ simulated_rates = replicate(
   n = 500,
   expr = rnorm(n = nrow(intake_data), mean = mu_hat, sd = sigma_hat)
 )
+# Create scaled residuals from the simulations and plot them against density.
 scaled = DHARMa::createDHARMa(
   simulatedResponse = simulated_rates,
   observedResponse = intake_data$y,

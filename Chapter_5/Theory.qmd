@@ -13,10 +13,12 @@ execute:
 
 # Introduction
 
-In [Chapter 4](../Chapter_4/Theory.qmd#sec-estimates), we estimated the
-mean number of seedlings per quadrat by matching a sample mean to the mean
-of a Poisson model. But the model tells us more than its mean: it assigns
-a probability to every possible count. Can we use that information to
+In this chapter, we learn how to use maximum likelihood to estimate unknown
+parameters in ecological probability models and describe uncertainty from the
+likelihood. In [Chapter 4](../Chapter_4/Theory.qmd#sec-estimates), we
+estimated the mean number of seedlings per quadrat by matching a sample mean
+to the mean of a Poisson model. But the model tells us more than its mean: it
+assigns a probability to every possible count. Can we use that information to
 estimate the unknown mean?
 
 We will answer this question using **maximum likelihood estimation** (MLE).
@@ -45,9 +47,14 @@ After studying this chapter, you should be able to:
 
 # From a probability model to a likelihood {#sec-likelihood}
 
-Suppose $X_i$ is the number of seedlings in equal-area quadrat $i$. We
-assume the quadrat counts are independent and have a common Poisson mean
-$\lambda$, measured in seedlings per quadrat:
+Likelihood uses a probability model for a different question from probability
+itself. After observing data, we hold those observations fixed and compare how
+well different candidate parameter values describe them. We now apply that
+idea to seedling counts.
+
+Suppose $X_i$ is the number of seedlings in equal-area quadrat $i$. We assume
+the quadrat counts are independent and have a common Poisson mean $\lambda$,
+measured in seedlings per quadrat:
 
 $$
 X_i \sim \operatorname{Poisson}(\lambda).
@@ -151,6 +158,7 @@ In R, `log = TRUE` asks `dpois()` for each log probability. Sum these
 values directly rather than taking the logarithm of a product:
 
 ```r
+# Store the observed counts and calculate their log-likelihoods.
 counts = c(1, 2, 3)
 sum(dpois(x = counts, lambda = 1, log = TRUE))
 sum(dpois(x = counts, lambda = 2, log = TRUE))
@@ -204,6 +212,7 @@ maximum is at the boundary $\lambda=0$.
 Consider a larger illustrative sample from 12 equal-area quadrats:
 
 ```r
+# Store the illustrative counts and calculate their maximum likelihood estimate.
 seedling_counts = c(1, 2, 3, 2, 4, 1, 3, 2, 2, 3, 1, 2)
 mean(seedling_counts)
 ```
@@ -216,8 +225,10 @@ point lies at the estimate.
 #| echo: false
 #| eval: true
 #| fig-cap: "Relative log-likelihood for illustrative seedling counts in 12 quadrats. The vertical line marks the maximum likelihood estimate."
+# Store the counts and choose candidate Poisson means.
 seedling_counts = c(1, 2, 3, 2, 4, 1, 3, 2, 2, 3, 1, 2)
 lambda_grid = seq(from = 0.2, to = 5, length.out = 200)
+# Calculate the log-likelihood at each candidate mean.
 log_likelihood = vapply(
   X = lambda_grid,
   FUN = function(lambda) {
@@ -225,6 +236,7 @@ log_likelihood = vapply(
   },
   FUN.VALUE = numeric(1)
 )
+# Plot relative log-likelihood and mark the fitted mean.
 plot(
   x = lambda_grid, y = log_likelihood - max(log_likelihood),
   type = "l", lwd = 2, xlab = "Mean seedlings per quadrat",
@@ -254,11 +266,13 @@ positive. It cannot represent the boundary value $\lambda=0$, so a
 sample containing only zeros needs separate treatment.
 
 ```r
+# Define the negative log-likelihood on a scale that keeps the mean positive.
 poisson_nll = function(log_lambda, counts) {
   lambda = exp(log_lambda)
   -sum(dpois(x = counts, lambda = lambda, log = TRUE))
 }
 
+# Fit the model from a valid starting value and return the mean on its original scale.
 fit = optim(
   par = log(2), fn = poisson_nll, counts = seedling_counts,
   method = "BFGS"
@@ -317,14 +331,14 @@ defined by $g$. Thus an estimate of $\log\lambda$ is
 $\log\hat\lambda$. We use the same idea when converting an estimate
 from the optimiser's log scale back to an ecological scale.
 
-Under suitable model and sampling conditions, MLEs are **consistent**:
-as sample size grows, they tend to concentrate near the parameter
-that generated the data. Their sampling distributions are often
-approximately normal in large samples (**asymptotic normality**).
-Under additional regularity conditions, MLEs can be asymptotically
-efficient, meaning their large-sample variance reaches a lower
-bound for regular estimators. These are long-run properties, not
-promises that every larger realised sample gives a closer estimate.
+Under suitable model and sampling conditions, MLEs are **consistent**: as
+sample size grows, they tend to concentrate near the parameter that generated
+the data. Their sampling distributions are often approximately normal in large
+samples (**asymptotic normality**). Under additional technical conditions, an
+MLE can be **asymptotically efficient**, meaning its large-sample variance
+reaches the smallest available value among a suitable class of estimators.
+These are long-run properties, not promises that every larger realised sample
+gives a closer estimate.
 
 ::: {.callout-warning title="A maximum is conditional on the model"}
 If quadrat counts have different expected means or are dependent,
@@ -336,9 +350,11 @@ parameters can also make normal approximations unreliable.
 
 # When there are two parameters {#sec-likelihood-surface}
 
-Suppose we measure tree heights $H_i$ in metres. As in
-[Chapter 3](../Chapter_3/Theory.qmd#sec-normal_distribution), a normal
-model has mean $\mu$ metres and standard deviation $\sigma$ metres:
+Many ecological probability models have more than one unknown parameter. The
+likelihood then compares combinations of parameter values while holding the
+observations fixed. To apply this idea, suppose we measure tree heights $H_i$
+in metres. As in [Chapter 3](../Chapter_3/Theory.qmd#sec-normal_distribution),
+a normal model has mean $\mu$ metres and standard deviation $\sigma$ metres:
 
 $$
 H_i\sim\operatorname{Normal}(\mu,\sigma^2).
@@ -408,18 +424,20 @@ these fixed heights better.
 
 With two parameters, the likelihood has a value for every
 $(\mu,\sigma)$ pair. A contour plot joins pairs with the same
-log-likelihood. To illustrate, simulate 25 independent heights
-from a known normal model. We know the generating parameters
-only because this is a simulation.
+log-likelihood. To illustrate this general idea, simulate 25 independent
+heights from a known normal model. We know the generating parameters only
+because this is a simulation.
 
 ```{r}
 #| echo: false
 #| eval: true
 #| fig-cap: "Relative log-likelihood for 25 simulated tree heights. The filled point is the fitted mean and standard deviation; the cross marks the generating values."
+# Simulate tree heights and calculate their normal-model estimates.
 set.seed(seed = 505)
 tree_heights = rnorm(n = 25, mean = 22, sd = 4)
 height_mu_hat = mean(tree_heights)
 height_sigma_hat = sqrt(mean((tree_heights - height_mu_hat)^2))
+# Evaluate the log-likelihood across a grid of mean and standard-deviation values.
 mu_grid = seq(from = 17, to = 27, length.out = 80)
 sigma_grid = seq(from = 1.5, to = 7, length.out = 80)
 surface = outer(
@@ -428,6 +446,7 @@ surface = outer(
     sum(dnorm(x = tree_heights, mean = mu, sd = sigma, log = TRUE))
   })
 )
+# Draw likelihood contours and mark the fitted and generating values.
 contour(
   x = mu_grid, y = sigma_grid, z = surface - max(surface),
   xlab = "Mean height (m)", ylab = "Height SD (m)",
@@ -464,15 +483,18 @@ labelled a profile.
 #| echo: false
 #| eval: true
 #| fig-cap: "Likelihood slice and profile for mean tree height in the same simulated sample. The profile re-estimates the standard deviation for every candidate mean."
+# Simulate the tree-height sample and calculate its joint normal-model estimates.
 set.seed(seed = 505)
 tree_heights = rnorm(n = 25, mean = 22, sd = 4)
 mu_hat = mean(tree_heights)
 sigma_hat = sqrt(mean((tree_heights - mu_hat)^2))
 candidate_means = seq(from = 17, to = 27, length.out = 120)
+# Define the normal-model log-likelihood for the fixed simulated heights.
 normal_loglik = function(mu, sigma) {
   sum(dnorm(x = tree_heights, mean = mu, sd = sigma, log = TRUE))
 }
 maximum_loglik = normal_loglik(mu = mu_hat, sigma = sigma_hat)
+# Calculate a slice with fixed standard deviation and a profile that refits it.
 slice = vapply(
   X = candidate_means,
   FUN = function(mu) normal_loglik(mu = mu, sigma = sigma_hat),
@@ -486,6 +508,7 @@ profile = vapply(
   },
   FUN.VALUE = numeric(1)
 )
+# Plot both relative log-likelihood curves.
 plot(
   x = candidate_means, y = slice - maximum_loglik,
   type = "l", lwd = 2, lty = 2,
@@ -553,9 +576,11 @@ We can fit the tree-height model on the $(\mu,\log\sigma)$ scale.
 `optim()` returns its Hessian when `hessian = TRUE`.
 
 ```r
+# Simulate the heights used to illustrate likelihood-based intervals.
 set.seed(seed = 505)
 tree_heights = rnorm(n = 25, mean = 22, sd = 4)
 
+# Define and fit the negative log-likelihood on the mean and log-SD scales.
 normal_nll = function(par, heights) {
   mu = par[1]
   sigma = exp(par[2])
@@ -568,6 +593,7 @@ normal_fit = optim(
   method = "BFGS", hessian = TRUE
 )
 normal_fit$convergence
+# Use the inverse Hessian to obtain approximate standard errors and interval endpoints.
 se_on_fit_scale = sqrt(diag(solve(normal_fit$hessian)))
 critical_value = qnorm(p = 0.975)
 
@@ -621,6 +647,7 @@ function uses this result to evaluate the profile. `uniroot()`
 finds the two cutoff crossings.
 
 ```r
+# Calculate the profile log-likelihood after refitting the standard deviation.
 profile_mu = function(mu, heights) {
   sigma_at_mu = sqrt(mean((heights - mu)^2))
   sum(dnorm(
@@ -628,6 +655,7 @@ profile_mu = function(mu, heights) {
   ))
 }
 
+# Define the profile cutoff and its difference from the maximum log-likelihood.
 mu_hat = normal_fit$par[1]
 max_log_likelihood = -normal_fit$value
 cutoff = qchisq(p = 0.95, df = 1) / 2
@@ -636,6 +664,7 @@ crossing = function(mu) {
     max_log_likelihood + cutoff
 }
 
+# Locate the two candidate means where the profile reaches its cutoff.
 profile_interval = c(
   lower = uniroot(
     f = crossing,
@@ -699,6 +728,7 @@ simulated, not because an ecologist could know them in a field study.
 In R, `size` corresponds to $k$ and `mu` to $\mu$.
 
 ```r
+# Simulate overdispersed seedling counts from a negative binomial model.
 set.seed(seed = 530)
 seedling_counts_nb = rnbinom(
   n = 80, size = 1.5, mu = 4
@@ -713,6 +743,7 @@ negative binomial probability mass as its likelihood contribution.
 Both parameters must stay positive, so we optimise on their log scales:
 
 ```r
+# Define the negative binomial negative log-likelihood on two log parameter scales.
 negative_binomial_nll = function(par, counts) {
   mu = exp(par[1])
   k = exp(par[2])
@@ -721,6 +752,7 @@ negative_binomial_nll = function(par, counts) {
   ))
 }
 
+# Use sample summaries to supply valid starting values for both parameters.
 start_mu = max(mean(seedling_counts_nb), 0.1)
 sample_variance = var(seedling_counts_nb)
 start_k = start_mu^2 /
@@ -732,6 +764,7 @@ nb_fit = optim(
   method = "BFGS", hessian = TRUE
 )
 nb_fit$convergence
+# Transform the fitted parameters back to the mean and shape scales.
 nb_estimates = exp(nb_fit$par)
 nb_estimates
 ```
@@ -755,6 +788,7 @@ The comparison below places observed **relative frequencies**
 and fitted **probabilities** on the same scale:
 
 ```r
+# List possible counts and calculate observed relative frequencies and fitted masses.
 count_values = 0:max(seedling_counts_nb)
 observed_frequency = as.numeric(
   table(factor(seedling_counts_nb, levels = count_values))
@@ -763,6 +797,7 @@ fitted_probability = dnbinom(
   x = count_values, size = nb_estimates["k"],
   mu = nb_estimates["mu"]
 )
+# Plot the sample frequencies against the fitted negative binomial probabilities.
 plot(
   x = count_values, y = observed_frequency,
   type = "h", lwd = 5, col = "grey60",

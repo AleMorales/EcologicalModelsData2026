@@ -13,8 +13,8 @@ execute:
 
 # Introduction
 
-In this chapter, we learn how to use probability distributions to describe that variation and connect a
-model to the counts we observe. We focus on **discrete random variables**, which take
+In this chapter, we learn how to use probability distributions to describe ecological variation and
+connect a model to the counts we observe. We focus on **discrete random variables**, which take
 separate, countable values such as $0, 1, 2, \ldots$. [Chapter 3](../Chapter_3/Theory.qmd)
 extends these ideas to continuous measurements.
 
@@ -126,6 +126,7 @@ We can display the binomial probability mass with bars or vertical lines:
 #| echo: false
 #| eval: true
 #| fig-cap: "Binomial probability mass for the number of surviving seeds in a quadrat."
+# Set the model parameters and calculate the probability for each possible count.
 seed_count = 4
 seed_survival_probability = 0.4
 seed_values = seq.int(from = 0, to = seed_count)
@@ -162,6 +163,7 @@ In R, distribution functions with the prefix `d` calculate probability mass for
 discrete values. For example, `dbinom()` gives the probability that two seeds survive:
 
 ```{r}
+# Calculate one exact probability from the model.
 dbinom(x = 2, size = seed_count, prob = seed_survival_probability)
 ```
 
@@ -182,6 +184,7 @@ We can draw the cumulative function for discrete counts as a step plot:
 #| echo: false
 #| eval: true
 #| fig-cap: "Cumulative probability for the number of surviving seeds in a quadrat."
+# Calculate the cumulative probability for every possible count.
 seed_count = 4
 seed_survival_probability = 0.4
 seed_values = seq.int(from = 0, to = seed_count)
@@ -207,6 +210,7 @@ In R, distribution functions with the prefix `p` calculate cumulative
 probabilities. `pbinom()` gives the probability that at most two seeds survive:
 
 ```{r}
+# Calculate the probability of at most two surviving seeds.
 pbinom(q = 2, size = seed_count, prob = seed_survival_probability)
 ```
 
@@ -214,6 +218,7 @@ To calculate the probability that more than two seeds survive, set
 `lower.tail = FALSE`:
 
 ```{r}
+# Use the upper tail to calculate the probability of more than two survivors.
 pbinom(
   q = 2,
   size = seed_count,
@@ -225,6 +230,7 @@ pbinom(
 This is equivalent to subtracting the lower-tail probability from one:
 
 ```{r}
+# The upper-tail probability is the complement of the lower-tail probability.
 1 - pbinom(q = 2, size = seed_count, prob = seed_survival_probability)
 ```
 
@@ -249,6 +255,7 @@ We can plot the quantile against its cumulative-probability input:
 #| echo: false
 #| eval: true
 #| fig-cap: "Binomial quantiles for the number of surviving seeds in a quadrat."
+# Calculate the count at each requested cumulative probability.
 seed_count = 4
 seed_survival_probability = 0.4
 probability_values = seq(from = 0, to = 1, length.out = 501)
@@ -273,6 +280,7 @@ For the seed-survival model, `qbinom()` finds the smallest count with at
 least $0.5$ cumulative probability:
 
 ```{r}
+# Find the smallest count with at least the requested cumulative probability.
 median_probability = 0.5
 qbinom(
   p = median_probability,
@@ -303,6 +311,7 @@ reproduces the sample. Changing the seed can change the sample. Here we
 simulate ten quadrats, each containing four seeds:
 
 ```{r}
+# Generate one simulated count for each of ten quadrats.
 n_simulated_quadrats = 10
 set.seed(seed = 42)
 sample_survivors = rbinom(
@@ -347,6 +356,7 @@ the cumulative probability uses `pbinom()`, and the quantile uses `qbinom()`.
 flower_count = 6
 fruit_set_probability = 0.5
 
+# Calculate an exact probability, a cumulative probability, and a quantile.
 dbinom(x = 4, size = flower_count, prob = fruit_set_probability) # 0.23
 pbinom(q = 4, size = flower_count, prob = fruit_set_probability) # 0.89
 qbinom(p = 0.75, size = flower_count, prob = fruit_set_probability) # 4
@@ -424,6 +434,7 @@ $$
 For the binomial model of seed survival, calculate the expected count in R:
 
 ```{r}
+# Use the binomial probability mass to calculate a weighted average.
 seed_values = seq.int(from = 0, to = seed_count)
 seed_probability = dbinom(
   x = seed_values,
@@ -465,6 +476,7 @@ of seeds squared.
 Using the binomial masses calculated above, we get:
 
 ```{r}
+# Weight each squared distance from the mean by its probability.
 variance = sum((seed_values - expected_value)^2 * seed_probability)
 variance
 ```
@@ -501,6 +513,7 @@ The possible counts range from 0 to 16. First calculate the probability of each 
 then use the weighted-sum formulas for the mean and variance:
 
 ```r
+# Calculate the probability mass for all possible totals.
 fruit_count_values = seq.int(from = 0, to = 16)
 fruit_probabilities = dbinom(
   x = fruit_count_values,
@@ -555,6 +568,7 @@ of times it appears divided by the sample size. Here we simulate ten quadrats
 from the binomial model used earlier:
 
 ```{r}
+# Simulate ten quadrats from the binomial model.
 set.seed(seed = 123)
 n_quadrats = 10
 sample_survivors = rbinom(
@@ -568,6 +582,7 @@ sample_survivors = rbinom(
 to calculate relative frequencies:
 
 ```{r}
+# Count each possible value and divide by the sample size.
 seed_values = seq.int(from = 0, to = seed_count)
 count_survivors = table(factor(x = sample_survivors, levels = seed_values))
 relative_frequency = count_survivors / length(sample_survivors)
@@ -581,6 +596,7 @@ The relative frequencies lie between zero and one and sum to one. Compare them
 with the theoretical probabilities under the assumed binomial model:
 
 ```{r}
+# Put the sample frequencies beside the model probabilities for comparison.
 data.frame(
   seed_count = seed_values,
   relative_frequency = as.numeric(x = relative_frequency),
@@ -607,11 +623,12 @@ We can compare simulated relative frequencies at sample sizes from 10 to
 100,000. The entries vary between simulations, even though the model is fixed:
 
 ```{r}
+# Compare relative frequencies for several sample sizes with the model.
 set.seed(123)
 sample_sizes = 10^(seq_len(length.out = 5))
 seed_values = seq.int(from = 0, to = seed_count)
 
-all_frequencies = matrix(NA_real_, nrow = length(seed_values),
+all_frequencies = matrix(NA, nrow = length(seed_values),
                          ncol = length(sample_sizes) + 1)
 colnames(all_frequencies) = c(as.character(sample_sizes), "theory")
 
@@ -670,6 +687,7 @@ is the number of quadrats sampled; four is the number of seeds in each quadrat.
 #| fig-width: 9
 #| fig-height: 4
 #| fig-cap: "Model probabilities and sample frequencies for ten simulated quadrats."
+# Simulate a sample and calculate its empirical distribution.
 set.seed(142)
 seed_count = 4
 seed_survival_probability = 0.4
@@ -721,6 +739,7 @@ The mean of an empirical distribution is its relative-frequency-weighted
 average. This equals the arithmetic mean of the sample:
 
 ```{r}
+# Simulate a small sample and calculate its weighted and ordinary means.
 set.seed(123)
 n_quadrats = 10
 seed_count = 4
@@ -740,6 +759,7 @@ The variance of this empirical distribution uses divisor $n$, the number
 of quadrats:
 
 ```{r}
+# Calculate the variance using divisor n, as for the empirical distribution.
 empirical_variance = sum((seed_values - weighted_average)^2 * relative_frequency)
 empirical_variance
 ```
@@ -747,6 +767,7 @@ empirical_variance
 R's `var()` uses divisor $n-1$, so it gives a different result:
 
 ```{r}
+# Compare the empirical variance with R's sample-variance function.
 var(sample_survivors)
 ```
 
@@ -758,6 +779,7 @@ To match the discrete quantile definition above, use `type = 1` with
 cumulative probability reaches $0.5$:
 
 ```{r}
+# Use type = 1 so the empirical quantile is one of the observed counts.
 quantile(x = sample_survivors, probs = 0.5, type = 1)
 ```
 
@@ -791,6 +813,7 @@ individual values can move away from their targets in a particular simulation.
 #| fig-width: 9
 #| fig-height: 8
 #| fig-cap: "Model probabilities and sample frequencies for 10 quadrats (top) and 1,000 quadrats (bottom)."
+# Compare empirical distributions at two sample sizes.
 set.seed(142)
 seed_count = 4
 seed_survival_probability = 0.4
@@ -854,6 +877,7 @@ the result from the larger sample? How much can you rely on a single simulation?
 One possible simulation is:
 
 ```r
+# Simulate the two sample sizes and compare each with the same model.
 set.seed(246)
 
 plants_per_plot = 12
@@ -998,9 +1022,10 @@ $$
 We can verify our math with R:
 
 ```{r}
-seedling_count = 20L
+# Set the binomial model parameters and the count we want to check.
+seedling_count = 20
 seedling_survival_probability = 0.7
-survivors_to_check = 14L
+survivors_to_check = 14
 
 dbinom(
   x = survivors_to_check,
@@ -1013,6 +1038,7 @@ The model gives an expected count of $20(0.7)=14$ seedlings per plot and
 a variance of $20(0.7)(0.3)=4.2$ seedlings squared:
 
 ```{r}
+# Calculate the expected count and variance from the binomial formulas.
 expected_survivors = seedling_count * seedling_survival_probability
 variance_survivors = seedling_count *
   seedling_survival_probability *
@@ -1033,6 +1059,7 @@ This conversion requires $m>0$, a probability $0<p\leq 1$, and a positive
 integer result for $n$. For the model above, it recovers $p=0.7$ and $n=20$:
 
 ```{r}
+# Recover the binomial parameters from the model mean and variance.
 mean_survivors = expected_survivors
 success_probability = 1 - variance_survivors / mean_survivors
 estimated_trial_count = mean_survivors / success_probability
@@ -1099,10 +1126,11 @@ $$
 We can calculate it in R:
 
 ```{r}
+# Calculate the Poisson mean for three nights and one exact probability.
 rate_per_night = 0.8
 n_nights = 3
 expected_detections = rate_per_night * n_nights
-detections_to_check = 2L
+detections_to_check = 2
 
 dpois(x = detections_to_check, lambda = expected_detections)
 ```
@@ -1110,6 +1138,7 @@ dpois(x = detections_to_check, lambda = expected_detections)
 "At least five" means more than four, so we use `lower.tail = FALSE`:
 
 ```{r}
+# Calculate the probability of at least the requested number of detections.
 minimum_detections = 5
 ppois(
   q = minimum_detections - 1,
@@ -1125,6 +1154,7 @@ when $\lambda=2.4$. Detections need not correspond to distinct animals.
 ```{r}
 #| echo: false
 #| fig-cap: "Poisson probability mass for detections during three camera nights."
+# Calculate and plot the Poisson probability mass over a useful range of counts.
 expected_detections = 2.4
 maximum_detections_to_plot = 15
 detection_values = seq.int(from = 0, to = maximum_detections_to_plot)
@@ -1153,6 +1183,7 @@ even though three is the count in the question?
 The expected count across two square metres is $\lambda=2(1.2)=2.4$. The probability is:
 
 ```r
+# Convert the observation effort into the Poisson mean before calculating a probability.
 rate_per_square_metre = 1.2
 survey_area = 2
 expected_stems = rate_per_square_metre * survey_area
@@ -1200,9 +1231,10 @@ Here we simulate quadrat counts from a negative binomial model to see what
 the ratio can look like when variation exceeds a Poisson model's prediction:
 
 ```{r}
-set.seed(seed = 123L)
+# Simulate overdispersed quadrat counts from a negative binomial model.
+set.seed(seed = 123)
 
-n_quadrats = 100L
+n_quadrats = 100
 negative_binomial_size = 1.5
 negative_binomial_mean = 4
 
@@ -1319,6 +1351,7 @@ does not by itself identify its ecological cause.
 We can verify these calculations in R:
 
 ```{r}
+# Calculate the negative binomial mean and variance from its parameters.
 mean_seedlings = 4
 negative_binomial_size = 1.5
 
@@ -1332,6 +1365,7 @@ c(mean = expected_seedlings, variance = variance_seedlings)
 The probability of observing exactly 10 seedlings is:
 
 ```{r}
+# Calculate the probability of one particular seedling count.
 seedlings_to_check = 10
 
 dnbinom(
@@ -1344,6 +1378,7 @@ dnbinom(
 "At least ten" means more than nine, so we use `lower.tail = FALSE`:
 
 ```{r}
+# Calculate the probability of at least the requested number of seedlings.
 minimum_seedlings = 10
 
 pnbinom(
@@ -1361,6 +1396,7 @@ unlikely.
 ```{r}
 #| echo: false
 #| fig-cap: "Negative binomial probability mass for seedlings in a quadrat."
+# Calculate and plot the negative binomial probability mass over a useful range.
 mean_seedlings = 4
 negative_binomial_size = 1.5
 maximum_seedlings_to_plot = 20

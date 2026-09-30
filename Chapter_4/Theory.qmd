@@ -13,7 +13,9 @@ execute:
 
 # Introduction
 
-In [Chapter 2](../Chapter_2/Theory.qmd#sec-discrete_distributions), we used
+In this chapter, we learn how to estimate unknown parameters in ecological
+probability models and describe the uncertainty in those estimates. In
+[Chapter 2](../Chapter_2/Theory.qmd#sec-discrete_distributions), we used
 probability models to describe counts when their parameters were known. In
 [Chapter 3](../Chapter_3/Theory.qmd), we did the same for continuous
 measurements. An ecologist usually faces the question in the other direction:
@@ -66,7 +68,9 @@ parameter, such as $\hat\lambda$.
 For illustration, consider these counts from ten quadrats:
 
 ```r
+# Record the seedling counts from ten illustrative quadrats.
 seedling_counts = c(3, 5, 2, 7, 4, 3, 4, 1, 6, 5)
+# Calculate their method-of-moments estimate of the Poisson mean.
 mean(seedling_counts)
 ```
 
@@ -130,16 +134,19 @@ The code below repeats the whole study 2,000 times. Each repetition returns
 one estimate.
 
 ```r
+# Set the model parameters and number of repeated simulated studies.
 set.seed(seed = 401)
 true_lambda = 4
 n_quadrats = 30
 n_studies = 2000
 
+# Simulate one study at a time and save its estimated mean count.
 lambda_estimates = replicate(
   n = n_studies,
   expr = mean(rpois(n = n_quadrats, lambda = true_lambda))
 )
 
+# Summarise the centre and spread of the simulated estimates.
 mean(lambda_estimates)
 sd(lambda_estimates)
 ```
@@ -151,6 +158,7 @@ per quadrat, not a count from one quadrat.
 #| eval: true
 #| echo: false
 #| fig-cap: "Estimates of the mean seedling count from 2,000 simulated studies of 30 quadrats each."
+# Set the model parameters and simulate one mean estimate per study.
 set.seed(seed = 401)
 true_lambda = 4
 n_quadrats = 30
@@ -158,6 +166,7 @@ lambda_estimates = replicate(
   n = 2000,
   expr = mean(rpois(n = n_quadrats, lambda = true_lambda))
 )
+# Plot the sampling distribution and mark the known model mean.
 hist(
   x = lambda_estimates, breaks = 28, probability = TRUE,
   col = "grey85", border = "white",
@@ -198,6 +207,7 @@ it is the variation among their *means* that decreases. We can compare the
 theoretical properties with a simulation:
 
 ```r
+# Compare the simulated bias and variance with the Poisson model variance.
 c(
   simulated_bias = mean(lambda_estimates) - true_lambda,
   simulated_variance = var(lambda_estimates),
@@ -266,8 +276,10 @@ that calls for the unknown parameter. For the illustrative counts, the
 estimated SE is:
 
 ```r
+# Estimate the Poisson mean and record the number of sampled quadrats.
 lambda_hat = mean(seedling_counts)
 n_quadrats = length(seedling_counts)
+# Use the estimated mean in the Poisson standard-error formula.
 estimated_se = sqrt(lambda_hat / n_quadrats)
 estimated_se
 ```
@@ -320,7 +332,9 @@ Using the illustrative seedling counts and the Poisson standard error gives
 a **Wald interval** for $\lambda$:
 
 ```r
+# Obtain the standard-normal critical value for a two-sided 95% interval.
 critical_value = qnorm(p = 0.975)
+# Combine the estimate, standard error, and critical value to find the endpoints.
 interval = lambda_hat + c(-1, 1) * critical_value * estimated_se
 interval
 ```
@@ -353,24 +367,29 @@ interval includes it. The proportion that do is the simulated
 construction:
 
 ```r
+# Set the model parameters and interval rule for repeated simulated studies.
 set.seed(seed = 402)
 true_lambda = 4
 n_quadrats = 30
 n_studies = 2000
 critical_value = qnorm(p = 0.975)
 
+# Simulate each study, construct its interval, and record whether it covers the truth.
 covered = replicate(
   n = n_studies,
   expr = {
+    # Generate one study and calculate its estimated mean and standard error.
     counts = rpois(n = n_quadrats, lambda = true_lambda)
     estimate = mean(counts)
     se = sqrt(estimate / n_quadrats)
+    # Construct the interval and test whether it includes the true model mean.
     lower = estimate - critical_value * se
     upper = estimate + critical_value * se
     lower <= true_lambda && true_lambda <= upper
   }
 )
 
+# Calculate the simulated coverage across all studies.
 mean(covered)
 ```
 
@@ -429,9 +448,11 @@ algebraic derivation to use it: take the mean height, then average the
 squared deviations from that mean.
 
 ```r
+# Simulate tree heights from an assumed normal population.
 set.seed(seed = 403)
 tree_heights = rnorm(n = 25, mean = 22, sd = 4)
 
+# Calculate the mean and compare the two variance divisors.
 height_mean = mean(tree_heights)
 variance_mm = mean((tree_heights - height_mean)^2)
 variance_with_var = var(tree_heights)
@@ -483,8 +504,10 @@ Under the stated normal model, this procedure has 95% coverage. Applied
 to the simulated heights:
 
 ```r
+# Record the sample size and calculate the standard error of the mean height.
 n_trees = length(tree_heights)
 height_se = sd(tree_heights) / sqrt(n_trees)
+# Use the appropriate t critical value to construct the confidence interval.
 t_critical = qt(p = 0.975, df = n_trees - 1)
 height_interval = height_mean + c(-1, 1) * t_critical * height_se
 height_interval
@@ -544,17 +567,22 @@ This is why checking an interval's coverage is useful.
 #| eval: true
 #| echo: false
 #| fig-cap: "Sampling distributions of mean seedling counts for studies of 5 and 100 quadrats. Curves show normal approximations under the assumed Poisson model."
+# Set the Poisson model and the study sizes to compare.
 set.seed(seed = 404)
 true_lambda = 4
 sample_sizes = c(5, 100)
+# Save the current graphics settings before drawing two panels.
 old_par = par(no.readonly = TRUE)
 par(mfrow = c(1, 2))
 for (sample_size in sample_sizes) {
+  # Simulate repeated studies and calculate one estimated mean per study.
   estimates = replicate(
     n = 2000,
     expr = mean(rpois(n = sample_size, lambda = true_lambda))
   )
+  # Use the histogram density to choose a vertical scale for the plot.
   histogram = hist(x = estimates, breaks = 25, plot = FALSE)
+  # Plot the sampling distribution and overlay its normal approximation.
   hist(
     x = estimates, breaks = 25, probability = TRUE,
     col = "grey85", border = "white",
@@ -574,6 +602,7 @@ for (sample_size in sample_sizes) {
     lty = 2, lwd = 2, bty = "n", cex = 0.8
   )
 }
+# Restore the graphics settings used before this figure.
 par(old_par)
 ```
 

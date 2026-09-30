@@ -13,11 +13,16 @@ execute:
 
 # Introduction
 
-How does net photosynthesis change with light, and do all leaves follow the
-same response curve? Chapter 7 fitted one curve to these measurements while
-treating its rows as independent. We now have additional information from the
-original experimental record: at each light level, the five rows belong to the
-same five leaves, in the same order.
+In this chapter, we learn how to model repeated measurements with grouped
+ecological response curves. A grouped model lets us estimate a common response
+and variation among groups while recognising that measurements from one group
+need not behave as independent rows.
+
+In Chapter 7, we fitted one light-response curve to net-photosynthesis
+measurements. The original experimental record now adds grouping information:
+at each light level, the five rows belong to the same five leaves, in the same
+order. This lets us ask how net photosynthesis changes with light and whether
+all leaves follow the same response curve.
 
 That information changes the model. One observational unit is a net
 photosynthesis measurement on a leaf at one light intensity. The grouping unit
@@ -35,10 +40,10 @@ After this chapter, you should be able to:
 
 - identify repeated measurements and distinguish observational and grouping
   units;
-- compare complete pooling, no pooling, and partial pooling for a response
-  curve;
 - explain fixed effects, random effects, mixed-effects, hierarchical, and
   multilevel models in a concrete example;
+- compare complete pooling, no pooling, and partial pooling for a response
+  curve;
 - interpret shrinkage, regularisation, and the variance components
   $\sigma^2_{\mathrm{leaf}}$ and $\sigma^2_{\mathrm{obs}}$;
 - explain why a grouped model can use maximum marginal likelihood and the
@@ -55,9 +60,12 @@ level, rows 1 to 5 came from leaves 1 to 5 respectively. This is not a general
 rule for reconstructing repeated measurements from row order.
 
 ```r
+# Load the supplied light-response data.
 light = read.csv("../Chapter_7/Practicals/shapes1.csv")
+# Attach the leaf mapping supplied from the original experimental record.
 light$leaf_id = factor(rep(1:5, times = 11))
 
+# Check the number of measurements at each light level and for each leaf.
 table(light$x)
 table(light$leaf_id)
 ```
@@ -71,11 +79,14 @@ identifier. Symbols and line types distinguish leaves as well as colour.
 #| echo: false
 #| eval: true
 #| fig-cap: "Net photosynthesis measurements by author-supplied leaf identifier. Lines join repeated measurements from the same leaf."
+# Load the data and apply the author-supplied leaf mapping.
 light = read.csv("../Chapter_7/Practicals/shapes1.csv")
 light$leaf_id = factor(rep(1:5, times = 11))
+# Use both colour and symbol to distinguish the leaf trajectories.
 leaf_colours = c("black", "#0072B2", "#D55E00", "#009E73", "#CC79A7")
 leaf_symbols = c(16, 17, 15, 18, 8)
 old_par = par(mar = c(4, 4, 1, 1))
+# Draw the measurements, then join observations from the same leaf.
 plot(light$x, light$y, type = "n",
      xlab = "Light intensity (recorded units)",
      ylab = "Net photosynthesis (recorded units)")
@@ -87,6 +98,7 @@ for (j in seq_along(levels(light$leaf_id))) {
 }
 legend("bottomright", legend = paste("Leaf", 1:5),
        col = leaf_colours, pch = leaf_symbols, lty = 1:5, bty = "n")
+# Restore the graphical settings used before this figure.
 par(old_par)
 ```
 
@@ -115,6 +127,22 @@ $r+a$ is its limiting expected value, and $k$ controls how quickly the curve
 increases. Net photosynthesis can be negative at low light when respiration
 exceeds carbon fixation.
 
+## Names for the parts of the model
+
+The concrete model helps make common terminology less mysterious:
+
+- **Fixed effects** are the shared, population-level parameters estimated from
+  these data, such as $r$, $a$, and $k$. Fixed does not mean known or causal.
+- **Random effects** are group deviations, such as $u_j$, modelled with a
+  distribution whose variance is estimated.
+- A **mixed-effects model** contains both shared parameters and random effects.
+- A **hierarchical** or **multilevel model** represents observations nested
+  within leaves.
+
+"Random effect" does not mean that leaves were randomly allocated to a
+treatment. It means that the model represents among-leaf variation with a
+distribution, conditional on the chosen curve and the other assumptions.
+
 The table separates three choices about leaf information while keeping the
 same curve and normal observation model.
 
@@ -124,36 +152,51 @@ same curve and normal observation model.
 | No pooling | A separately estimated $r_j$ for every leaf | How do these leaves differ when no information is shared? |
 | Partial pooling | $r_j=r+u_j$, with $u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{leaf}})$ | What common curve and among-leaf variation describe the data? |
 
+The following conceptual figure uses chosen parameter values, not estimates
+fitted to the light data.
+
 ```{r}
 #| echo: false
 #| eval: true
 #| fig-cap: "Illustrative complete-pooling, no-pooling, and partial-pooling response curves. The partial-pooling deviations are closer to the common intercept than the no-pooling intercepts."
+# Define the light values and response curve used in this conceptual figure.
 x_grid = seq(from = 0, to = 1000, length.out = 200)
 light_curve = function(x, r, a, k) {
   r + a * (1 - exp(-k * x))
 }
+# Choose illustrative, rather than fitted, intercepts for five leaves.
 common_r = -2
 leaf_r = c(-4, -3, -2, -1, 0)
 partial_r = common_r + 0.6 * (leaf_r - common_r)
 leaf_colours = c("black", "#0072B2", "#D55E00", "#009E73", "#CC79A7")
 old_par = par(mfrow = c(1, 3), mar = c(4, 4, 2, 1))
+# Draw one shared curve for complete pooling.
 plot(x_grid, light_curve(x_grid, common_r, 11, 0.004), type = "l",
-     ylim = c(-5, 10), lwd = 2, xlab = "Light intensity",
-     ylab = "Expected net photosynthesis", main = "Complete pooling")
+     ylim = c(-5, 10), lwd = 2,
+     xlab = "Light intensity (recorded units)",
+     ylab = "Expected net photosynthesis (recorded units)",
+     main = "Complete pooling")
+# Draw separately fitted intercepts for no pooling.
 plot(x_grid, light_curve(x_grid, leaf_r[1], 11, 0.004), type = "n",
-     ylim = c(-5, 10), xlab = "Light intensity",
-     ylab = "Expected net photosynthesis", main = "No pooling")
+     ylim = c(-5, 10), xlab = "Light intensity (recorded units)",
+     ylab = "Expected net photosynthesis (recorded units)",
+     main = "No pooling")
 for (j in 1:5) {
   lines(x_grid, light_curve(x_grid, leaf_r[j], 11, 0.004),
         lty = j, col = leaf_colours[j])
 }
+# Draw intercepts pulled towards the common value for partial pooling.
 plot(x_grid, light_curve(x_grid, partial_r[1], 11, 0.004), type = "n",
-     ylim = c(-5, 10), xlab = "Light intensity",
-     ylab = "Expected net photosynthesis", main = "Partial pooling")
+     ylim = c(-5, 10), xlab = "Light intensity (recorded units)",
+     ylab = "Expected net photosynthesis (recorded units)",
+     main = "Partial pooling")
 for (j in 1:5) {
   lines(x_grid, light_curve(x_grid, partial_r[j], 11, 0.004),
         lty = j, col = leaf_colours[j])
 }
+# Identify the five curves and restore the original graphical settings.
+legend("bottomright", legend = paste("Leaf", 1:5),
+       col = leaf_colours, lty = 1:5, bty = "n", cex = 0.7)
 par(old_par)
 ```
 
@@ -217,22 +260,6 @@ approaches complete pooling. A variance estimate on this boundary makes usual
 large-sample confidence intervals delicate. The five balanced leaves here also
 give limited opportunity to see unequal shrinkage visually.
 
-# Names for the parts of the model
-
-The concrete model helps make common terminology less mysterious:
-
-- **Fixed effects** are the shared, population-level parameters estimated from
-  these data, such as $r$, $a$, and $k$. Fixed does not mean known or causal.
-- **Random effects** are group deviations, such as $u_j$, modelled with a
-  distribution whose variance is estimated.
-- A **mixed-effects model** contains both shared parameters and random effects.
-- A **hierarchical** or **multilevel model** represents observations nested
-  within leaves.
-
-"Random effect" does not mean that leaves were randomly allocated to a
-treatment. It means that the model represents among-leaf variation with a
-distribution, conditional on the chosen curve and the other assumptions.
-
 # Maximum marginal likelihood
 
 For one candidate leaf effect $u_j$, the joint contribution has two parts: the
@@ -242,15 +269,18 @@ leaf effect is unobserved, so maximum marginal likelihood compares shared
 parameters after integrating it out:
 
 $$
-L_j(\boldsymbol\theta\mid\mathbf y_j)=
-\int_{-\infty}^{\infty}L_j(\boldsymbol\theta,u_j\mid\mathbf y_j)\,du_j.
+L_{j,\mathrm{marg}}(\boldsymbol\theta\mid\mathbf y_j)=
+\int_{-\infty}^{\infty}
+L_{j,\mathrm{joint}}(\boldsymbol\theta,u_j\mid\mathbf y_j)\,du_j.
 $$
 
 Here $\mathbf y_j$ is all observations from leaf $j$, and
 $\boldsymbol\theta$ contains the shared curve parameters and both variance
-components. The integral considers all possible leaf deviations, weighting each
-by how well it agrees with both the leaf's observations and the population
-model. The full marginal likelihood combines these contributions across leaves.
+components. The integrand is the joint likelihood contribution from the leaf's
+measurements and its group distribution. The integral considers all possible
+leaf deviations, weighting each by how well it agrees with both the leaf's
+observations and the population model. The full marginal likelihood combines
+these contributions across leaves.
 
 Fitting only the single best $u_j$ as an ordinary fixed parameter is a different
 calculation. Marginal likelihood incorporates uncertainty in unobserved leaf
@@ -279,9 +309,12 @@ them out using Laplace approximation. RTMB returns the resulting marginal
 objective and derivatives for `optim()`.
 
 ```r
+# Load RTMB before recording the grouped likelihood calculation.
 library(RTMB)
 
+# Create consecutive indices that select each leaf's deviation.
 light$leaf_index = as.integer(light$leaf_id)
+# Define the grouped normal model and its two sources of variation.
 leaf_model = function(par) {
   a = exp(par$log_a)
   k = exp(par$log_k)
@@ -292,6 +325,7 @@ leaf_model = function(par) {
   light$y %~% dnorm(mean = mu, sd = sigma_obs)
 }
 
+# Supply starting values, including one initial deviation per leaf.
 leaf_parameters = list(
   r = 0,
   log_a = log(10),
@@ -300,6 +334,7 @@ leaf_parameters = list(
   log_sigma_obs = log(1),
   u = rep(0, 5)
 )
+# Record the marginal objective, then minimise it using its gradient.
 leaf_obj = MakeADFun(leaf_model, leaf_parameters,
                       random = "u", silent = TRUE)
 leaf_fit = optim(par = leaf_obj$par, fn = leaf_obj$fn,

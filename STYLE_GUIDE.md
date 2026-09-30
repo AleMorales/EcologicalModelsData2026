@@ -41,10 +41,14 @@ them uniformly.
 
 ## Explanations and chapter structure
 
-Start theory chapters with an introduction stating the general ecological or
-statistical problem and connecting it to earlier material, followed by learning
-goals. Goals describe actions students will be able to perform. Avoid imposing a
-fixed length or a fixed number of sections.
+Start every chapter with a section headed `# Introduction`. Its first sentence
+must begin exactly with **“In this chapter, we learn how to...”** and should
+state the chapter's main ecological or statistical purpose before connecting it
+to earlier material. Follow it with a section headed `# Learning goals`. List
+goals as actions students will be able to perform, in the same order as the
+ideas appear in the chapter. The goals should cover the chapter's actual
+content rather than promising material introduced later. Avoid imposing a fixed
+length or a fixed number of goals.
 
 Introduce the general concept before applying it to a concrete example. Explain
 what the concept means and why it matters, then use an ecological setting to show
@@ -235,6 +239,10 @@ assume every `no_solution.qmd` must contain no explanatory answers at all.
 - Always use `=` for assignment in existing and new course code, including function
   definitions. This is an explicit author requirement. Use spaces around binary
   operators and after commas, two spaces for indentation, and double-quoted strings.
+- Prefer beginner-friendly literals in teaching examples. Use `NA` for a missing
+  value and ordinary numeric literals such as `2` rather than `NA_real_`,
+  `NA_integer_`, or `2L`. Use a typed literal only when the distinction is part
+  of the lesson or is needed to demonstrate a specific programming issue.
 - Prefer short, meaningful `snake_case` names. Mathematical names such as `x`, `mu`,
   and `k` are appropriate when their meaning has just been defined. Avoid extremely
   long names that make the statistical calculation difficult to read.
@@ -258,9 +266,13 @@ assume every `no_solution.qmd` must contain no explanatory answers at all.
 - Use project or document-relative data paths consistent with execution context.
   Avoid absolute paths and `setwd()` in teaching examples. Do not silently discard
   missing values; explain any use of `na.rm = TRUE`.
-- Use comments to explain a statistical or programming decision. Put the broader
-  lesson in prose. Do not include console prompts in runnable examples; label
-  literal output with a `text` fence when output is needed.
+- Add short, useful comments to code chunks, especially when a chunk introduces
+  a new R operation, simulation step, loop, or plotting decision. Comments can
+  identify inputs, explain the purpose of a group of lines, and point out what
+  the output represents. They should help a beginner read the code without
+  commenting every obvious line. Put the broader statistical lesson in prose.
+  Do not include console prompts in runnable examples; label literal output
+  with a `text` fence when output is needed.
 
 For maximum likelihood, show the model and assumptions before the implementation.
 Sum log probabilities or densities using `log = TRUE` rather than computing a

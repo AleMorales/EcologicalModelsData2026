@@ -13,10 +13,11 @@ execute:
 
 # Introduction
 
-In [Chapter 2](../Chapter_2/Theory.qmd), we counted outcomes such as surviving
+In this chapter, we learn how to use probability distributions to describe
+continuous ecological measurements and interpret their predictions. In
+[Chapter 2](../Chapter_2/Theory.qmd), we counted outcomes such as surviving
 seedlings and wildlife detections. Ecologists also measure tree height, animal body
-mass, and vegetation cover. What probability model could describe these measurements,
-and what would its predictions mean?
+mass, and vegetation cover, which can vary across a continuous scale.
 
 We will start with the ideas shared by continuous measurements: density, probabilities
 over intervals, samples, and relationships between two variables. We will then use
@@ -40,10 +41,14 @@ After studying this chapter, you should be able to:
 
 # Continuous measurements and probability {#sec-continuous_measurements}
 
-Suppose $X$ is the height in metres of a randomly selected tree from a defined
-population. Before selecting the tree, its height is uncertain. A model might treat
-$X$ as **continuous**: within a plausible range, it can take any value, not just a
-whole number. A seedling count, by contrast, takes separate integer values.
+A **continuous measurement** can vary across an interval rather than taking only
+separate values such as whole-number counts. A probability model treats its value as
+uncertain before it is observed and assigns probability to ranges of possible values.
+
+For example, suppose $X$ is the height in metres of a randomly selected tree from a
+defined population. A model might treat $X$ as **continuous**: within a plausible
+range, it can take any value, not just a whole number. A seedling count, by contrast,
+takes separate integer values.
 
 Recorded measurements have limited precision. A recorded height of 22.1 m might
 represent an underlying height between 22.05 and 22.15 m. A continuous model is
@@ -119,6 +124,7 @@ The density is highest near heights the model considers most concentrated. For
 the assumed model, `dnorm()` evaluates its density at chosen heights:
 
 ```r
+# Calculate the density at one chosen height under the assumed model.
 dnorm(x = 22, mean = 22, sd = 4)
 ```
 
@@ -129,8 +135,10 @@ is exactly 22 m tall. The curve helps us see where probability is concentrated.
 #| echo: false
 #| eval: true
 #| fig-cap: "Assumed normal density for tree height. Interval probability is area under the curve."
+# Calculate the assumed density over a sequence of possible heights.
 height_values = seq(from = 8, to = 36, length.out = 400)
 height_density = dnorm(x = height_values, mean = 22, sd = 4)
+# Plot the density with units that match the height scale.
 plot(
   x = height_values, y = height_density, type = "l", lwd = 2,
   xlab = "Tree height (m)", ylab = "Density per metre"
@@ -150,6 +158,7 @@ $$
 In R:
 
 ```r
+# Subtract cumulative probabilities to obtain an interval probability.
 pnorm(q = 26, mean = 22, sd = 4) -
   pnorm(q = 18, mean = 22, sd = 4)
 ```
@@ -157,6 +166,7 @@ pnorm(q = 26, mean = 22, sd = 4) -
 For a height above 30 m, use the upper tail:
 
 ```r
+# Use the upper tail for the probability above the threshold.
 pnorm(q = 30, mean = 22, sd = 4, lower.tail = FALSE)
 ```
 
@@ -166,6 +176,7 @@ The cumulative curve rises smoothly from zero towards one.
 #| echo: false
 #| eval: true
 #| fig-cap: "Cumulative probability for the assumed tree-height model."
+# Evaluate and plot the cumulative probability over possible heights.
 height_values = seq(from = 8, to = 36, length.out = 400)
 plot(
   x = height_values,
@@ -182,6 +193,7 @@ which height marks that point in the distribution? The 0.95 quantile is the
 height below which the model places 95% of tree heights:
 
 ```r
+# Find the height at the requested cumulative probability.
 qnorm(p = 0.95, mean = 22, sd = 4)
 ```
 
@@ -193,6 +205,7 @@ model prediction, not the height of a particular observed tree.
 We can generate heights from the model to see the variation it predicts:
 
 ```r
+# Simulate one height for each of 100 trees from the assumed model.
 set.seed(seed = 42)
 tree_heights = rnorm(n = 100, mean = 22, sd = 4)
 head(tree_heights)
@@ -216,6 +229,7 @@ result in words.
 ::: {.callout-tip title="Solution" collapse="true"}
 
 ```r
+# Calculate an upper-tail probability and a lower-tail quantile.
 pnorm(q = 26, mean = 22, sd = 4, lower.tail = FALSE)
 qnorm(p = 0.10, mean = 22, sd = 4)
 ```
@@ -249,8 +263,10 @@ while `dnorm()` describes the assumed model.
 #| echo: false
 #| eval: true
 #| fig-cap: "A simulated sample of tree heights, its kernel density estimate, and the assumed normal density."
+# Simulate a sample from the assumed normal model.
 set.seed(seed = 73)
 tree_heights = rnorm(n = 200, mean = 22, sd = 4)
+# Compare the sample estimate with the density used to generate it.
 hist(
   x = tree_heights, breaks = 16, probability = TRUE,
   col = "grey85", border = "white",
@@ -279,6 +295,7 @@ continuous model's cumulative curve is smooth.
 #| echo: false
 #| eval: true
 #| fig-cap: "Empirical cumulative distribution of simulated heights and the assumed model's cumulative distribution."
+# Simulate a sample and plot its empirical cumulative distribution.
 set.seed(seed = 73)
 tree_heights = rnorm(n = 200, mean = 22, sd = 4)
 plot(
@@ -310,10 +327,10 @@ stays the same.
 
 # Two continuous variables {#sec-two_continuous_variables}
 
-Ecologists often measure two variables on each observational unit. Suppose $X$
-is a tree's diameter in centimetres and $Y$ is its height in metres. One row of
-data holds both measurements for the same tree. The model must describe their
-individual variation and how they vary together.
+When each observational unit has two continuous measurements, a model must describe
+their individual variation and how they vary together. Ecologists often collect this
+kind of paired data. For example, suppose $X$ is a tree's diameter in centimetres and
+$Y$ is its height in metres. One row of data holds both measurements for the same tree.
 
 ## Joint, marginal, and conditional distributions
 
@@ -355,10 +372,12 @@ not a claim about a real forest.
 #| echo: false
 #| eval: true
 #| fig-cap: "Simulated tree heights and diameters with a positive association."
+# Simulate two measurements per tree with a positive association.
 set.seed(seed = 50)
 n_trees = 300
 z_height = rnorm(n = n_trees)
 z_other = rnorm(n = n_trees)
+# Transform the simulated values to the height and diameter scales.
 tree_height = 22 + 4 * z_height
 tree_diameter = 30 + 5 * (0.7 * z_height + sqrt(1 - 0.7^2) * z_other)
 plot(
@@ -383,9 +402,11 @@ equal probability.
 #| echo: false
 #| eval: true
 #| fig-cap: "Contours of the assumed joint density for tree diameter and height."
+# Set a grid of possible height and diameter combinations.
 diameter_grid = seq(from = 10, to = 50, length.out = 100)
 height_grid = seq(from = 8, to = 36, length.out = 100)
 rho = 0.7
+# Calculate the assumed joint density at each grid combination.
 joint_density = outer(
   X = diameter_grid, Y = height_grid,
   FUN = function(diameter, height) {
@@ -424,10 +445,10 @@ population.
 
 # The normal distribution {#sec-normal_distribution}
 
-We can now look more closely at the model used for tree height. A **normal
-distribution** is symmetric around its mean $\mu$. Its standard deviation
-$\sigma>0$ sets its spread. We write $X\sim\operatorname{Normal}(\mu,\sigma^2)$:
-the second quantity in this notation is the **variance**, while R's `sd`
+A **normal distribution** is a symmetric continuous model. Its mean $\mu$ gives its
+centre, and its standard deviation $\sigma>0$ sets its spread. We write
+$X\sim\operatorname{Normal}(\mu,\sigma^2)$. The second quantity in this notation is
+the **variance**, while R's `sd`
 argument takes the standard deviation $\sigma$.
 
 The normal model has support over all real values. Its density is
@@ -454,6 +475,7 @@ mean. R calculates probabilities directly with `mean` and `sd`, so you need not
 standardise each observation by hand.
 
 ```r
+# Calculate the probability of a height above 30 m.
 pnorm(q = 30, mean = 22, sd = 4, lower.tail = FALSE)
 ```
 
@@ -480,10 +502,9 @@ density curve still has total area one.
 
 # The lognormal distribution {#sec-lognormal_distribution}
 
-Animal body mass is positive and may have a long right tail: most animals are
-relatively light, while a few are much heavier. A **lognormal distribution**
-can describe this shape. A positive variable $X$ is lognormal when its
-logarithm is normal:
+A **lognormal distribution** is a continuous model for strictly positive values that
+can have a long right tail. A positive variable $X$ is lognormal when its logarithm is
+normal:
 
 $$
 \log(X)\sim\operatorname{Normal}(\mu,\sigma^2).
@@ -496,6 +517,9 @@ f_X(x)=\frac{1}{x\sigma\sqrt{2\pi}}
 \exp\left(-\frac{(\log x-\mu)^2}{2\sigma^2}\right),\qquad x>0.
 $$
 
+Animal body mass is positive and may have this right-skewed shape: most animals can be
+relatively light, while a few are much heavier.
+
 In R, `meanlog` is $\mu$ and `sdlog` is $\sigma$. Both describe *log body
 mass*, not body mass in its original units. The original-scale median is
 $e^\mu$, the mean is $e^{\mu+\sigma^2/2}$, and the variance is
@@ -507,6 +531,7 @@ Suppose body mass in grams follows a lognormal model with
 larger. We can calculate a probability and a quantile on the original scale:
 
 ```r
+# Calculate an upper-tail probability and a high quantile on the original scale.
 plnorm(q = 50, meanlog = log(30), sdlog = 0.5,
         lower.tail = FALSE)
 qlnorm(p = 0.95, meanlog = log(30), sdlog = 0.5)
@@ -521,8 +546,10 @@ follow a lognormal model.
 #| echo: false
 #| eval: true
 #| fig-cap: "Simulated lognormal body masses on the original and log scales."
+# Simulate body masses from the assumed lognormal model.
 set.seed(seed = 20)
 body_mass = rlnorm(n = 500, meanlog = log(30), sdlog = 0.5)
+# Show how the same values look on their original and log scales.
 old_par = par(no.readonly = TRUE)
 par(mfrow = c(1, 2))
 hist(body_mass, breaks = 25, col = "grey80", border = "white",
@@ -550,6 +577,7 @@ mass. Why are they different?
 ::: {.callout-tip title="Solution" collapse="true"}
 
 ```r
+# Convert the lognormal parameters to the original-scale median and mean.
 median_mass = exp(log(30))
 mean_mass = exp(log(30) + 0.5^2 / 2)
 c(median_g = median_mass, mean_g = mean_mass)
@@ -563,14 +591,15 @@ in the right tail pull the mean above the median.
 
 # The beta distribution {#sec-beta_distribution}
 
-Suppose $X$ is the fraction of a quadrat covered by vegetation, measured on a
-continuous scale. Values inside $(0,1)$ have a natural lower and upper bound.
-A **beta distribution** can describe different shapes within that interval.
-It is a model for a continuous fraction, not for the number of covered points
-out of a fixed number of observations.
+A **beta distribution** is a continuous model for fractions strictly between zero
+and one. Its two positive shape parameters, $a$ and $b$, allow different density
+shapes within those bounds. It is a model for a continuous fraction, not for the number
+of covered points out of a fixed number of observations.
 
-The beta distribution has two positive shape parameters, $a$ and $b$. Its
-density is
+For example, suppose $X$ is the fraction of a quadrat covered by vegetation, measured
+on a continuous scale. This measurement has a natural lower and upper bound.
+
+Its density is
 
 $$
 f_X(x)=\frac{\Gamma(a+b)}{\Gamma(a)\Gamma(b)}
@@ -594,6 +623,7 @@ Its expected cover is $2/7$, or about 29% of a quadrat. We can calculate
 the chance of cover below 20% and the 95th percentile:
 
 ```r
+# Calculate a lower-tail probability and a high quantile for the cover model.
 pbeta(q = 0.20, shape1 = 2, shape2 = 5)
 qbeta(p = 0.95, shape1 = 2, shape2 = 5)
 ```
@@ -602,6 +632,7 @@ qbeta(p = 0.95, shape1 = 2, shape2 = 5)
 #| echo: false
 #| eval: true
 #| fig-cap: "Beta densities with different shapes for a fraction between zero and one."
+# Calculate density curves for three possible beta shapes.
 cover_values = seq(from = 0.001, to = 0.999, length.out = 400)
 plot(cover_values, dbeta(x = cover_values, shape1 = 2, shape2 = 5),
      type = "l", lwd = 2, ylim = c(0, 11),
