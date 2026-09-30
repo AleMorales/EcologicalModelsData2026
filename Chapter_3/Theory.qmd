@@ -1,0 +1,789 @@
+---
+title: "Introduction to Probability for Continuous Data"
+format:
+  html:
+    toc: true
+    number-sections: true
+execute:
+  echo: true
+  warning: false
+  message: false
+  eval: false
+---
+
+# Introduction
+
+In this chapter, we learn how to use probability distributions to describe
+continuous ecological measurements and interpret their predictions. In
+[Chapter 2](../Chapter_2/Theory.qmd), we counted outcomes such as surviving
+seedlings and wildlife detections. Ecologists also measure tree height, animal body
+mass, and vegetation cover, which can vary across a continuous scale.
+
+We will start with the ideas shared by continuous measurements: density, probabilities
+over intervals, samples, and relationships between two variables. We will then use
+normal, lognormal, and beta distributions to describe different ecological settings.
+Our examples are assumed models or simulations, not measurements from a field study.
+
+# Learning goals
+
+After studying this chapter, you should be able to:
+
+- distinguish continuous measurements from discrete counts and explain density;
+- calculate and interpret probabilities over intervals and quantiles;
+- use density, cumulative probability, quantile, and sampling functions in R;
+- compare a theoretical distribution with a histogram, density estimate, and
+  empirical cumulative distribution;
+- distinguish joint, marginal, and conditional distributions;
+- interpret scatterplots and contour plots for two continuous variables;
+- describe the support and parameters of normal, lognormal, and beta distributions;
+- choose a plausible starting distribution for an ecological measurement and
+  explain its limitations.
+
+# Continuous measurements and probability {#sec-continuous_measurements}
+
+A **continuous measurement** can vary across an interval rather than taking only
+separate values such as whole-number counts. A probability model treats its value as
+uncertain before it is observed and assigns probability to ranges of possible values.
+
+For example, suppose $X$ is the height in metres of a randomly selected tree from a
+defined population. A model might treat $X$ as **continuous**: within a plausible
+range, it can take any value, not just a whole number. A seedling count, by contrast,
+takes separate integer values.
+
+Recorded measurements have limited precision. A recorded height of 22.1 m might
+represent an underlying height between 22.05 and 22.15 m. A continuous model is
+often a useful approximation to that underlying measurement.
+
+::: {.callout-note title="Continuous random variable"}
+A continuous random variable can take values throughout an interval. Its model
+assigns probabilities to ranges of values. The values allowed by the model form
+its **support**.
+:::
+
+## From probability mass to density
+
+For the discrete variables in [Chapter 2](../Chapter_2/Theory.qmd#sec-four_faces),
+the probability mass at a particular count is $P(X=x)$. For an ideal continuous
+variable, the probability of any one exact value is zero:
+
+$$
+P(X=x)=0.
+$$
+
+This does not prevent us from recording a height of 22.1 m. The recorded number
+represents a range at the instrument's precision. Questions about a continuous
+model concern intervals, such as $P(20<X\leq25)$.
+
+A **probability density function**, $f_X(x)$, describes how probability is
+concentrated along the measurement scale. The probability of an interval is the
+area under its density curve:
+
+$$
+P(a<X\leq b)=\int_a^b f_X(x)\,dx.
+$$
+
+The density cannot be negative, and its total area over the support is one.
+Because exact points have probability zero, including or excluding an interval's
+endpoints does not change its probability under a continuous model.
+
+::: {.callout-warning title="Density is not an exact-value probability"}
+The value $f_X(22)$ is a curve height, not $P(X=22)$. A density can exceed one if
+probability is concentrated in a narrow interval. Its value also changes when,
+for example, heights are expressed in centimetres rather than metres; the
+probability for the same physical interval does not.
+:::
+
+:::: {.callout-important title="Practice: measuring tree height"}
+
+A tree height is recorded to the nearest tenth of a metre as 22.1 m. What range
+of underlying heights could have produced that record? Would a continuous model
+assign positive probability to an underlying height of exactly 22.1 m?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+Rounding to the nearest tenth, heights from approximately 22.05 m up to 22.15 m
+could be recorded as 22.1 m. Under an ideal continuous model,
+$P(X=22.1)=0$, but the recording interval can have positive probability.
+
+:::
+::::
+
+# The four faces of a continuous distribution {#sec-continuous_four_faces}
+
+We met the [four faces of a distribution](../Chapter_2/Theory.qmd#sec-four_faces)
+for counts. The R prefixes are the same for continuous variables, but `d*` now
+returns **density** rather than the probability of an exact outcome.
+
+For a running example, suppose tree heights follow a normal model with mean 22 m
+and standard deviation 4 m. These numbers describe an assumed population; we
+will examine the normal model itself later in this chapter.
+
+## 1. Probability density
+
+The density is highest near heights the model considers most concentrated. For
+the assumed model, `dnorm()` evaluates its density at chosen heights:
+
+```r
+# Calculate the density at one chosen height under the assumed model.
+dnorm(x = 22, mean = 22, sd = 4)
+```
+
+The result has units of density per metre. It is not the probability that a tree
+is exactly 22 m tall. The curve helps us see where probability is concentrated.
+
+```{r}
+#| echo: false
+#| eval: true
+#| fig-cap: "Assumed normal density for tree height. Interval probability is area under the curve."
+# Calculate the assumed density over a sequence of possible heights.
+height_values = seq(from = 8, to = 36, length.out = 400)
+height_density = dnorm(x = height_values, mean = 22, sd = 4)
+# Plot the density with units that match the height scale.
+plot(
+  x = height_values, y = height_density, type = "l", lwd = 2,
+  xlab = "Tree height (m)", ylab = "Density per metre"
+)
+```
+
+## 2. Cumulative probability
+
+The **cumulative distribution function** is $F_X(x)=P(X\leq x)$. It adds the
+probability for all heights up to $x$. To calculate the probability that a tree
+is between 18 m and 26 m tall, subtract two cumulative probabilities:
+
+$$
+P(18<X\leq26)=F_X(26)-F_X(18).
+$$
+
+In R:
+
+```r
+# Subtract cumulative probabilities to obtain an interval probability.
+pnorm(q = 26, mean = 22, sd = 4) -
+  pnorm(q = 18, mean = 22, sd = 4)
+```
+
+For a height above 30 m, use the upper tail:
+
+```r
+# Use the upper tail for the probability above the threshold.
+pnorm(q = 30, mean = 22, sd = 4, lower.tail = FALSE)
+```
+
+The cumulative curve rises smoothly from zero towards one.
+
+```{r}
+#| echo: false
+#| eval: true
+#| fig-cap: "Cumulative probability for the assumed tree-height model."
+# Evaluate and plot the cumulative probability over possible heights.
+height_values = seq(from = 8, to = 36, length.out = 400)
+plot(
+  x = height_values,
+  y = pnorm(q = height_values, mean = 22, sd = 4),
+  type = "l", lwd = 2, ylim = c(0, 1),
+  xlab = "Tree height (m)", ylab = "Cumulative probability"
+)
+```
+
+## 3. Quantiles
+
+A **quantile** reverses the cumulative question: given a cumulative probability,
+which height marks that point in the distribution? The 0.95 quantile is the
+height below which the model places 95% of tree heights:
+
+```r
+# Find the height at the requested cumulative probability.
+qnorm(p = 0.95, mean = 22, sd = 4)
+```
+
+Because this model is continuous, $P(X\leq q_{0.95})=0.95$. A quantile is a
+model prediction, not the height of a particular observed tree.
+
+## 4. Sampling
+
+We can generate heights from the model to see the variation it predicts:
+
+```r
+# Simulate one height for each of 100 trees from the assumed model.
+set.seed(seed = 42)
+tree_heights = rnorm(n = 100, mean = 22, sd = 4)
+head(tree_heights)
+```
+
+Each value represents one simulated tree. A finite sample will not have exactly
+the model's mean or standard deviation. A new seed produces a different sample.
+
+::: {.callout-note title="The four R function types"}
+For continuous distributions, `d*` gives density, `p*` cumulative probability,
+`q*` a quantile, and `r*` a random sample. The first argument is conventionally
+named `x`, `q`, `p`, or `n`, respectively.
+:::
+
+:::: {.callout-important title="Practice: a tree-height threshold"}
+
+Under the assumed normal model, calculate the probability that a tree is taller
+than 26 m. Find the height that marks the lower 10% of the model. Explain each
+result in words.
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+```r
+# Calculate an upper-tail probability and a lower-tail quantile.
+pnorm(q = 26, mean = 22, sd = 4, lower.tail = FALSE)
+qnorm(p = 0.10, mean = 22, sd = 4)
+```
+
+The first result is approximately 0.159: about 16% of heights exceed 26 m under
+this model. The second is approximately 16.9 m: about 10% fall below that height.
+
+:::
+::::
+
+# From a model to observed measurements {#sec-continuous_samples}
+
+Chapter 2 introduced the distinction between a
+[population distribution and a sample](../Chapter_2/Theory.qmd#sec-sample_population).
+We use the same distinction for continuous measurements. A theoretical density
+describes a proposed model; a plot of measurements summarises a finite sample.
+
+## Histograms and density estimates
+
+A **histogram** groups observations into intervals called bins. On a frequency
+histogram, bar height is the number of observations in a bin when widths are
+equal. On a density histogram, the *total bar area* is one, so it can be compared
+with a theoretical density curve. Changing the bin width can change the visible
+detail without changing the data.
+
+A **kernel density estimate**, calculated by `density()`, smooths the observed
+measurements. Its bandwidth controls the smoothing. It is an empirical estimate,
+while `dnorm()` describes the assumed model.
+
+```{r}
+#| echo: false
+#| eval: true
+#| fig-cap: "A simulated sample of tree heights, its kernel density estimate, and the assumed normal density."
+# Simulate a sample from the assumed normal model.
+set.seed(seed = 73)
+tree_heights = rnorm(n = 200, mean = 22, sd = 4)
+# Compare the sample estimate with the density used to generate it.
+hist(
+  x = tree_heights, breaks = 16, probability = TRUE,
+  col = "grey85", border = "white",
+  xlab = "Tree height (m)", ylab = "Density per metre",
+  main = "Simulated tree heights"
+)
+lines(density(x = tree_heights), lwd = 2, lty = 2)
+curve(dnorm(x = x, mean = 22, sd = 4), add = TRUE, lwd = 2)
+legend(
+  "topright", legend = c("Sample estimate", "Assumed model"),
+  lty = c(2, 1), lwd = 2, bty = "n"
+)
+```
+
+The differences between the two curves can arise from sampling variation even
+when the assumed model generated the data. Agreement in one plot alone would not
+establish that the model is suitable for field measurements.
+
+## Empirical cumulative distributions
+
+The **empirical cumulative distribution** gives the fraction of sample values at
+or below a threshold. `ecdf()` calculates it. It rises in steps, whereas a
+continuous model's cumulative curve is smooth.
+
+```{r}
+#| echo: false
+#| eval: true
+#| fig-cap: "Empirical cumulative distribution of simulated heights and the assumed model's cumulative distribution."
+# Simulate a sample and plot its empirical cumulative distribution.
+set.seed(seed = 73)
+tree_heights = rnorm(n = 200, mean = 22, sd = 4)
+plot(
+  ecdf(tree_heights), do.points = FALSE, verticals = TRUE,
+  xlab = "Tree height (m)", ylab = "Cumulative proportion",
+  main = "Simulated heights and model"
+)
+curve(pnorm(q = x, mean = 22, sd = 4), add = TRUE, lwd = 2, lty = 2)
+legend(
+  "bottomright", legend = c("Sample", "Assumed model"),
+  lty = c(1, 2), lwd = 2, bty = "n"
+)
+```
+
+:::: {.callout-important title="Practice: sample or model?"}
+
+You simulate 200 heights from the assumed model and make a histogram. Would a
+different seed produce exactly the same histogram? Would changing the bin width
+change the sample mean?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+A different seed usually produces a different sample and histogram. Changing
+the bin width changes the display, not the measured values, so the sample mean
+stays the same.
+
+:::
+::::
+
+# Two continuous variables {#sec-two_continuous_variables}
+
+When each observational unit has two continuous measurements, a model must describe
+their individual variation and how they vary together. Ecologists often collect this
+kind of paired data. For example, suppose $X$ is a tree's diameter in centimetres and
+$Y$ is its height in metres. One row of data holds both measurements for the same tree.
+
+## Joint, marginal, and conditional distributions
+
+The **joint distribution** describes combinations of diameter and height. Its
+joint density, $f_{X,Y}(x,y)$, places density across a two-dimensional region.
+Probabilities belong to regions, such as trees with diameters from 25 to 35 cm
+*and* heights above 20 m, not to one exact pair of measurements.
+
+The **marginal distribution** of height describes heights across all trees in
+the population, without selecting trees by diameter. A histogram of all heights
+estimates that marginal distribution.
+
+The **conditional distribution** of height describes heights among trees with
+specified information about diameter. For example, we might compare heights
+among trees with diameters of 20–25 cm with heights among trees with diameters
+of 35–40 cm. These are distributions conditional on *diameter ranges*. A model
+can also describe height conditional on an exact diameter, even though that
+exact value has probability zero under a continuous model.
+
+::: {.callout-note title="Three questions about two measurements"}
+Joint: *Which combinations of height and diameter occur?* Marginal: *How do
+heights vary across all trees?* Conditional: *How do heights vary among trees
+in a stated diameter group?*
+:::
+
+Chapter 2 introduced [independence](../Chapter_2/Theory.qmd#sec-independence_expectations).
+For two continuous variables, independence means that knowing diameter would
+not change the model's distribution of height. A relationship in a scatterplot
+may challenge that assumption, but it does not by itself identify its ecological
+cause.
+
+## Scatterplots and contours
+
+A scatterplot shows the paired observations. Here we simulate trees whose height
+and diameter tend to increase together. The parameters describe the simulation,
+not a claim about a real forest.
+
+```{r}
+#| echo: false
+#| eval: true
+#| fig-cap: "Simulated tree heights and diameters with a positive association."
+# Simulate two measurements per tree with a positive association.
+set.seed(seed = 50)
+n_trees = 300
+z_height = rnorm(n = n_trees)
+z_other = rnorm(n = n_trees)
+# Transform the simulated values to the height and diameter scales.
+tree_height = 22 + 4 * z_height
+tree_diameter = 30 + 5 * (0.7 * z_height + sqrt(1 - 0.7^2) * z_other)
+plot(
+  x = tree_diameter, y = tree_height, pch = 16,
+  col = grDevices::adjustcolor("black", alpha.f = 0.35),
+  xlab = "Tree diameter (cm)", ylab = "Tree height (m)"
+)
+```
+
+Larger diameters tend to accompany greater heights in this simulation, but
+individual trees vary. A marginal height plot would hide the pairing. Comparing
+height distributions in two diameter groups would show how the conditional
+distribution changes.
+
+A **contour plot** joins combinations of diameter and height that have equal
+joint density, like a topographic map joins places of equal elevation. Contours
+show where the *model* concentrates outcomes. A contour line is not a probability
+boundary, and the regions between successive lines do not necessarily contain
+equal probability.
+
+```{r}
+#| echo: false
+#| eval: true
+#| fig-cap: "Contours of the assumed joint density for tree diameter and height."
+# Set a grid of possible height and diameter combinations.
+diameter_grid = seq(from = 10, to = 50, length.out = 100)
+height_grid = seq(from = 8, to = 36, length.out = 100)
+rho = 0.7
+# Calculate the assumed joint density at each grid combination.
+joint_density = outer(
+  X = diameter_grid, Y = height_grid,
+  FUN = function(diameter, height) {
+    dx = (diameter - 30) / 5
+    hy = (height - 22) / 4
+    exp(-(dx^2 - 2 * rho * dx * hy + hy^2) / (2 * (1 - rho^2))) /
+      (2 * pi * 5 * 4 * sqrt(1 - rho^2))
+  }
+)
+contour(
+  x = diameter_grid, y = height_grid, z = joint_density,
+  nlevels = 8, xlab = "Tree diameter (cm)",
+  ylab = "Tree height (m)"
+)
+```
+
+These tilted contours show that larger diameter and greater height tend to
+occur together under the assumed model. A scatterplot reveals individual
+observations; contours summarise the joint density. Neither plot establishes
+that changing diameter would cause a change in height.
+
+:::: {.callout-important title="Practice: two measurements on a tree"}
+
+Suppose you select only trees with diameters between 35 and 40 cm and plot
+their heights. Is that plot joint, marginal, or conditional? What would a plot
+of the heights of *all* sampled trees show?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The first plot estimates a conditional height distribution, given a diameter
+range. The second estimates the marginal height distribution of the sampled
+population.
+
+:::
+::::
+
+# The normal distribution {#sec-normal_distribution}
+
+A **normal distribution** is a symmetric continuous model. Its mean $\mu$ gives its
+centre, and its standard deviation $\sigma>0$ sets its spread. We write
+$X\sim\operatorname{Normal}(\mu,\sigma^2)$. The second quantity in this notation is
+the **variance**, while R's `sd`
+argument takes the standard deviation $\sigma$.
+
+The normal model has support over all real values. Its density is
+
+$$
+f_X(x)=\frac{1}{\sigma\sqrt{2\pi}}
+\exp\left(-\frac{(x-\mu)^2}{2\sigma^2}\right).
+$$
+
+It has $E[X]=\mu$ and $\operatorname{Var}(X)=\sigma^2$. The mean, median, and
+mode coincide because the curve is symmetric. Increasing $\sigma$ spreads the
+same total probability over a wider range and lowers the curve's peak.
+
+For the assumed tree heights, $\mu=22$ m and $\sigma=4$ m. The mean is the
+average height across many trees generated by this model; the standard deviation
+describes variation among those heights. Approximately 68% of a normal model
+falls within one standard deviation of its mean, 95% within two, and 99.7%
+within three. Thus about 95% of this model's heights fall between 14 m and
+30 m. These percentages are approximations, and they describe the model.
+
+We can express a height in standard deviation units with
+$Z=(X-\mu)/\sigma$. A 30 m tree is two standard deviations above the assumed
+mean. R calculates probabilities directly with `mean` and `sd`, so you need not
+standardise each observation by hand.
+
+```r
+# Calculate the probability of a height above 30 m.
+pnorm(q = 30, mean = 22, sd = 4, lower.tail = FALSE)
+```
+
+::: {.callout-warning title="Check the support"}
+A normal model allows negative values. For positive measurements such as body
+mass, check whether it places meaningful probability below zero or misses
+strong right skew. Symmetry alone does not make a model suitable.
+:::
+
+:::: {.callout-important title="Practice: spread in tree heights"}
+
+Two proposed normal models have the same mean height, 22 m, but standard
+deviations of 2 m and 5 m. Which assigns more probability to heights far from
+22 m? What happens to the density's peak as spread increases?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The model with standard deviation 5 m is more spread out and gives more
+probability to heights far from 22 m. Its density peak is lower because each
+density curve still has total area one.
+
+:::
+::::
+
+# The lognormal distribution {#sec-lognormal_distribution}
+
+A **lognormal distribution** is a continuous model for strictly positive values that
+can have a long right tail. A positive variable $X$ is lognormal when its logarithm is
+normal:
+
+$$
+\log(X)\sim\operatorname{Normal}(\mu,\sigma^2).
+$$
+
+The model's support is $x>0$. Its density is
+
+$$
+f_X(x)=\frac{1}{x\sigma\sqrt{2\pi}}
+\exp\left(-\frac{(\log x-\mu)^2}{2\sigma^2}\right),\qquad x>0.
+$$
+
+Animal body mass is positive and may have this right-skewed shape: most animals can be
+relatively light, while a few are much heavier.
+
+In R, `meanlog` is $\mu$ and `sdlog` is $\sigma$. Both describe *log body
+mass*, not body mass in its original units. The original-scale median is
+$e^\mu$, the mean is $e^{\mu+\sigma^2/2}$, and the variance is
+$e^{2\mu+\sigma^2}(e^{\sigma^2}-1)$. The mean exceeds the median when
+$\sigma>0$ because the right tail includes unusually large values.
+
+Suppose body mass in grams follows a lognormal model with
+`meanlog = log(30)` and `sdlog = 0.5`. Its median is 30 g, while its mean is
+larger. We can calculate a probability and a quantile on the original scale:
+
+```r
+# Calculate an upper-tail probability and a high quantile on the original scale.
+plnorm(q = 50, meanlog = log(30), sdlog = 0.5,
+        lower.tail = FALSE)
+qlnorm(p = 0.95, meanlog = log(30), sdlog = 0.5)
+```
+
+The log scale can make a multiplicative process easier to describe: successive
+proportional changes multiply body mass, while their logarithms add. This is
+one possible ecological motivation, not proof that particular measurements
+follow a lognormal model.
+
+```{r}
+#| echo: false
+#| eval: true
+#| fig-cap: "Simulated lognormal body masses on the original and log scales."
+# Simulate body masses from the assumed lognormal model.
+set.seed(seed = 20)
+body_mass = rlnorm(n = 500, meanlog = log(30), sdlog = 0.5)
+# Show how the same values look on their original and log scales.
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(1, 2))
+hist(body_mass, breaks = 25, col = "grey80", border = "white",
+     xlab = "Body mass (g)", main = "Original scale")
+hist(log(body_mass), breaks = 25, col = "grey80", border = "white",
+     xlab = "Log body mass", main = "Log scale")
+par(old_par)
+```
+
+The original-scale simulation is right-skewed; its logarithms are more
+symmetric. The four functions are `dlnorm()`, `plnorm()`, `qlnorm()`, and
+`rlnorm()`.
+
+::: {.callout-warning title="Zero is outside a lognormal model"}
+A lognormal model cannot generate zero or negative values. A recorded zero
+could mean absence, a detection limit, or another process. Its meaning should
+be investigated before changing the values or choosing a model.
+:::
+
+:::: {.callout-important title="Practice: mean and median mass"}
+
+For `meanlog = log(30)` and `sdlog = 0.5`, calculate the median and mean body
+mass. Why are they different?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+```r
+# Convert the lognormal parameters to the original-scale median and mean.
+median_mass = exp(log(30))
+mean_mass = exp(log(30) + 0.5^2 / 2)
+c(median_g = median_mass, mean_g = mean_mass)
+```
+
+The median is 30 g and the mean is approximately 34 g. Large possible masses
+in the right tail pull the mean above the median.
+
+:::
+::::
+
+# The beta distribution {#sec-beta_distribution}
+
+A **beta distribution** is a continuous model for fractions strictly between zero
+and one. Its two positive shape parameters, $a$ and $b$, allow different density
+shapes within those bounds. It is a model for a continuous fraction, not for the number
+of covered points out of a fixed number of observations.
+
+For example, suppose $X$ is the fraction of a quadrat covered by vegetation, measured
+on a continuous scale. This measurement has a natural lower and upper bound.
+
+Its density is
+
+$$
+f_X(x)=\frac{\Gamma(a+b)}{\Gamma(a)\Gamma(b)}
+x^{a-1}(1-x)^{b-1},\qquad 0<x<1.
+$$
+
+Here $\Gamma$ is the gamma function, which provides the scaling needed for
+total area one. The mean and variance are
+
+$$
+E[X]=\frac{a}{a+b},\qquad
+\operatorname{Var}(X)=\frac{ab}{(a+b)^2(a+b+1)}.
+$$
+
+If $a>b$, density tends towards higher cover; if $a<b$, it tends towards
+lower cover. The pair also controls how concentrated or U-shaped the density
+is. R calls the parameters `shape1` and `shape2`.
+
+Suppose vegetation cover follows a beta model with $a=2$ and $b=5$.
+Its expected cover is $2/7$, or about 29% of a quadrat. We can calculate
+the chance of cover below 20% and the 95th percentile:
+
+```r
+# Calculate a lower-tail probability and a high quantile for the cover model.
+pbeta(q = 0.20, shape1 = 2, shape2 = 5)
+qbeta(p = 0.95, shape1 = 2, shape2 = 5)
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| fig-cap: "Beta densities with different shapes for a fraction between zero and one."
+# Calculate density curves for three possible beta shapes.
+cover_values = seq(from = 0.001, to = 0.999, length.out = 400)
+plot(cover_values, dbeta(x = cover_values, shape1 = 2, shape2 = 5),
+     type = "l", lwd = 2, ylim = c(0, 11),
+     xlab = "Vegetation cover (fraction)", ylab = "Density")
+lines(cover_values, dbeta(x = cover_values, shape1 = 5, shape2 = 2),
+      lwd = 2, lty = 2)
+lines(cover_values, dbeta(x = cover_values, shape1 = 0.5, shape2 = 0.5),
+      lwd = 2, lty = 3)
+legend("top", legend = c("a = 2, b = 5", "a = 5, b = 2",
+                         "a = 0.5, b = 0.5"),
+       lty = 1:3, lwd = 2, bty = "n")
+```
+
+The four R functions are `dbeta()`, `pbeta()`, `qbeta()`, and `rbeta()`.
+
+::: {.callout-warning title="Exact zero and one values"}
+The continuous beta model assigns no probability to an exact cover of zero
+or one. Such observations may be ecologically meaningful. Do not replace
+them with small adjustments automatically; first ask how cover was measured
+and whether boundary values need a separate process in the model.
+:::
+
+:::: {.callout-important title="Practice: interpreting a cover model"}
+
+Would a beta model with $a=2$ and $b=5$ assign positive probability to
+cover between 0.2 and 0.4? Would it assign positive probability to cover
+of exactly 0.2? Explain the difference.
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The interval has positive probability, calculated with
+`pbeta(q = 0.4, shape1 = 2, shape2 = 5) -
+pbeta(q = 0.2, shape1 = 2, shape2 = 5)`. The exact value has probability
+zero under this continuous model. Its density at 0.2 is not an exact-value
+probability.
+
+:::
+::::
+
+# Choosing a continuous model {#sec-choosing_continuous_model}
+
+The measured variable's support is a first check, followed by its shape and
+the ecological process that produced it.
+
+| Model | Support | Parameters in R | Starting question |
+|---|---|---|---|
+| Normal | All real values | `mean`, `sd` | Is a symmetric shape plausible, including its tails? |
+| Lognormal | Strictly positive values | `meanlog`, `sdlog` | Is the positive measurement right-skewed? |
+| Beta | Values strictly between 0 and 1 | `shape1`, `shape2` | Is this a continuous fraction without exact boundaries? |
+
+These are starting models. A variable's name alone does not determine its
+distribution. Compare the assumed density and cumulative distribution with
+observations, check the measurement process, and remember that a finite
+sample will differ from its generating model.
+
+# Summary
+
+For continuous models, interval probabilities are areas under a density;
+an exact-value density is not a probability. R's `d`, `p`, `q`, and `r`
+functions connect density, cumulative probability, quantiles, and simulation.
+Samples can be compared with models using density-scaled histograms and
+empirical cumulative distributions.
+
+With two measurements per unit, joint distributions describe pairs, marginal
+distributions describe one measurement across all units, and conditional
+distributions describe one measurement within a specified group of the other.
+Normal, lognormal, and beta models describe different supports and shapes.
+
+# Chapter quiz
+
+Try each question before opening its answer.
+
+:::: {.callout-important title="Question 1: exact height"}
+
+Under a continuous tree-height model, what is $P(X=22)$? Can a height still be
+recorded as 22 m?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+The probability of exactly 22 m is zero. A recorded 22 m represents a range
+at the measurement's precision, so it can occur.
+
+:::
+::::
+
+:::: {.callout-important title="Question 2: density or probability"}
+
+Which R expression gives the probability of height between 18 m and 26 m
+under a normal model with mean 22 m and standard deviation 4 m?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+`pnorm(q = 26, mean = 22, sd = 4) - pnorm(q = 18, mean = 22, sd = 4)`.
+The difference gives the probability over an interval; `dnorm()` at one
+height gives density.
+
+:::
+::::
+
+:::: {.callout-important title="Question 3: a sample and its model"}
+
+Why might a density-scaled histogram of 100 simulated heights differ from
+the theoretical density used to generate them?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+A finite sample varies at random, and the histogram also depends on its
+bins. Exact agreement is not expected.
+
+:::
+::::
+
+:::: {.callout-important title="Question 4: paired measurements"}
+
+You plot heights only for trees whose diameters are 30–35 cm. Which type
+of distribution does this estimate? What plot would show paired height and
+diameter observations?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+The height plot estimates a conditional distribution given a diameter range.
+A scatterplot shows the paired observations.
+
+:::
+::::
+
+:::: {.callout-important title="Question 5: choose a model"}
+
+Give a plausible starting model for a positive, right-skewed body mass and
+for vegetation cover measured strictly between zero and one. State one
+limitation of each choice.
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+A lognormal model is plausible for body mass but cannot include zero.
+A beta model is plausible for continuous fractional cover but does not
+include exact zero or one observations. Both choices need checking against
+the measurement process and data.
+
+:::
+::::
+
+:::: {.callout-important title="Question 6: a quantile"}
+
+Under the assumed normal tree-height model, what does the value returned
+by `qnorm(p = 0.95, mean = 22, sd = 4)` mean?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+It is the model height below which 95% of tree heights fall. About 5%
+are above it. It is not the height of a particular tree.
+
+:::
+::::
