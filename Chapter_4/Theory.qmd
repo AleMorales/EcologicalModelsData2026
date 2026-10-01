@@ -13,21 +13,22 @@ execute:
 
 # Introduction
 
-In this chapter, we learn how to estimate unknown parameters in ecological
-probability models and describe the uncertainty in those estimates. In
-[Chapter 2](../Chapter_2/Theory.qmd#sec-discrete_distributions), we used
-probability models to describe counts when their parameters were known. In
-[Chapter 3](../Chapter_3/Theory.qmd), we did the same for continuous
-measurements. An ecologist usually faces the question in the other direction:
-given counts from sampled quadrats, what can we learn about the unknown mean
-number of seedlings per quadrat?
+In this chapter, we learn how to turn a limited ecological sample into an
+estimate of something we actually want to know. In [Chapter 2](../Chapter_2/Theory.qmd#sec-discrete_distributions),
+we could specify a count model and calculate its behaviour once we knew its
+parameters. [Chapter 3](../Chapter_3/Theory.qmd) did the same for continuous
+measurements. Fieldwork gives us the awkward reverse problem: we have a set of
+counts from sampled quadrats, but we do not know the mean number of seedlings
+per quadrat that the model needs.
 
-One sample can give us an **estimate**. Another sample from the same population
-would probably give a different estimate. This chapter explains how to
-calculate an estimate and how to describe that variation between samples. We
-will use seedling counts as a running example, then estimate the mean and
-variation of tree heights. Whenever we simulate data, we will specify the
-model that generated them; simulated data are not field observations.
+It would be comforting if one sample settled the matter. It does not. Another
+reasonable sample from the same population would probably give a different
+answer, even if nobody made a mistake. This is where estimation earns its place:
+we need a rule for extracting a parameter from data, and a way to describe how
+much that answer would move between comparable studies. We will use seedling
+counts as a running example, then estimate the mean and variation of tree
+heights. Whenever we simulate data, we will say which model generated them;
+simulation is a way to expose uncertainty, not a substitute for field evidence.
 
 # Learning goals
 
@@ -45,17 +46,20 @@ After studying this chapter, you should be able to:
 
 # From a model to an estimate {#sec-estimates}
 
-Suppose $X_i$ is the number of seedlings in quadrat $i$. A starting model is
+Suppose we want to describe seedling abundance across a restoration site. Let
+$X_i$ be the number of seedlings in quadrat $i$. A deliberately simple starting
+model is
 
 $$
 X_i \sim \operatorname{Poisson}(\lambda),
 $$
 
-where $\lambda$ is the expected count **per quadrat**. We assume quadrats
-have the same area and expected count, and that their counts are independent.
-Those assumptions belong to the model; sampling different locations does not
-establish them. The [Poisson model in Chapter 2](../Chapter_2/Theory.qmd#sec-discrete_distributions)
-describes the distribution of an individual count. Here, $\lambda$ is unknown.
+where $\lambda$ is the expected count **per quadrat**. We are assuming that
+quadrats have the same area and expected count, and that their counts are
+independent. Those are model assumptions, not rewards we receive for sampling
+at different locations. The [Poisson model in Chapter 2](../Chapter_2/Theory.qmd#sec-discrete_distributions)
+describes one individual count. Here the interesting quantity, $\lambda$, is
+unknown.
 
 ::: {.callout-note title="Parameter, estimator, and estimate"}
 A **parameter** is a fixed, unknown feature of the assumed model, such as
@@ -65,7 +69,7 @@ applying that rule to one particular sample. A hat marks an estimated
 parameter, such as $\hat\lambda$.
 :::
 
-For illustration, consider these counts from ten quadrats:
+Imagine that ten quadrats give us these counts:
 
 ```r
 # Record the seedling counts from ten illustrative quadrats.
@@ -74,16 +78,19 @@ seedling_counts = c(3, 5, 2, 7, 4, 3, 4, 1, 6, 5)
 mean(seedling_counts)
 ```
 
-Their mean is 4 seedlings per quadrat. This is an illustrative sample; it
-does not tell us that the unknown population mean is exactly 4.
+Their mean is 4 seedlings per quadrat. That is our answer from these ten
+quadrats, not a declaration that the unknown population mean is exactly 4.
+Keeping that distinction in view will stop several common mistakes later on.
 
 ## Method of moments
 
-In [Chapter 2](../Chapter_2/Theory.qmd#sec-sample_population), we calculated
-the mean of an empirical distribution. The **method of moments** uses such a
-sample summary to estimate a model parameter: match a sample moment to its
-corresponding model moment, then solve for the parameter. A moment is an
-expected value, such as the mean $E[X]$.
+The sample mean feels like a natural answer here because the Poisson parameter
+is itself a mean. The **method of moments** turns that intuition into a general
+recipe: match a sample summary to the corresponding model summary, then solve
+for the parameter. In [Chapter 2](../Chapter_2/Theory.qmd#sec-sample_population),
+we calculated the mean of an empirical distribution. A *moment* is a model
+expectation, such as $E[X]$; the method asks us to make that expectation agree
+with what the sample says.
 
 For a Poisson count, $E[X_i]=\lambda$. The corresponding sample moment is
 the mean of $n$ counts,
@@ -99,8 +106,9 @@ $$
 $$
 
 Applied to our illustrative sample, it gives the **estimate**
-$\hat\lambda=4$ seedlings per quadrat. We will return to the method of
-moments when a model has two parameters.
+$\hat\lambda=4$ seedlings per quadrat. The method has not made the sample
+perfectly representative. It has supplied a transparent rule for learning from
+it. We will return to this rule when a model has two parameters.
 
 :::: {.callout-important title="Practice: estimate from quadrats"}
 
@@ -120,18 +128,21 @@ could give a different estimate.
 
 # What changes between samples? {#sec-sampling_distribution}
 
-The illustrative sample gave an estimate of 4. To see what could happen in
-other studies, suppose the Poisson model really has $\lambda=4$ and each
-study samples 30 independent quadrats. We know the parameter here because
-**we chose it for the simulation**.
+Our illustrative sample gave an estimate of 4, but it cannot show us on its
+own how unreliable that estimate might be. To make the repeated-study idea
+visible, suppose the Poisson model really has $\lambda=4$ and each study samples
+30 independent quadrats. We know the parameter only because **we chose it for
+the simulation**.
 
 The **sampling distribution** is the distribution of $\hat\lambda$ across
-repeated studies of this kind. It describes means calculated from groups of
-30 quadrats. The Poisson distribution describes counts in *individual*
-quadrats. These are different quantities.
+repeated studies of this kind. Each point in it is a mean calculated from a
+whole group of 30 quadrats. That is not the same thing as the Poisson
+distribution of counts in *individual* quadrats. The distinction matters:
+ecologists often need uncertainty about an estimated mean, not another
+description of variation among individual plots.
 
-The code below repeats the whole study 2,000 times. Each repetition returns
-one estimate.
+The code below repeats the entire study 2,000 times. Every repetition returns
+one estimate, as if a new team had sampled another set of comparable quadrats.
 
 ```r
 # Set the model parameters and number of repeated simulated studies.
@@ -151,8 +162,9 @@ mean(lambda_estimates)
 sd(lambda_estimates)
 ```
 
-The histogram displays the estimates. Its horizontal axis is a mean count
-per quadrat, not a count from one quadrat.
+The histogram shows the estimates from those imaginary studies. Its horizontal
+axis is a mean count per quadrat, not a count from one quadrat. That is why the
+values are no longer restricted to whole numbers.
 
 ```{r}
 #| eval: true
@@ -181,30 +193,34 @@ legend(
 
 ## Bias and variance
 
-The **bias** of an estimator is the difference between its average over
-repeated samples and the parameter it aims to estimate. We use $\theta$
-for a general parameter and $\hat\theta$ for its estimator:
+Before we decide that an estimator is doing a good job, we need to ask two
+separate questions. Does it miss the target systematically, and how much does
+it move from study to study? The **bias** of an estimator is the difference
+between its average over repeated samples and the parameter it aims to estimate.
+We use $\theta$ for a general parameter and $\hat\theta$ for its estimator:
 
 $$
 \operatorname{Bias}(\hat\theta)=E[\hat\theta]-\theta.
 $$
 
 An unbiased estimator has an average estimate equal to the parameter. Under
-independent Poisson sampling, $E[\hat\lambda]=\lambda$, so the sample mean
-is unbiased for $\lambda$. One estimate above or below $\lambda$ is normal
-sampling variation; it does not by itself show bias.
+independent Poisson sampling, $E[\hat\lambda]=\lambda$, so the sample mean is
+unbiased for $\lambda$. This does *not* mean each realised estimate lands on
+$\lambda$. An estimate above or below it is ordinary sampling variation, not
+evidence of bias.
 
-The **variance of an estimator** describes how much its estimates vary
-across studies. For the Poisson sample mean,
+The **variance of an estimator** answers the second question: how much do its
+estimates vary across studies? For the Poisson sample mean,
 
 $$
 \operatorname{Var}(\hat\lambda)=\frac{\lambda}{n}.
 $$
 
-Larger studies therefore have a narrower sampling distribution under this
-model. The variance of individual quadrat counts remains $\lambda$;
-it is the variation among their *means* that decreases. We can compare the
-theoretical properties with a simulation:
+Under this model, larger studies have a narrower sampling distribution. The
+variance of individual quadrat counts remains $\lambda$; it is the variation
+among their *means* that decreases. More quadrats do not make the site more
+uniform. They make our estimate of its mean less variable. We can compare these
+theoretical properties with the simulation:
 
 ```r
 # Compare the simulated bias and variance with the Poisson model variance.
@@ -215,14 +231,14 @@ c(
 )
 ```
 
-The simulated values will differ slightly from the model values because
-2,000 repetitions are still a finite number of studies.
+The simulated values will differ slightly from the model values because 2,000
+repetitions are still a finite collection of imaginary studies.
 
 ## Mean squared error
 
-Bias and spread both matter if we want an estimate near the parameter. The
-**mean squared error** (MSE) is the average squared distance between
-estimates and the parameter:
+Bias and spread both matter if we want estimates that tend to stay near the
+parameter. The **mean squared error** (MSE) combines them: it is the average
+squared distance between estimates and the parameter.
 
 $$
 \operatorname{MSE}(\hat\theta)
@@ -231,11 +247,11 @@ $$
   + \operatorname{Bias}(\hat\theta)^2.
 $$
 
-For the unbiased Poisson sample mean, its theoretical MSE equals its
-variance. Simulated MSE can be calculated with
-`mean((lambda_estimates - true_lambda)^2)`; it need not exactly equal
-`var(lambda_estimates)` in a finite simulation. The latter also uses
-the $n-1$ divisor across simulated estimates.
+For the unbiased Poisson sample mean, the theoretical MSE equals its variance.
+In the simulation, calculate MSE with
+`mean((lambda_estimates - true_lambda)^2)`. It need not exactly equal
+`var(lambda_estimates)`: the simulation is finite, and `var()` also uses the
+$n-1$ divisor across the simulated estimates.
 
 :::: {.callout-important title="Practice: what varies?"}
 
@@ -254,8 +270,10 @@ which concerns the estimator's average over repeated samples.
 
 # Standard errors {#sec-standard_errors}
 
-The **standard error** (SE) is the standard deviation of an estimator's
-sampling distribution:
+The sampling distribution gives the uncertainty we care about, but its
+variance is in squared units. The **standard error** (SE) puts that spread back
+into the estimator's original units: it is the standard deviation of an
+estimator's sampling distribution.
 
 $$
 \operatorname{SE}(\hat\theta)
@@ -263,17 +281,18 @@ $$
 $$
 
 For the Poisson sample mean, the model gives
-$\operatorname{SE}(\hat\lambda)=\sqrt{\lambda/n}$. In a real study
-$\lambda$ is unknown, so we replace it with our estimate:
+$\operatorname{SE}(\hat\lambda)=\sqrt{\lambda/n}$. Of course, in the real
+study the whole problem is that $\lambda$ is unknown. We replace it with our
+estimate:
 
 $$
 \widehat{\operatorname{SE}}(\hat\lambda)
 = \sqrt{\frac{\hat\lambda}{n}}.
 $$
 
-This is a **plug-in estimate**: an estimated parameter is used in a formula
-that calls for the unknown parameter. For the illustrative counts, the
-estimated SE is:
+This is a **plug-in estimate**: we put an estimated parameter into a formula
+that calls for the unknown parameter. For the illustrative counts, the estimated
+SE is:
 
 ```r
 # Estimate the Poisson mean and record the number of sampled quadrats.
@@ -284,9 +303,9 @@ estimated_se = sqrt(lambda_hat / n_quadrats)
 estimated_se
 ```
 
-It is approximately 0.63 seedlings per quadrat. This describes typical
-variation in the *estimated mean* between studies of ten quadrats, if the
-Poisson assumptions are appropriate.
+It is approximately 0.63 seedlings per quadrat. This describes the typical
+variation in the *estimated mean* between studies of ten quadrats, provided the
+Poisson assumptions are a reasonable description of the study.
 
 ::: {.callout-warning title="Standard deviation and standard error answer different questions"}
 The standard deviation of the ten counts describes variation between
@@ -315,10 +334,11 @@ $\sqrt{4}=2$ seedlings per quadrat.
 
 # Confidence intervals {#sec-confidence_intervals}
 
-An estimate is one number, but we also want to communicate its uncertainty.
-A **confidence interval** uses an estimator and a rule for its sampling
-variation to produce a range of parameter values. Its confidence level
-describes the procedure over repeated studies.
+An estimate is a useful start, but reporting only one number can make it look
+far more settled than the data justify. A **confidence interval** combines an
+estimator with a rule for its sampling variation to produce a range of parameter
+values. Its confidence level describes how that *procedure* behaves across
+repeated studies.
 
 If a sampling distribution is sufficiently close to normal, a common
 approximate 95% interval is
@@ -328,8 +348,8 @@ $$
 $$
 
 The number 1.96 is the 97.5th percentile of a standard normal distribution.
-Using the illustrative seedling counts and the Poisson standard error gives
-a **Wald interval** for $\lambda$:
+Using the illustrative seedling counts and the Poisson standard error gives a
+**Wald interval** for $\lambda$:
 
 ```r
 # Obtain the standard-normal critical value for a two-sided 95% interval.
@@ -339,10 +359,11 @@ interval = lambda_hat + c(-1, 1) * critical_value * estimated_se
 interval
 ```
 
-The endpoints are approximately 2.76 and 5.24 seedlings per quadrat.
-They are possible values for the *mean count*, not limits on individual
-quadrat counts. The interval calculation relies on the Poisson model,
-independence, and a normal approximation for the estimator.
+The endpoints are approximately 2.76 and 5.24 seedlings per quadrat. They are
+possible values for the *mean count*, not limits on individual quadrat counts.
+The calculation relies on the Poisson model, independence, and a normal
+approximation for the estimator. We should not let the tidy pair of endpoints
+hide those assumptions.
 
 ::: {.callout-note title="What 95% confidence means"}
 If we repeatedly sampled quadrats and constructed an interval by the same
@@ -361,10 +382,11 @@ a 95% probability that the fixed parameter lies between its endpoints.
 
 ## Checking coverage by simulation
 
-Because a simulation gives us the true $\lambda$, we can check whether each
-interval includes it. The proportion that do is the simulated
-**coverage**. The following code repeats both sampling and interval
-construction:
+In a field study, we cannot check whether an interval captured the truth because
+the truth is what we are trying to learn. Simulation gives us an honest practice
+ground: we set $\lambda$, then check whether each interval includes it. The
+proportion that do is the simulated **coverage**. The following code repeats
+both the sampling and interval construction:
 
 ```r
 # Set the model parameters and interval rule for repeated simulated studies.
@@ -393,10 +415,11 @@ covered = replicate(
 mean(covered)
 ```
 
-Simulated coverage changes with the seed and number of repetitions. It can
-also change with sample size, the true parameter, and the interval method.
-We cannot calculate coverage from a single field study because its true
-parameter is unknown.
+Simulated coverage changes with the seed and number of repetitions. It can also
+change with sample size, the true parameter, and the interval method. This is a
+useful reminder that “95% confidence interval” is a claim about a procedure,
+not a magic label we attach after fitting a model. We cannot calculate coverage
+from one field study because its true parameter is unknown.
 
 :::: {.callout-important title="Practice: interpret an interval"}
 
@@ -416,35 +439,35 @@ reasonable and whether the approximation used for the interval is adequate.
 
 # Estimating two tree-height parameters {#sec-two_parameters}
 
-The same ideas apply to continuous measurements. In
-[Chapter 3](../Chapter_3/Theory.qmd#sec-normal_distribution), we used a
-normal model for tree height. Suppose $X_i$ is the height in metres of
-tree $i$ and independent trees follow
+Counts are not special. The same estimation questions appear when we measure
+continuous variables. In [Chapter 3](../Chapter_3/Theory.qmd#sec-normal_distribution),
+we used a normal model for tree height. Suppose $X_i$ is the height in metres
+of tree $i$ and independent trees follow
 
 $$
 X_i \sim \operatorname{Normal}(\mu,\sigma^2).
 $$
 
-The model mean is $\mu$ metres and its variance is $\sigma^2$ square
-metres. R's `rnorm()` takes the standard deviation $\sigma$ in its
-`sd` argument. This model is an approximation: a normal distribution
-allows negative heights, so its tails must be plausible for the ecological
-setting.
+The model mean is $\mu$ metres and its variance is $\sigma^2$ square metres.
+R's `rnorm()` takes the standard deviation $\sigma$ in its `sd` argument. A
+normal model is an approximation, not an ecological law. It allows negative
+heights, so we need its tails to be implausible only in a part of the scale that
+does not matter for our trees.
 
 ## Method of moments for mean and variance
 
-The first model moment is $E[X]=\mu$, so the method-of-moments estimator of
-the mean is $\hat\mu=\overline X$. A second relationship is
-$E[X^2]=\mu^2+\sigma^2$. Matching it to the sample mean of the squared
-heights gives
+Now the model has two unknown parameters, so one sample mean is not enough. The
+first model moment is $E[X]=\mu$, giving the method-of-moments estimator
+$\hat\mu=\overline X$. A second relationship is $E[X^2]=\mu^2+\sigma^2$.
+Matching it to the sample mean of the squared heights gives
 
 $$
 \widehat{\sigma^2}_{\mathrm{MM}}
 = \frac{1}{n}\sum_{i=1}^{n}(X_i-\overline X)^2.
 $$
 
-The method gives a rule for both parameters. Students do not need the
-algebraic derivation to use it: take the mean height, then average the
+The method now gives us a rule for both parameters. You do not need to memorise
+the algebraic derivation to use it: calculate the mean height, then average the
 squared deviations from that mean.
 
 ```r
@@ -464,9 +487,9 @@ c(
 )
 ```
 
-The two variance estimates differ. `variance_mm` divides by $n$;
-`var()` divides by $n-1$. Under independent sampling from the same
-distribution with finite variance,
+The two variance estimates differ. `variance_mm` divides by $n$; `var()` divides
+by $n-1$. This is not a quirk that R invented. Under independent sampling from
+the same distribution with finite variance,
 
 $$
 E[\widehat{\sigma^2}_{\mathrm{MM}}]
@@ -475,11 +498,10 @@ E[\widehat{\sigma^2}_{\mathrm{MM}}]
 E[s^2]=\sigma^2,
 $$
 
-where $s^2$ denotes the result of `var()`. The method-of-moments
-variance estimator is therefore biased downward by $\sigma^2/n$.
-It is still a useful estimator, and its bias becomes smaller as the
-sample size grows. Bias alone does not tell us which estimator has
-smaller MSE.
+where $s^2$ denotes the result of `var()`. The method-of-moments variance
+estimator is therefore biased downward by $\sigma^2/n$. It is still useful, and
+its bias becomes smaller as the sample size grows. Bias alone does not tell us
+which estimator has smaller MSE, so “unbiased” is not a complete scorecard.
 
 ::: {.callout-note title="Why the divisor matters"}
 The empirical variance introduced in Chapter 2 uses the divisor $n$.
@@ -490,18 +512,18 @@ before choosing the divisor.
 
 ## A confidence interval for mean height
 
-The standard error of the sample mean is $\sigma/\sqrt n$. With
-$\sigma$ unknown, we estimate it by $s/\sqrt n$, where
-$s=\texttt{sd(tree_heights)}$. For independent observations from a normal
+The standard error of the sample mean is $\sigma/\sqrt n$. Once again, the
+unknown parameter appears in the formula, so we estimate it by $s/\sqrt n$,
+where $s=\texttt{sd(tree_heights)}$. For independent observations from a normal
 model, a 95% interval for $\mu$ uses a $t$ quantile:
 
 $$
 \overline X \pm t_{n-1,0.975}\frac{s}{\sqrt n}.
 $$
 
-The $t$ distribution allows for estimating $\sigma$ from the same sample.
-Under the stated normal model, this procedure has 95% coverage. Applied
-to the simulated heights:
+The $t$ distribution accounts for estimating $\sigma$ from the same sample.
+Under the stated normal model, this procedure has 95% coverage. Applied to the
+simulated heights:
 
 ```r
 # Record the sample size and calculate the standard error of the mean height.
@@ -513,9 +535,10 @@ height_interval = height_mean + c(-1, 1) * t_critical * height_se
 height_interval
 ```
 
-The interval is for the population **mean height in metres**, not the
-heights of 95% of individual trees. With skewed measurements, such as
-body mass, the same $t$ interval for the original-scale mean is only
+The interval is for the population **mean height in metres**, not a range that
+contains 95% of individual trees. That interpretation is tempting because it
+sounds similar, but it answers a different question. With skewed measurements,
+such as body mass, the same $t$ interval for the original-scale mean is only
 approximate; we will investigate that in the practical.
 
 :::: {.callout-important title="Practice: two kinds of spread"}
@@ -536,22 +559,25 @@ in the mean height, so it uses the sampling variation of the mean.
 
 # What larger samples change {#sec-large_samples}
 
-We saw in [Chapter 2](../Chapter_2/Theory.qmd#sec-sample_population)
-that empirical summaries can approach their model counterparts as sample
-size increases. For an estimator, **consistency** means that the
-probability of being far from its target parameter tends to zero as the
-sample size grows. Under the independent Poisson model, the sample mean
-is consistent for $\lambda$.
+We saw in [Chapter 2](../Chapter_2/Theory.qmd#sec-sample_population) that
+empirical summaries can settle down as sample size increases. That is the
+comforting part of collecting more data, but it needs a careful interpretation.
+For an estimator, **consistency** means that the probability of being far from
+its target parameter tends to zero as sample size grows. Under the independent
+Poisson model, the sample mean is consistent for $\lambda$.
 
-Its standard error is $\sqrt{\lambda/n}$, so multiplying the sample size
-by four halves the standard error. This is a statement about the
-*distribution across possible studies*. It does not promise that every
-larger realised sample is closer to the truth.
+Its standard error is $\sqrt{\lambda/n}$, so multiplying the sample size by
+four halves the standard error. This describes the *distribution across
+possible studies*. It does not promise that every larger realised sample will
+be closer to the truth. A larger sample can still be unlucky, and a beautifully
+large sample cannot repair a sampling design that misses the population of
+interest.
 
-Many sample means also have an **approximately normal sampling
-distribution** when sample size is sufficiently large, even if individual
-observations are not normal. This large-sample behaviour is called
-**asymptotic normality**. For the Poisson mean,
+Many sample means also have an **approximately normal sampling distribution**
+when sample size is sufficiently large, even if individual observations are not
+normal. This large-sample behaviour is called **asymptotic normality**. It is
+the reason the normal approximation above is often useful, not a reason to use
+it without looking at the setting. For the Poisson mean,
 
 $$
 \hat\lambda \overset{\mathrm{approx}}{\sim}
@@ -559,9 +585,10 @@ $$
 \quad\text{for sufficiently large }n.
 $$
 
-The approximation depends on the setting; a small expected total count
-$n\lambda$ can leave the sampling distribution discrete and asymmetric.
-This is why checking an interval's coverage is useful.
+The approximation depends on the setting. A small expected total count
+$n\lambda$ can leave the sampling distribution discrete and asymmetric. This is
+why checking an interval procedure's coverage is more informative than assuming
+that a familiar formula must work.
 
 ```{r}
 #| eval: true
@@ -606,9 +633,10 @@ for (sample_size in sample_sizes) {
 par(old_par)
 ```
 
-The larger-sample estimates are more concentrated around 4, and the
-normal curve describes their shape more closely. The individual
-quadrat counts are still Poisson counts.
+The larger-sample estimates are more concentrated around 4, and the normal
+curve describes their shape more closely. Individual quadrat counts have not
+become normal; they are still Poisson counts. We have changed the distribution
+of their *mean*, not the process in each quadrat.
 
 :::: {.callout-important title="Practice: bigger is not guaranteed closer"}
 
@@ -627,37 +655,44 @@ increases, not the ordering of two realised estimates.
 
 # What simulation can tell us {#sec-simulation_limits}
 
-Simulation lets us specify a model and known parameters, generate samples,
-apply an estimator to each sample, and compare its repeated results with
-the truth. That is how we studied bias, standard errors, MSE, and interval
-coverage. More repetitions usually make a simulated summary more stable;
-they do not make an unrealistic ecological model realistic.
+Simulation lets us specify a model and known parameters, generate samples, apply
+an estimator to each one, and compare the repeated results with the truth. That
+is how we studied bias, standard errors, MSE, and interval coverage. It is a
+particularly useful teaching tool because field data rarely come with the true
+parameter written in the margin. More repetitions usually make a simulated
+summary more stable; they do not make an unrealistic ecological model realistic.
 
-Our Poisson studies assumed independent quadrats of equal area with the
-same mean count. Spatial clustering, varying habitat, or imperfect
-detection could change both the count distribution and the performance
-of our estimates and intervals. These are reasons to examine the
-sampling design and observations before drawing ecological conclusions.
+Our Poisson studies assumed independent quadrats of equal area with the same
+mean count. A real restoration site may have spatial clustering, changing
+habitat, or imperfect detection. Any of these could change both the count
+distribution and the performance of our estimates and intervals. The calculation
+is therefore only one part of the work. We also need to examine the sampling
+design, the observations, and the ecological story before drawing conclusions.
 
-This chapter has treated parameters as fixed and samples as variable.
-In [Chapter 5](../Chapter_5/Theory.qmd), we will use the probability
-model more fully through **maximum likelihood estimation**. The same
-questions remain: What does the parameter mean, what estimate did we
-get, and how uncertain is it?
+This chapter has treated parameters as fixed and samples as variable. In
+[Chapter 5](../Chapter_5/Theory.qmd), we will use the probability model more
+fully through **maximum likelihood estimation**. The questions stay remarkably
+similar: What does the parameter mean? What estimate did we obtain? How much
+should we trust it?
 
 # Summary
 
-Method of moments matches sample summaries to model moments. An
-estimator is a rule, while an estimate is its result for one sample.
-Repeated samples show an estimator's bias and spread; a standard error
-describes the latter in the parameter's units. A confidence level
-describes an interval procedure's coverage across repeated studies.
-Simulation can check these properties under specified assumptions,
-which must still be judged against the ecological setting.
+Estimation starts with a model and a limited sample, then asks what that sample
+can tell us about an unknown parameter. Method of moments matches sample
+summaries to model moments. An estimator is the rule; an estimate is the number
+that rule gives for one sample. Repeated samples reveal an estimator's bias and
+spread, while a standard error puts that spread in the parameter's units.
+
+A confidence level describes coverage of an interval-making procedure across
+repeated studies; it is not a probability attached to a fixed parameter after
+we have seen the data. Simulation lets us check these ideas under assumptions
+we specify. Whether those assumptions are defensible still depends on the
+ecological setting and the way observations were collected.
 
 # Chapter quiz
 
-Try each question before opening its answer.
+The questions below ask you to keep the model, the sample, and the ecological
+meaning of an estimate separate. Try each one before opening its answer.
 
 :::: {.callout-important title="Question 1: an estimate"}
 
