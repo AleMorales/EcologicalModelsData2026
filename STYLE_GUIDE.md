@@ -371,10 +371,13 @@ assume every `no_solution.qmd` must contain no explanatory answers at all.
   long names that make the statistical calculation difficult to read.
 - Name distribution arguments explicitly: `dbinom(x = 15, size = 25, prob = 0.65)`.
   Separate long calls over several lines. Use `TRUE` and `FALSE`, not `T` and `F`.
-- Prefer base R for probability, simulation, numerical work, and simple plots.
-  `dplyr` and `ggplot2` are already taught in Chapter 1 and are appropriate when
-  useful. Use `package::function()` or load the package explicitly. Explain any
-  newly introduced dependency; do not introduce a framework for a small example.
+- Default to `ggplot2` for new author-generated, rendered figures that show data,
+  fitted models, or uncertainty; follow the figure style below. Base R remains
+  appropriate for compact probability, simulation, and numerical examples when its
+  simpler code helps teach the point. Students may use either base R or `ggplot2`
+  unless an exercise explicitly teaches one system. Use `package::function()` or
+  load the package explicitly. Explain any newly introduced dependency; do not
+  introduce a framework for a small example.
 - Do not use pipe operators (`|>` or `%>%`) in course code. Functions from packages
   such as `dplyr` remain appropriate; call them directly, nesting calls when clear or
   assigning intermediate results to named objects. Prefer transparent steps over
@@ -423,6 +426,36 @@ Give axes descriptive labels and units, and distinguish probability, frequency,
 relative frequency, and density. Use bars or vertical lines for discrete mass,
 steps for cumulative probabilities, and appropriately scaled histograms when
 overlaying continuous densities. Label empirical and theoretical quantities.
+
+### Default style for author-generated figures
+
+Use `ggplot2` as the default for new rendered figures in theory pages and in
+practicals after Chapter 1. Apply `theme_classic()` unless a different theme has
+a clear teaching purpose. This is a visual convention for author-generated
+figures and worked examples, not a restriction on students' plotting choices.
+The Chapter 1 practical is the deliberate exception: it teaches and compares both
+base R graphics and `ggplot2`, so its examples should continue to use both.
+
+Use a restrained, consistent palette:
+
+- Plot raw observations in Okabe–Ito blue (`#0072B2`), normally with `alpha = 0.7`
+  and `size = 2`; use jitter only when overlapping observations would conceal the
+  data.
+- Use `grey90` fills and `grey40` outlines for empirical bars, histograms, and
+  boxplots. Suppress boxplot outliers when the raw observations are already drawn.
+- Draw fitted distributions and response curves in Okabe–Ito vermillion (`#D55E00`),
+  usually with `linewidth = 0.8`. Use the same vermillion confidence band with
+  `alpha = 0.2` when showing uncertainty in a fitted mean response. These colours
+  are distinguishable under common red–green colour-vision deficiencies; retain
+  different point, line, and fill geometries so figures also work in greyscale.
+
+For a figure that reports a fitted ecological response, show the raw data, fitted
+curve, and uncertainty together where this remains legible. State the model and
+the meaning of its uncertainty in the caption or surrounding text. When a figure
+is intended as a model-reporting example, include a compact inset or accompanying
+table giving the model formula, parameter estimates, and confidence intervals.
+Transform axes only when this makes the relationship or model easier to interpret;
+state the transformation and keep units in the axis labels.
 
 Choose simple, legible figures that answer the question in the text. Use captions
 for rendered theory figures and legends for multiple series. Where practical,

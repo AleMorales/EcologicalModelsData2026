@@ -94,14 +94,20 @@ though we will always have to make judicious assumptions about which model to us
 characterize it (these probability models are called **distributions**). We will learn that
 different distributions will match different types of observations and that they way in which
 the observations are collected also matters. There is no "one size fits all" and we in fact
-we will seldom use the Normal distribution! Below you can see a couple of examples of
-ecological data with distributions (that were fitted to the data) drawn on top. You will learn
+we will seldom use the Normal distribution! You can see a couple of examples of ecological
+data with non-Normal distributions fitted to them (@fig-observation-error). You will learn
 in this course how to make these kind of plots and how to fit the distributions (and more).
 
 ```{r}
 #| echo: false
-#| fig-cap: "Left: relative frequencies of tobacco hornworm counts (InsectSprays built-in dataset) with a fitted negative binomial distribution (red lined and points). Righ: the distribution of animal body masses (Animal dataset in lme4) with a fitted lognormal density (red line). The fitted curves describe the observed data as simplified probability models."
+#| label: fig-observation-error
+#| fig-cap: "Examples of probability models fitted to observed ecological data. The fitted curves describe the observed data as simplified probability models."
+#| fig-subcap:
+#|   - "Relative frequencies of tobacco hornworm counts in the built-in `InsectSprays` dataset, with a fitted negative binomial distribution."
+#|   - "Distribution of animal body masses in the `Animals` dataset, with a fitted lognormal density."
+#| layout-ncol: 2
 library(MASS)
+library(ggplot2)
 
 # Load and fit the pooled insect-count data.
 data(InsectSprays, package = "datasets")
@@ -112,7 +118,7 @@ negative_binomial_fit = fitdistr(
   densfun = "Negative Binomial"
 )
 
-# Calculate relative frequencies for every observed insect count.
+# Calculate relative frequencies and fitted probabilities for every observed insect count.
 count_values = 0:max(insect_counts)
 count_table = table(factor(insect_counts, levels = count_values))
 relative_frequency = as.numeric(count_table) / length(insect_counts)
@@ -133,91 +139,54 @@ lognormal_fit = fitdistr(
   densfun = "lognormal"
 )
 
-scientific_y_axis = function() {
-  y_ticks = axTicks(side = 2)
-  non_zero_ticks = y_ticks[y_ticks != 0]
-
-  exponent = floor(log10(max(abs(non_zero_ticks))))
-  multiplier = 10^exponent
-
-  axis(
-    side = 2,
-    at = y_ticks,
-    labels = formatC(y_ticks / multiplier, format = "f", digits = 1),
-    las = 1
-  )
-
-  mtext(
-    text = bquote("\u00D7" ~ 10^.(exponent)),
-    side = 2,
-    line = 1,
-    at = par("usr")[4],
-    adj = 0.5,
-    las = 1,
-    cex = 0.8
-  )
-}
-
-# Save the current graphics settings and use a compact two-panel layout.
-old_par = par(
-  mfrow = c(1, 2),
-  mar = c(4.2, 5.0, 2.8, 0.8),
-  mgp = c(3, 0.8, 0),
-  las = 1
+# Put the values needed for the two plots into data frames.
+insect_plot_data = data.frame(
+  count = count_values,
+  relative_frequency = relative_frequency,
+  fitted_probability = fitted_negative_binomial
 )
 
-# Plot relative frequencies and fitted negative binomial probabilities.
-bar_centres = barplot(
-  height = relative_frequency,
-  names.arg = count_values,
-  xlab = "Number of insects",
-  ylab = "Relative frequency",
-  main = "Insect counts",
-  yaxt = "n"
-)
-
-scientific_y_axis()
-
-points(
-  x = bar_centres,
-  y = fitted_negative_binomial,
-  type = "b",
-  pch = 16,
-  col = "firebrick",
-  lwd = 2
-)
-
-# Plot body-mass density and fitted lognormal density.
-hist(
-  body_mass,
-  prob = TRUE,
-  breaks = 15,
-  ylim = c(0, 0.02),
-  xlab = "Body mass (kg)",
-  ylab = "Density",
-  main = "Animal body masses",
-  yaxt = "n"
-)
-
-scientific_y_axis()
-
-curve(
-  dlnorm(
-    x,
+body_mass_plot_data = data.frame(body_mass = body_mass)
+body_mass_values = seq(min(body_mass), max(body_mass), length.out = 200)
+body_mass_density_data = data.frame(
+  body_mass = body_mass_values,
+  fitted_density = dlnorm(
+    x = body_mass_values,
     meanlog = lognormal_fit$estimate["meanlog"],
     sdlog = lognormal_fit$estimate["sdlog"]
-  ),
-  add = TRUE,
-  col = "firebrick",
-  lwd = 2
+  )
 )
 
-# Restore the previous graphics settings.
-par(old_par)
+# Plot the count frequencies and fitted negative binomial probabilities.
+ggplot(insect_plot_data, aes(x = count, y = relative_frequency)) +
+  geom_col(width = 0.9, fill = "grey90", colour = "grey40") +
+  geom_line(aes(y = fitted_probability), colour = "#D55E00", linewidth = 0.8) +
+  geom_point(aes(y = fitted_probability), colour = "#D55E00", size = 1.8) +
+  scale_x_continuous(breaks = seq(0, max(count_values), by = 2)) +
+  labs(x = "Number of insects", y = "Relative frequency") +
+  theme_classic()
+
+# Plot the body-mass density and fitted lognormal density.
+ggplot(body_mass_plot_data, aes(x = body_mass)) +
+  geom_histogram(
+    aes(y = after_stat(density)),
+    bins = 15,
+    fill = "grey90",
+    colour = "grey40"
+  ) +
+  geom_line(
+    data = body_mass_density_data,
+    aes(x = body_mass, y = fitted_density),
+    colour = "#D55E00",
+    linewidth = 0.8
+  ) +
+  coord_cartesian(ylim = c(0, 0.02)) +
+  labs(x = "Body mass (kg)", y = "Density") +
+  theme_classic()
 ```
 
 
-## Process error (stochasticity)
+## Process error
 
 **Process error**, also called **process variation** or **stochasticity**, describes
 variation in the ecological reality that is not explained by the deterministic part
@@ -245,7 +214,62 @@ A recorded value often reflects both process error and observation error. In sim
 models we may describe their combined variation with one probability distribution. However,
 if we can identify groups or clusters in the data that explain a significant part of the
 variation we can use hierarchical models (*aka* mixed effect or multilevel models) to
-disentangle the two. You will also learn how to do this in the later part of the book.
+disentangle the two or at least estimate a significant amount of process error. You will
+also learn how to do this in the later part of the book.
+
+To illustrate this idea of separating different sources of error, I plot again the data on
+tobacco hornworm counts (@fig-process-error) but now I reveal that in the original experiments
+the plants were sprayed with different products and the researchers kept track of this. We
+can see in the plot that there is significant variation within the treatments and across the
+treatments. The variation across treatments is part of process error as we do not expect our
+measurements to have systematic errors depending on the treatment.
+
+```{r}
+#| echo: false
+#| label: fig-process-error
+#| fig-cap: "Boxplots and raw counts of tobacco hornworm (InsectSprays built-in dataset) by pooling all data together () and for each spray treatment separately."
+library(ggplot2)
+
+data(InsectSprays, package = "datasets")
+
+# Combine the pooled counts with counts grouped by spray.
+pooled_counts = data.frame(
+  count = InsectSprays$count,
+  group = "All data"
+)
+
+spray_counts = data.frame(
+  count = InsectSprays$count,
+  group = as.character(InsectSprays$spray)
+)
+
+plot_data = rbind(pooled_counts, spray_counts)
+
+plot_data$group = factor(
+  plot_data$group,
+  levels = c("All data", levels(InsectSprays$spray))
+)
+
+# Spray explains some of the variation visible in the pooled data.
+ggplot(plot_data, aes(x = group, y = count)) +
+  geom_boxplot(
+    width = 0.6,
+    fill = "grey90",
+    outlier.shape = NA
+  ) +
+  geom_point(
+    position = position_jitter(width = 0.12, height = 0, seed = 20261001),
+    alpha = 0.65,
+    size = 2,
+    colour = "#0072B2"
+  ) +
+  labs(
+    x = "Group (spray treatment or all data)",
+    y = "Number of insects"
+  ) +
+  theme_classic()
+```
+
 
 ## Parameter uncertainty
 
@@ -262,6 +286,143 @@ a model. If we invert this way of thinking, we will conclude that, if we fix the
 could have multiple models compatible with that particular sample of data and each of models
 correspond to different values of the parameters. The fact that we do not exactly which
 paramter values to use is what we call **uncertainty**.
+
+We can see this idea in the relationship between mammal body mass and brain mass
+(@fig-parameter-uncertainty). Even after taking logarithms, species with similar body masses
+have different brain masses. Here we use a saturating response curve rather than asking R to
+draw a flexible smooth line. The shaded band is an approximate 95% confidence interval around
+the fitted mean response. It is not where we expect individual species to lie. It shows how
+the observed variation means that several similar response curves could be compatible with
+these data.
+
+```{r}
+#| echo: false
+#| label: fig-parameter-uncertainty
+#| fig-cap: "Brain mass in relation to body mass for mammals in the `Animals` dataset. A shifted and scaled Michaelis–Menten was fitted, shown are the mean model description and its 95% confidence interval. See inset for details."
+library(MASS)
+library(ggplot2)
+
+# Log-transform both measurements so that the wide range of mammal sizes is visible.
+data(Animals, package = "MASS")
+
+animal_brain_data = data.frame(
+  log10_body_mass = log10(Animals$body),
+  log10_brain_mass = log10(Animals$brain)
+)
+
+# Shift and scale body mass to the interval from zero to one before fitting the response.
+body_mass_minimum = min(animal_brain_data$log10_body_mass)
+body_mass_range = diff(range(animal_brain_data$log10_body_mass))
+animal_brain_data$scaled_body_mass =
+  (animal_brain_data$log10_body_mass - body_mass_minimum) / body_mass_range
+
+# Fit a Michaelis-Menten response. With normally distributed residuals, these estimates
+# are also the maximum likelihood estimates of the response parameters.
+response_fit = nls(
+  formula = log10_brain_mass ~ lower_asymptote +
+    increase * scaled_body_mass / (half_saturation + scaled_body_mass),
+  data = animal_brain_data,
+  start = list(
+    lower_asymptote = min(animal_brain_data$log10_brain_mass),
+    increase = diff(range(animal_brain_data$log10_brain_mass)),
+    half_saturation = 0.2
+  ),
+  algorithm = "port",
+  lower = c(-Inf, 0, 0.001)
+)
+
+# Calculate predictions and approximate 95% confidence intervals for the fitted mean response.
+prediction_body_mass = seq(
+  from = min(animal_brain_data$log10_body_mass),
+  to = max(animal_brain_data$log10_body_mass),
+  length.out = 200
+)
+
+prediction_data = data.frame(
+  log10_body_mass = prediction_body_mass,
+  scaled_body_mass = (prediction_body_mass - body_mass_minimum) / body_mass_range
+)
+
+prediction_data$fit = predict(response_fit, newdata = prediction_data)
+
+prediction_gradient = cbind(
+  lower_asymptote = 1,
+  increase = prediction_data$scaled_body_mass /
+    (coef(response_fit)["half_saturation"] + prediction_data$scaled_body_mass),
+  half_saturation = -coef(response_fit)["increase"] * prediction_data$scaled_body_mass /
+    (coef(response_fit)["half_saturation"] + prediction_data$scaled_body_mass)^2
+)
+
+prediction_standard_error = sqrt(
+  rowSums((prediction_gradient %*% vcov(response_fit)) * prediction_gradient)
+)
+
+prediction_data$lower = prediction_data$fit - 1.96 * prediction_standard_error
+prediction_data$upper = prediction_data$fit + 1.96 * prediction_standard_error
+
+# Calculate profile confidence intervals and format them for the reporting inset.
+parameter_confidence_intervals = confint(response_fit, level = 0.95)
+
+format_parameter = function(display_name, parameter_name) {
+  estimate = coef(response_fit)[parameter_name]
+  confidence_interval = parameter_confidence_intervals[parameter_name, ]
+
+  paste0(
+    display_name,
+    " = ", formatC(estimate, format = "f", digits = 2),
+    " [", formatC(confidence_interval[1], format = "f", digits = 2),
+    ", ", formatC(confidence_interval[2], format = "f", digits = 2), "]"
+  )
+}
+
+model_inset = paste(
+  "Model:",
+  "\u03bc(x) = \u03b1 + \u03b2 x / (K + x)",
+  "x = [log10(body mass) - minimum] / range",
+  "",
+  "Normal-error MLE (95% CI):",
+  format_parameter("\u03b1", "lower_asymptote"),
+  format_parameter("\u03b2", "increase"),
+  format_parameter("K", "half_saturation"),
+  sep = "\n"
+)
+
+# Plot the observations, fitted response, uncertainty band, and model-reporting inset.
+ggplot(animal_brain_data, aes(x = log10_body_mass, y = log10_brain_mass)) +
+  geom_ribbon(
+    data = prediction_data,
+    aes(x = log10_body_mass, ymin = lower, ymax = upper),
+    inherit.aes = FALSE,
+    fill = "#D55E00",
+    alpha = 0.2
+  ) +
+  geom_point(colour = "#0072B2", alpha = 0.7, size = 2) +
+  geom_line(
+    data = prediction_data,
+    aes(x = log10_body_mass, y = fit),
+    inherit.aes = FALSE,
+    colour = "#D55E00",
+    linewidth = 0.8
+  ) +
+  annotate(
+    geom = "label",
+    x = 2,
+    y = -2.15,
+    label = model_inset,
+    hjust = 0,
+    vjust = 0,
+    size = 3.2,
+    fill = "grey99",
+    colour = "black",
+    label.size = 0.25
+  ) +
+  coord_cartesian(ylim = c(-2.3, 4)) +
+  labs(
+    x = expression(log[10] ~ "body mass (kg)"),
+    y = expression(log[10] ~ "brain mass (g)")
+  ) +
+  theme_classic()
+```
 
 There are two different ways of formally defining parameter uncertainty in statistics: the
 Frequentist and the Bayesian way. For large samples of data and simple models there is not much
