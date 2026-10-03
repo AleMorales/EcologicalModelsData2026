@@ -1,72 +1,73 @@
 ---
 title: "Introduction to Probability (Discrete)"
-format:
-  html:
-    toc: true
-    number-sections: true
-execute:
-  echo: true
-  warning: false
-  message: false
-  eval: true
 ---
+
+```{r}
+#| include: false
+# Load ggplot2 for the consistently formatted rendered figures in this chapter.
+library(ggplot2)
+```
 
 # Introduction
 
-In this chapter, we learn how to use probability distributions to make sense of the counts that
-ecological fieldwork actually gives us. You may count surviving seedlings, flowering plants, or
-camera detections, but a count from one quadrat or night is never the whole ecological story.
-Probability gives us a way to describe the variation we expect among comparable observations,
-then to ask whether a particular model is a useful approximation. We focus on **discrete random
-variables**, which take separate, countable values such as $0, 1, 2, \ldots$.
-[Chapter 3](../Chapter_3/Theory.qmd) extends these ideas to continuous measurements.
+In this chapter, we learn how to use probability distributions to make sense of count
+data in ecological research. You may count, for example, surviving seedlings, flowering
+plants, or wildlife camera detections, but a count from one location or night is never the
+whole ecological story. Probability gives us a way to describe the variation we expect among
+comparable observations using **discrete random variables**, which take separate, countable
+values such as $0, 1, 2, \ldots$. [Chapter 3](../Chapter_3/Theory.qmd) extends these ideas
+to continuous measurements.
 
 # Learning goals
 
-After studying this chapter, you should be able to:
+In this chapter we will cover:
 
-- describe a discrete random variable and its probability distribution;
-- calculate and interpret probability mass, cumulative probability, and quantiles;
-- explain the independence assumption and when it may be doubtful;
-- calculate and interpret means and variances;
-- compare samples with the population and model they represent;
-- simulate ecological counts and compare empirical and theoretical distributions;
-- identify overdispersion relative to a specified count model;
-- choose plausible binomial, Poisson, and negative binomial starting models.
+- discrete random variables and probability;
+- the four faces of a distribution (mass, cumulative, quantile and samplers);
+- the assumption of independence;
+- means and variances from distributions and samples;
+- how samples and populations are related;
+- how to simulate possible observations from a model;
+- the concept of overdispersion.
+
+We will learn more about the Binomial, Poisson and Negative Binomial distributions and
+practice with them. Additional distributions are available in the [Supplement](../Supplements/distributions.qmd).
 
 # Random variables and probability distributions
 
-When we put a quadrat in the field, we do not know in advance how many of its seeds will survive.
-There may be variation in microsites, herbivory, weather, or observation. A **random variable**
-is the quantity whose value is uncertain before we make that observation. For a count, its possible
-values are non-negative integers. Suppose we place four seeds in each quadrat, a marked area used
-for sampling, and later count how many survive in one quadrat. Let $X$ be that count:
+A **random variable** is the quantity whose value is uncertain before we make that observation.
+For a count, its possible values are non-negative integers. We will use a hypothetical
+experiment on seed survival to illustrate how to model ecological count data. Suppose we
+distribute randomly several quadrats in a field and in each of them we place four seeds of
+a target species. We come back after a pre-specified period of time and we measure how many
+seeds survived inside the quadrat.
+
+The random variable $X$ keeps track of the possible counts of seeds that would survive
+in a quadrat. If the quadrat contains four seeds, then $X$ can take any integer value from
+0 to 4. Mathematically, this is expressed as:
 
 $$
-X=\text{the number of seeds surviving in a quadrat}.
+X \in \{0,1,2,3,4\}.
 $$
 
-If the quadrat contains four seeds, then $X$ can take the values
-
-$$
-0,1,2,3,4.
-$$
-
-These are the possible counts. The **support** is the subset that the model says can occur with
-positive probability. If every count from zero to four has positive probability, the support is
-$\{0, 1, 2, 3, 4\}$. Later we will meet counts with no fixed upper limit, such as the number of
-insects in a trap. Their support can be **countably infinite**:
-$\{0, 1, 2, 3, \ldots\}$.
+The **support** of random variable is the set of values that the variable can take. In this
+case $X$ can take a **finite** set of values. In other cases, there is no pre-specified maximum,
+such as the number of spores or insects that could fall into a trap. In those cases we will
+model count data with random variables that can take any positive, integer value (i.e.,
+$\{1, 2, 3, ...\}$ formally known as **countably infinite**). Technically this account for an
+infinite number of counts, though in practice the counts will be always be finite and
+constrained to the relevant order of magnitude.
 
 ::: {.callout-note title="Discrete random variable"}
-A discrete random variable takes values from a finite or countably infinite set. Its
-probability distribution assigns a probability to each possible value, and the
-probabilities sum to one.
+A random variable is discrete when it takes values from a finite or countably infinite set.
 :::
 
-The point is not that we can predict the exact count in every quadrat. We cannot. Instead, a
-probability distribution makes our expectations about the range of possible counts explicit. For
-example, it might assign these probabilities:
+Note that $X$ does not keep track of the actual seeds that survived in a particular quadrat,
+that is what we call an **observation** of the real world. Rather $X$ represent how likely
+we are to observe a particular number. That is measured by a **probability**. That is, a
+random variable will have a probability distribution associated to it that assigns a value
+between 0 and 1 to every possible observation or sets of observations. For example,
+it might assign these probabilities:
 
 | $x$ | $P(X=x)$ |
 |---:|---:|
@@ -76,269 +77,129 @@ example, it might assign these probabilities:
 | 3 | 0.30 |
 | 4 | 0.20 |
 
-All probabilities must be **non-negative**:
+We can also define the probability of any set of values by addition of individual probabilities.
+For example, the probability that at least 4 seeds survive is:
 
 $$
-P(X=x)\geq 0,
+P(X \geq 4) = P(X = 4) + P(x = 5).
 $$
 
-and they must add up to one:
+The probability that any value occurs is the sum of all the individual probabilities and
+that must always be 1:
 
 $$
-\sum_x P(X=x)=1.
+\sum_{\forall x} P(X = x) = 1,
 $$
 
-The capital letter $X$ refers to the random variable, while the lower-case $x$ refers to one
-possible or observed value. This distinction looks fussy at first, but it will keep the model and
-the data separate when we start estimating parameters later in the course.
+where $\forall x$ means "for all possible values $x$".
 
-We can also add probabilities for a set of counts. For example:
+Note that the capital letter $X$ refers to the random variable, while the lower-case $x$
+refers a possible observation. This distinction looks fussy at first, but it helps to keep
+the model and the data separate once we start estimating parameters later in the course.
 
-$$
-P(X \leq 3) = \sum_{x=0}^{3} P(X=x).
-$$
+## What do these probability mean?
 
-For larger supports, listing every probability quickly becomes impractical. We use a **probability
-mass function** to calculate the probability assigned to each count (see @sec-four_faces) and
-derive the probabilities of all possible sets from it.
+We saw above that we could assign probabilities to the different possible observations and
+that probabilities obey some basic mathematical properties. What does it mean to say "the
+probability of 2 seeds survive is 0.15"? There are two complementary perspectives that one
+can take depending on how probability is being applied (see [Chapter 1](../Chapter_1/Theory.qmd)
+for further details on applications of probability):
+
+- **Epistemic probability**[^1]: If the goal is to predict the number of seeds that survive
+in a specific quadrat, probability represents how certain we are about each possible
+predicted value (e.g., in the table above I am twice more confident that the value will be 2
+compared to 1). This relates to how much knowledge or information we have about the system
+we are predicting.
+
+[^1] In some texts this is called subjective probability, but this has an unwarranted pejorative connotation.
+
+- **Aleatoric probability**[^2]: Probability can also represent the relative frequency at which
+different counts will be observed across all the possible replications of the same experiment
+or observation protocol. This relates to errors in measurements, and stochasticity and
+variability in ecological systems.
+
+[^2] Which is sometimes called objective probability, which implies the other must be subjective.
+
+For (many) reasons, this course will focus on aleatoric probability as implemented by the
+Frequentist statistical paradigm[^3], so we will using probabilities to model the relative
+frequencies at which different observations (or, in [Chapter 4](../Chapter_4/Theory.qmd),
+different parameter estimates) can occur.
+
+[^3] Sometimes we may want to say something about uncertainty of predictions and then we
+will muddle the waters and step out of a strict Frequentist view point and borrow some ideas
+from the competing camp, i.e., the Bayesian statistical paradigm. This is very common in
+practice (though it tends to work better with larger datasets). If the focus on your research
+is on forecasting and uncertainty quantification, you should do it in a Bayesian way and
+instead of this book read [Ecological Forecasting](https://press.princeton.edu/books/hardcover/9780691160573/ecological-forecasting?srsltid=AU7gw4WqqIymK1Rnltv3sGazFOGdtKm1mR_bg1rz7cSucqUn3c_8nAxz)
+by Michael Dietze.
+
+## Probability distributions {#sec-four_faces}
+
+When the set of possible observations is small we can keep track of probabilities in tables.
+However, as the number of possible observations increases this is not feasible. Instead, we
+use a **probability mass function** which is a formula that assigns a probability to every
+possible $x$. From the mass function we can compute by countable addition the probability
+of any possible set of observations, which is what we call a **probability distribution**.
+
 
 ::: {.callout-note title="Probability distribution"}
-A probability distribution assigns probabilities to the possible values of a random
-variable. Its probability mass function plays a fundamental role but the are other related
-functions of relevance (see @sec-four_faces).
+A probability distribution assigns probabilities to all possible sets of values of a random
+variable. Its foundation is a probability mass function.
 :::
 
-We will use a binomial model for seed survival to learn four related R operations. This is a
-deliberately simple starting point: the model lets us focus on what a distribution says before we
-ask whether its assumptions are believable for real seedling data. In @sec-discrete_distributions,
-we examine its assumptions and probability mass function alongside two other count models.
-[Chapter 7](../Chapter_7/Theory.qmd#sec-response-comparison) introduces criteria for comparing
-fitted models.
+There are many probability distributions that already exist, and we represent them by their
+probability mass function. The oldest and most basic for discrete data is the Binomial
+distribution, discovered by Jacob Bernoulli in 1713[^2]. This distribution assumes that
+we are observing a fixed number of events, each of which can have two values (0 or 1) and
+each event has the same fixed probability of having the value 1. It makes sense to use this
+distribution for our seed survival example: the event is whether a seed survives (1) or not
+(0) and we assume all seeds have the same survival probability.^[The classic example is
+flipping a coin a fixed number of times and counting the number of heads. Many classical text
+describe the binomial in terms of failures and successes, but this language has strange
+connotations].
 
-## The four faces of a discrete distribution {#sec-four_faces}
-
-### 1. Probability mass
-
-The first question we might ask is, “What is the chance of this exact count?” The probability mass
-assigned to $X=x$ is
+The probability mass function of the Binomial is given by:
 
 $$
-P(X=x).
+P(X=x)=\binom{n}{x}p^x(1-p)^{n-x},
 $$
 
-For example, $P(X=4)$ is the probability that all four seeds in a quadrat survive. Looking across
-all the masses shows us the model's shape: which counts it treats as common and which as rare.
-Later, we will use mass functions to estimate parameters and check fitted models against
-observations.
+where $n$ is number of events being observed, $p$ is the probability of an event having the
+value 1. I provide more details on this distribution (and others) later in the chapter.
 
-Suppose each seed has survival probability $0.4$, independently of the others.
-We can display the binomial probability mass with bars or vertical lines:
+[^2]: Bernoulli, J. (1713). *Ars Conjectandi*. Impensis Thurnisiorum, Fratrum.
+
+Every distribution has four functions that are interrelated^[I call them the four faces, that
+this is a terminology that I completely made up] @fig-four_faces:
+
+- Probability mass;
+- Cumulative probability;
+- Quantile;
+- Random sampler.
+
+In R, all of these functions are implemented for each distribution. The name of each function
+will be a prefix letter followed by a shortened name for the distribution. The four faces of
+the Binomial distribution are implemented by functions `dbinom`, `pbinom`, `qbinom` and `rbinom`,
+respectively.
+
+To illustrate the four faces, we will assume in our seed survival example that each seed has
+a probability of surviving of $0.4$ and that the variation in observations across different
+quadrants follows a Binomial distribution. In R:
 
 ```{r}
-#| echo: false
-#| eval: true
-#| fig-cap: "Binomial probability mass for the number of surviving seeds in a quadrat."
-# Set the model parameters and calculate the probability for each possible count.
-seed_count = 4
+#| eval: false
+# size = n, prob = p in formula for Binomia
 seed_survival_probability = 0.4
-seed_values = seq.int(from = 0, to = seed_count)
-seed_mass = dbinom(
-  x = seed_values,
-  size = seed_count,
-  prob = seed_survival_probability
-)
-
-par_val = par(no.readonly = TRUE)
-par(mfrow = c(1, 2), mar = c(5.1, 4.1, 2, 0.5), las = 1)
-
-barplot(
-  height = seed_mass,
-  names.arg = seed_values,
-  xlab = "Surviving seeds per quadrat",
-  ylab = "Probability",
-  ylim = c(0, 0.4)
-)
-
-plot(
-  x = seed_values,
-  y = seed_mass,
-  type = "h",
-  lwd = 3,
-  xlab = "Surviving seeds per quadrat",
-  ylab = "Probability",
-  ylim = c(0, 0.4)
-)
-par(par_val)
+seed_count  = 4
+dbinom(x = 2,   size = seed_count, prob = seed_survival_probability)
+pbinom(q = 2,   size = seed_count, prob = seed_survival_probability)
+qbinom(p = 0.5, size = seed_count, prob = seed_survival_probability)
+rbinom(n = 10,  size = seed_count, prob = seed_survival_probability)
 ```
 
-In R, distribution functions with the prefix `d` calculate probability mass for
-discrete values. For example, `dbinom()` gives the probability that two seeds survive:
-
-```{r}
-# Calculate one exact probability from the model.
-dbinom(x = 2, size = seed_count, prob = seed_survival_probability)
-```
-
-### 2. Cumulative probability
-
-Exact counts are useful, but ecological questions often concern a threshold: will no more than two
-seeds survive, or will the count exceed a level that matters for recruitment? The **cumulative
-distribution function** adds the probability masses up to and including a count $x$:
-
-$$
-F_X(x)=P(X\leq x).
-$$
-
-For example, $F_X(3)$ is the probability that at most three seeds survive.
-The complementary upper-tail probability $P(X>3)$ answers a different question.
-We can draw the cumulative function for discrete counts as a step plot:
-
-```{r}
-#| echo: false
-#| eval: true
-#| fig-cap: "Cumulative probability for the number of surviving seeds in a quadrat."
-# Calculate the cumulative probability for every possible count.
-seed_count = 4
-seed_survival_probability = 0.4
-seed_values = seq.int(from = 0, to = seed_count)
-seed_cumulative = pbinom(
-  q = seed_values,
-  size = seed_count,
-  prob = seed_survival_probability
-)
-
-plot(
-  x = seed_values,
-  y = seed_cumulative,
-  type = "s",
-  xlab = "Surviving seeds per quadrat",
-  ylab = "Cumulative probability",
-  ylim = c(0, 1)
-)
-```
-
-The cumulative probability is always between zero and one, and it never decreases as $x$ increases.
-
-In R, distribution functions with the prefix `p` calculate cumulative
-probabilities. `pbinom()` gives the probability that at most two seeds survive:
-
-```{r}
-# Calculate the probability of at most two surviving seeds.
-pbinom(q = 2, size = seed_count, prob = seed_survival_probability)
-```
-
-To calculate the probability that more than two seeds survive, set
-`lower.tail = FALSE`:
-
-```{r}
-# Use the upper tail to calculate the probability of more than two survivors.
-pbinom(
-  q = 2,
-  size = seed_count,
-  prob = seed_survival_probability,
-  lower.tail = FALSE
-)
-```
-
-This is equivalent to subtracting the lower-tail probability from one:
-
-```{r}
-# The upper-tail probability is the complement of the lower-tail probability.
-1 - pbinom(q = 2, size = seed_count, prob = seed_survival_probability)
-```
-
-### 3. Quantiles
-
-Sometimes we want to turn the question around: rather than supplying a count and asking for its
-probability, we supply a probability and ask which count reaches it. A **quantile** gives that
-count. For a discrete distribution, the cumulative function jumps, so it has no ordinary inverse
-for every probability between zero and one. Instead, the $\alpha$-quantile is the smallest count
-whose cumulative probability reaches or exceeds $\alpha$:
-
-$$
-q_\alpha=\min\{x:F_X(x)\geq\alpha\}.
-$$
-
-For example, the median is the $0.5$ quantile. Quantiles also enter confidence
-interval calculations in [Chapter 4](../Chapter_4/Theory.qmd#sec-confidence_intervals).
-They can be used to generate random values from a distribution, as we discuss below.
-
-We can plot the quantile against its cumulative-probability input:
-
-```{r}
-#| echo: false
-#| eval: true
-#| fig-cap: "Binomial quantiles for the number of surviving seeds in a quadrat."
-# Calculate the count at each requested cumulative probability.
-seed_count = 4
-seed_survival_probability = 0.4
-probability_values = seq(from = 0, to = 1, length.out = 501)
-seed_quantiles = qbinom(
-  p = probability_values,
-  size = seed_count,
-  prob = seed_survival_probability
-)
-
-plot(
-  x = probability_values,
-  y = seed_quantiles,
-  type = "s",
-  xlab = "Cumulative probability",
-  ylab = "Surviving seeds per quadrat",
-  ylim = c(0, seed_count)
-)
-```
-
-In R, distribution functions with the prefix `q` calculate quantiles.
-For the seed-survival model, `qbinom()` finds the smallest count with at
-least $0.5$ cumulative probability:
-
-```{r}
-# Find the smallest count with at least the requested cumulative probability.
-median_probability = 0.5
-qbinom(
-  p = median_probability,
-  size = seed_count,
-  prob = seed_survival_probability
-)
-```
-
-### 4. Sampling
-
-At this point, it is tempting to treat the smooth probability plot as if it were a set of field
-data. It is not. A model with fixed parameters can still produce many different samples.
-Simulating counts lets us see that variation directly. In a simulated sample, each count is one
-realisation of the random variable. One way to generate each count is:
-
-1. Generate a random number between zero and one.
-
-2. Apply the distribution's quantile function to that number.
-
-Repeat these steps for each observation. R's sampling functions carry out the
-simulation directly. We compare samples with their model in @sec-sample_population.
-
-A sampling function generates values rather than a curve to plot. We can visualise
-the resulting counts through their frequencies.
-
-In R, distribution functions with the prefix `r` generate random values.
-We set a seed before this example so rerunning it with the same R settings
-reproduces the sample. Changing the seed can change the sample. Here we
-simulate ten quadrats, each containing four seeds:
-
-```{r}
-# Generate one simulated count for each of ten quadrats.
-n_simulated_quadrats = 10
-set.seed(seed = 42)
-sample_survivors = rbinom(
-  n = n_simulated_quadrats,
-  size = seed_count,
-  prob = seed_survival_probability
-)
-sample_survivors
-```
-
-The output contains ten simulated counts. Each is the number of surviving seeds
-in one quadrat; these are simulated observations, not field measurements.
+Note that the first argument (`x`, `q`, `p` and `n`) are always the same for all distributions
+in R. The other arguments are the parameters for a given distribution (in this case, `size`
+is $n$ and `prob` is $p$ in the formula above).
 
 ::: {.callout-note title="The four faces of distributions in R"}
 For a distribution in R:
@@ -351,16 +212,189 @@ For a distribution in R:
 The first argument is conventionally named `x`, `q`, `p`, or `n`, respectively.
 :::
 
+A **cumulative probability function** ($F_X$) is the result of adding probability masses up
+to and including a value $x$ (`q` in `pbinom`):
+
+$$
+F_X(x)=P(X\leq x).
+$$
+
+For example, $F_X(3)$ is the probability that at most three seeds survive. The cumulative
+probability is always between zero and one, and it never decreases as $x$ increases. We
+will not use it much in this course^[it is the basis for calculating p-value which we will
+completely ignore in this course].
+
+A **quantile function** is the inverse of the cumulative probability function. That is, we
+supply a cumulative probability and ask at which value of $x$ it is reached. Because we are
+dealing with discrete variables, we defined the $\alpha$-quantile as the smallest $x$ whose
+cumulative probability (`p` in `qbinom`) reaches or exceeds $\alpha$, which mathematically
+is written as:
+
+$$
+q_\alpha=\min\{x:F_X(x)\geq\alpha\}.
+$$
+
+We will use quantiles to describe distribution numerically (e.g., the median of a
+distribution is the $0.5$ quantile) as complements for expectations and moments (see later).
+We will also use quantiles to quantify parameter uncertainty as confidence intervals (see
+[Chapter 4](../Chapter_4/Theory.qmd#sec-confidence_intervals)).
+
+
+The fourth face is not so much a function as a procedure. A random sampler is a procedure
+that generates possible ssample from the distribution^[technically independent and
+identically distributed samples, this is explained later]. This means a series of possible
+observations that are compatible with the distribution. For example, if we want to simulate
+a collection of 10 quadrats from the example above, we would generate 10 random samples from
+the Binomial distribution.
+
+We will use random sampling throughout the course (we will call it **simulation**) as it is
+a versatile way of analyze the statistical properties of a model being fitted to data. We
+will discuss in more detail how samples relate to their distributions in @sec-sample_population.
+
+
+```{r}
+#| echo: false
+#| label: fig-four_faces
+#| fig-cap: "The four faces of a Binomial distribution with $n = 4$ and $p = 0.4$."
+library(ggplot2)
+library(patchwork)
+
+# Distribution parameters and a chosen cutoff
+size = 4
+prob = 0.4
+cutoff = 2
+
+# Probabilities at each possible number of successes
+binomial = data.frame(
+  x = 0:size,
+  probability = dbinom(0:size, size = size, prob = prob),
+  cumulative_probability = pbinom(0:size, size = size, prob = prob)
+)
+
+# Cumulative probability at the chosen cutoff
+p_cutoff = pbinom(cutoff, size = size, prob = prob)
+
+# Panel 1: probability mass function
+p1 = ggplot(binomial, aes(x = x, y = probability)) +
+  geom_col(fill = "#34495e", width = 0.7) +
+  geom_vline(xintercept = cutoff, linetype = "dashed", colour = "#e74c3c") +
+  geom_point(
+    data = subset(binomial, x == cutoff),
+    colour = "#e74c3c",
+    size = 3
+  ) +
+  annotate(
+    "text", x = 3.15, y = 0.36,
+    label = paste0(
+      "P(X = ", cutoff, ") = ",
+      round(dbinom(cutoff, size, prob), 2)
+    ),
+    colour = "#e74c3c",
+    hjust = 0
+  ) +
+  scale_x_continuous(breaks = 0:size) +
+  labs(
+    title = "Probability mass function",
+    x = "Count",
+    y = "Probability"
+  ) +
+  theme_minimal()
+
+# Panel 2: cumulative probability
+p2 = ggplot(binomial, aes(x = x, y = probability)) +
+  geom_col(
+    aes(fill = x <= cutoff),
+    width = 0.7,
+    show.legend = FALSE
+  ) +
+  geom_vline(xintercept = cutoff + 0.35, colour = "#2980b9") +
+  annotate(
+    "text", x = 2, y = 0.35,
+    label = paste0(
+      "P(X \u2264 ", cutoff, ") = ",
+      round(p_cutoff, 2)
+    ),
+    colour = "#2980b9"
+  ) +
+  scale_fill_manual(values = c("TRUE" = "#85c1e9", "FALSE" = "grey80")) +
+  scale_x_continuous(breaks = 0:size) +
+  labs(
+    title = "Cumulative probability function",
+    x = "Count",
+    y = "Probability mass"
+  ) +
+  theme_minimal()
+
+# Panel 3: quantile function
+probabilities = seq(0, 1, length.out = 1001)
+
+quantiles = data.frame(
+  p = probabilities,
+  quantile = qbinom(probabilities, size = size, prob = prob)
+)
+
+p3 = ggplot(quantiles, aes(x = p, y = quantile)) +
+  geom_step(colour = "#16a085", linewidth = 1.1) +
+  geom_point(
+    data = data.frame(p = p_cutoff, quantile = cutoff),
+    colour = "#16a085",
+    size = 3
+  ) +
+  annotate(
+    "text", x = 0.58, y = 2.45,
+    label = paste0(
+      "qbinom(", round(p_cutoff, 2), ") = ", cutoff
+    ),
+    colour = "#16a085"
+  ) +
+  scale_y_continuous(breaks = 0:size) +
+  labs(
+    title = "Quantile function",
+    x = "Cumulative probability",
+    y = "Quantile"
+  ) +
+  theme_minimal()
+
+# Panel 4: simulated random sample
+set.seed(42)
+
+sample_data = data.frame(
+  x = rbinom(20, size = size, prob = prob)
+)
+
+# Calculate the relative frequency of each possible outcome
+sample_frequency = data.frame(
+  x = 0:size,
+  relative_frequency = tabulate(
+    sample_data$x + 1,
+    nbins = size + 1
+  ) / nrow(sample_data)
+)
+
+p4 = ggplot(sample_frequency, aes(x = x, y = relative_frequency)) +
+  geom_col(fill = "#af7ac5", colour = "#8e44ad", width = 0.7) +
+  scale_x_continuous(breaks = 0:size) +
+  labs(
+    title = "20 random samples",
+    x = "Count",
+    y = "Relative frequency"
+  ) +
+  theme_minimal()
+
+(p1 | p2) / (p3 | p4)
+```
+
 :::: {.callout-important title="Practice: orchid fruit set"}
 
-In a restoration plot, six tagged orchid flowers each have probability $0.5$ of setting
-fruit. Let $X$ be the number of these flowers that set fruit.
+In a restoration plot, we tag six orchid flowers. Each of them has a probability of setting
+fruit of $0.5$. Let $X$ be the number of these flowers that set fruit.
 
 1. What values can $X$ take?
-2. Use R to calculate the probability that exactly four flowers set fruit and the
-   probability that at most four set fruit.
-3. Find the 0.75 quantile of $X$. In words, what does this quantile tell you?
-4. Which R function prefix (`d`, `p`, `q`, or `r`) did you use for each calculation?
+2. Use R to calculate the probability that (i) exactly four flowers set fruit and the
+   (ii) probability that at most four set fruit assuming a Binomial distribution.
+3. What is the meaning of the second probability calculate in point 2?
+4. Find the 0.75 quantile of $X$. In words, what does this quantile tell you?
+5. Which R function prefix (`d`, `p`, `q`, or `r`) did you use for each calculation?
 
 ::: {.callout-tip title="Solution" collapse="true"}
 
@@ -377,30 +411,62 @@ pbinom(q = 4, size = flower_count, prob = fruit_set_probability) # 0.89
 qbinom(p = 0.75, size = flower_count, prob = fruit_set_probability) # 4
 ```
 
-Under this model, at least 75% of the probability is on counts of four or fewer.
+The quantile tells me at least 75% of the probability is on counts of four or fewer, but note
+that cumulative probability for four is 89%. The difference is due to the discrete nature of
+the counts.
 
+The cumulative probability means that if we repeat this 6-plant experimental unit many many
+times, 89% of them will have four flowers or less. Alternatively, it could mean that we are
+89% sure that a particular 6-plant experimental unit will yield 4 flowers or less.
 :::
 ::::
 
-## Independence and expectations {#sec-independence_expectations}
+## Joint distributions and independence {#sec-joint-independence}
 
-### Independence
+Two random variables are said to be **independent** if knowledge about one of them does not
+change the probabilities for the other. Understanding this concepts requires understanding
+joint distributions of multiple random variables. Let's first illustrate it with a simple
+example involving two binary random variables (for variety I will use seed germination).
 
-Independence is one of those assumptions that makes probability calculations beautifully neat and
-ecological data rather awkward. Two random variables are **independent** if knowing the value of
-one does not change the probabilities for the other. Consider germination of two planted seeds.
-Let $X_1$ and $X_2$ indicate whether the first and second seed germinate:
-each variable takes value $1$ for germination and $0$ otherwise. Their possible
-values are $\{0, 1\}$; the variables themselves are $X_1$ and $X_2$.
+Let's consider germination of two planted seeds. Let $X_1$ and $X_2$ be random variables to
+track germination (`1`) or not (`0`) for each of the seeds, after a pre-specified period of
+time. The **joint distribution** of $X_1$ and $X_2$ assigns a probability for every combination
+of values for $X_1$ and $X_2$ (this is known as the **product space** of $X_1$ and $X_2$).
 
-We can ask for the probability of a pair of outcomes. For example,
-$P(X_1=1, X_2=0)$ is the probability that the first seed germinates and the
-second does not. If the germination outcomes are independent, the probability
-of any pair is the product of its separate probabilities:
+| $X_2 \backslash X_1$ | $x_1 = 0$ | $x_1 = 1$ | Marginal $X_2$ |
+|---|---:|---:|---:|
+| $x_2 = 0$ | $P(X_1 = 0, X_2 = 0)$ | $P(X_1 = 1, X_2 = 0)$ | $P(X_2 = 0)$ |
+| $x_2 = 1$ | $P(X_1 = 0, X_2 = 1)$ | $P(X_1 = 1, X_2 = 1)$ | $P(X_2 = 1)$ |
+| Marginal $X_1$ | $P(X_1 = 0)$ | $P(X_1 = 1)$ | $1$ |
+
+
+For example,$P(X_1 = 0, X_2 = 0)$ is the probability that none of the seeds germinatel whereas
+$P(X_1 = 1, X_2 = 0)$ indicates that the first seed germinates. The original distributions
+for $X_1$ and $X_2$ are the **marginal distributions** of the joint distributions because
+you can recover them by adding over rows or columns. The marginal distribution of $X_2$ tells
+about the probabiltiy of the second seed germinating, regardless of what is happening to the
+first seed. By rule of addition, we just need to add all the joint probabilities were the
+second seed is germinating.
+
+Now, if $X_1$ and $X_2$ are independent, the probability of any particular combination is
+the product of their marginal distributions, that is:
 
 $$
 P(X_1=x_1, X_2=x_2)=P(X_1=x_1)P(X_2=x_2).
 $$
+
+If we now assume $P(X_1 = 1) = 0.6$ and $P(X_2 = 1) = 0.3$ then the table becomes
+
+| $X_2 \backslash X_1$ | $x_1 = 0$ | $x_1 = 1$ | Marginal $X_2$ |
+|---|---:|---:|---:|
+| $x_2 = 0$ | $0.4 \times 0.7 = 0.28$ | $0.6 \times 0.7 = 0.42$ | $0.70$ |
+| $x_2 = 1$ | $0.4 \times 0.3 = 0.12$ | $0.6 \times 0.3 = 0.18$ | $0.30$ |
+| Marginal $X_1$ | $0.40$ | $0.60$ | $1.00$ |
+
+Real seeds often share a parent plant, a soil patch, a drought, or a hungry herbivore. In
+general lack of independence can arise through spatial clustering, shared weather, competition,
+or repeated measurements of the same individual. [Chapter 8](../Chapter_8/Theory.qmd) explores
+how to relax the assumption of independence to build more advanced models.
 
 ::: {.callout-warning title="Independence is a modelling assumption"}
 Independence means that knowing the value of one random variable does not change the
@@ -408,49 +474,52 @@ probability distribution of another. It is not guaranteed merely because observa
 were collected at different locations or times.
 :::
 
-Real seeds often share a parent plant, a soil patch, a drought, or a hungry herbivore. Dependence
-can therefore arise through spatial clustering, shared weather, competition, or repeated
-measurements of the same individual. [Chapter 8](../Chapter_8/Theory.qmd) examines grouped
-observations. Sampling seeds from different quadrats alone does not establish independence.
-
 #### Independent and identically distributed random variables
 
 We often make a stronger working assumption: observations are both independent and **identically
 distributed**, meaning that each follows the same probability distribution. We call this
-**independent and identically distributed (i.i.d.)**. It gives us a tractable starting point for
-later parameter estimation, but it is not a prize awarded because data were collected in the same
-way. We need to decide whether it is reasonable for the ecological setting.
+**independent and identically distributed (i.i.d.)**. When we take repeated observatiosn of
+what we consider to be the same ecological phenomenon, we will treat these observations as
+i.i.d. Also, the random samples that are generated by R functions such as `rbninom` are i.i.d.
 
-If both seeds have the same germination probability $p_g$ and their outcomes
-are independent, the probability that both germinate is:
+Going back to the two-seed germination trial we just imagined, if the two seeds are
+from the same species and origin, have treated in the same manner and are buried in the same
+soil under the same environmental conditions, we will have no reason to belief that their
+behavior differs. So we will treat them as i.i.d. If we then define $P(X_1 = 1) = P(X_2 = 1) = 0.3$
+the table becomes:
+
+| $X_2 \backslash X_1$ | $x_1 = 0$ | $x_1 = 1$ | Marginal $X_2$ |
+|---|---:|---:|---:|
+| $x_2 = 0$ | $0.7 \times 0.7 = 0.49$ | $0.3 \times 0.7 = 0.21$ | $0.70$ |
+| $x_2 = 1$ | $0.7 \times 0.3 = 0.21$ | $0.3 \times 0.3 = 0.09$ | $0.30$ |
+| Marginal $X_1$ | $0.70$ | $0.30$ | $1.00$ |
+
+We will see that the i.i.d assumption is going to be fundamental for the methods of parameter
+estimation in [Chapter 4](../Chapter_4/Theory.qmd) and [Chapter 5](../Chapter_5/Theory.qmd).
+
+## Expectations
+
+An **expectation** is the procedure of taking a probability-weighted average of any quantity
+calculated from a random variable. That is for any function of random variable $f(X)$  you
+can define its expectation:
 
 $$
-P(X_1=1, X_2=1)=p_g\cdot p_g=p_g^2.
+E[f(x)] = \sum_x f(x) P(X=x).
 $$
 
-### Expectations
-
-When we say that a model expects four seedlings per quadrat, we are not predicting four seedlings
-in every quadrat. We are describing a long-run pattern across many comparable quadrats. An
-**expectation** is a probability-weighted average of a quantity calculated from a random variable.
-The mean and variance describe a distribution's centre and spread. We can compare these theoretical
-properties with sample summaries; [Chapter 4](../Chapter_4/Theory.qmd#sec-estimates) uses that
-connection in the method of moments.
-
-
-#### Expected value
-
-For a discrete random variable $X$, the expected value is a probability-weighted average of all
-possible values. We take each possible count, multiply it by its probability, and add the results.
+The **mean** of a distribution ($\mu$, also as **expected value**) is the expectation for
+$f(X) = X$, that is:
 
 $$
-E[X] = \sum_x xP(X=x).
+\mu = E[X] = \sum_x x P(X=x).
 $$
 
-For the binomial model of seed survival, calculate the expected count in R:
+We can compute the Binomial distribution of seed survival as:
 
 ```{r}
 # Use the binomial probability mass to calculate a weighted average.
+seed_count = 4
+seed_survival_probability = 0.4
 seed_values = seq.int(from = 0, to = seed_count)
 seed_probability = dbinom(
   x = seed_values,
@@ -461,36 +530,19 @@ expected_value = sum(seed_values * seed_probability)
 expected_value
 ```
 
-The expected value is also the **mean** of the distribution, often denoted by $\mu$.
 
-We can apply the same idea to a function $f$ of $X$. For each possible value
-$x$, calculate $f(x)$ and weight it by $P(X=x)$:
-
-$$
-E[f(X)] = \sum_x f(x)P(X=x).
-$$
-
-::: {.callout-note title="Expected value is a long-run average"}
-The expected value is a theoretical property of a probability distribution. It need not
-be an observable value for an individual observation. For example, a quadrat cannot
-contain 1.6 surviving seeds, even though the expected number may be 1.6.
-:::
-
-#### Variance and standard deviation
-
-The mean tells us where a model is centred; it does not tell us whether most quadrats look alike.
-The **variance** is the expected squared distance from the mean. It measures how widely a
-distribution spreads its probability across possible values:
+The **variance** of a distribution ($Var(X)$) is the expectation for $f(X) = (X-E[X])^2$,
+that is the expected squared distance from the mean:
 
 $$
 \operatorname{Var}(X) = E[(X-E[X])^2] = \sum_x P(X=x)(x-E[X])^2.
 $$
 
-For distributions with comparable means, a smaller variance generally means
-counts are more concentrated near the mean. Variance for seed counts has units
-of seeds squared.
+The variance measures how widely a distribution spreads its probability across possible
+values. For two distributions with comparable means, a smaller variance generally means
+counts are more concentrated near the mean.
 
-Using the binomial masses calculated above, we get:
+We can also calculate the variance for the Binomial model:
 
 ```{r}
 # Weight each squared distance from the mean by its probability.
@@ -504,25 +556,24 @@ $$
 \operatorname{SD}(X)=\sqrt{\operatorname{Var}(X)}.
 $$
 
-It has units of seeds rather than seeds squared.
-
-::: {.callout-note title="Variance and standard deviation"}
-Variance measures the spread of a distribution in squared units. Standard deviation is
-the square root of variance and has the same units as the original variable, making it
-usually easier to interpret.
+::: {.callout-note title="Mean, variance and standard deviation"}
+The mean is a theoretical property of a probability distribution. It need not
+be an observable value. For example, a quadrat cannot contain 1.6 surviving seeds, even
+though that is the mean for the seed survival example. Variance measures the spread of a
+distribution in squared units. Standard deviation is the square root of variance and has the
+same units as the original variable, making it usually easier to interpret.
 :::
 
 :::: {.callout-important title="Practice: fruit set on orchid plants"}
 
-Suppose eight tagged flowers on each of two orchid plants have the same fruit-set
-probability, $p=0.6$. Let $T$ be the total number of flowers setting fruit across
-both plants. For this exercise, model the outcomes of the 16 flowers as independent.
+Suppose we tag 16 orchid flowers (2 plants, 8 flowers per plant) and each of the flowers
+has a probability of fruit set of 0.6 and we assume a Binomial model. Let $T$ be the total
+number of flowers setting fruit across both plants and assume that the fruit-setting of the
+16 flowers are independent events.
 
-1. Use the probability mass function to find the probability of every possible value of
-   $T$.
-2. Calculate the mean and variance of $T$ using the probability mass function from point 1.
-3. Explain what the mean represents. Give one ecological reason why independence among
-   the flowers might be doubtful.
+1. Find the probability of every possible value of $T$.
+2. Calculate the mean and variance of $T$.
+3. Give one ecological reason why independence among the flowers might be doubtful.
 
 ::: {.callout-tip title="Solution" collapse="true"}
 
@@ -547,9 +598,7 @@ expected_fruit_count
 fruit_count_variance
 ```
 
-The mean is 9.6 and the variance is 3.84. The mean is the long-run average fruit
-count across comparable groups of 16 flowers; one group must have an integer
-count. Flowers on the same plant may share physiological conditions or pollinator
+Flowers on the same plant may share physiological conditions or pollinator
 visits, making their outcomes dependent. The binomial calculation is conditional
 on the stated independence assumption; [Chapter 8](../Chapter_8/Theory.qmd)
 introduces models for grouped observations.
@@ -558,33 +607,30 @@ introduces models for grouped observations.
 
 # Samples and populations {#sec-sample_population}
 
-So far we have been working from a model outwards: specify probabilities, then calculate what the
-model expects. In a study we have the opposite problem. We start with a limited, messy collection
-of counts and want to learn about a broader ecological setting. How do those observations connect
-to a probability model?
+So far we have been working with mathematical models: we calculate probabilities and
+expectations of distributions. But in research we collect limited, often noisy, samples of
+data and want to generalize for these observations to general context from the observations
+were collected (often referred to as **population**^[in some domains this is also called the
+**data generating process**]). We use statistics to relate samples of data to distributions
+and then use the distributions to generalize the results.
 
 ::: {.callout-note title="Sample and population"}
-The **population** is the set of units or observations about which we want to
-learn. A **sample** contains the units or observations we collect. A probability
-distribution is a model for variation in their values, not the population itself.
+The **population** is the process or set of units about which we want to learn. We observe
+**samples** of this population. A probability distribution is a model for variation in the
+possible observations that we would obtain from a population.
 :::
 
 For example, we might want to learn about seed survival across a restoration site while observing
 only some quadrats. We cannot quietly turn those observed quadrats into a claim about the whole
 site. To make that connection, we need assumptions about how quadrats were selected and how their
-counts vary. Random sampling can support it; a convenient or biased selection may not represent the
-population we care about.
-
-A probability model represents variation and uncertainty without declaring ecological processes
-to be fundamentally random. It is an approximation that we should confront with the study design
-and observations, rather than a story we tell after seeing a convenient graph.^[George E. P. Box
-summarised this idea as "all models are wrong but some are useful".]
+counts vary from quadrat to quadrat, using a distribution. This will also allows us to
+quantify the uncertainty in our estimates derived from the sample.
 
 ## From frequency to probability
 
-One bridge from observations to probability is frequency. For a sample of counts, the **relative
-frequency** of a value is the number of times it appears divided by the sample size. Here we
-simulate ten quadrats from the binomial model used earlier:
+For a sample of counts, the **relative frequency** of a value is the number of times it a
+ppears divided by the sample size. Let's simulate ten quadrats from the binomial model used
+earlier:
 
 ```{r}
 # Simulate ten quadrats from the binomial model.
@@ -597,8 +643,8 @@ sample_survivors = rbinom(
 )
 ```
 
-`table()` counts how often each value appears. Divide by the number of quadrats
-to calculate relative frequencies:
+`table()` counts how often each value appears. Divide by the number of quadrats to
+calculate relative frequencies:
 
 ```{r}
 # Count each possible value and divide by the sample size.
@@ -627,21 +673,35 @@ data.frame(
 )
 ```
 
-The two columns differ because the sample contains only ten quadrats. That is not a failure of the
-model: it is what sampling variation looks like. Under independent sampling from the same fixed
-distribution, the relative frequency of each count approaches its model probability as sample size
-grows. This is an application of the **law of large numbers**.
+The two columns differ because the sample contains only ten quadrats. That is not a failure
+of the model: it is what sampling variation looks like. For small sample sizes, the relative
+frequencies and probabilities can differ greatly. However, for independent and identically
+distributed (i.i.d.) observations, the relative frequency of each count approaches its model
+probability as sample size grows. This is an application of the **weak law of large numbers**.
+
+For example, let $I_i=1$ when the $i$th quadrat has exactly three surviving seeds and
+$I_i=0$ otherwise. The relative frequency of three survivors is
+$\bar{I}_n=(I_1+\cdots+I_n)/n$. For any positive margin $\varepsilon$,
+
+$$
+\lim_{n \to \infty}
+P\left(\left|\bar{I}_n - P(X=3)\right| \ge \varepsilon\right)=0.
+$$
+
+In plain English, as $n$ grows, the chance that the relative frequency differs from the
+model probability by at least $\varepsilon$ becomes small. There are two probabilities here:
+the probability mass assigned to a count by the model, and the probability of seeing a
+relative frequency that is far from that mass across repeated samples. This convergence is
+not deterministic: a larger realised sample need not be closer to the model probability
+than every smaller realised sample.
 
 ::: {.callout-note title="Frequencies converge to probabilities"}
-For independent observations from the same distribution, the relative
-frequency of any specified value approaches its probability mass as sample
-size grows. A larger realised sample need not be closer for every value.
+For independent observations from the same distribution, the relative frequency of any
+specified value converges in probability to its probability mass as sample size grows.
 :::
 
-We can push the simulation further and compare relative frequencies at sample sizes from 10 to
-100,000. The entries vary between simulations, even though the model is fixed. More data give us
-more stable evidence about the model; they do not make a particular realised sample magically exact:
-
+We can push the simulation further and compare relative frequencies at sample sizes
+from 10 to 100,000 to see this convergence in action:
 ```{r}
 # Compare relative frequencies for several sample sizes with the model.
 set.seed(123)
@@ -672,6 +732,86 @@ all_frequencies[, length(sample_sizes) + 1] = dbinom(
 round(all_frequencies, 3)
 ```
 
+One sequence of samples cannot show convergence directly. For example, the relative frequency
+of three surviving seeds at 10,000 quadrats can happen to be closer to the model probability
+than its value at 100,000 quadrats. To show what usually changes with sample size, repeat the
+simulation 100 times at each size. This is shown in @fig-relative-frequency-convergence.
+At small sample sizes, the repeated relative frequencies cover a wide range. As the sample
+size grows, the relative frequencies concentrate around the theoretical probability. Individual
+samples can still generate values far from the line, but large deviations become less likely.
+
+```{r}
+#| echo: false
+#| eval: true
+#| label: fig-relative-frequency-convergence
+#| fig-cap: "Relative frequencies of exactly three surviving seeds for simulated samples if difference sizes. The horizontal line is the theoretical probability assigned by the Binomial model."
+# Repeatedly simulate samples and retain the relative frequency of three survivors.
+set.seed(seed = 20261003)
+seed_count = 4
+seed_survival_probability = 0.4
+target_count = 3
+sample_sizes = 10^(seq_len(length.out = 5))
+n_repetitions = 100
+
+repeated_frequencies = data.frame(
+  sample_size = numeric(),
+  relative_frequency = numeric()
+)
+
+for (sample_size in sample_sizes) {
+  relative_frequency = numeric(length = n_repetitions)
+
+  for (repetition in seq_len(n_repetitions)) {
+    sample_survivors = rbinom(
+      n = sample_size,
+      size = seed_count,
+      prob = seed_survival_probability
+    )
+    relative_frequency[repetition] = mean(sample_survivors == target_count)
+  }
+
+  repeated_frequencies = rbind(
+    repeated_frequencies,
+    data.frame(
+      sample_size = sample_size,
+      relative_frequency = relative_frequency
+    )
+  )
+}
+
+# Calculate the model probability that the figure uses as a reference line.
+theoretical_probability = dbinom(
+  x = target_count,
+  size = seed_count,
+  prob = seed_survival_probability
+)
+
+ggplot(
+  repeated_frequencies,
+  aes(
+    x = sample_size,
+    y = relative_frequency,
+    group = sample_size
+  )
+) +
+  geom_point(width = 0.35, fill = "grey90", colour = "grey40",
+             position = position_jitter(width = 0.05, height = 0.005)) +
+  geom_hline(
+    yintercept = theoretical_probability,
+    colour = "#D55E00",
+    linewidth = 0.8
+  ) +
+  scale_x_log10(
+    breaks = sample_sizes,
+    labels = c("10", "100", "1,000", "10,000", "100,000")
+  ) +
+  labs(
+    x = "Sample size (log10 scale)",
+    y = "Relative frequency of three surviving seeds"
+  ) +
+  theme_classic()
+```
+
 :::: {.callout-important title="Practice: fruit-set frequency"}
 In a sample of 24 tagged orchid flowers, 15 set fruit. Calculate the relative frequency
 of fruit set. Explain what this value estimates and why it need not equal the underlying
@@ -680,34 +820,40 @@ fruit-set probability exactly.
 ::: {.callout-tip title="Solution" collapse="true"}
 
 The relative frequency is $15/24=0.625$. It estimates the probability that a flower sets
-fruit in the population represented by the sample. A different sample could give a
+fruit in the population from which we generated the sample. A different sample could give a
 different relative frequency, especially when the sample is small.
 :::
 ::::
 
 ## Empirical distribution
 
-Instead of keeping the observations as a raw list, we can turn them into an **empirical
-distribution**. It assigns each observed count its relative frequency, giving us something we can
-put beside the probability distribution proposed for the population.
+Because of this relationship between the relative frequencies and probabilities, we often
+define the **empirical distribution** of a sample. This is a procedure where we assign each
+observed count its relative frequency and we treat it as if it was a probability mass
+function @fig-ecdf. In principle it is just a way to tabulate a (potentially long) collection of
+observations, but we will see that this also facilitates calculating properties of a sample
+such as quantiles or expectations that we can compare to the distribution from whic we
+assume the sample was generated.
 
 ::: {.callout-note title="Empirical distribution"}
-A distribution whose mass at each count equals that count's relative frequency
-in the sample.
+A distribution whose mass at each count equals the relative frequency in the sample.
 :::
 
 Like a theoretical distribution, an empirical distribution has a cumulative function: the fraction
-of observations at or below each count. The figure compares both functions for ten quadrats
-simulated from the seed-survival model. Here ten is the number of quadrats sampled; four is the
-number of seeds in each quadrat. Keeping those two numbers separate matters, because they describe
-different parts of the study.
+of observations at or below each count. When comparing the empirical and theoretical cumulative
+probability functions, we often use step-plots which easily allows both functions side by
+side @fig-ecdf. This type of visualizations are useful if you want to compare how well a
+distribution matches a given sample of data (i.e., we want to test if a sample of observations
+could be treated as a random sample from a given distribution). We will expand on this notion
+in later chapters.
 
 ```{r}
 #| echo: false
 #| eval: true
 #| fig-width: 9
 #| fig-height: 4
-#| fig-cap: "Model probabilities and sample frequencies for ten simulated quadrats."
+#| eval: fig-ecdf
+#| fig-cap: "Empirical and theoretical distribution for a sample of ten quadrats in the example on seed survival."
 # Simulate a sample and calculate its empirical distribution.
 set.seed(142)
 seed_count = 4
@@ -727,37 +873,91 @@ count_survivors = table(factor(x = sample_survivors, levels = seed_values))
 relative_frequency = as.numeric(count_survivors) / n_quadrats
 cumulative_relative_frequency = cumsum(relative_frequency)
 
-old_par = par(no.readonly = TRUE)
-par(mfrow = c(1, 2), mar = c(5.1, 4.1, 2, 0.5), las = 1)
-plot(
-  x = seed_values, y = model_mass, type = "h", lwd = 2,
-  xlab = "Surviving seeds per quadrat", ylab = "Mass / relative frequency",
-  ylim = c(0, max(model_mass, relative_frequency))
+model_comparison_data = rbind(
+  data.frame(
+    surviving_seeds = seed_values,
+    value = model_mass,
+    quantity = "Probability mass",
+    series = "Model"
+  ),
+  data.frame(
+    surviving_seeds = seed_values,
+    value = relative_frequency,
+    quantity = "Probability mass",
+    series = "Sample"
+  ),
+  data.frame(
+    surviving_seeds = seed_values,
+    value = model_cumulative,
+    quantity = "Cumulative probability",
+    series = "Model"
+  ),
+  data.frame(
+    surviving_seeds = seed_values,
+    value = cumulative_relative_frequency,
+    quantity = "Cumulative probability",
+    series = "Sample"
+  )
 )
-points(x = seed_values, y = relative_frequency, col = "firebrick", pch = 16)
-legend(
-  x = "topright", legend = c("Model", "Sample"),
-  col = c("black", "firebrick"), lty = c(1, NA), pch = c(NA, 16),
-  bty = "n"
+model_comparison_data$quantity = factor(
+  model_comparison_data$quantity,
+  levels = c("Probability mass", "Cumulative probability")
 )
-plot(
-  x = seed_values, y = model_cumulative, type = "s",
-  xlab = "Surviving seeds per quadrat", ylab = "Cumulative probability",
-  ylim = c(0, 1)
-)
-lines(x = seed_values, y = cumulative_relative_frequency,
-      type = "s", col = "firebrick", lty = 2)
-legend(
-  x = "bottomright", legend = c("Model", "Sample"),
-  col = c("black", "firebrick"), lty = c(1, 2), bty = "n"
-)
-par(old_par)
+
+# Use different geometries as well as colours to distinguish the model and sample.
+ggplot() +
+  geom_linerange(
+    data = subset(
+      model_comparison_data,
+      quantity == "Probability mass" & series == "Model"
+    ),
+    aes(x = surviving_seeds, ymin = 0, ymax = value, colour = series),
+    linewidth = 0.8
+  ) +
+  geom_point(
+    data = subset(
+      model_comparison_data,
+      quantity == "Probability mass" & series == "Sample"
+    ),
+    aes(x = surviving_seeds, y = value, colour = series),
+    alpha = 0.7,
+    size = 2
+  ) +
+  geom_step(
+    data = subset(model_comparison_data, quantity == "Cumulative probability"),
+    aes(x = surviving_seeds, y = value, colour = series, linetype = series),
+    direction = "hv",
+    linewidth = 0.8
+  ) +
+  facet_wrap(~quantity, nrow = 1, scales = "free_y") +
+  scale_colour_manual(values = c(Model = "#D55E00", Sample = "#0072B2")) +
+  scale_linetype_manual(values = c(Model = "solid", Sample = "dashed")) +
+  scale_x_continuous(breaks = seed_values) +
+  labs(
+    x = "Surviving seeds per quadrat",
+    y = "Probability or relative frequency",
+    colour = NULL,
+    linetype = NULL
+  ) +
+  theme_classic()
 ```
 
-### Mean, variance and quantiles of a sample
+### Mean, variance and quantiles of a data sample
 
-The mean of an empirical distribution is its relative-frequency-weighted
-average. This equals the arithmetic mean of the sample:
+Just like for the theoretical probability distributions described earlier, we can compute
+expectations such as means and variances from an empirical distribution, as well as quantiles
+by inverting the empirical cumulative distribution. We will simply replace probabilities in
+the formulae by relative frequencies of the sample.
+
+Note that, strictly speaking, a data sample is just a collection of values. It does not have
+a mean or a variance, those are properties of distributions. However, language in applied
+statistics is often used lazily and inconsistently, which can lead to a lot of confusion.
+Whenever we say *sample mean* or *sample variance* we actually imply the mean or variance of
+the empirical distribution (but see below that the variance of a sample is an even more
+confusing term).
+
+It is trivial to see that the mean of the empirical distribution equals the arithmetic
+mean of the sample:
 
 ```{r}
 # Simulate a small sample and calculate its weighted and ordinary means.
@@ -776,62 +976,71 @@ sample_mean = mean(sample_survivors)
 c(weighted_average, sample_mean)
 ```
 
-The variance of this empirical distribution uses divisor $n$, the number
-of quadrats:
+However variance of the empirical distribution is not exactly the same as what we normally
+called *sample variance*:
 
 ```{r}
-# Calculate the variance using divisor n, as for the empirical distribution.
+# Calculate the variance of the empirical distribution
 empirical_variance = sum((seed_values - weighted_average)^2 * relative_frequency)
-empirical_variance
+sample_variance = var(sample_survivors)
+c(empirical_variance, sample_variance)
 ```
 
-R's `var()` uses divisor $n-1$, so it gives a different result:
+It turns out that what most people call sample variance is actually an statistical estimator
+of the variance of the theoretical distribution (i.e., in this case the variance of the Binomial
+distribution) which is a completely different concept. For reasons that will become clear in
+[Chapter 4](../Chapter_4/Theory.qmd), this
+variance is calculated with a different formula^[To make matters worse, many individuals will
+claim dogmatically that this second way of calculate the sample variance is the correct one,
+without realizing what the differences are between the two. Unfortunately, this type of
+confusion and misunderstanding from sloppy use of language is very common in applied
+statistics... And this has also polluted AI chatbots, so sometimes trying to understand
+proper statistics becomes a very uphill battle.].
 
-```{r}
-# Compare the empirical variance with R's sample-variance function.
-var(sample_survivors)
-```
-
-The $n-1$ version estimates the variance of the modelled population from a
-sample. [Chapter 4](../Chapter_4/Theory.qmd) explains why that correction is used.
-
-To match the discrete quantile definition above, use `type = 1` with
-`quantile()`. This returns the smallest observed count whose empirical
-cumulative probability reaches $0.5$:
+A quantile from the empirical distrbution can be derived from the `quantile()` function. Note
+that when dealing with discrete data you need to use `type = 1` as an argument. For example,
+if we calculate the quantile for a cumulative probability of 0.5 (i.e. the median) it will
+return the smallest observed count whose empirical cumulative probability reaches $0.5$:
 
 ```{r}
 # Use type = 1 so the empirical quantile is one of the observed counts.
 quantile(x = sample_survivors, probs = 0.5, type = 1)
 ```
 
-The default `quantile()` method can interpolate between observations, so it
-need not return a count in the empirical distribution's support.
+Teh function `quantile()` appears in many areas of statistics and there are up to 9 different
+ways of computing them in R. So it really matters for what purpose we are tring to calculate
+the quantile.
 
 ### Asymptotic convergence of the empirical distribution
 
 ::: {.callout-note title="Asymptotic convergence of empirical distribution"}
 For independent observations from the same fixed distribution, the empirical
-cumulative probability at each count approaches the model's cumulative
-probability as sample size grows. With bounded counts, as in our binomial
-example, the empirical mean and variance also approach their model values.
+probability mass function converges to the theoretical probability mass function as sample size
+grows towards infinity. All the moments (mean, variances and others) as well as asll
+quantiles from the empirical distribution will also converge to the With bounded counts, as in our binomial
+example, the empirical mean and variance also covergen to the theoretial values.
 A finite sample can sometimes agree exactly; agreement is not guaranteed
 at any finite size.
 :::
 
-This is why larger samples can make empirical summaries more stable, provided the model and
-sampling assumptions hold. It supports the method of moments in
-[Chapter 4](../Chapter_4/Theory.qmd#sec-estimates). Quantiles at jumps in a discrete cumulative
-function require separate care; the statement above does not claim that every empirical quantile
-converges in the same way.
+By defining the empirical distribution we can now better understand how samples and
+distributions are related. That is, a collection of observations can be treated as random
+sample from a theoretical distribution if the empirical distribution will converge to said
+theoretical distribution as sample size increases. This does not imply that the observation
+are actual random samples from some stochastic process, it simply means that we have modelled
+correctly the variation across different observations.
 
-The next figure compares two simulated sample sizes from the same binomial model. The larger sample
-generally follows the model more closely, although an individual value can still move away from its
-target in a particular simulation. That small caveat is worth keeping in mind whenever someone says
-that “more data” has solved an uncertainty problem.
+Note that in practice we can never verify this relationship as we will never have infinite
+samples and for any finite size there can deviations. But it does mean that the larger
+sample the better we can judge if we have a good model (@fig-ecdf-binom). Also, larger
+samples are more **stable** meaning that there will be less variation across repated samples
+which will increase our confidence (reduce our uncertainty) in the results (we cover this
+in more detail in [Chapter 4](../Chapter_4/Theory.qmd))
 
 ```{r}
 #| echo: false
 #| eval: true
+#| label: fig-ecdf-binom
 #| fig-width: 9
 #| fig-height: 8
 #| fig-cap: "Model probabilities and sample frequencies for 10 quadrats (top) and 1,000 quadrats (bottom)."
@@ -848,8 +1057,8 @@ model_cumulative = pbinom(
   q = seed_values, size = seed_count, prob = seed_survival_probability
 )
 
-old_par = par(no.readonly = TRUE)
-par(mfrow = c(2, 2), mar = c(5.1, 4.1, 2, 0.5), las = 1)
+# Store the model and empirical summaries for both sample sizes before plotting.
+sample_comparison_data = data.frame()
 for (n_quadrats in sample_sizes) {
   sample_survivors = rbinom(
     n = n_quadrats, size = seed_count, prob = seed_survival_probability
@@ -858,31 +1067,85 @@ for (n_quadrats in sample_sizes) {
   relative_frequency = as.numeric(count_survivors) / n_quadrats
   cumulative_relative_frequency = cumsum(relative_frequency)
 
-  plot(
-    x = seed_values, y = model_mass, type = "h", lwd = 2,
-    xlab = "Surviving seeds per quadrat", ylab = "Mass / relative frequency",
-    ylim = c(0, max(model_mass, relative_frequency)),
-    main = paste(n_quadrats, "quadrats")
-  )
-  points(x = seed_values, y = relative_frequency, col = "firebrick", pch = 16)
-  legend(
-    x = "topright", legend = c("Model", "Sample"),
-    col = c("black", "firebrick"), lty = c(1, NA), pch = c(NA, 16),
-    bty = "n"
-  )
-  plot(
-    x = seed_values, y = model_cumulative, type = "s",
-    xlab = "Surviving seeds per quadrat", ylab = "Cumulative probability",
-    ylim = c(0, 1), main = paste(n_quadrats, "quadrats")
-  )
-  lines(x = seed_values, y = cumulative_relative_frequency,
-        type = "s", col = "firebrick", lty = 2)
-  legend(
-    x = "bottomright", legend = c("Model", "Sample"),
-    col = c("black", "firebrick"), lty = c(1, 2), bty = "n"
+  sample_size_label = paste(format(n_quadrats, big.mark = ","), "quadrats")
+  sample_comparison_data = rbind(
+    sample_comparison_data,
+    data.frame(
+      surviving_seeds = seed_values,
+      value = model_mass,
+      quantity = "Probability mass",
+      series = "Model",
+      sample_size = sample_size_label
+    ),
+    data.frame(
+      surviving_seeds = seed_values,
+      value = relative_frequency,
+      quantity = "Probability mass",
+      series = "Sample",
+      sample_size = sample_size_label
+    ),
+    data.frame(
+      surviving_seeds = seed_values,
+      value = model_cumulative,
+      quantity = "Cumulative probability",
+      series = "Model",
+      sample_size = sample_size_label
+    ),
+    data.frame(
+      surviving_seeds = seed_values,
+      value = cumulative_relative_frequency,
+      quantity = "Cumulative probability",
+      series = "Sample",
+      sample_size = sample_size_label
+    )
   )
 }
-par(old_par)
+
+sample_comparison_data$sample_size = factor(
+  sample_comparison_data$sample_size,
+  levels = c("10 quadrats", "1,000 quadrats")
+)
+sample_comparison_data$quantity = factor(
+  sample_comparison_data$quantity,
+  levels = c("Probability mass", "Cumulative probability")
+)
+
+# Compare each empirical distribution with the same model using matching panels.
+ggplot() +
+  geom_linerange(
+    data = subset(
+      sample_comparison_data,
+      quantity == "Probability mass" & series == "Model"
+    ),
+    aes(x = surviving_seeds, ymin = 0, ymax = value, colour = series),
+    linewidth = 0.8
+  ) +
+  geom_point(
+    data = subset(
+      sample_comparison_data,
+      quantity == "Probability mass" & series == "Sample"
+    ),
+    aes(x = surviving_seeds, y = value, colour = series),
+    alpha = 0.7,
+    size = 2
+  ) +
+  geom_step(
+    data = subset(sample_comparison_data, quantity == "Cumulative probability"),
+    aes(x = surviving_seeds, y = value, colour = series, linetype = series),
+    direction = "hv",
+    linewidth = 0.8
+  ) +
+  facet_grid(sample_size ~ quantity, scales = "free_y") +
+  scale_colour_manual(values = c(Model = "#D55E00", Sample = "#0072B2")) +
+  scale_linetype_manual(values = c(Model = "solid", Sample = "dashed")) +
+  scale_x_continuous(breaks = seed_values) +
+  labs(
+    x = "Surviving seeds per quadrat",
+    y = "Probability or relative frequency",
+    colour = NULL,
+    linetype = NULL
+  ) +
+  theme_bw() + theme(panel.grid = element_blank())
 ```
 
 :::: {.callout-important title="Practice: orchid flowering across plots"}
@@ -890,7 +1153,7 @@ par(old_par)
 Suppose each restoration plot contains 12 orchid plants. Each plant flowers with
 probability 0.25, independently of the others. Let $X$ be the number of flowering
 plants in a plot. This is a binomial model. Simulate counts for 12 plots and for 500
-plots. For each sample, calculate the empirical mean and plot the empirical distribution.
+plots. For each sample, calculate the empirical mean and plot the empirical mass function.
 Compare both distributions with the theoretical probability mass function. What changes in
 the result from the larger sample? How much can you rely on a single simulation?
 
@@ -937,23 +1200,86 @@ theoretical_mass = dbinom(
   prob = flowering_probability
 )
 
-plot(
-  x = count_values,
-  y = small_frequency,
-  type = "h",
-  lwd = 2,
-  ylim = c(0, max(c(small_frequency, large_frequency, theoretical_mass))),
-  xlab = "Flowering plants per plot",
-  ylab = "Probability"
+small_frequency_data = data.frame(
+  flowering_plants = count_values,
+  probability = small_frequency,
+  series = "12 plots"
 )
-points(x = count_values, y = large_frequency, col = 2, pch = 16)
-points(x = count_values, y = theoretical_mass, pch = 4)
+large_frequency_data = data.frame(
+  flowering_plants = count_values,
+  probability = large_frequency,
+  series = "500 plots"
+)
+model_mass_data = data.frame(
+  flowering_plants = count_values,
+  probability = theoretical_mass,
+  series = "Binomial model"
+)
+
+# Use bars for one empirical distribution, points for the other, and lines for the model.
+# Set common axis limits
+all_probabilities = c(
+  small_frequency_data$probability,
+  large_frequency_data$probability,
+  model_mass_data$probability
+)
+
+plot(
+  NA,
+  xlim = range(count_values),
+  ylim = c(0, max(all_probabilities)),
+  xaxt = "n",
+  xlab = "Flowering plants per plot",
+  ylab = "Probability or relative frequency"
+)
+
+axis(1, at = count_values)
+
+# Draw bars for the small empirical distribution
+with(
+  small_frequency_data,
+  rect(
+    flowering_plants - 0.35,
+    0,
+    flowering_plants + 0.35,
+    probability,
+    col = "grey",
+    border = 1
+  )
+)
+
+# Add points for the large empirical distribution
+with(
+  large_frequency_data,
+  points(
+    flowering_plants,
+    probability,
+    pch = 16,
+    col = 2
+  )
+)
+
+# Add vertical lines for the model distribution
+with(
+  model_mass_data,
+  segments(
+    flowering_plants,
+    0,
+    flowering_plants,
+    probability,
+    col = 3
+  )
+)
+
+# Add one legend for all three series
 legend(
-  x = "topright",
+  "topright",
   legend = c("12 plots", "500 plots", "Binomial model"),
-  col = c(1, 2, 1),
-  pch = c(NA, 16, 4),
-  lty = c(1, NA, NA)
+  col = c(1, 2, 3),
+  fill = c("grey", NA, NA),
+  border = c(1, NA, NA),
+  pch = c(NA, 16, NA),
+  lty = c(0, 0, 1)
 )
 ```
 
@@ -966,17 +1292,17 @@ summary, and the empirical distribution need not exactly match the theoretical o
 
 # Probability distributions for count data {#sec-discrete_distributions}
 
-We now have enough language to ask a practical modelling question: what kind of count have we
-actually collected, and what does a sensible starting model need to capture? We examine three
-models: binomial, Poisson, and negative binomial. For each one, check which counts are possible,
-what its parameters mean, how its mean and variance relate, and whether its assumptions suit the
-sampling process. The [distribution supplement](../Supplements/distributions.qmd) covers further
-examples.
+In all the examples above we have used the Binomial distribution and I made sure that the
+examples we adequate for such a distribution. However, there are many different distributions
+for counts and other discrete data, each with their own properties (e.g. how means and
+variances are related). Below I go over three important examples, though more can be found
+in the [distribution supplement](../Supplements/distributions.qmd).
 
-The probability mass function specifies each model's probabilities. Support and ecological
-interpretation help us choose plausible candidates, but neither one gives a model a free pass.
-After fitting candidates to the same observations, we can use the comparison criteria in
-[Chapter 7](../Chapter_7/Theory.qmd#sec-response-comparison).
+Remember that there is no *correct* distribution for a given sample of data. The range of
+possible values and the ecological processes that are relevant gives us plausible candidates,
+but often we are left with multiple candidate models. In [Chapter 7](../Chapter_7/Theory.qmd)
+we will learn formal methods for model comparison, but for now we will use some basic
+heuristics to decide what are reasonable distributions to use.
 
 ::: {.callout-warning title="Choosing a probability distribution"}
 A distribution should be chosen according to the type and range of observed values, its
@@ -987,37 +1313,25 @@ which it was originally derived.
 
 ## The binomial distribution
 
-The binomial distribution is useful when every sampling unit contains a fixed number of genuine
-yes-or-no opportunities. It models the number of successes among those trials. Each trial has two
-possible outcomes, the same success probability, and an outcome independent of the other trials.
-For example, a success could mean that a planted seed survives. If the number of seeds differs
-among quadrats, or one seed's fate changes another's, we need to think more carefully before using
-this model.
+The binomial distribution is useful when every sampling unit contains a fixed number of binary
+events or outcomes. It models the number of times a particular outcome occurs (e.g., survival,
+germination, success,e tc). Each event is assumed independent of each other and has the same
+probability of obtaining the outcome of interest.
 
-The binomial model has two parameters:
-
-- $n$: the number of trials in one sampling unit;
-- $p$: the probability of success on each trial, with $0\leq p\leq 1$.
-
-For $0<p<1$, the support of $X$ is $\{0, 1, \ldots, n\}$. At $p=0$ or
-$p=1$, only one count has positive probability. Here $n$ is the number
-of trials in one unit, such as seeds in a quadrat; it is different from
-the number of quadrats in a sample.
-
-The probability mass function is
+As seen before, the probability mass function of the Binomial distribution is:
 
 $$
 P(X=x)=\binom{n}{x}p^x(1-p)^{n-x}
 =\frac{n!}{x!(n-x)!}p^x(1-p)^{n-x},
 $$
 
-where $\binom{n}{x}$ counts the ways to choose $x$ successes from $n$ trials
-and $n!$ is a factorial, with $0!=1$.
+where $\binom{n}{x}$ counts the ways to choose $x$ outcomes of interest (each with probability
+$p$ of occurring) from $n$ events and $n!$ is a factorial.
 
-The mean and variance are:
+Apply the relevant formulae we can derive the mean and variance of a binomial distribution as:
 
 $$
-E[X]=np
+\mu=E[X]=np
 $$
 
 and
@@ -1030,10 +1344,8 @@ $$
 ### Example: seedling survival
 
 Suppose 20 seedlings are planted in each plot and each survives independently with probability
-$0.7$. Let $X$ be the number surviving in one plot. These are assumed model values, not observed
-field data. They let us see what the binomial assumptions imply before we try to fit anything.
-
-The probability that exactly 14 survive is:
+$0.7$. Let $X$ be the number surviving in one plot. The probability that exactly 14 survive
+is:
 
 $$
 P(X=14)
@@ -1098,12 +1410,10 @@ uses sample summaries to construct estimates and explains why estimates vary bet
 
 The Poisson distribution is a common starting point when we count events in a fixed unit of time,
 area, or sampling effort: insects caught per trap-night, seedlings per quadrat, or camera detections
-per night. It does not say that the organisms arrive like clockwork. It gives us a deliberately
-restricted baseline in which the mean and variance are equal. For $\lambda>0$, its support is
-$\{0, 1, 2, \ldots\}$; at $\lambda=0$, only zero has positive probability. A sample with similar
-mean and variance is consistent with this feature, but it does not establish that the Poisson
-assumptions hold.
-
+per night. It is often the default distribution for count data when we do not have a fixed
+upper limit to the number of observations. Its most important property is to always have the
+same variance and mean, such that when this is not appropiate, we need to switch to other
+distributions for count data.
 The Poisson distribution has one parameter:
 
 $$
@@ -1119,7 +1429,7 @@ $$
 The mean and variance are both equal to $\lambda$:
 
 $$
-E[X]=\lambda
+\mu = E[X]=\lambda
 $$
 
 and
@@ -1131,8 +1441,8 @@ $$
 
 ### Example: wildlife detections
 
-Suppose a camera records an average of $0.8$ detections per night. If the expected detection count
-scales with observation time, three nights have expected count
+Suppose a camera records an average of $0.8$ detections per night. If the expected detection
+count scales with observation time, three nights have expected count
 
 $$
 \lambda = 3(0.8) = 2.4.
@@ -1160,22 +1470,21 @@ detections_to_check = 2
 dpois(x = detections_to_check, lambda = expected_detections)
 ```
 
-"At least five" means more than four, so we use `lower.tail = FALSE`:
+We can also ask the probability of at least five detections in three nights. We can compute
+this from the cumulative probability (note that we calculate the cumulative probability for
+four and then take the complement):
 
 ```{r}
 # Calculate the probability of at least the requested number of detections.
 minimum_detections = 5
-ppois(
+1 - ppois(
   q = minimum_detections - 1,
-  lambda = expected_detections,
-  lower.tail = FALSE
+  lambda = expected_detections
 )
 ```
 
 Unlike a binomial count, a Poisson count has no fixed upper limit. A count of 100 detections is
-possible under this model, although extremely unlikely when $\lambda=2.4$. Also, do not read
-“detections” as “animals”: one animal may trigger the camera more than once, and some animals may
-never be detected. The observation process matters as much as the arithmetic.
+possible under this model, although extremely unlikely when $\lambda=2.4$.
 
 ```{r}
 #| echo: false
@@ -1186,14 +1495,19 @@ maximum_detections_to_plot = 15
 detection_values = seq.int(from = 0, to = maximum_detections_to_plot)
 detection_mass = dpois(x = detection_values, lambda = expected_detections)
 
+detection_mass_data = data.frame(
+  detections = detection_values,
+  probability = detection_mass
+)
+
+# Plot each possible detection count as a vertical probability line.
 plot(
-  x = detection_values,
-  y = detection_mass,
+  detection_mass_data$detections,
+  detection_mass_data$probability,
   type = "h",
-  lwd = 3,
+  xaxt = "n",
   xlab = "Number of detections",
-  ylab = "Probability",
-  main = "Poisson probability mass"
+  ylab = "Probability"
 )
 ```
 
@@ -1217,34 +1531,35 @@ expected_stems = rate_per_square_metre * survey_area
 dpois(x = 3, lambda = expected_stems)
 ```
 
-The Poisson model has support $0,1,2,\ldots$, so counts larger than three are possible.
-The probability of exactly three is approximately 0.209, but the model does not set
-three as a maximum.
-
 :::
 ::::
 
 ## Overdispersion
 
-The Poisson model earns its place partly because it gives us a clear diagnostic. Its mean and
-variance are equal. Counts that vary more than that prediction are **overdispersed relative to the
-Poisson model**. For example, seedling counts may differ strongly among quadrats because some have
-better habitat. But extra variation can also reflect differences in detection or dependence among
-observations. So overdispersion tells us that the simple model is struggling; it does not tell us
-why.
+The Poisson model its characterized by having its mean and variance equal. When the variance
+is higher than the mean, we say that such data has *overdispersion* relative to the Poisson
+distribution^[The "relative to the Poisson distribution" bit is often ommited, it is generally
+implied that this is the reference].
+
+For example, seedling counts may differ strongly among quadrats because some have better
+habitat. But extra variation can also reflect differences in detection or dependence among
+observations. The distribution itself will not tell you why overdispersion happens. Note that
+if you could identify and measure the sources of overdispersion you could use the techniques
+from [Chapter 8](../Chapter_8/Theory.qmd) to model it.
 
 ::: {.callout-warning title="Overdispersion is a statistical description"}
 Overdispersion means that the observed variation is greater than the variation expected
-under a reference model, often the Poisson model. It does not identify the ecological cause.
+under a reference, often the Poisson distribution. It does not identify the ecological cause.
 Clustering, habitat differences, omitted predictors, detection variation, and dependence
 can all produce overdispersion.
 :::
 
 ### A simple diagnostic for overdispersion
 
-A first exploratory check compares the sample variance from `var()` with the sample mean. If the
-observations are reasonably described as independent Poisson counts with the same mean, these
-quantities tend to be similar. The **dispersion ratio** summarises their comparison:
+A first exploratory check compares the sample variance with the sample mean (for convenience
+just use `var()` be aware of the subtle differences mentioned earlier). If the observations
+are reasonably described as independent Poisson counts with the same mean, these quantities
+tend to be similar. The **dispersion ratio** measures to what extent this wholes true:
 
 $$
 \text{dispersion ratio}
@@ -1277,10 +1592,10 @@ c(sample_mean, sample_variance, dispersion_ratio)
 
 A ratio close to one is consistent with the Poisson mean–variance relationship;
 a substantially larger ratio suggests overdispersion relative to that model.
-A ratio below one suggests less variation than the Poisson model predicts.
-Treat the ratio as a clue, not a verdict: it cannot identify the cause or confirm a distribution.
-[Chapter 7](../Chapter_7/Theory.qmd#sec-response-comparison) introduces criteria for comparing
-fitted candidate models.
+It is possible to obtain a ratio substantially lower than one, although it is rate. This
+is called *underdispersion*. The Conway-Maxwell-Poisson distribution described in the
+[Supplement](../Supplements/distributions.qmd) can handle underdispersion.
+
 
 :::: {.callout-important title="Practice: variation in orchid stem counts"}
 
@@ -1299,17 +1614,12 @@ the cause; for example, plots may differ in habitat, or counts may be clustered.
 
 ## The negative binomial distribution
 
-When the variation is plainly larger than a Poisson model allows, the negative binomial distribution
-is a useful starting model. It has support $\{0, 1, 2, \ldots\}$ and can accommodate more variation
-than a Poisson model with the same mean. Differences among sampling units are one possible reason:
-some quadrats may be much better habitat than others. But fitting a negative binomial distribution
-does not reveal that mechanism by itself. It describes the extra variation; ecological reasoning and
-study design are still needed to explain it.
-
-The negative binomial model has two parameters:
+When overdispersion occurs, the negative binomial distribution is a useful starting model.
+It has support $\{0, 1, 2, \ldots\}$ and can accommodate more variation
+than a Poisson model with the same mean. The negative binomial model has two parameters:
 
 - $\mu>0$: the mean count per sampling unit;
-- $k>0$: a shape parameter that controls the additional variation.
+- $k>0$: a shape or dispersion parameter that controls the additional variation
 
 The probability mass function is
 
@@ -1321,7 +1631,7 @@ P(X=x)
 \left(\frac{\mu}{k+\mu}\right)^x,
 $$
 
-where $\Gamma$ is the gamma function, extending the factorial in this formula.
+where $\Gamma$ is the gamma function, which extends the factorial to real values.
 
 The mean and variance are:
 
@@ -1342,20 +1652,17 @@ $$
 \mu+\frac{\mu^2}{k}\longrightarrow\mu.
 $$
 
-Thus, the negative binomial distribution approaches the Poisson distribution
-as $k$ becomes large.
+Thus, the negative binomial distribution approaches the Poisson distribution as $k$ becomes
+large.
 
-In R, `dnbinom()` takes $k$ through its `size` argument and $\mu$ through `mu`. This naming can be
-confusing because `size` does not mean the sample size here; it is the negative binomial shape
-parameter. Its `pnbinom()` and `rnbinom()` counterparts provide cumulative probabilities and
-simulated counts.
+In R, `dnbinom()` and related functions, the argument `size` corresponds to $k$. This naming
+can be confusing because `size` does not mean the sample size here; it is the negative
+binomial shape parameter. The *Details* section of the documentation page for `dnbinom`
+explains why it has that name.
 
 ### Example: seedlings in quadrats
 
 Suppose the mean number of seedlings per quadrat is $\mu=4$, and the shape parameter is $k=1.5$.
-Again, these are assumed model values. They describe a situation where comparable quadrats have the
-same average count but can still differ rather dramatically.
-
 The expected number of seedlings is
 
 $$
@@ -1373,7 +1680,7 @@ $$
 
 Across comparable quadrats, the model predicts four seedlings on average and variance of
 approximately $14.67$ seedlings squared. That is much more variation than the Poisson model would
-allow at the same mean. The model has described the pattern, not yet identified its ecological cause.
+allow at the same mean.
 
 We can verify these calculations in R:
 
@@ -1402,23 +1709,22 @@ dnbinom(
 )
 ```
 
-"At least ten" means more than nine, so we use `lower.tail = FALSE`:
+A the probability of observing at least 10 seedlings is:
 
 ```{r}
 # Calculate the probability of at least the requested number of seedlings.
 minimum_seedlings = 10
 
-pnbinom(
+1 - pnbinom(
   q = minimum_seedlings - 1,
   size = negative_binomial_size,
-  mu = mean_seedlings,
-  lower.tail = FALSE
+  mu = mean_seedlings
 )
 ```
 
 Like the Poisson distribution, the negative binomial distribution has no fixed
-upper limit. A count of 100 is mathematically possible, although extremely
-unlikely.
+upper limit. A count of 100 is mathematically possible, although very unlikely if your mean
+is 4.
 
 ```{r}
 #| echo: false
@@ -1434,14 +1740,19 @@ negative_binomial_mass = dnbinom(
   mu = mean_seedlings
 )
 
+negative_binomial_mass_data = data.frame(
+  seedlings = seedling_values,
+  probability = negative_binomial_mass
+)
+
+# Vertical lines make the separate possible count probabilities visible.
 plot(
-  x = seedling_values,
-  y = negative_binomial_mass,
+  negative_binomial_mass_data$seedlings,
+  negative_binomial_mass_data$probability,
   type = "h",
-  lwd = 3,
+  xaxt = "n",
   xlab = "Number of seedlings",
-  ylab = "Probability",
-  main = "Negative binomial probability mass"
+  ylab = "Probability"
 )
 ```
 
@@ -1462,8 +1773,9 @@ approaches the mean, which is the Poisson mean–variance relationship.
 
 # Chapter quiz
 
-Probability only becomes useful when you can move comfortably between an ecological question, the
-possible observations, and a model's assumptions. Try each question before opening its solution.
+Probability only becomes useful when you can move comfortably between an ecological question,
+the possible observations, and a model's assumptions. Try each question before opening its
+solution.
 
 :::: {.callout-important title="Question 1: lichen patches"}
 
@@ -1525,7 +1837,8 @@ by the two trees dependent.
 :::: {.callout-important title="Question 5: trout eggs"}
 
 For a group of 12 trout eggs, suppose each egg hatches with probability 0.25 and the
-outcomes are independent. Calculate the expected number hatched and the variance.
+outcomes are independent. Calculate the expected number hatched and the variance assuming
+a Binomial distribution.
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
@@ -1537,7 +1850,7 @@ $\operatorname{Var}(X)=np(1-p)=12(0.25)(0.75)=2.25$.
 
 :::: {.callout-important title="Question 6: mussel settlement"}
 
-A model predicts an expected count of 2.4 newly settled mussels per tile. Can one tile
+A model predicts an expected count (or mean) of 2.4 newly settled mussels per tile. Can one tile
 have 2.4 mussels? What does the expected value describe?
 
 ::: {.callout-tip title="Answer" collapse="true"}
@@ -1551,8 +1864,8 @@ count across comparable tiles under the model.
 :::: {.callout-important title="Question 7: moth emergence"}
 
 In a sample of 30 host plants, moths emerged from 9. Calculate the relative frequency
-of emergence. Is this value necessarily the true probability of emergence for all
-relevant host plants?
+of emergence. How does this related to the probability of emergence for all relevant host
+plants?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
@@ -1596,8 +1909,7 @@ Choose a plausible starting model for each scenario and briefly explain your cho
 2. A Poisson model is a plausible starting point because the support is non-negative
    integer counts and the mean and variance are approximately equal.
 3. A negative binomial model is a plausible starting point because it allows an
-   unbounded count with variance greater than the mean. These are starting points; the
-   data and assumptions still need to be checked.
+   unbounded count with variance greater than the mean..
 
 :::
 ::::
