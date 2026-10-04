@@ -36,9 +36,11 @@ them.
 | Material | Status and use |
 |---|---|
 | `Chapter_1/Practicals/material.qmd` and its wrappers | Completed practical; primary reference for teaching voice, introductory R, and conditional solutions |
-| `Chapter_2/Theory.qmd` | Completed theory; primary reference for conceptual explanations, ecological examples, notation, and figures |
+| `Chapter_1/Theory.qmd` | Finalised by the author; reference for the author's voice in its essay register (motivation, opinion). Do not carry that level of opinion into technical chapters |
+| `Chapter_2/Theory.qmd` | Finalised by the author; primary reference for voice in technical chapters, conceptual explanations, ecological examples, notation, and figures |
 | `Chapter_2/Practicals/no_solution.qmd` and `solution.qmd` | Completed practical; primary reference for exercises, worked reasoning, and interpretation |
-| `Chapter_3` through `Chapter_9` | Generated course material; review status unspecified, not assumed complete |
+| `Supplements/distributions.qmd` | Reference entry per distribution: summary table, description, `### Example:` verified in R, figure, and a `Practice` callout with a collapsed solution. The Binomial, Poisson, and Negative Binomial text is the author's (moved from Chapter 2); the other entries are generated drafts awaiting review. Tables and prose use the chapter symbols ($k$ for Negative Binomial, $\mu$ and $\sigma$ for LogNormal, $a$ and $b$ for Beta and Beta-Binomial) |
+| `Chapter_3` through `Chapter_9` | Generated course material; not rewritten by the author (Chapter 3 theory has partial author edits). Use for topic coverage, never as a model of voice |
 
 The author requires `=` for all R assignment throughout the course, including
 function definitions. Apply this rule to existing and new code. The references contain occasional
@@ -51,7 +53,11 @@ of lines and new programming operations.
 
 Every chapter should begin with `# Introduction`, whose first sentence starts
 with “In this chapter, we learn how to...”, followed by `# Learning goals`.
-List learning goals in the order in which the chapter develops them.
+List learning goals in the order in which the chapter develops them. Every
+theory chapter ends with `# Summary` before `# Chapter quiz`. The author has
+also decided on British spelling throughout, capitalised distribution names
+(Binomial, Normal, LogNormal), and a formal tone from Chapter 2 onward, with
+Chapter 1 as the only personal, candid chapter; details are in `STYLE_GUIDE.md`.
 
 ## Responsibilities
 
@@ -69,8 +75,8 @@ Apply these roles as needed within the task; they do not require separate agents
   repetition and correct local language problems without making prose needlessly
   formal or expanding the requested scope.
 
-The authorial-voice transformation in `STYLE_GUIDE.md` is the priority prose
-standard when revising existing material. It takes precedence over generic
+The priority section on the author's voice in `STYLE_GUIDE.md` is the prose
+standard when revising existing material and writing new material. It takes precedence over generic
 textbook concision, while scientific accuracy and the course's stated scope
 remain mandatory.
 
