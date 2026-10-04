@@ -46,7 +46,7 @@ where the probaility of success varies randomly across trials.
 
 ## Bernoulli distribution
 
-Base R uses the binomial functions with `size = 1` to represent a Bernoulli distribution.
+Base R uses the Binomial functions with `size = 1` to represent a Bernoulli distribution.
 
 $$
 \begin{aligned}
@@ -61,13 +61,100 @@ $$
 \end{aligned}
 $$
 
+The Bernoulli distribution is the model for a single binary outcome: a site is occupied or
+not, a seed germinates or not, an animal survives the winter or not. We code the outcome of
+interest as $1$ (often called a *success*) and the alternative as $0$. The distribution has
+one parameter, $p$, which is the probability of the outcome of interest, with
+$0 \leq p \leq 1$.
+
+Its probability mass function is
+
+$$
+P(X=x)=p^x(1-p)^{1-x}, \qquad x \in \{0, 1\},
+$$
+
+that is, $P(X=1)=p$ and $P(X=0)=1-p$. The mean and variance are:
+
+$$
+\mu=E[X]=p
+$$
+
+and
+
+$$
+\operatorname{Var}(X)=p(1-p).
+$$
+
+Note that the variance is fully determined by the mean. It is largest when $p=0.5$ and it
+becomes zero when $p$ is either $0$ or $1$, as there is no variation left in the outcome.
+
+The Bernoulli distribution is a Binomial distribution with a single trial ($n=1$), which is
+why R does not have separate functions for it. In the other direction, the sum of $n$
+independent Bernoulli random variables with the same $p$ follows a Binomial distribution.
+The Bernoulli distribution is also one of the two components of a zero-inflated distribution
+(see @sec-zero_inflated).
+
+### Example: pond occupancy
+
+Suppose the probability that a pond is occupied by a newt species is $0.3$. Let $X=1$ if the
+pond is occupied and $X=0$ otherwise. The probability of an occupied pond is
+
+$$
+P(X=1) = (0.3)^1(1-0.3)^{1-1} = 0.3,
+$$
+
+the mean is $0.3$ and the variance is $0.3(0.7)=0.21$. In R:
+
 ```{r}
-mean = 0.3
-prob = mean
-x = 0:1
-plot(x, dbinom(x, size = 1, prob = prob), type = "h",
-     xlab = "Outcome", ylab = "Probability")
+# A Bernoulli distribution is a Binomial distribution with size = 1.
+occupancy_probability = 0.3
+
+dbinom(x = 1, size = 1, prob = occupancy_probability)
+
+# The variance follows from the probability of occupancy.
+occupancy_probability * (1 - occupancy_probability)
 ```
+
+A random sample from this model is a sequence of zeros and ones. For example, we can simulate
+the occupancy of ten ponds:
+
+```{r}
+# Simulate whether each of ten ponds is occupied (1) or not (0).
+set.seed(2026)
+rbinom(n = 10, size = 1, prob = occupancy_probability)
+```
+
+```{r}
+#| echo: false
+#| fig-cap: "Bernoulli probability mass for the occupancy of a pond."
+# Plot the probability of each of the two possible outcomes.
+occupancy_values = 0:1
+plot(
+  occupancy_values,
+  dbinom(x = occupancy_values, size = 1, prob = 0.3),
+  type = "h",
+  xaxt = "n",
+  ylim = c(0, 1),
+  xlab = "Pond occupied (0 = no, 1 = yes)",
+  ylab = "Probability"
+)
+axis(side = 1, at = occupancy_values)
+```
+
+:::: {.callout-important title="Practice: nest survival"}
+
+Suppose a nest survives until fledging with probability $0.85$. Calculate the mean and the
+variance of this Bernoulli random variable. For which value of $p$ would the variance be
+largest?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The mean is $p=0.85$ and the variance is $0.85(1-0.85)=0.1275$. The variance $p(1-p)$ is
+largest at $p=0.5$, where it equals $0.25$. That is the case in which the two outcomes are
+equally likely, so the fate of a nest is hardest to predict.
+
+:::
+::::
 
 ## Binomial distribution
 
@@ -85,14 +172,117 @@ p\;(\texttt{prob}) = \text{success probability} \\
 \end{aligned}
 $$
 
+The Binomial distribution is useful when every sampling unit contains a fixed number of binary
+events or outcomes. It models the number of times a particular outcome occurs (e.g., survival,
+germination, success, etc.). Each event is assumed to be independent of the others and has the same
+probability of obtaining the outcome of interest.
+
+As seen before, the probability mass function of the Binomial distribution is:
+
+$$
+P(X=x)=\binom{n}{x}p^x(1-p)^{n-x}
+=\frac{n!}{x!(n-x)!}p^x(1-p)^{n-x},
+$$
+
+where $\binom{n}{x}$ counts the ways to choose $x$ outcomes of interest (each with probability
+$p$ of occurring) from $n$ events and $n!$ is a factorial.
+
+Applying the relevant formulae, we can derive the mean and variance of a binomial distribution as:
+
+$$
+\mu=E[X]=np
+$$
+
+and
+
+$$
+\operatorname{Var}(X)=np(1-p).
+$$
+
+
+### Example: seedling survival
+
+Suppose 20 seedlings are planted in each plot and each survives independently with probability
+$0.7$. Let $X$ be the number surviving in one plot. The probability that exactly 14 survive
+is:
+
+$$
+P(X=14)
+=
+\binom{20}{14}(0.7)^{14}(1-0.7)^{20-14}
+=
+\frac{20!}{14! (20 - 14)!}(0.7)^{14}(0.3)^6
+\approx 0.1916.
+$$
+
+We can verify our math with R:
+
 ```{r}
-mean = 5
-size = 20
-prob = mean / size
-x = 0:size
-plot(x, dbinom(x, size = size, prob = prob), type = "h",
-     xlab = "Number of successes", ylab = "Probability")
+# Set the binomial model parameters and the count we want to check.
+seedling_count = 20
+seedling_survival_probability = 0.7
+survivors_to_check = 14
+
+dbinom(
+  x = survivors_to_check,
+  size = seedling_count,
+  prob = seedling_survival_probability
+)
 ```
+
+The model gives an expected count of $20(0.7)=14$ seedlings per plot and
+a variance of $20(0.7)(0.3)=4.2$ seedlings squared:
+
+```{r}
+# Calculate the expected count and variance from the binomial formulas.
+expected_survivors = seedling_count * seedling_survival_probability
+variance_survivors = seedling_count *
+  seedling_survival_probability *
+  (1 - seedling_survival_probability)
+```
+
+If a binomial mean and variance are known, we can invert their formulas.
+Writing $m=E[X]$ and $v=\operatorname{Var}(X)$ gives
+
+$$
+\begin{aligned}
+p &= 1-\frac{v}{m}, \\
+n &= \frac{m}{p}.
+\end{aligned}
+$$
+
+This conversion requires $m>0$, a probability $0<p\leq 1$, and a positive
+integer result for $n$. For the model above, it recovers $p=0.7$ and $n=20$:
+
+```{r}
+# Recover the binomial parameters from the model mean and variance.
+mean_survivors = expected_survivors
+success_probability = 1 - variance_survivors / mean_survivors
+estimated_trial_count = mean_survivors / success_probability
+```
+
+:::: {.callout-important title="Practice: hatching success in a clutch"}
+
+A clutch contains 12 eggs and each egg hatches independently with probability $0.6$.
+Calculate the expected number of hatched eggs and its variance. What is the probability
+that at least 10 eggs hatch?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The expected number of hatched eggs is $12(0.6)=7.2$ and the variance is
+$12(0.6)(0.4)=2.88$. The probability of at least 10 hatched eggs is the complement of
+the cumulative probability for nine:
+
+```{r}
+# Calculate the probability of at least ten hatched eggs out of twelve.
+1 - pbinom(q = 9, size = 12, prob = 0.6)
+```
+
+The probability is approximately $0.083$.
+
+:::
+::::
+
 ## Poisson distribution
 
 $$
@@ -108,27 +298,133 @@ $$
 \end{aligned}
 $$
 
+The Poisson distribution is a common starting point when we count events in a fixed unit of time,
+area, or sampling effort: insects caught per trap-night, seedlings per quadrat, or camera detections
+per night. It is often the default distribution for count data when we do not have a fixed
+upper limit to the number of observations. Its most important property is to always have the
+same variance and mean, such that when this is not appropriate, we need to switch to other
+distributions for count data.
+The Poisson distribution has one parameter:
+
+$$
+\lambda=\text{expected count per sampling unit}, \qquad \lambda\geq 0.
+$$
+
+Its probability mass function is
+
+$$
+P(X=x)=\frac{e^{-\lambda}\lambda^x}{x!},
+$$
+
+The mean and variance are both equal to $\lambda$:
+
+$$
+\mu = E[X]=\lambda
+$$
+
+and
+
+$$
+\operatorname{Var}(X)=\lambda.
+$$
+
+
+### Example: wildlife detections
+
+Suppose a camera records an average of $0.8$ detections per night. If the expected detection
+count scales with observation time, three nights have expected count
+
+$$
+\lambda = 3(0.8) = 2.4.
+$$
+
+Under an assumed Poisson model, the probability of exactly two detections
+over those three nights is
+
+$$
+P(X=2)
+=
+\frac{e^{-2.4}(2.4)^2}{2!}
+\approx 0.2613.
+$$
+
+We can calculate it in R:
+
 ```{r}
-mean = 4
-lambda = mean
-x = 0:qpois(0.999, lambda = lambda)
-plot(x, dpois(x, lambda = lambda), type = "h",
-     xlab = "Count", ylab = "Probability")
+# Calculate the Poisson mean for three nights and one exact probability.
+rate_per_night = 0.8
+n_nights = 3
+expected_detections = rate_per_night * n_nights
+detections_to_check = 2
+
+dpois(x = detections_to_check, lambda = expected_detections)
 ```
 
+We can also ask the probability of at least five detections in three nights. We can compute
+this from the cumulative probability (note that we calculate the cumulative probability for
+four and then take the complement):
+
+```{r}
+# Calculate the probability of at least the requested number of detections.
+minimum_detections = 5
+1 - ppois(
+  q = minimum_detections - 1,
+  lambda = expected_detections
+)
+```
+
+Unlike a binomial count, a Poisson count has no fixed upper limit. A count of 100 detections is
+possible under this model, although extremely unlikely when $\lambda=2.4$.
+
+```{r}
+#| echo: false
+#| fig-cap: "Poisson probability mass for detections during three camera nights."
+# Calculate and plot the Poisson probability mass over a useful range of counts.
+expected_detections = 2.4
+maximum_detections_to_plot = 15
+detection_values = seq.int(from = 0, to = maximum_detections_to_plot)
+detection_mass = dpois(x = detection_values, lambda = expected_detections)
+
+detection_mass_data = data.frame(
+  detections = detection_values,
+  probability = detection_mass
+)
+
+# Plot each possible detection count as a vertical probability line.
+plot(
+  detection_mass_data$detections,
+  detection_mass_data$probability,
+  type = "h",
+  xaxt = "n",
+  xlab = "Number of detections",
+  ylab = "Probability"
+)
+```
+
+:::: {.callout-important title="Practice: flowering stems per orchid plot"}
+
+A survey covers two square metres of a restoration site. Assume flowering stems occur
+at an average rate of 1.2 per square metre. Calculate the probability of finding exactly
+three stems in the surveyed area. Why does this model allow counts greater than three,
+even though three is the count in the question?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The expected count across two square metres is $\lambda=2(1.2)=2.4$. The probability is:
+
+```{r}
+# Convert the observation effort into the Poisson mean before calculating a probability.
+rate_per_square_metre = 1.2
+survey_area = 2
+expected_stems = rate_per_square_metre * survey_area
+
+dpois(x = 3, lambda = expected_stems)
+```
+
+:::
+::::
+
 ## Conway-Maxwell-Poisson distribution
-
-The Conway-Maxwell-Poisson distribution, often abbreviated COM-Poisson or CMP,
-extends the Poisson distribution by adding a dispersion parameter. It is useful when
-counts are more regular than a Poisson model allows (**underdispersion**) as well as
-when they are more variable (**overdispersion**). When $\nu = 1$, it is exactly the
-Poisson distribution. Values of $\nu > 1$ produce underdispersion, whereas values of
-$0 < \nu < 1$ produce overdispersion.
-
-Unlike the Poisson distribution, `lambda` is not generally the mean. The normalizing
-constant $Z(\lambda, \nu)$ and therefore the mean have no simple closed form. The
-`COMPoissonReg` package calculates these quantities numerically; use `ecmp()` and
-`vcmp()` when you need the mean or variance for particular parameter values.
 
 $$
 \begin{aligned}
@@ -137,7 +433,7 @@ $$
 \text{Range}: &\quad x = 0, 1, 2, \ldots \\
 \text{Probability}: &\quad
 \frac{\lambda^x}{(x!)^\nu Z(\lambda, \nu)} \\
-\text{Normalizing constant}: &\quad
+\text{Normalising constant}: &\quad
 Z(\lambda, \nu) = \sum_{j = 0}^{\infty}\frac{\lambda^j}{(j!)^\nu} \\
 \text{Parameters}: &\quad \lambda\;(\texttt{lambda}) > 0 = \text{rate parameter};\quad
 \nu\;(\texttt{nu}) > 0 = \text{dispersion parameter} \\
@@ -150,18 +446,116 @@ E[X] = \lambda\frac{\partial}{\partial\lambda}\log Z(\lambda, \nu) \\
 \end{aligned}
 $$
 
+The Conway-Maxwell-Poisson distribution, often abbreviated COM-Poisson or CMP,
+extends the Poisson distribution by adding a dispersion parameter. It is useful when
+counts are more regular than a Poisson model allows (**underdispersion**) as well as
+when they are more variable (**overdispersion**). When $\nu = 1$, it is exactly the
+Poisson distribution. Values of $\nu > 1$ produce underdispersion, whereas values of
+$0 < \nu < 1$ produce overdispersion.
+
+Its probability mass function is
+
+$$
+P(X=x)=\frac{\lambda^x}{(x!)^\nu Z(\lambda, \nu)},
+\qquad
+Z(\lambda, \nu) = \sum_{j = 0}^{\infty}\frac{\lambda^j}{(j!)^\nu},
+$$
+
+where $Z(\lambda, \nu)$ is the normalising constant that makes the probabilities add up
+to one. A useful way to see what $\nu$ does is to compare the probabilities of two
+consecutive counts:
+
+$$
+\frac{P(X=x)}{P(X=x-1)}=\frac{\lambda}{x^\nu}.
+$$
+
+For $\nu=1$ this ratio is $\lambda/x$, as in the Poisson distribution. When $\nu>1$ the
+ratio decreases faster as $x$ grows, so the probability is concentrated on fewer counts.
+When $\nu<1$ it decreases more slowly, which gives a longer right tail.
+
+Unlike the Poisson distribution, `lambda` is not generally the mean. The normalising
+constant $Z(\lambda, \nu)$ and therefore the mean have no simple closed form. The
+`COMPoissonReg` package calculates these quantities numerically; use `ecmp()` and
+`vcmp()` when you need the mean or variance for particular parameter values.
+
+### Example: clutch size
+
+Counts such as the number of eggs in a clutch often vary less than a Poisson model
+predicts. Suppose clutch size follows a Conway-Maxwell-Poisson distribution with
+$\lambda=8$ and $\nu=2$. We cannot calculate $Z(\lambda,\nu)$ by hand, but the ratios of
+consecutive probabilities are simple:
+
+$$
+\frac{P(X=1)}{P(X=0)}=\frac{8}{1^2}=8, \qquad
+\frac{P(X=2)}{P(X=1)}=\frac{8}{2^2}=2, \qquad
+\frac{P(X=3)}{P(X=2)}=\frac{8}{3^2}\approx 0.89.
+$$
+
+The probabilities increase up to a clutch of two eggs and decrease afterwards, so two is
+the most likely clutch size. We can verify these ratios in R:
+
 ```{r}
 # Requires the COMPoissonReg package.
 library(COMPoissonReg)
 
 # nu > 1 gives a distribution that is less variable than a Poisson distribution.
-lambda = 8
-nu = 2
-x = 0:qcmp(q = 0.999, lambda = lambda, nu = nu)
+clutch_lambda = 8
+clutch_nu = 2
 
-plot(x, dcmp(x = x, lambda = lambda, nu = nu), type = "h",
-     xlab = "Count", ylab = "Probability")
+# Probabilities of clutches with zero to three eggs.
+clutch_mass = dcmp(x = 0:3, lambda = clutch_lambda, nu = clutch_nu)
+clutch_mass
+
+# Ratios of consecutive probabilities.
+clutch_mass[2:4] / clutch_mass[1:3]
 ```
+
+The mean and variance are calculated numerically:
+
+```{r}
+# Calculate the mean and variance of the clutch size model.
+ecmp(lambda = clutch_lambda, nu = clutch_nu)
+vcmp(lambda = clutch_lambda, nu = clutch_nu)
+```
+
+The mean is approximately $2.56$ eggs and the variance is approximately $1.42$ eggs
+squared. A Poisson distribution with the same mean would have a variance of $2.56$, so
+this model is underdispersed relative to the Poisson distribution.
+
+```{r}
+#| echo: false
+#| fig-cap: "Conway-Maxwell-Poisson probability mass for clutch size."
+# Calculate and plot the probability mass up to a count that is very unlikely to be exceeded.
+clutch_values = 0:qcmp(q = 0.999, lambda = 8, nu = 2)
+plot(
+  clutch_values,
+  dcmp(x = clutch_values, lambda = 8, nu = 2),
+  type = "h",
+  xlab = "Number of eggs",
+  ylab = "Probability"
+)
+```
+
+:::: {.callout-important title="Practice: dispersion in a count model"}
+
+Calculate the mean and variance of a Conway-Maxwell-Poisson distribution with $\lambda=2$
+and $\nu=0.5$. Is this model overdispersed or underdispersed relative to the Poisson
+distribution?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+```{r}
+# Calculate the mean and variance for a dispersion parameter smaller than one.
+ecmp(lambda = 2, nu = 0.5)
+vcmp(lambda = 2, nu = 0.5)
+```
+
+The mean is approximately $4.55$ and the variance is approximately $7.92$. The variance
+is larger than the mean, so the model is overdispersed relative to the Poisson
+distribution, as expected for $\nu<1$.
+
+:::
+::::
 
 ## Negative binomial distribution
 
@@ -171,29 +565,173 @@ $$
 \text{Type}: &\quad \text{Discrete} \\
 \text{Range}: &\quad x = 0, 1, 2, \ldots \\
 \text{Probability}: &\quad
-\frac{\Gamma(x+r)}{\Gamma(r)x!}p^r(1-p)^x \\
-\text{Parameters}: &\quad r\;(\texttt{size}) = \text{dispersion};\quad
+\frac{\Gamma(x+k)}{\Gamma(k)x!}p^k(1-p)^x \\
+\text{Parameters}: &\quad k\;(\texttt{size}) = \text{dispersion};\quad
 p\;(\texttt{prob}) = \text{prob success} \\
-\text{Mean}: &\quad E[x] = r(1-p)/p \\
-\text{Variance}: &\quad Var(X) = \mu + \mu^2/r \\
-\text{Inverse}: &\quad p = r/(r+\mu)
+\text{Mean}: &\quad E[x] = k(1-p)/p \\
+\text{Variance}: &\quad Var(X) = \mu + \mu^2/k \\
+\text{Inverse}: &\quad p = k/(k+\mu)
 \end{aligned}
 $$
 
+When overdispersion occurs, the negative binomial distribution is a useful starting model.
+It has support $\{0, 1, 2, \ldots\}$ and can accommodate more variation
+than a Poisson model with the same mean. The negative binomial model has two parameters:
+
+- $\mu>0$: the mean count per sampling unit;
+- $k>0$: a shape or dispersion parameter that controls the additional variation
+
+The probability mass function is
+
+$$
+P(X=x)
+=
+\frac{\Gamma(x+k)}{\Gamma(k)x!}
+\left(\frac{k}{k+\mu}\right)^k
+\left(\frac{\mu}{k+\mu}\right)^x,
+$$
+
+where $\Gamma$ is the gamma function, which extends the factorial to real values.
+
+The mean and variance are:
+
+$$
+E[X]=\mu
+$$
+
+and
+
+$$
+\operatorname{Var}(X)=\mu+\frac{\mu^2}{k}.
+$$
+
+For $\mu>0$ and finite $k$, the variance exceeds the mean. At a fixed $\mu$, smaller $k$ gives
+greater variance. As $k$ increases, the extra variation fades and the variance approaches the mean:
+
+$$
+\mu+\frac{\mu^2}{k}\longrightarrow\mu.
+$$
+
+Thus, the negative binomial distribution approaches the Poisson distribution as $k$ becomes
+large.
+
+In R, `dnbinom()` and related functions, the argument `size` corresponds to $k$. This naming
+can be confusing because `size` does not mean the sample size here; it is the negative
+binomial shape parameter. The *Details* section of the documentation page for `dnbinom`
+explains why it has that name.
+
+### Example: seedlings in quadrats
+
+Suppose the mean number of seedlings per quadrat is $\mu=4$, and the shape parameter is $k=1.5$.
+The expected number of seedlings is
+
+$$
+E[X]=4.
+$$
+
+The variance is
+
+$$
+\operatorname{Var}(X)
+=
+4+\frac{4^2}{1.5}
+\approx 14.67.
+$$
+
+Across comparable quadrats, the model predicts four seedlings on average and a variance of
+approximately $14.67$ seedlings squared. That is much more variation than the Poisson model would
+allow at the same mean.
+
+We can verify these calculations in R:
+
 ```{r}
-mean = 8
-size = 2
-prob = size / (size + mean)
-x = 0:qnbinom(0.999, size = size, prob = prob)
-plot(x, dnbinom(x, size = size, prob = prob), type = "h",
-     xlab = "Count", ylab = "Probability")
+# Calculate the negative binomial mean and variance from its parameters.
+mean_seedlings = 4
+negative_binomial_size = 1.5
+
+expected_seedlings = mean_seedlings
+variance_seedlings = mean_seedlings +
+  mean_seedlings^2 / negative_binomial_size
+
+c(mean = expected_seedlings, variance = variance_seedlings)
 ```
 
-## Beta-binomial distribution
+The probability of observing exactly 10 seedlings is:
 
-These functions are available in the `VGAM` package. I recommend parameterizing from mean,
-size and a precision parameter ($\kappa$ inverse of a scale, the larger it is the narrower the
-distribution).
+```{r}
+# Calculate the probability of one particular seedling count.
+seedlings_to_check = 10
+
+dnbinom(
+  x = seedlings_to_check,
+  size = negative_binomial_size,
+  mu = mean_seedlings
+)
+```
+
+The probability of observing at least 10 seedlings is:
+
+```{r}
+# Calculate the probability of at least the requested number of seedlings.
+minimum_seedlings = 10
+
+1 - pnbinom(
+  q = minimum_seedlings - 1,
+  size = negative_binomial_size,
+  mu = mean_seedlings
+)
+```
+
+Like the Poisson distribution, the negative binomial distribution has no fixed
+upper limit. A count of 100 is mathematically possible, although very unlikely if your mean
+is 4.
+
+```{r}
+#| echo: false
+#| fig-cap: "Negative binomial probability mass for seedlings in a quadrat."
+# Calculate and plot the negative binomial probability mass over a useful range.
+mean_seedlings = 4
+negative_binomial_size = 1.5
+maximum_seedlings_to_plot = 20
+seedling_values = seq.int(from = 0, to = maximum_seedlings_to_plot)
+negative_binomial_mass = dnbinom(
+  x = seedling_values,
+  size = negative_binomial_size,
+  mu = mean_seedlings
+)
+
+negative_binomial_mass_data = data.frame(
+  seedlings = seedling_values,
+  probability = negative_binomial_mass
+)
+
+# Vertical lines make the separate possible count probabilities visible.
+plot(
+  negative_binomial_mass_data$seedlings,
+  negative_binomial_mass_data$probability,
+  type = "h",
+  xaxt = "n",
+  xlab = "Number of seedlings",
+  ylab = "Probability"
+)
+```
+
+:::: {.callout-important title="Practice: orchid stem counts with different dispersion"}
+
+Suppose the mean number of flowering stems per plot is $\mu=3$. Calculate the negative
+binomial variance for $k=1.5$ and $k=6$. Which value gives greater overdispersion? How
+does increasing $k$ relate to the Poisson model?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+Using $\operatorname{Var}(X)=\mu+\mu^2/k$, the variances are 9 and 4.5, respectively.
+The smaller value of $k$ gives greater overdispersion. As $k$ increases, the variance
+approaches the mean, which is the Poisson mean–variance relationship.
+
+:::
+::::
+
+## Beta-Binomial distribution
 
 $$
 \begin{aligned}
@@ -202,33 +740,157 @@ $$
 \text{Type}: &\quad \text{Discrete} \\
 \text{Range}: &\quad x = 0, 1, \ldots, n \\
 \text{Probability}: &\quad
-\binom{n}{x}\frac{B(x+\alpha,n-x+\beta)}{B(\alpha,\beta)} \\
+\binom{n}{x}\frac{B(x+a,n-x+b)}{B(a,b)} \\
 \text{Parameters}: &\quad n\;(\texttt{size}) = \text{no. trials};\quad
-\alpha\;(\texttt{shape1}),\ \beta\;(\texttt{shape2}) = \text{shapes} \\
-\text{Mean}: &\quad E[x] = n\frac{\alpha}{\alpha+\beta} \\
+a\;(\texttt{shape1}),\ b\;(\texttt{shape2}) = \text{shapes} \\
+\text{Mean}: &\quad E[x] = n\frac{a}{a+b} \\
 \text{Variance}: &\quad
-Var(X) = \frac{n\alpha\beta(\alpha+\beta+n)}
-{(\alpha+\beta)^2(\alpha+\beta+1)} \\
+Var(X) = \frac{nab(a+b+n)}
+{(a+b)^2(a+b+1)} \\
 \text{Inverse}: &\quad
-\kappa = \alpha+\beta;\quad
-\alpha = \kappa\frac{\mu}{n};\quad
-\beta = \kappa\left(1-\frac{\mu}{n}\right)
+\kappa = a+b;\quad
+a = \kappa\frac{\mu}{n};\quad
+b = \kappa\left(1-\frac{\mu}{n}\right)
 \end{aligned}
 $$
 
+The Beta-Binomial distribution is useful when every sampling unit contains a fixed number
+of binary events, as in the Binomial distribution, but the probability of the outcome of
+interest varies from one sampling unit to another. It can be constructed in two steps.
+First, the probability $p$ of each sampling unit is drawn from a Beta distribution with
+shape parameters $a>0$ and $b>0$. Then, the count in that unit follows a Binomial
+distribution with $n$ trials and that probability $p$. The result is a count between $0$
+and $n$ that varies more than a Binomial count with the same mean, that is, it has
+overdispersion relative to the Binomial distribution.
+
+The probability mass function is
+
+$$
+P(X=x)=\binom{n}{x}\frac{B(x+a,\,n-x+b)}{B(a,b)},
+$$
+
+where $B(a,b)=\Gamma(a)\Gamma(b)/\Gamma(a+b)$ is the beta function.
+
+These functions are available in the `VGAM` package. I recommend parameterising from mean,
+size and a precision parameter ($\kappa$ inverse of a scale, the larger it is the narrower the
+distribution). Writing $\bar{p}=a/(a+b)$ for the mean probability across sampling units and
+$\kappa=a+b$ for the precision, the mean and variance are:
+
+$$
+\mu=E[X]=n\bar{p}
+$$
+
+and
+
+$$
+\operatorname{Var}(X)=n\bar{p}(1-\bar{p})\,\frac{\kappa+n}{\kappa+1}.
+$$
+
+The first part of the variance, $n\bar{p}(1-\bar{p})$, is the variance of a Binomial distribution.
+The factor $(\kappa+n)/(\kappa+1)$ is larger than one whenever $n>1$ and it represents the
+additional variation. As $\kappa$ increases this factor approaches one, so the Beta-Binomial
+distribution approaches the Binomial distribution.
+
+### Example: tadpole survival in tanks
+
+Suppose 20 tadpoles are placed in each tank and the mean survival probability is $0.25$,
+but the probability differs among tanks, which we describe with a precision of
+$\kappa=12$. The shape parameters are
+
+$$
+a = 12(0.25) = 3, \qquad b = 12(1-0.25) = 9.
+$$
+
+The expected number of survivors per tank is $20(0.25)=5$ and the variance is
+
+$$
+\operatorname{Var}(X)
+=
+20(0.25)(0.75)\,\frac{12+20}{12+1}
+=
+3.75 \times \frac{32}{13}
+\approx 9.23.
+$$
+
+A Binomial model with the same mean has a variance of only $3.75$. We can verify the
+variance with the formula written in terms of $a$ and $b$:
+
 ```{r}
+# Convert the mean and precision into the two shape parameters.
+tadpole_count = 20
+mean_survivors_per_tank = 5
+survival_precision = 12
+shape1 = survival_precision * mean_survivors_per_tank / tadpole_count
+shape2 = survival_precision * (1 - mean_survivors_per_tank / tadpole_count)
+
+# Calculate the variance from the shape parameters.
+tadpole_count * shape1 * shape2 * (shape1 + shape2 + tadpole_count) /
+  ((shape1 + shape2)^2 * (shape1 + shape2 + 1))
+```
+
+The additional variation is most visible in the tails. The probability that at least 10
+tadpoles survive in a tank is much higher than under the Binomial model:
+
+```{r}
+#| message: false
 # Requires the VGAM package
 library(VGAM)
-mean = 5
-size = 20
-precision = 12
-shape1 = precision * mean / size
-shape2 = precision * (1 - mean / size)
-x = 0:size
-plot(x, dbetabinom.ab(x, size = size,
-                            shape1 = shape1, shape2 = shape2),
-     type = "h", xlab = "Number of successes", ylab = "Probability")
+
+# Probability of at least ten survivors under the Beta-Binomial model.
+1 - pbetabinom.ab(q = 9, size = tadpole_count, shape1 = shape1, shape2 = shape2)
+
+# The same probability under a Binomial model with the same mean.
+1 - pbinom(q = 9, size = tadpole_count, prob = mean_survivors_per_tank / tadpole_count)
 ```
+
+```{r}
+#| echo: false
+#| fig-cap: "Beta-Binomial probability mass for surviving tadpoles in a tank (lines), compared with a Binomial distribution with the same mean (points)."
+# Calculate the probability mass under both models for all possible counts.
+survivor_values = 0:20
+beta_binomial_mass = VGAM::dbetabinom.ab(
+  x = survivor_values,
+  size = 20,
+  shape1 = 3,
+  shape2 = 9
+)
+binomial_mass = dbinom(x = survivor_values, size = 20, prob = 0.25)
+
+# Vertical lines show the Beta-Binomial model and points the Binomial model.
+plot(
+  survivor_values,
+  beta_binomial_mass,
+  type = "h",
+  ylim = c(0, max(binomial_mass)),
+  xlab = "Number of surviving tadpoles",
+  ylab = "Probability"
+)
+points(survivor_values, binomial_mass, pch = 1)
+legend(
+  "topright",
+  legend = c("Beta-Binomial", "Binomial"),
+  lty = c(1, NA),
+  pch = c(NA, 1),
+  bty = "n"
+)
+```
+
+:::: {.callout-important title="Practice: variation among tanks"}
+
+For the tadpole example ($n=20$ and mean survival probability $0.25$), calculate the
+variance of the number of survivors for $\kappa=2$ and for $\kappa=100$. Which of the
+two models is closer to a Binomial distribution?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The Binomial variance is $20(0.25)(0.75)=3.75$. For $\kappa=2$ it is multiplied by
+$(2+20)/(2+1)\approx 7.33$, which gives a variance of $27.5$. For $\kappa=100$ it is
+multiplied by $(100+20)/(100+1)\approx 1.19$, which gives a variance of approximately
+$4.46$. The model with $\kappa=100$ is closer to the Binomial distribution, because a
+large precision means that the survival probability hardly varies among tanks.
+
+:::
+::::
 
 # Continuous distribution
 
@@ -295,11 +957,99 @@ b\;(\texttt{max}) = \text{upper bound} \\
 \end{aligned}
 $$
 
+The Uniform distribution is the model for a continuous variable that is equally likely to
+take any value between a lower bound $a$ and an upper bound $b$. Its density is constant
+within those bounds and zero outside them:
+
+$$
+f_X(x)=\frac{1}{b-a}, \qquad a \leq x \leq b.
+$$
+
+Because the density is constant, the probability of an interval only depends on its length.
+For any $c$ and $d$ with $a \leq c \leq d \leq b$,
+
+$$
+P(c \leq X \leq d)=\frac{d-c}{b-a}.
+$$
+
+The mean and variance are:
+
+$$
+\mu=E[X]=\frac{a+b}{2}
+$$
+
+and
+
+$$
+\operatorname{Var}(X)=\frac{(b-a)^2}{12}.
+$$
+
+The Uniform distribution is rarely a good model for an ecological measurement, but it is a
+common building block in simulations (e.g., to choose random positions or directions). We
+also use `runif()` to construct the random number generator of a zero-inflated distribution
+(see @sec-zero_inflated).
+
+### Example: position along a transect
+
+Suppose a seedling is equally likely to establish anywhere along a 50 m transect. Let $X$ be
+its position in metres, so $a=0$ and $b=50$. The density is $1/50=0.02$ per metre and the
+probability that the seedling establishes between 10 m and 25 m is
+
+$$
+P(10 \leq X \leq 25)=\frac{25-10}{50-0}=0.3.
+$$
+
+The mean position is $(0+50)/2=25$ m and the variance is $50^2/12\approx 208.3$ m$^2$,
+which corresponds to a standard deviation of approximately $14.4$ m.
+
+We can verify our math with R:
+
 ```{r}
-min = 1
-max = 3
-curve(dunif(x, min = min, max = max), min, max)
+# Set the bounds of the transect in metres.
+transect_start = 0
+transect_end = 50
+
+# Subtract cumulative probabilities to obtain the probability of an interval.
+punif(q = 25, min = transect_start, max = transect_end) -
+  punif(q = 10, min = transect_start, max = transect_end)
+
+# Calculate the standard deviation of the position.
+sqrt((transect_end - transect_start)^2 / 12)
 ```
+
+```{r}
+#| echo: false
+#| fig-cap: "Uniform probability density for the position of a seedling along a 50 m transect."
+# Calculate the density for positions inside and just outside the transect.
+position_values = seq(from = -10, to = 60, length.out = 701)
+plot(
+  position_values,
+  dunif(x = position_values, min = 0, max = 50),
+  type = "l",
+  xlab = "Position along the transect (m)",
+  ylab = "Density"
+)
+```
+
+:::: {.callout-important title="Practice: direction of dispersal"}
+
+Suppose the direction in which a seed leaves its parent plant is equally likely to be any
+angle between 0 and 360 degrees. Calculate the probability that the direction falls between
+45 and 135 degrees. What is the standard deviation of the direction?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The interval is 90 degrees long, so the probability is $90/360=0.25$. The standard deviation
+is $\sqrt{360^2/12}\approx 103.9$ degrees:
+
+```{r}
+# Calculate the probability of the interval and the standard deviation.
+punif(q = 135, min = 0, max = 360) - punif(q = 45, min = 0, max = 360)
+sqrt(360^2 / 12)
+```
+
+:::
+::::
 
 ## Normal distribution
 
@@ -313,27 +1063,122 @@ $$
 \exp\left[-\frac{(x-\mu)^2}{2\sigma^2}\right] \\
 \text{Parameters}: &\quad \mu\;(\texttt{mean}) = \text{mean};\quad
 \sigma\;(\texttt{sd}) = \text{standard deviation} \\
-\text{Mean}: &\quad E[X] = \texttt{mean} \\
-\text{Variance}: &\quad Var(X) = \texttt{sd}^2 \\
+\text{Mean}: &\quad E[X] = \mu \\
+\text{Variance}: &\quad Var(X) = \sigma^2 \\
 \end{aligned}
 $$
 
+The Normal distribution is a symmetric model for a continuous variable that can take any
+real value. It arises when a variable is the sum of many small, independent contributions,
+which is why it is often used for measurement error. It has two parameters: the mean $\mu$,
+which sets the centre of the distribution, and the standard deviation $\sigma>0$, which
+sets its spread. We write $X\sim\operatorname{Normal}(\mu,\sigma^2)$. Note that the second
+quantity in this notation is the variance, whereas the `sd` argument in R takes the
+standard deviation $\sigma$.
+
+Its probability density function is
+
+$$
+f_X(x)=\frac{1}{\sigma\sqrt{2\pi}}
+\exp\left[-\frac{(x-\mu)^2}{2\sigma^2}\right].
+$$
+
+The mean and variance are:
+
+$$
+E[X]=\mu
+$$
+
+and
+
+$$
+\operatorname{Var}(X)=\sigma^2.
+$$
+
+Because the density is symmetric around $\mu$, the mean, the median and the mode coincide.
+Approximately 68% of the probability lies within one standard deviation of the mean, 95%
+within two and 99.7% within three. We can express any value in units of standard deviations
+with $Z=(X-\mu)/\sigma$, which follows a Normal distribution with mean $0$ and variance $1$
+(the *standard* Normal distribution).
+
+A Normal model always assigns some probability to negative values. For a positive
+measurement this is only a concern when zero is within a few standard deviations of the
+mean; otherwise that probability is negligible.
+
+### Example: tree heights
+
+As in [Chapter 3](../Chapter_3/Theory.qmd), suppose tree heights follow a Normal
+distribution with $\mu=22$ m and $\sigma=4$ m. A height of 30 m is two standard deviations
+above the mean:
+
+$$
+z=\frac{30-22}{4}=2.
+$$
+
+Approximately 95% of the probability lies between 14 m and 30 m, so about 5% lies outside
+that interval. By symmetry, half of it is above 30 m:
+
+$$
+P(X>30)\approx \frac{1-0.95}{2}=0.025.
+$$
+
+We can calculate it in R:
+
 ```{r}
-mean = 2
-sd = 0.5
-curve(dnorm(x, mean = mean, sd = sd), mean - 4 * sd, mean + 4 * sd)
+# Set the parameters of the tree height model in metres.
+mean_height = 22
+sd_height = 4
+
+# Use the upper tail for the probability of a height above 30 m.
+pnorm(q = 30, mean = mean_height, sd = sd_height, lower.tail = FALSE)
 ```
+
+The result is approximately $0.0228$, slightly smaller than our approximation because the
+interval that contains exactly 95% of the probability is a bit narrower than two standard
+deviations on each side of the mean.
+
+```{r}
+#| echo: false
+#| fig-cap: "Normal probability density for tree height."
+# Calculate the density within four standard deviations of the mean.
+height_values = seq(from = 6, to = 38, length.out = 400)
+plot(
+  height_values,
+  dnorm(x = height_values, mean = 22, sd = 4),
+  type = "l",
+  xlab = "Tree height (m)",
+  ylab = "Density"
+)
+```
+
+:::: {.callout-important title="Practice: short trees and a central interval"}
+
+For the tree height model above ($\mu=22$ m and $\sigma=4$ m), calculate the probability
+that a tree is shorter than 16 m. Between which two heights do we find the central 90% of
+the distribution?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The probability of a height below 16 m is a cumulative probability. The central 90% of the
+distribution lies between the 5% and the 95% quantiles:
+
+```{r}
+# Calculate a lower-tail probability and the quantiles that enclose the central 90%.
+pnorm(q = 16, mean = 22, sd = 4)
+qnorm(p = c(0.05, 0.95), mean = 22, sd = 4)
+```
+
+The probability is approximately $0.067$ and the interval goes from approximately 15.4 m to
+28.6 m.
+
+:::
+::::
 
 ## T distribution
 
-The t-distribution functions built into R are standardized (i.e., $\mu = 0$ and $\sigma = 1$)
-and only depends on the degrees of freedom ($\nu$). If we want to change then we need to
-define our random variable as $X = \mu + s \cdot T$, where $T$ is the standardized t. Note
-that $s$ is a scale parameter and it will be larger than $\sigma$ when $\nu > 2$.
-
 $$
 \begin{aligned}
-\text{R}: &\quad \texttt{dt, pt, qt, rt} \quad
+\text{R}: &\quad \texttt{dt, pt, qt, rt} \\
 \text{Type}: &\quad \text{Continuous} \\
 \text{Range}: &\quad -\infty < x < \infty \\
 \text{Density}: &\quad
@@ -351,14 +1196,140 @@ s=\sigma\sqrt{\frac{\nu-2}{\nu}}
 \end{aligned}
 $$
 
+The T distribution is symmetric and bell-shaped like the Normal distribution, but it has
+thicker tails. That is, it assigns more probability to values that are far from the centre.
+This makes it useful when the data contain a few extreme values that a Normal model would
+treat as practically impossible. It has three parameters: a location $\mu$ that sets the
+centre, a scale $s>0$ that sets the spread and the degrees of freedom $\nu>0$ that control
+how thick the tails are. The smaller $\nu$ is, the thicker the tails. As $\nu$ increases,
+the T distribution approaches the Normal distribution.
+
+Its probability density function is
+
+$$
+f_X(x)=\frac{\Gamma((\nu+1)/2)}{s\sqrt{\nu\pi}\,\Gamma(\nu/2)}
+\left[1+\frac{(x-\mu)^2}{\nu s^2}\right]^{-(\nu+1)/2},
+$$
+
+where $\Gamma$ is the gamma function. The mean and variance are:
+
+$$
+E[X]=\mu \qquad (\nu>1)
+$$
+
+and
+
+$$
+\operatorname{Var}(X)=s^2\frac{\nu}{\nu-2} \qquad (\nu>2).
+$$
+
+Note that the scale $s$ is not the standard deviation of the distribution. The standard
+deviation is $\sigma=s\sqrt{\nu/(\nu-2)}$, which is always larger than $s$. So, if we want a
+T distribution with a particular standard deviation $\sigma$, we need to use the scale
+$s=\sigma\sqrt{(\nu-2)/\nu}$.
+
+The T distribution functions built into R are standardised (i.e., $\mu = 0$ and $s = 1$)
+and only depend on the degrees of freedom. If we want a different location or scale, we
+define our random variable as $X = \mu + s \cdot T$, where $T$ follows the standardised T
+distribution. In practice, this means that we standardise a value as $(x-\mu)/s$ before
+passing it to `pt()`, and that the density is `dt((x - mu) / s, df) / s`. The standardised
+T distribution is also the source of the critical values used for some of the confidence
+intervals in [Chapter 4](../Chapter_4/Theory.qmd).
+
+### Example: tree heights with thicker tails
+
+Suppose tree heights have a mean of 22 m and a standard deviation of 4 m, as in the Normal
+example, but follow a T distribution with $\nu=5$. The scale is
+
+$$
+s=4\sqrt{\frac{5-2}{5}}\approx 3.10 \text{ m}.
+$$
+
+To calculate the probability of a height above 30 m we first standardise that height:
+
+$$
+t=\frac{30-22}{3.10}\approx 2.58.
+$$
+
+The upper tail probability of the standardised T distribution at that value is
+approximately $0.025$. We can calculate it in R:
+
 ```{r}
-mean = 2
-df = 5
-sd = 0.5
-scale = sd * sqrt((df - 2) / df)
-curve(dt((x - mean) / scale, df = df) / scale,
-      mean - 4 * sd, mean + 4 * sd)
+# Convert the standard deviation into the scale of the T distribution.
+mean_height = 22
+sd_height = 4
+height_df = 5
+height_scale = sd_height * sqrt((height_df - 2) / height_df)
+
+# Standardise the height before calculating the upper-tail probability.
+pt(q = (30 - mean_height) / height_scale, df = height_df, lower.tail = FALSE)
 ```
+
+This probability is close to the $0.023$ of the Normal model. The difference between the
+two models appears further out in the tail. For a height above 38 m (four standard
+deviations above the mean):
+
+```{r}
+# Compare the probability of a very tall tree under the T and Normal models.
+pt(q = (38 - mean_height) / height_scale, df = height_df, lower.tail = FALSE)
+pnorm(q = 38, mean = mean_height, sd = sd_height, lower.tail = FALSE)
+```
+
+The T model gives a probability of approximately $0.0018$, whereas the Normal model gives
+approximately $0.00003$.
+
+```{r}
+#| echo: false
+#| fig-cap: "Probability density of tree height under a T distribution with five degrees of freedom (solid line) and a Normal distribution (dashed line) with the same mean and standard deviation."
+# Calculate both densities over the same range of heights.
+height_values = seq(from = 2, to = 42, length.out = 400)
+t_scale = 4 * sqrt((5 - 2) / 5)
+t_density = dt(x = (height_values - 22) / t_scale, df = 5) / t_scale
+normal_density = dnorm(x = height_values, mean = 22, sd = 4)
+
+# Use different line types to distinguish the two models.
+plot(
+  height_values,
+  t_density,
+  type = "l",
+  xlab = "Tree height (m)",
+  ylab = "Density"
+)
+lines(height_values, normal_density, lty = 2)
+legend("topright", legend = c("T", "Normal"), lty = c(1, 2), bty = "n")
+```
+
+:::: {.callout-important title="Practice: degrees of freedom and extreme values"}
+
+Consider two T models for tree height with a mean of 22 m and a standard deviation of 4 m,
+one with $\nu=3$ and one with $\nu=30$. For each model, calculate the probability that a
+height is more than three standard deviations away from the mean (i.e., below 10 m or
+above 34 m). Compare the results with the Normal model.
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+By symmetry, the probability is twice the upper tail probability at 34 m. For each model we
+calculate the scale and standardise the height:
+
+```{r}
+# Calculate the two-sided tail probability for each number of degrees of freedom.
+scale_df3 = 4 * sqrt((3 - 2) / 3)
+2 * pt(q = (34 - 22) / scale_df3, df = 3, lower.tail = FALSE)
+
+scale_df30 = 4 * sqrt((30 - 2) / 30)
+2 * pt(q = (34 - 22) / scale_df30, df = 30, lower.tail = FALSE)
+
+# The same probability under the Normal model.
+2 * pnorm(q = 34, mean = 22, sd = 4, lower.tail = FALSE)
+```
+
+The probabilities are approximately $0.014$ for $\nu=3$, $0.004$ for $\nu=30$ and $0.003$
+for the Normal model. The fewer the degrees of freedom, the more probability the model
+assigns to extreme values, and with $\nu=30$ the model is already close to the Normal
+model.
+
+:::
+::::
 
 ## Exponential distribution
 
@@ -375,17 +1346,102 @@ $$
 \end{aligned}
 $$
 
+The Exponential distribution is the model for the waiting time until an event happens,
+when the event occurs at a constant rate $\lambda>0$ per unit of time. A constant rate means
+that the chance of the event happening in the next instant does not depend on how long we
+have already waited. Under the same assumption, the number of events in a fixed period of
+time follows a Poisson distribution.
+
+Its probability density function is
+
+$$
+f_X(x)=\lambda e^{-\lambda x}, \qquad x \geq 0,
+$$
+
+which has its maximum at $x=0$ and decreases from there. The cumulative probability has a
+simple formula, $P(X \leq x)=1-e^{-\lambda x}$, so the probability of waiting longer than
+$x$ is $P(X>x)=e^{-\lambda x}$. The mean and variance are:
+
+$$
+\mu=E[X]=\frac{1}{\lambda}
+$$
+
+and
+
+$$
+\operatorname{Var}(X)=\frac{1}{\lambda^2}.
+$$
+
+That is, the standard deviation of an Exponential distribution is always equal to its
+mean. Note that the rate has units of events per unit of time, whereas the mean has units
+of time.
+
+### Example: waiting for a pollinator
+
+Suppose a flower is visited by a pollinator on average once every 2 minutes. The rate is
+$\lambda=1/2=0.5$ visits per minute. The probability of waiting more than 5 minutes for the
+next visit is
+
+$$
+P(X>5)=e^{-0.5(5)}=e^{-2.5}\approx 0.0821.
+$$
+
+We can verify our math with R:
 
 ```{r}
-mean = 2
-rate = 1/mean
-curve(dexp(x, rate = rate), 0, 5)
+# Convert the mean waiting time (in minutes) into a rate.
+mean_waiting_time = 2
+visit_rate = 1 / mean_waiting_time
+
+# Use the upper tail for the probability of waiting more than five minutes.
+pexp(q = 5, rate = visit_rate, lower.tail = FALSE)
 ```
 
-## Gamma distribution
+The median waiting time is the value at which the cumulative probability equals $0.5$, which
+is $\log(2)/\lambda\approx 1.39$ minutes. It is shorter than the mean because the
+distribution is skewed to the right:
 
-R's `rate` and `scale` are reciprocals: `scale = 1/rate`. I recommend to parameterize it from
-the mean and either `rate` or `scale`.
+```{r}
+# Calculate the median waiting time with the quantile function.
+qexp(p = 0.5, rate = visit_rate)
+```
+
+```{r}
+#| echo: false
+#| fig-cap: "Exponential probability density for the waiting time until the next pollinator visit."
+# Calculate the density over a range that covers most of the probability.
+waiting_values = seq(from = 0, to = 10, length.out = 400)
+plot(
+  waiting_values,
+  dexp(x = waiting_values, rate = 0.5),
+  type = "l",
+  xlab = "Waiting time (minutes)",
+  ylab = "Density"
+)
+```
+
+:::: {.callout-important title="Practice: time until a seed is found"}
+
+Suppose a seed on the forest floor is found by a seed predator after 4 days on average and
+that the rate at which seeds are found is constant. Calculate the probability that a seed
+has not been found after 8 days. What is the median time until a seed is found?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The rate is $\lambda=1/4=0.25$ per day. The probability that the seed has not been found
+after 8 days is $e^{-0.25(8)}=e^{-2}\approx 0.135$ and the median is
+$\log(2)/0.25\approx 2.77$ days:
+
+```{r}
+# Calculate the upper-tail probability and the median for a rate of 0.25 per day.
+pexp(q = 8, rate = 1 / 4, lower.tail = FALSE)
+qexp(p = 0.5, rate = 1 / 4)
+```
+
+:::
+::::
+
+## Gamma distribution
 
 $$
 \begin{aligned}
@@ -393,8 +1449,8 @@ $$
 \text{Type}: &\quad \text{Continuous} \\
 \text{Range}: &\quad x \geq 0 \\
 \text{Density}: &\quad
-\frac{\texttt{rate}^{\texttt{shape}}}{\Gamma(\texttt{shape})}
-x^{\texttt{shape}-1}e^{-\texttt{rate}x} \\
+\frac{r^k}{\Gamma(k)}
+x^{k-1}e^{-rx} \\
 \text{Parameters}: &\quad k\;(\texttt{shape}) = \text{shape};\quad
 r\;(\texttt{rate}) = \text{rate} \\
 \text{Mean}: &\quad E[x] = k/r \\
@@ -404,14 +1460,120 @@ r\;(\texttt{rate}) = \text{rate} \\
 \end{aligned}
 $$
 
+The Gamma distribution is a model for positive continuous variables that are skewed to the
+right. It can be derived as the waiting time until a certain number of events ($k$) have
+happened, when the events occur at a constant rate $r$. That is, it is the distribution of
+the sum of $k$ independent Exponential waiting times, and for $k=1$ it is the Exponential
+distribution. However, $k$ does not need to be an integer and the Gamma distribution is
+also used as a general model for positive measurements, in the same situations as the
+LogNormal distribution.
+
+Its probability density function is
+
+$$
+f_X(x)=\frac{r^k}{\Gamma(k)}x^{k-1}e^{-rx}, \qquad x \geq 0,
+$$
+
+where $k>0$ is the shape, $r>0$ is the rate and $\Gamma$ is the gamma function. The mean and
+variance are:
+
+$$
+\mu=E[X]=\frac{k}{r}
+$$
+
+and
+
+$$
+\operatorname{Var}(X)=\frac{k}{r^2}=\frac{\mu^2}{k}.
+$$
+
+In other words, the standard deviation is proportional to the mean and the coefficient of
+variation (the standard deviation divided by the mean) is $1/\sqrt{k}$. So the shape
+controls the relative variation: the smaller $k$ is, the more variable and skewed the
+distribution, whereas for large $k$ it becomes almost symmetric.
+
+R's `rate` and `scale` are reciprocals: `scale = 1/rate`. I recommend to parameterise it from
+the mean and either `rate` or `scale`.
+
+### Example: waiting for the third pollinator
+
+We continue with the flower that is visited by pollinators at a rate of $0.5$ visits per
+minute. The waiting time until the third visit follows a Gamma distribution with $k=3$ and
+$r=0.5$ per minute. The expected waiting time is
+
+$$
+E[X]=\frac{3}{0.5}=6 \text{ minutes}
+$$
+
+and the variance is
+
+$$
+\operatorname{Var}(X)=\frac{3}{0.5^2}=12 \text{ minutes}^2,
+$$
+
+which corresponds to a standard deviation of approximately $3.46$ minutes. The probability
+of waiting more than 10 minutes for the third visit is:
+
 ```{r}
-mean = 2
-shape = 3
-rate = shape / mean
-curve(dgamma(x, shape = shape, rate = rate), 0, 6)
+# Set the shape (number of visits) and the rate (visits per minute).
+visit_shape = 3
+visit_rate = 0.5
+
+# Use the upper tail for the probability of waiting more than ten minutes.
+pgamma(q = 10, shape = visit_shape, rate = visit_rate, lower.tail = FALSE)
 ```
 
-## Log-normal distribution
+If we know the mean instead of the rate, we calculate the rate as $r=k/\mu$. For a mean of
+6 minutes and a shape of 3 we recover the same model:
+
+```{r}
+# Calculate the rate from the mean waiting time and the shape.
+mean_waiting_time = 6
+visit_rate_from_mean = visit_shape / mean_waiting_time
+
+pgamma(q = 10, shape = visit_shape, rate = visit_rate_from_mean, lower.tail = FALSE)
+```
+
+```{r}
+#| echo: false
+#| fig-cap: "Gamma probability density for the waiting time until the third pollinator visit."
+# Calculate the density over a range that covers most of the probability.
+waiting_values = seq(from = 0, to = 20, length.out = 400)
+plot(
+  waiting_values,
+  dgamma(x = waiting_values, shape = 3, rate = 0.5),
+  type = "l",
+  xlab = "Waiting time (minutes)",
+  ylab = "Density"
+)
+```
+
+:::: {.callout-important title="Practice: seedling biomass"}
+
+Suppose the dry biomass of a seedling follows a Gamma distribution with a mean of 2 g and a
+shape of 3. Calculate the rate, the variance and the coefficient of variation. What is the
+probability that a seedling weighs less than 1 g?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The rate is $r=3/2=1.5$ per gram, the variance is $2^2/3\approx 1.33$ g$^2$ and the
+coefficient of variation is $1/\sqrt{3}\approx 0.58$. The probability of a biomass below
+1 g is a cumulative probability:
+
+```{r}
+# Calculate the rate from the mean and shape, then the lower-tail probability.
+biomass_shape = 3
+biomass_rate = biomass_shape / 2
+
+pgamma(q = 1, shape = biomass_shape, rate = biomass_rate)
+```
+
+The probability is approximately $0.19$.
+
+:::
+::::
+
+## LogNormal distribution
 
 $$
 \begin{aligned}
@@ -419,60 +1581,271 @@ $$
 \text{Type}: &\quad \text{Continuous} \\
 \text{Range}: &\quad x > 0 \\
 \text{Density}: &\quad
-\frac{1}{x\,s\sqrt{2\pi}}
-\exp\left[-\frac{(\log x-m)^2}{2s^2}\right] \\
-\text{Parameters}: &\quad m\;(\texttt{meanlog}) = \text{mean of log}(X);\quad
-s\;(\texttt{sdlog}) = \text{SD of log}(X) \\
-\text{Mean}: &\quad E[x] = \exp(m+s^2/2) \\
+\frac{1}{x\,\sigma\sqrt{2\pi}}
+\exp\left[-\frac{(\log x-\mu)^2}{2\sigma^2}\right] \\
+\text{Parameters}: &\quad \mu\;(\texttt{meanlog}) = \text{mean of log}(X);\quad
+\sigma\;(\texttt{sdlog}) = \text{SD of log}(X) \\
+\text{Mean}: &\quad E[x] = \exp(\mu+\sigma^2/2) \\
 \text{Variance}: &\quad
-Var(X) = \left[\exp(s^2)-1\right]\exp(2m+s^2) \\
+Var(X) = \left[\exp(\sigma^2)-1\right]\exp(2\mu+\sigma^2) \\
 \text{Inverse}: &\quad
-m = \log(\mu)-s^2/2
+\mu = \log(E[X])-\sigma^2/2
 \end{aligned}
 $$
 
+A positive random variable $X$ follows a LogNormal distribution when its logarithm follows
+a Normal distribution:
+
+$$
+\log(X)\sim\operatorname{Normal}(\mu,\sigma^2).
+$$
+
+It arises when a variable is the product of many small, independent factors, because the
+logarithm turns that product into a sum. This makes it a common model for strictly positive
+measurements that are skewed to the right, such as body mass. Note that $\mu$ and $\sigma$
+are the mean and standard deviation of $\log(X)$ and not of $X$ itself. In R they are the
+arguments `meanlog` and `sdlog`.
+
+Its probability density function is
+
+$$
+f_X(x)=\frac{1}{x\sigma\sqrt{2\pi}}
+\exp\left[-\frac{(\log x-\mu)^2}{2\sigma^2}\right], \qquad x>0.
+$$
+
+On the original scale, the median is $e^\mu$, whereas the mean and variance are:
+
+$$
+E[X]=e^{\mu+\sigma^2/2}
+$$
+
+and
+
+$$
+\operatorname{Var}(X)=\left(e^{\sigma^2}-1\right)e^{2\mu+\sigma^2}.
+$$
+
+The mean is always larger than the median because of the long right tail. If we want a
+LogNormal distribution with a particular mean on the original scale, we need to solve for
+$\mu$, which gives $\mu=\log(E[X])-\sigma^2/2$.
+
+The LogNormal distribution cannot generate zeros. If the data contain zeros, a
+zero-inflated distribution (see @sec-zero_inflated) is one possible alternative.
+
+### Example: body mass
+
+As in [Chapter 3](../Chapter_3/Theory.qmd), suppose body mass in grams follows a LogNormal
+distribution with $\mu=\log(30)$ and $\sigma=0.5$. The median body mass is $e^{\log(30)}=30$
+g and the mean is
+
+$$
+E[X]=e^{\log(30)+0.5^2/2}=30\,e^{0.125}\approx 33.99 \text{ g}.
+$$
+
+To calculate the probability of a body mass above 50 g we can work on the logarithmic
+scale, where the model is a Normal distribution. In units of standard deviations, the
+logarithm of 50 g is
+
+$$
+z=\frac{\log(50)-\log(30)}{0.5}\approx 1.02
+$$
+
+above the mean, and the probability of exceeding that value in a standard Normal
+distribution is approximately $0.153$. We can verify our math with R:
 
 ```{r}
-mean = 2
-sdlog = 0.4
-meanlog = log(mean) - sdlog^2 / 2
-curve(dlnorm(x, meanlog = meanlog, sdlog = sdlog), 0, 6)
+# Set the parameters on the logarithmic scale.
+meanlog_mass = log(30)
+sdlog_mass = 0.5
+
+# Calculate the mean body mass on the original scale.
+exp(meanlog_mass + sdlog_mass^2 / 2)
+
+# The upper-tail probability is the same on the original and the logarithmic scale.
+plnorm(q = 50, meanlog = meanlog_mass, sdlog = sdlog_mass, lower.tail = FALSE)
+pnorm(q = (log(50) - meanlog_mass) / sdlog_mass, lower.tail = FALSE)
 ```
+
+```{r}
+#| echo: false
+#| fig-cap: "LogNormal probability density for body mass."
+# Calculate the density over a range that covers most of the probability.
+mass_values = seq(from = 0.1, to = 120, length.out = 400)
+plot(
+  mass_values,
+  dlnorm(x = mass_values, meanlog = log(30), sdlog = 0.5),
+  type = "l",
+  xlab = "Body mass (g)",
+  ylab = "Density"
+)
+```
+
+:::: {.callout-important title="Practice: a model with a chosen mean"}
+
+Suppose we want a LogNormal model for body mass with $\sigma=0.5$ and a mean (instead of a
+median) of 30 g. Which value of $\mu$ do we need? What is the median body mass of that
+model?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+We need $\mu=\log(30)-0.5^2/2\approx 3.28$. The median is $e^\mu\approx 26.5$ g, which is
+smaller than the mean, as expected:
+
+```{r}
+# Calculate meanlog from the mean on the original scale, then the median and the mean.
+meanlog_from_mean = log(30) - 0.5^2 / 2
+meanlog_from_mean
+exp(meanlog_from_mean)
+exp(meanlog_from_mean + 0.5^2 / 2)
+```
+
+:::
+::::
 
 ## Beta distribution
 
-I recommend to parameterize it from the mean and a precision parameter (the larger it is
-the narrower the distribution).
 $$
 \begin{aligned}
 \text{R}: &\quad \texttt{dbeta, pbeta, qbeta, rbeta} \\
 \text{Type}: &\quad \text{Continuous} \\
 \text{Range}: &\quad 0 \leq x \leq 1 \\
 \text{Density}: &\quad
-\frac{x^{\alpha-1}(1-x)^{\beta-1}}{B(\alpha,\beta)} \\
-\text{Parameters}: &\quad \alpha\;(\texttt{shape1}),\quad
-\beta\;(\texttt{shape2}) = \text{shape parameters} \\
-\text{Mean}: &\quad E[x] = \alpha/(\alpha+\beta) \\
+\frac{x^{a-1}(1-x)^{b-1}}{B(a,b)} \\
+\text{Parameters}: &\quad a\;(\texttt{shape1}),\quad
+b\;(\texttt{shape2}) = \text{shape parameters} \\
+\text{Mean}: &\quad E[x] = a/(a+b) \\
 \text{Variance}: &\quad
-Var(X) = \frac{\alpha\beta}{(\alpha+\beta)^2(\alpha+\beta+1)} \\
+Var(X) = \frac{ab}{(a+b)^2(a+b+1)} \\
 \text{Inverse}: &\quad
-\kappa=\alpha+\beta;\quad
-\alpha=\mu\kappa;\quad \beta=(1-\mu)\kappa
+\kappa=a+b;\quad
+a=\mu\kappa;\quad b=(1-\mu)\kappa
 \end{aligned}
 $$
 
+The Beta distribution is a model for a continuous variable that takes values between $0$
+and $1$, such as the fraction of a quadrat covered by vegetation or the fraction of a leaf
+that has been eaten. When a proportion comes from counting outcomes in a known number of
+trials, the Binomial distribution is the appropriate model. The Beta distribution has two
+shape parameters, $a>0$ and $b>0$.
+
+Its probability density function is
+
+$$
+f_X(x)=\frac{x^{a-1}(1-x)^{b-1}}{B(a,b)}, \qquad 0<x<1,
+$$
+
+where $B(a,b)=\Gamma(a)\Gamma(b)/\Gamma(a+b)$ is the beta function, which ensures that the
+total probability is one. The mean and variance are:
+
+$$
+\mu=E[X]=\frac{a}{a+b}
+$$
+
+and
+
+$$
+\operatorname{Var}(X)=\frac{ab}{(a+b)^2(a+b+1)}.
+$$
+
+I recommend to parameterise it from the mean and a precision parameter (the larger it is
+the narrower the distribution). Writing $\kappa=a+b$ for the precision, the shape
+parameters are $a=\mu\kappa$ and $b=(1-\mu)\kappa$, and the variance becomes
+
+$$
+\operatorname{Var}(X)=\frac{\mu(1-\mu)}{\kappa+1}.
+$$
+
+The Beta distribution can take many shapes. It is symmetric when $a=b$, it places more
+probability towards $1$ when $a>b$ and towards $0$ when $a<b$. When both parameters are
+smaller than one the density is U-shaped, and for $a=b=1$ it is the Uniform distribution
+between $0$ and $1$.
+
+### Example: vegetation cover
+
+As in [Chapter 3](../Chapter_3/Theory.qmd), suppose the fraction of a quadrat covered by
+vegetation follows a Beta distribution with $a=2$ and $b=5$. The expected cover is
+
+$$
+E[X]=\frac{2}{2+5}\approx 0.286
+$$
+
+and the variance is
+
+$$
+\operatorname{Var}(X)=\frac{2(5)}{(2+5)^2(2+5+1)}=\frac{10}{392}\approx 0.0255,
+$$
+
+which corresponds to a standard deviation of approximately $0.16$. We can calculate the
+probability of a cover below $0.2$ and the 95% quantile in R:
+
 ```{r}
-mean = 0.4
-concentration = 10
-shape1 = mean * concentration
-shape2 = (1 - mean) * concentration
-curve(dbeta(x, shape1 = shape1, shape2 = shape2), 0, 1)
+# Set the two shape parameters of the cover model.
+cover_shape1 = 2
+cover_shape2 = 5
+
+# Calculate a lower-tail probability and a high quantile.
+pbeta(q = 0.2, shape1 = cover_shape1, shape2 = cover_shape2)
+qbeta(p = 0.95, shape1 = cover_shape1, shape2 = cover_shape2)
 ```
+
+If we start from a mean cover and a precision, we first calculate the shape parameters. For
+example, a mean cover of $0.4$ with $\kappa=10$ corresponds to $a=0.4(10)=4$ and
+$b=0.6(10)=6$:
+
+```{r}
+# Convert the mean and precision into the two shape parameters.
+mean_cover = 0.4
+cover_precision = 10
+shape1_from_mean = mean_cover * cover_precision
+shape2_from_mean = (1 - mean_cover) * cover_precision
+
+c(shape1 = shape1_from_mean, shape2 = shape2_from_mean)
+```
+
+```{r}
+#| echo: false
+#| fig-cap: "Beta probability densities with different shape parameters for a fraction between zero and one."
+# Calculate density curves for three combinations of shape parameters.
+cover_values = seq(from = 0.001, to = 0.999, length.out = 400)
+plot(
+  cover_values,
+  dbeta(x = cover_values, shape1 = 2, shape2 = 5),
+  type = "l",
+  lty = 1,
+  ylim = c(0, 4),
+  xlab = "Vegetation cover (fraction)",
+  ylab = "Density"
+)
+lines(cover_values, dbeta(x = cover_values, shape1 = 5, shape2 = 2), lty = 2)
+lines(cover_values, dbeta(x = cover_values, shape1 = 0.5, shape2 = 0.5), lty = 3)
+legend(
+  "top",
+  legend = c("a = 2, b = 5", "a = 5, b = 2", "a = 0.5, b = 0.5"),
+  lty = 1:3,
+  bty = "n"
+)
+```
+
+:::: {.callout-important title="Practice: precision of a cover model"}
+
+Suppose the mean vegetation cover is $0.4$. Calculate the shape parameters and the standard
+deviation of the cover for a precision of $\kappa=10$ and of $\kappa=50$. Which model is
+narrower?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+For $\kappa=10$ the shape parameters are $a=4$ and $b=6$ and the variance is
+$0.4(0.6)/11\approx 0.0218$, so the standard deviation is approximately $0.148$. For
+$\kappa=50$ the shape parameters are $a=20$ and $b=30$ and the variance is
+$0.4(0.6)/51\approx 0.0047$, so the standard deviation is approximately $0.069$. The model
+with $\kappa=50$ is narrower, because a larger precision concentrates the probability
+around the mean.
+
+:::
+::::
 
 ## Weibull distribution
 
-Unlike in the Gamma distribution, the shape and scale are not reciprocal here. I show below
-how to parameterize from the mean and shape.
 $$
 \begin{aligned}
 \text{R}: &\quad \texttt{dweibull, pweibull, qweibull, rweibull} \\
@@ -491,12 +1864,108 @@ Var(X) = \lambda^2\left[\Gamma(1+2/k)-\Gamma(1+1/k)^2\right] \\
 \end{aligned}
 $$
 
+The Weibull distribution is a model for the waiting time until a single event happens when
+the rate at which the event occurs changes with time. It is often used for lifespans and
+survival times. It has a shape parameter $k>0$ and a scale parameter $\lambda>0$, where the
+scale has the same units as the waiting time. The shape determines how the rate changes:
+for $k<1$ the rate decreases with time (e.g., when mortality is highest in young
+individuals), for $k>1$ it increases with time (e.g., when mortality increases with age)
+and for $k=1$ it is constant, in which case we recover the Exponential distribution with
+rate $1/\lambda$.
+
+Its probability density function is
+
+$$
+f_X(x)=\frac{k}{\lambda}\left(\frac{x}{\lambda}\right)^{k-1}
+\exp\left[-\left(\frac{x}{\lambda}\right)^k\right], \qquad x \geq 0.
+$$
+
+The probability that the event has not yet happened at time $x$ has a simple formula:
+
+$$
+P(X>x)=\exp\left[-\left(\frac{x}{\lambda}\right)^k\right].
+$$
+
+The mean and variance are:
+
+$$
+\mu=E[X]=\lambda\,\Gamma\left(1+\frac{1}{k}\right)
+$$
+
+and
+
+$$
+\operatorname{Var}(X)=\lambda^2\left[\Gamma\left(1+\frac{2}{k}\right)-
+\Gamma\left(1+\frac{1}{k}\right)^2\right],
+$$
+
+where $\Gamma$ is the gamma function (`gamma()` in R). I show below how to parameterise from
+the mean and shape.
+
+### Example: leaf lifespan
+
+Suppose the lifespan of a leaf has a mean of 2 years and follows a Weibull distribution
+with shape $k=1.5$. The scale is
+
+$$
+\lambda=\frac{2}{\Gamma(1+1/1.5)}\approx\frac{2}{0.9027}\approx 2.215 \text{ years}.
+$$
+
+The probability that a leaf lives longer than 3 years is
+
+$$
+P(X>3)=\exp\left[-\left(\frac{3}{2.215}\right)^{1.5}\right]
+\approx e^{-1.576}\approx 0.207.
+$$
+
+We can verify our math with R:
+
 ```{r}
-mean = 2
-shape = 1.5
-scale = mean / gamma(1 + 1 / shape)
-curve(dweibull(x, shape = shape, scale = scale), 0, 6)
+# Calculate the scale from the mean lifespan (in years) and the shape.
+mean_lifespan = 2
+lifespan_shape = 1.5
+lifespan_scale = mean_lifespan / gamma(1 + 1 / lifespan_shape)
+lifespan_scale
+
+# Use the upper tail for the probability of living longer than three years.
+pweibull(q = 3, shape = lifespan_shape, scale = lifespan_scale, lower.tail = FALSE)
 ```
+
+```{r}
+#| echo: false
+#| fig-cap: "Weibull probability density for the lifespan of a leaf."
+# Calculate the density over a range that covers most of the probability.
+lifespan_values = seq(from = 0, to = 7, length.out = 400)
+plot(
+  lifespan_values,
+  dweibull(x = lifespan_values, shape = 1.5, scale = 2 / gamma(1 + 1 / 1.5)),
+  type = "l",
+  xlab = "Leaf lifespan (years)",
+  ylab = "Density"
+)
+```
+
+:::: {.callout-important title="Practice: seedling survival time"}
+
+Suppose the survival time of a seedling follows a Weibull distribution with shape $k=0.8$
+and scale $\lambda=2$ years. Does the mortality rate increase or decrease with age?
+Calculate the probability that a seedling survives its first year and the mean survival
+time.
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The shape is smaller than one, so the mortality rate decreases with age. The probability of
+surviving the first year is $\exp[-(1/2)^{0.8}]\approx 0.563$ and the mean survival time is
+$2\,\Gamma(1+1/0.8)\approx 2.27$ years:
+
+```{r}
+# Calculate the probability of surviving beyond one year and the mean survival time.
+pweibull(q = 1, shape = 0.8, scale = 2, lower.tail = FALSE)
+2 * gamma(1 + 1 / 0.8)
+```
+
+:::
+::::
 
 # Multivariate distributions
 
@@ -530,7 +1999,7 @@ skill among ecological modelers, so it might be too hard to tackle now.
 
 $$
 \begin{aligned}
-\text{R}: &\quad \texttt{dmultinom} \\
+\text{R}: &\quad \texttt{dmultinom, rmultinom} \\
 \text{Type}: &\quad \text{Discrete, multivariate} \\
 \text{Range}: &\quad x_i \in \{0,1,\ldots,n\},\quad \sum_{i=1}^K x_i=n \\
 \text{Probability}: &\quad
@@ -544,24 +2013,124 @@ p_i\;(\texttt{prob}) = \text{probability of category }i,\quad \sum_i p_i=1 \\
 \end{aligned}
 $$
 
+The Multinomial distribution generalises the Binomial distribution to events that have more
+than two possible outcomes. Each of $n$ independent events falls into one of $K$ categories,
+where category $i$ has probability $p_i$ and the probabilities add up to one. The random
+variables $X_1, \ldots, X_K$ are the number of events in each category, so they always add
+up to $n$.
+
+The probability mass function is
+
+$$
+P(X_1=x_1,\ldots,X_K=x_K)=\frac{n!}{x_1!\cdots x_K!}\,p_1^{x_1}\cdots p_K^{x_K},
+$$
+
+where the first factor counts the number of ways in which the $n$ events can be assigned to
+the categories. The mean and variance of each count are:
+
+$$
+E[X_i]=np_i
+$$
+
+and
+
+$$
+\operatorname{Var}(X_i)=np_i(1-p_i).
+$$
+
+These are the mean and variance of a Binomial distribution. In fact, each count on its own
+follows a Binomial distribution with $n$ trials and probability $p_i$. However, the counts
+are not independent of each other. Because the total is fixed, a higher count in one
+category leaves fewer events for the others, which results in a negative covariance:
+
+$$
+\operatorname{Cov}(X_i,X_j)=-np_ip_j, \qquad i \neq j.
+$$
+
+### Example: species in a sample
+
+Suppose we capture 20 individuals and each of them belongs to one of three species with
+probabilities $0.25$, $0.4$ and $0.35$. The expected counts are $20(0.25)=5$, $20(0.4)=8$
+and $20(0.35)=7$. The probability of capturing exactly those numbers is
+
+$$
+P(X_1=5,X_2=8,X_3=7)
+=
+\frac{20!}{5!\,8!\,7!}(0.25)^5(0.4)^8(0.35)^7
+\approx 0.0411,
+$$
+
+and the covariance between the counts of the first two species is $-20(0.25)(0.4)=-2$. We
+can verify the probability in R:
+
 ```{r}
-means = c(5, 8, 7)
-size = sum(means)
-prob = means / size
+# Set the number of captured individuals and the probability of each species.
+captured_count = 20
+species_probability = c(0.25, 0.4, 0.35)
 
-x1 = 0:size
-marginal = vapply(x1, function(a) {
-  x2 = 0:(size - a)
-  sum(vapply(x2, function(b) {
-    dmultinom(c(a, b, size - a - b), size = size, prob = prob)
-  }, numeric(1)))
-}, numeric(1))
-
-plot(x1, marginal, type = "h",
-     xlab = "Count in category 1", ylab = "Probability")
+# Probability of one particular combination of counts.
+dmultinom(x = c(5, 8, 7), size = captured_count, prob = species_probability)
 ```
 
-## Multivariate normal distribution
+We can check the means and the covariance by simulating many samples. Note that
+`rmultinom()` returns a matrix with one row per category and one column per sample:
+
+```{r}
+# Simulate 5000 samples of 20 individuals.
+set.seed(2026)
+species_counts = rmultinom(n = 5000, size = captured_count, prob = species_probability)
+
+# Every sample adds up to the total number of individuals.
+range(colSums(species_counts))
+
+# Average count per species and covariance between the first two species.
+rowMeans(species_counts)
+cov(species_counts[1, ], species_counts[2, ])
+```
+
+The averages and the covariance of the simulated samples are close to the values of the
+model.
+
+```{r}
+#| echo: false
+#| fig-cap: "Probability mass for the number of individuals of the first species in a sample of 20, which is a Binomial distribution."
+# Each count of a Multinomial distribution follows a Binomial distribution.
+first_species_values = 0:20
+plot(
+  first_species_values,
+  dbinom(x = first_species_values, size = 20, prob = 0.25),
+  type = "h",
+  xlab = "Number of individuals of the first species",
+  ylab = "Probability"
+)
+```
+
+:::: {.callout-important title="Practice: habitat use"}
+
+An animal is observed on 10 independent occasions and on each occasion it is in one of
+three habitats with probabilities $0.5$, $0.3$ and $0.2$. Calculate the probability of
+observing it 5, 3 and 2 times in each habitat, respectively. What is the covariance between
+the counts in the first two habitats?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The probability is
+
+$$
+\frac{10!}{5!\,3!\,2!}(0.5)^5(0.3)^3(0.2)^2 = 2520 \times 0.00003375 \approx 0.085,
+$$
+
+and the covariance is $-10(0.5)(0.3)=-1.5$. In R:
+
+```{r}
+# Probability of one particular combination of counts across the three habitats.
+dmultinom(x = c(5, 3, 2), size = 10, prob = c(0.5, 0.3, 0.2))
+```
+
+:::
+::::
+
+## Multivariate Normal distribution
 
 $$
 \begin{aligned}
@@ -582,27 +2151,151 @@ $$
 \text{Covariance}: &\quad
 \operatorname{Cov}(\mathbf{X})=\boldsymbol{\Sigma} \\
 \text{Inverse}: &\quad
-\Sigma_{ii}=s_i^2;\quad
-\Sigma_{ij}=\rho_{ij}s_i s_j\quad(i\ne j)
+\Sigma_{ii}=\sigma_i^2;\quad
+\Sigma_{ij}=\rho_{ij}\sigma_i \sigma_j\quad(i\ne j)
 \end{aligned}
 $$
 
-```{r}
-library(MASS) # Install it first
-means = c(2, 5)
-sds = c(0.5, 1)
-correlation = matrix(c(1, 0.6,
-                       0.6, 1), nrow = 2)
-Sigma = diag(sds) %*% correlation %*% diag(sds)
+The Multivariate Normal distribution generalises the Normal distribution to $K$ continuous
+random variables that are correlated with each other. It has two parameters: a vector
+$\boldsymbol{\mu}$ with the mean of each variable and a covariance matrix
+$\boldsymbol{\Sigma}$ with $K$ rows and $K$ columns. The diagonal of the covariance matrix
+contains the variance of each variable and the other elements contain the covariance
+between each pair of variables.
 
-draws = mvrnorm(n = 5000, mu = means, Sigma = Sigma)
-pairs(draws)
+Its probability density function is
+
+$$
+f_{\mathbf{X}}(\mathbf{x})=
+\frac{1}{(2\pi)^{K/2}|\boldsymbol{\Sigma}|^{1/2}}
+\exp\left[
+-\frac{1}{2}(\mathbf{x}-\boldsymbol{\mu})^\mathsf{T}
+\boldsymbol{\Sigma}^{-1}(\mathbf{x}-\boldsymbol{\mu})
+\right],
+$$
+
+where $|\boldsymbol{\Sigma}|$ is the determinant of the covariance matrix and
+$\boldsymbol{\Sigma}^{-1}$ is its inverse.
+
+It is usually easier to think in terms of standard deviations and correlations than in
+terms of covariances. If $\sigma_i$ is the standard deviation of variable $i$ and
+$\rho_{ij}$ is the correlation between variables $i$ and $j$, the elements of the covariance
+matrix are:
+
+$$
+\Sigma_{ii}=\sigma_i^2
+$$
+
+and
+
+$$
+\Sigma_{ij}=\rho_{ij}\sigma_i\sigma_j, \qquad i \neq j.
+$$
+
+Each variable on its own follows a Normal distribution with mean $\mu_i$ and variance
+$\sigma_i^2$. When all the correlations are zero, the variables are independent.
+
+### Example: tree diameter and height
+
+Suppose the diameter and the height of a tree follow a Multivariate Normal distribution.
+The diameter has a mean of 30 cm and a standard deviation of 8 cm, the height has a mean of
+22 m and a standard deviation of 4 m, and the correlation between them is $0.6$. The
+covariance between diameter and height is
+
+$$
+\Sigma_{12}=0.6(8)(4)=19.2,
+$$
+
+so the covariance matrix is
+
+$$
+\boldsymbol{\Sigma}=
+\begin{pmatrix}
+8^2 & 19.2 \\
+19.2 & 4^2
+\end{pmatrix}
+=
+\begin{pmatrix}
+64 & 19.2 \\
+19.2 & 16
+\end{pmatrix}.
+$$
+
+We can construct this matrix in R from the standard deviations and the correlation matrix:
+
+```{r}
+# Set the means, standard deviations and correlation matrix of diameter and height.
+tree_means = c(diameter = 30, height = 22)
+tree_sds = c(8, 4)
+tree_correlation = matrix(c(1, 0.6,
+                            0.6, 1), nrow = 2)
+
+# diag() creates a matrix with the standard deviations on its diagonal and
+# %*% is matrix multiplication.
+Sigma = diag(tree_sds) %*% tree_correlation %*% diag(tree_sds)
+Sigma
 ```
 
-## Dirichlet distribution
+Base R does not have functions for this distribution, but we can generate random samples
+with the function `mvrnorm()` from the `MASS` package:
 
-Need to use the `gtools` package (only density and random sampler are available, but
-that is enough for this course!).
+```{r}
+library(MASS) # Install it first
+
+# Simulate 5000 trees. Each row is a tree and each column a variable.
+set.seed(2026)
+tree_draws = mvrnorm(n = 5000, mu = tree_means, Sigma = Sigma)
+
+# The means and covariances of the sample are close to those of the model.
+colMeans(tree_draws)
+cov(tree_draws)
+```
+
+```{r}
+#| echo: false
+#| fig-cap: "Diameter and height of 500 trees simulated from a Multivariate Normal distribution with a correlation of 0.6."
+# Simulate a smaller sample so that individual trees remain visible in the plot.
+set.seed(2026)
+tree_plot_draws = MASS::mvrnorm(
+  n = 500,
+  mu = c(30, 22),
+  Sigma = matrix(c(64, 19.2,
+                   19.2, 16), nrow = 2)
+)
+plot(
+  tree_plot_draws[, 1],
+  tree_plot_draws[, 2],
+  xlab = "Tree diameter (cm)",
+  ylab = "Tree height (m)"
+)
+```
+
+:::: {.callout-important title="Practice: a covariance matrix for two traits"}
+
+Suppose the wing length of a bird has a standard deviation of 2 mm, its body mass has a
+standard deviation of 3 g and the correlation between the two traits is $0.8$. Write down
+the covariance matrix. What would the covariance matrix be if the two traits were
+independent?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The variances are $2^2=4$ and $3^2=9$ and the covariance is $0.8(2)(3)=4.8$, so
+
+$$
+\boldsymbol{\Sigma}=
+\begin{pmatrix}
+4 & 4.8 \\
+4.8 & 9
+\end{pmatrix}.
+$$
+
+If the traits were independent the correlation would be zero, so the covariance would also
+be zero and only the variances on the diagonal would remain.
+
+:::
+::::
+
+## Dirichlet distribution
 
 $$
 \begin{aligned}
@@ -624,17 +2317,122 @@ $$
 \end{aligned}
 $$
 
+The Dirichlet distribution generalises the Beta distribution to $K$ continuous random
+variables that are each between $0$ and $1$ and that always add up to one. It is therefore
+a model for how a total is divided among several components, such as the fractions of sand,
+silt and clay in a soil. It has one shape parameter $\alpha_i>0$ per component and for
+$K=2$ it reduces to the Beta distribution.
+
+Its probability density function is
+
+$$
+f_{\mathbf{X}}(\mathbf{x})=
+\frac{\Gamma(\alpha_0)}{\prod_{i=1}^K\Gamma(\alpha_i)}
+\prod_{i=1}^K x_i^{\alpha_i-1},
+\qquad \alpha_0=\sum_{i=1}^K\alpha_i,
+$$
+
+where $\Gamma$ is the gamma function. The sum of the shape parameters, $\alpha_0$, plays the
+role of a precision (the larger it is, the less the fractions vary). The mean and variance
+of each fraction are:
+
+$$
+\mu_i=E[X_i]=\frac{\alpha_i}{\alpha_0}
+$$
+
+and
+
+$$
+\operatorname{Var}(X_i)=\frac{\mu_i(1-\mu_i)}{\alpha_0+1}.
+$$
+
+As in the Multinomial distribution, the fractions are not independent. Because they add up
+to one, a larger fraction for one component leaves less for the others, which results in a
+negative covariance:
+
+$$
+\operatorname{Cov}(X_i,X_j)=\frac{-\mu_i\mu_j}{\alpha_0+1}, \qquad i \neq j.
+$$
+
+As with the Beta distribution, it is convenient to parameterise the Dirichlet distribution
+from the mean fractions and a precision $\kappa=\alpha_0$, so that
+$\alpha_i=\kappa\mu_i$.
+
+Need to use the `gtools` package (only density and random sampler are available, but
+that is enough for this course!).
+
+### Example: biomass partitioning
+
+Suppose a plant allocates on average 20% of its biomass to leaves, 30% to stems and 50% to
+roots, and that these fractions vary among plants according to a Dirichlet distribution
+with precision $\kappa=12$. The shape parameters are
+
+$$
+\alpha_1=12(0.2)=2.4, \qquad \alpha_2=12(0.3)=3.6, \qquad \alpha_3=12(0.5)=6.
+$$
+
+The variance of the fraction allocated to roots is
+
+$$
+\operatorname{Var}(X_3)=\frac{0.5(1-0.5)}{12+1}\approx 0.0192,
+$$
+
+which corresponds to a standard deviation of approximately $0.139$. We can check these
+values by simulating many plants:
+
 ```{r}
 library(gtools) # Install it first!
-means = c(0.2, 0.3, 0.5)
-concentration = 12
-alpha = concentration * means
 
-draws = rdirichlet(n = 5000, alpha = alpha)
-pairs(draws)
+# Convert the mean fractions and the precision into the shape parameters.
+fraction_means = c(leaves = 0.2, stems = 0.3, roots = 0.5)
+fraction_precision = 12
+alpha = fraction_precision * fraction_means
+
+# Simulate 5000 plants. Each row is a plant and each column a fraction.
+set.seed(2026)
+biomass_draws = rdirichlet(n = 5000, alpha = alpha)
+
+# The fractions of every plant add up to one.
+range(rowSums(biomass_draws))
+
+# Average fraction per component and variance of the fraction allocated to roots.
+colMeans(biomass_draws)
+var(biomass_draws[, 3])
 ```
 
-# How to make zero-inflated distributions
+```{r}
+#| echo: false
+#| fig-cap: "Fractions of biomass allocated to leaves and roots in 500 plants simulated from a Dirichlet distribution."
+# Simulate a smaller sample so that individual plants remain visible in the plot.
+set.seed(2026)
+biomass_plot_draws = gtools::rdirichlet(n = 500, alpha = 12 * c(0.2, 0.3, 0.5))
+plot(
+  biomass_plot_draws[, 1],
+  biomass_plot_draws[, 3],
+  xlim = c(0, 1),
+  ylim = c(0, 1),
+  xlab = "Fraction of biomass in leaves",
+  ylab = "Fraction of biomass in roots"
+)
+```
+
+:::: {.callout-important title="Practice: soil texture"}
+
+Suppose the mean fractions of sand, silt and clay in the soils of a region are $0.6$, $0.3$
+and $0.1$, and that they vary among sites according to a Dirichlet distribution with
+precision $\kappa=50$. Calculate the shape parameters and the standard deviation of the
+clay fraction.
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The shape parameters are $50(0.6)=30$, $50(0.3)=15$ and $50(0.1)=5$. The variance of the
+clay fraction is $0.1(0.9)/51\approx 0.00176$, so its standard deviation is approximately
+$0.042$.
+
+:::
+::::
+
+# How to make zero-inflated distributions {#sec-zero_inflated}
 
 A zero-inflated distribution is a mixture of two distributions:
 
