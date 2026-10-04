@@ -1,13 +1,129 @@
 ---
-title: "Chapter 4: Estimation and sampling distributions — solutions"
+title: "Chapter 4: From samples to estimates — solutions"
 date: today
 ---
 
 The fully worked first exercise is on the
 [student practical page](no_solution.qmd). These solutions use the
-same models, tasks, and seeds as Exercises 2–4 on that page.
+same models, tasks, and seeds as Exercises 2–5 on that page.
 
-# Exercise 2: Breeding success at bird nests
+# Exercise 2: Asymptotic convergence
+
+Simulate Poisson observations with $\lambda=3$ for two sample sizes: 10 and 1,000. The
+mean, variance and R functions are in the
+[Poisson entry](../../Supplements/distributions.qmd#sec-poisson) of the supplement.
+
+1. Calculate the mean, median and variance for each sample (use the actual variance of the
+sample, not `var()`).
+2. Repeat point 1 four times using different random seeds (tip: use a for loop). How much
+do the sample properties vary?
+3. Compare these sample properties to the model values at the two sample sizes. How does
+the median and mean differ in their behaviour? What is happening to the variation across
+repeated samples as sample size increases?
+
+## Solution
+
+### Question 1
+
+For a Poisson distribution with $\lambda=3$, the model mean and variance are both 3, and the model median is also 3.
+
+First simulate one sample of each size. Calculate the empirical variance using the divisor $n$, rather than using `var()`.
+
+```{r}
+lambda = 3
+sample_sizes = c(10, 1000)
+
+initial_results = data.frame(
+  n = integer(),
+  mean = numeric(),
+  median = numeric(),
+  variance = numeric()
+)
+
+set.seed(123)
+
+for (sample_size in sample_sizes) {
+  observations = rpois(sample_size, lambda = lambda)
+  sample_mean = mean(observations)
+
+  initial_results = rbind(
+    initial_results,
+    data.frame(
+      n = sample_size,
+      mean = sample_mean,
+      median = median(observations),
+      variance = mean((observations - sample_mean)^2)
+    )
+  )
+}
+
+initial_results
+```
+
+### Question 2
+
+Repeat the simulations four times, using a different seed for each repetition:
+
+```{r}
+seeds = c(11, 22, 33, 44)
+
+repeated_results = data.frame(
+  seed = integer(),
+  n = integer(),
+  mean = numeric(),
+  median = numeric(),
+  variance = numeric()
+)
+
+for (seed in seeds) {
+  set.seed(seed)
+
+  for (sample_size in sample_sizes) {
+    observations = rpois(sample_size, lambda = lambda)
+    sample_mean = mean(observations)
+
+    repeated_results = rbind(
+      repeated_results,
+      data.frame(
+        seed = seed,
+        n = sample_size,
+        mean = sample_mean,
+        median = median(observations),
+        variance = mean((observations - sample_mean)^2)
+      )
+    )
+  }
+}
+
+repeated_results
+```
+
+### Question 3
+
+Compare the results with the model values, then summarise the variation in the sample statistics across repetitions:
+
+```{r}
+model_values = data.frame(
+  n = sample_sizes,
+  mean = lambda,
+  median = qpois(0.5, lambda = lambda),
+  variance = lambda
+)
+
+model_values
+
+aggregate(
+  cbind(mean, median, variance) ~ n,
+  data = repeated_results,
+  FUN = sd
+)
+```
+
+The model values are the same for both sample sizes. With $n=10$, the sample mean, median, and variance can differ noticeably from their model values. With $n=1{,}000$, they will generally be closer to 3 and vary less across repetitions.
+
+The mean changes smoothly between samples, while the median is a quantile and changes in discrete steps. For even sample sizes, R’s median can also be halfway between two integer counts. Because the empirical variance uses divisor $n$, it tends to be slightly below the model variance for finite samples; this difference becomes negligible as sample size increases. The four repetitions illustrate the general pattern, though more repetitions would provide a clearer picture of the variation.
+
+# Exercise 3: Breeding success at bird nests
 
 One observational unit is a monitored nest. Under the assumed
 binomial model, the expected proportion of successes is $p$, so
@@ -107,7 +223,7 @@ single estimate cannot reveal it.
 Neighbouring nests could share weather, food supply, or predation
 conditions, making their outcomes dependent.
 
-# Exercise 3: Variation in tree heights
+# Exercise 4: Variation in tree heights
 
 The first method-of-moments estimate matches the sample mean to
 $E[X]=\mu$. The second averages squared deviations from that sample
@@ -187,7 +303,7 @@ $19.84\ \mathrm{m}^4$, compared with about $20.77\ \mathrm{m}^4$
 for `var()`. Knowing that one estimator is unbiased does not,
 by itself, settle which has smaller MSE.
 
-# Exercise 4: Mean body mass and interval coverage
+# Exercise 5: Mean body mass and interval coverage
 
 The lognormal parameters describe **log mass**. On the original
 gram scale, the median is $e^\mu$ and the mean is
