@@ -1222,8 +1222,6 @@ shapes, axis limits...), but every customization requires you to know the right 
 The easiest way to learn is to just ask an AI too (see note on AI usage early on) or a search
 engine to find a blog.
 
-Insert this after the **Bar plots** subsection and before the paragraph beginning “Base R plots can be customized…”:
-
 ### Vertical-line and staircase plots
 
 **TODO**: Introduce this in Chapter 2
@@ -1298,6 +1296,81 @@ curve(K / (1 + ((K - N0) / N0) * exp(-r * t)),
       ylab = "Population size",
       main = "Logistic growth with a lower growth rate")
 ```
+
+### Contour plots
+
+The `curve` function works for a function of one variable. When a function depends on
+two variables, its values form a surface and you can display it with a **contour plot**.
+Each line in a contour plot joins the combinations of the two variables for which the
+function has the same value, just like the contour lines of a topographic map join the
+places with the same elevation.
+
+You make a contour plot in two steps. First, you calculate the value of the function for
+every combination of the two variables with `outer`. This function takes two vectors and
+returns a matrix, with one row for each element of the first vector and one column for
+each element of the second vector. By default, `outer` multiplies the two values of each
+combination:
+
+```{r}
+# Rows correspond to the values 1 to 3 and columns to the values 1 to 4
+outer(1:3, 1:4)
+```
+
+For example, the element in row 2 and column 3 is $2 \times 3 = 6$. With the argument `FUN`
+you can replace the multiplication by any function of two variables. You will learn how to
+write your own functions later in this tutorial (see **Creating your own functions**). For
+now, you only need to see that the function below has two inputs (`diameter` and `height`)
+and that the code between the curly braces calculates one value from them.
+
+As an example, we will use a function of the diameter (in cm) and the height (in m) of a
+tree. It describes a surface with the shape of a hill, with the top at a diameter of 30 cm
+and a height of 22 m:
+
+```{r}
+# Values of the two variables for which we calculate the function
+diameter_grid = seq(from = 10, to = 50, length.out = 100)
+height_grid = seq(from = 8, to = 36, length.out = 100)
+
+# This number controls how much the hill is tilted
+rho = 0.7
+
+# Calculate the function for every combination of diameter and height
+surface = outer(
+  X = diameter_grid, Y = height_grid,
+  FUN = function(diameter, height) {
+    # Distances to the top of the hill along each axis
+    dx = (diameter - 30) / 5
+    hy = (height - 22) / 4
+    # Value of the function (the last line is what the function returns)
+    exp(-(dx^2 - 2 * rho * dx * hy + hy^2) / (2 * (1 - rho^2))) /
+      (2 * pi * 5 * 4 * sqrt(1 - rho^2))
+  }
+)
+
+# One row per diameter and one column per height
+dim(surface)
+```
+
+The argument `length.out` of `seq` sets how many values you want between `from` and `to`,
+so the result is a matrix with 100 rows (one for each diameter) and 100 columns (one for
+each height). Note that `outer` passes all the combinations to the function at once, as
+two long vectors, so the function must be vectorized (all the operations we used here are).
+
+Second, you give the two vectors and the matrix to the function `contour`:
+
+```{r}
+contour(x = diameter_grid, y = height_grid, z = surface,
+        nlevels = 8,
+        xlab = "Tree diameter (cm)",
+        ylab = "Tree height (m)")
+```
+
+The number written on each line is the value of the function along that line. The argument
+`nlevels` sets approximately how many different values get a line (`R` picks round values,
+so you may get a few more or fewer lines than you asked for). Try changing `nlevels` or
+`rho` to see how the plot changes. You will learn what this particular surface means in
+[Chapter 2](../../Chapter_2/Theory.qmd#sec-two_continuous_variables), where it describes
+how the diameter and the height of a tree vary together.
 
 ### Pairwise plots with `pairs`
 

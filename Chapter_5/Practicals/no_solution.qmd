@@ -1,209 +1,237 @@
 ---
-title: "Chapter 5: Maximum likelihood"
+title: "Chapter 5: Deterministic functions in ecology"
 date: today
 ---
 
-These exercises use illustrative or simulated ecological data, not field
-observations. First calculate the small-sample likelihoods **on paper,
-without R**. A calculator is fine for exponentials and logarithms.
-Then use R for larger samples and numerical optimisation. The
-[Chapter 5 theory](../Theory.qmd) introduces each method.
+These exercises use illustrative ecological settings, not field observations.
+Work through the first example before the other exercises. For every task
+marked **on paper**, write the algebra and a sentence about the result before
+opening R. A calculator is fine for logarithms and exponentials. Use R later
+to check your answer and explore the curve. The
+[Chapter 5 theory](../Theory.qmd) introduces the methods, and the
+[function reference](../../Supplements/deterministic-functions.qmd) lists
+the main curve shapes.
 
-# Exercise 1: Seedlings in quadrats
+# Exercise 1: A worked prey-consumption curve
 
-Suppose the count $X_i$ in each equal-area quadrat follows an independent
-Poisson model with an unknown common mean $\lambda$ seedlings per
-quadrat. Four illustrative quadrats contain 0, 1, 2, and 3 seedlings.
+Let $N$ be prey density in prey per square metre. Suppose one predator's
+expected consumption rate, in prey per hour, is
 
-1. Write the Poisson probability mass for one count. By hand, write
-   each of the four likelihood contributions and multiply them to
-   obtain $L(\lambda\mid0,1,2,3)$.
-2. By hand, take the logarithm of the product and simplify
-   $\ell(\lambda\mid0,1,2,3)$ into a sum. Calculate the likelihood
-   and log-likelihood at $\lambda=1$ and $\lambda=2$. Which of these
-   two candidate means gives the observations greater likelihood?
-3. Calculate the sample mean. Use it to give the maximum likelihood
-   estimate and its ecological units.
-4. Check the hand calculations with `dpois()`. Write a negative
-   log-likelihood using `log = TRUE`, fit $\lambda$ with `optim()`
-   on the log scale, check convergence, and compare its answer with
-   the sample mean.
+$$
+F(N)=\frac{12N}{6+N},\qquad N\geq0.
+$$
+
+1. **On paper:** Calculate $F(0)$ and $F(6)$. Divide numerator and
+   denominator by $N$ to find the asymptote as $N\to\infty$.
+2. **On paper:** Use the quotient rule to find $F'(N)$ and $F'(0)$.
+   Give the initial slope's units. What happens to the slope as $N$
+   increases?
+3. **In R:** Write a function and plot it from $N=0$ to $N=30$.
+   Mark the half-saturation point and the asymptote.
 
 ## Solution
 
-The observational unit is one quadrat. Under the assumed model,
+At zero prey density, $F(0)=0$. At $N=6$ prey per square metre,
+$F(6)=12(6)/(6+6)=6$ prey per hour. For $N>0$,
 
 $$
-P(X_i=x_i\mid\lambda)
-=\frac{e^{-\lambda}\lambda^{x_i}}{x_i!}.
+F(N)=\frac{12}{6/N+1}\longrightarrow12
+\quad\text{as }N\to\infty.
 $$
 
-Independence lets us multiply the four contributions. For the
-observed counts, these are
-$e^{-\lambda}\lambda^0/0!$,
-$e^{-\lambda}\lambda^1/1!$,
-$e^{-\lambda}\lambda^2/2!$, and
-$e^{-\lambda}\lambda^3/3!$. Therefore,
+The asymptote is 12 prey per hour for one predator. Half of that rate is
+6, reached at $N=6$ prey per square metre, so the half-saturation
+density is 6 prey per square metre.
+
+Using the quotient rule,
 
 $$
-\begin{aligned}
-L(\lambda\mid0,1,2,3)
-&=\prod_{x\in\{0,1,2,3\}}
-  \frac{e^{-\lambda}\lambda^x}{x!}\\
-&=\frac{e^{-4\lambda}\lambda^{0+1+2+3}}
-        {0!\,1!\,2!\,3!}
-=\frac{e^{-4\lambda}\lambda^6}{12}.
-\end{aligned}
+F'(N)
+=\frac{12(6+N)-12N}{(6+N)^2}
+=\frac{72}{(6+N)^2}.
 $$
 
-Taking logs changes the product into a sum:
-
-$$
-\begin{aligned}
-\ell(\lambda\mid0,1,2,3)
-&=\sum_{x\in\{0,1,2,3\}}
-  [-\lambda+x\log\lambda-\log(x!)]\\
-&=-4\lambda+6\log\lambda-\log(12).
-\end{aligned}
-$$
-
-Substitute the two candidates:
-
-| Candidate mean | Likelihood | Log-likelihood |
-|---|---:|---:|
-| $\lambda=1$ | $e^{-4}/12\approx0.001526$ | $-4-\log12\approx-6.485$ |
-| $\lambda=2$ | $64e^{-8}/12\approx0.001789$ | $-8+6\log2-\log12\approx-6.326$ |
-
-The likelihood is greater at $\lambda=2$ than at $\lambda=1$.
-This comparison says nothing about the probability that either
-parameter value is true. The MLE is the sample mean,
-$(0+1+2+3)/4=1.5$ seedlings per quadrat. It can lie between the two
-candidates we compared.
-
-In R, sum the log probabilities directly. The negative sign gives
-`optim()` a function to minimise. Exponentiating `log_lambda` keeps
-the candidate Poisson mean positive.
+The initial slope is $F'(0)=72/36=2$. Its units are
+$(\text{prey per hour})/(\text{prey per square metre})$,
+or square metres per hour. The derivative stays positive but decreases
+towards zero, so consumption increases while flattening towards its
+asymptote.
 
 ```{r}
-counts = c(0, 1, 2, 3)
-candidate_values = c(1, 2)
-likelihood = vapply(
-  X = candidate_values,
-  FUN = function(lambda) {
-    prod(dpois(x = counts, lambda = lambda))
-  },
-  FUN.VALUE = numeric(1)
-)
-log_likelihood = vapply(
-  X = candidate_values,
-  FUN = function(lambda) {
-    sum(dpois(x = counts, lambda = lambda, log = TRUE))
-  },
-  FUN.VALUE = numeric(1)
-)
-data.frame(lambda = candidate_values, likelihood, log_likelihood)
-
-poisson_nll = function(log_lambda, counts) {
-  lambda = exp(log_lambda)
-  -sum(dpois(x = counts, lambda = lambda, log = TRUE))
+prey_consumption = function(N) {
+  12 * N / (6 + N)
 }
-fit = optim(
-  par = log(1), fn = poisson_nll, counts = counts,
-  method = "BFGS"
+
+curve(
+  prey_consumption(x), from = 0, to = 30,
+  ylim = c(0, 12.5),
+  xlab = "Prey density (prey per square metre)",
+  ylab = "Prey eaten by one predator per hour"
 )
-fit$convergence
-c(optim_estimate = exp(fit$par), sample_mean = mean(counts))
+points(x = 6, y = prey_consumption(6), pch = 19)
+abline(h = 12, lty = 2)
+legend(
+  "bottomright",
+  legend = c("Response", "Half-saturation", "Asymptote"),
+  lty = c(1, NA, 2), pch = c(NA, 19, NA), bty = "n"
+)
 ```
 
-The optimiser should return a convergence code of zero and an
-estimate close to 1.5 seedlings per quadrat. The likelihood
-comparison used only two candidates; optimisation searched beyond
-them. With more counts, computing a product directly can underflow,
-which is why the fitting function sums log probabilities.
+The point and line on the graph agree with the paper calculations.
+The dashed line is a limit of the model, not a measured maximum rate.
 
-# Exercise 2: Tree heights and two parameters
+# Exercise 2: Values at the ends of curves
 
-Assume independent tree heights follow
-$H_i\sim\operatorname{Normal}(\mu,\sigma^2)$, where both $\mu$ and
-$\sigma>0$ are measured in metres. For a first hand calculation,
-consider the illustrative heights 21 m and 23 m.
+Do all four calculations **on paper** first. You can use `curve()` to
+check the shapes afterwards. Assume the input is non-negative and
+all parameters shown are positive.
 
-1. Without R, write the normal **density** contribution for each
-   height under candidate A, $(\mu,\sigma)=(22,1)$ m, and candidate B,
-   $(22,3)$ m. Multiply each pair to obtain its likelihood. Calculate
-   each log-likelihood as a sum. Which pair fits these two heights
-   better? Explain why a density contribution is not the probability
-   of an exact height.
-2. Set seed 522 and simulate 30 independent heights with generating
-   values $\mu=22$ m and $\sigma=4$ m. Write a negative log-likelihood
-   for $\mu$ and $\log\sigma$. Fit both parameters with `optim()`,
-   check convergence, and report the estimates in metres.
-3. Draw a contour plot of the relative log-likelihood over a sensible
-   grid of $\mu$ and $\sigma$. Mark the estimate and generating values.
-   Explain why they need not coincide.
-4. Describe how you would form a slice for $\mu$ and a profile for
-   $\mu$. Which one re-estimates $\sigma$?
+1. Light intensity at canopy depth $z$ metres is
+   $D(z)=20e^{-0.4z}$ in arbitrary light units. Find $D(0)$ and
+   $\lim_{z\to\infty}D(z)$. Solve $D(z)=10$ for its half-depth
+   and give the answer in metres.
+2. A saturating consumption curve is $H(N)=15N/(5+N)$.
+   Find $H(0)$, its large-$N$ asymptote, and the straight-line
+   approximation at low $N$. At what density is $H$ half its
+   asymptote?
+3. Per-plant seed production at planting density $N$ is represented
+   by $C(N)=8/(2+N)$. Find $C(0)$ and its large-$N$ limit.
+   Does the model rise or fall as density increases?
+4. A second saturating curve is $S(N)=3N^2/(4+N^2)$.
+   Find $S(0)$ and its large-$N$ asymptote. For very small
+   $N$, what simpler expression approximates $S(N)$?
 
-Hint: use `dnorm(x = heights, mean = mu, sd = sigma, log = TRUE)`
-inside the fitting function. The generating values are known only
-because you simulated the sample.
+# Exercise 3: Derivative workshop
 
-# Exercise 3: Overdispersed seedling counts
+Write the differentiation rule you use at each step. Complete these
+tasks **on paper**, then use R to evaluate each derivative at one
+input of your choice as a check.
 
-The [negative binomial model in Chapter 2](../../Chapter_2/Theory.qmd#sec-discrete_distributions)
-has mean $\mu>0$ seedlings per quadrat and shape $k>0$.
-Its variance is $\mu+\mu^2/k$. When $k=1$, the probability mass
-simplifies to
+1. For $f(x)=3+2x^2$, calculate $f'(x)$ and $f'(2)$.
+2. For $g(t)=12e^{-0.3t}$, calculate $g'(t)$ and $g'(0)$.
+   Explain the sign.
+3. For $h(N)=10N/(4+N)$, use the quotient rule to calculate
+   $h'(N)$ and $h'(0)$. Explain why the slope decreases.
+4. For $R(N)=5Ne^{-0.2N}$, use the product and chain rules to
+   calculate $R'(N)$.
+5. For $j(N)=N^2/(9+N^2)$, calculate $j'(N)$ and $j'(0)$.
+   Which rule handles the fraction? Where is the chain or power
+   rule used?
+
+Hint: to check a derivative numerically near $x$, compare the
+function at $x+\varepsilon$ and $x-\varepsilon$ for a small
+$\varepsilon$, such as $0.0001$. Do not use this approximation
+in place of the paper derivation.
+
+# Exercise 4: Peaks and an inflection point
+
+1. **On paper:** An illustrative recruitment index is
+   $Q(N)=6N-N^2$ for $0\leq N\leq6$. Find its stationary point,
+   check the derivative's sign on both sides, and calculate the
+   maximum value. What happens at the domain boundaries?
+2. **On paper:** Use your derivative for
+   $R(N)=5Ne^{-0.2N}$ from Exercise 3 to find its peak
+   location and height. Explain why the stationary point is
+   a maximum on $N\geq0$.
+3. **On paper:** Let
+   $L(x)=1/[1+e^{-0.8(x-5)}]$. Its derivative can be written
+   $L'(x)=0.8L(x)[1-L(x)]$. Differentiate this expression to
+   show that
+   $L''(x)=0.8^2L(x)[1-L(x)][1-2L(x)]$.
+   Find the inflection point and slope there.
+4. **In R:** Plot the three functions over sensible domains.
+   Mark the two peaks and the logistic inflection point.
+   Explain why the logistic curve has no finite maximum
+   on the whole real line.
+
+# Exercise 5: Half-saturation and parameterisation
+
+A Holling type II response can be written in either form
 
 $$
-P(X=x\mid\mu,k=1)
-=\frac{1}{1+\mu}
- \left(\frac{\mu}{1+\mu}\right)^x.
+F(N)=\frac{aN}{b+N}
+=\frac{\alpha N}{1+\alpha HN}.
 $$
 
-1. Two illustrative quadrats contain 0 and 1 seedlings. **By hand**,
-   write both likelihood contributions and their product with $k=1$.
-   Evaluate the likelihood and log-likelihood at $\mu=1$ and $\mu=2$.
-   Which candidate mean has greater likelihood for these counts?
-2. Set seed 533. Simulate 80 independent quadrat counts with
-   $\mu=4$ and $k=1.5$. Compare their sample mean and variance with
-   the model mean and variance. Explain why this comparison alone
-   cannot identify an ecological cause of overdispersion.
-3. Write a negative log-likelihood using `dnbinom(..., log = TRUE)`.
-   Fit $\mu$ and $k$ with `optim()` on log scales. Use sensible
-   starting values, check convergence, and report both estimates
-   on their original scales.
-4. Compare observed relative frequencies with fitted negative
-   binomial probabilities in a plot. What would make you question
-   the fit, especially at zero and in the upper tail?
+Here $N$ is prey density in prey per square metre and $F(N)$ is prey
+eaten per hour by one predator.
 
-# Exercise 4: Uncertainty in mean tree height
+1. **On paper:** Starting from the right-hand form, divide its
+   numerator and denominator by $\alpha H$. Derive $a$ and $b$
+   in terms of $\alpha$ and $H$, then solve for $\alpha$ and
+   $H$ in terms of $a$ and $b$.
+2. **On paper:** If $\alpha=0.6$ square metres per hour and
+   $H=0.25$ hours per prey, calculate the asymptote, initial
+   slope, and half-saturation density. State the units of
+   every result.
+3. **On paper:** A second curve has asymptote $a=9$ prey per hour
+   and initial slope $a/b=1.5$ square metres per hour. Find $b$,
+   $\alpha$, and $H$.
+4. **In R:** Plot the first curve using both parameterisations on
+   the same axes. Do they coincide? Explain why the plot is a
+   useful check but does not replace the algebra.
 
-Suppose 30 independent tree heights follow a normal model with
-unknown mean $\mu$ and standard deviation $\sigma$. Generate an
-illustrative sample with:
+# Exercise 6: Shift and scale
 
-```{r}
-set.seed(seed = 544)
-heights = rnorm(n = 30, mean = 22, sd = 4)
-```
+Start with $g(z)=z/(1+z)$ for $z\geq0$.
+We construct a new response
 
-1. Fit $\mu$ and $\log\sigma$ by maximum likelihood using
-   `optim(..., hessian = TRUE)`. Check convergence and report both
-   estimates in metres.
-2. Invert the Hessian and obtain approximate standard errors on
-   the fitted scale. Construct a 95% quadratic interval for $\mu$.
-   Construct one for $\log\sigma$ and back-transform its endpoints.
-   Explain why these intervals are approximate.
-3. For each candidate $\mu$, maximise the normal log-likelihood over
-   $\sigma$. Use the profile log-likelihood and the cutoff
-   $-qchisq(0.95,1)/2$ relative to its maximum to find a 95% profile
-   interval for $\mu$. A plot can help locate the two crossings.
-4. Compare the intervals for $\mu$ and interpret them in ecological
-   units. State one assumption that matters for their coverage.
-   Would either interval give a 95% probability that the fixed
-   population mean lies between its realised endpoints?
+$$
+F(N)=2+10\,g\left(\frac{N-3}{4}\right),
+\qquad N\geq3.
+$$
 
-Hint: for a fixed candidate $\mu$ in a normal model, the value of
-$\sigma$ that maximises likelihood is
-$\sqrt{\operatorname{mean}[(h_i-\mu)^2]}$.
+1. **On paper:** Write $F(N)$ as one fraction plus 2.
+   Identify the horizontal shift, horizontal scale, vertical
+   scale, and vertical shift.
+2. **On paper:** Find $F(3)$ and its large-$N$ asymptote.
+   At what $N$ does $F$ reach halfway between those values?
+3. **On paper:** Differentiate your expression to find the
+   slope at $N=3$. Why is it inappropriate to use the formula
+   at every $N<3$ without considering the ecological domain?
+4. **In R:** Plot $g$ and $F$ in separate panels, label both
+   axes, and mark the start, halfway point, and asymptote of
+   $F$. Keep the two input domains clear.
+
+# Exercise 7: Transformations and a local approximation
+
+1. **On paper:** For $D(t)=30e^{-0.2t}$, derive a straight-line
+   equation for $\log D(t)$ against $t$. Give its slope and
+   intercept. Which values of $D$ can be log-transformed?
+2. **On paper:** For $Y(x)=2x^{1.5}$ with $x>0$, derive a
+   straight-line equation for $\log Y$ against $\log x$.
+   What does its slope mean for a doubling of $x$?
+3. **On paper:** For $F(N)=12N/(6+N)$, calculate $F(0)$,
+   $F'(0)$, and $F''(0)$. Use them to write its quadratic
+   Taylor approximation around $N=0$.
+4. **On paper, then in R:** Compare the approximation with the
+   exact $F(N)$ at $N=1$ and $N=10$. Which comparison is useful?
+   Explain why a transformed straight line or local polynomial
+   does not, by itself, supply a probability model for observations.
+
+# Exercise 8: Choose and explore curve shapes
+
+Use the [function reference](../../Supplements/deterministic-functions.qmd)
+for a reminder of available shapes.
+
+1. **On paper:** Suppose recruit density is zero at adult density
+   zero, rises to 10 recruits per hectare at 5 adults per hectare,
+   then declines towards zero at very high adult density. Choose
+   between a straight line, a Holling type II curve, and
+   $R(N)=rNe^{-qN}$. Explain your choice from the functions'
+   limits and slopes.
+2. **On paper:** For the chosen curve, find $q$ and $r$ from
+   the specified peak location and height. State the units of
+   both parameters.
+3. **On paper:** Two candidates for a saturating response are
+   $M(x)=12x/(6+x)$ and $E(x)=12(1-e^{-x/6})$.
+   Show that they have the same starting value, initial slope,
+   and asymptote. Calculate both values at $x=6$. What shape
+   difference remains despite those shared landmarks?
+4. **In R:** Plot the recruitment curve and the two saturating
+   curves. Then explore $P(N,H)=0.6N/(1+0.6HN)$ over
+   $0\leq N\leq30$ and $0.15\leq H\leq0.5$ with an
+   `outer()` grid and `contour()`. Explain what changes as
+   handling time grows at a fixed prey density. These are
+   deterministic predictions, so what else would you need
+   to fit the curve to observed counts?

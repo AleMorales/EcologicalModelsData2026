@@ -29,16 +29,21 @@ scope and approves the teaching material; generated text is a draft until review
 
 ## Reference material and review status
 
-The course has currently been generated through Chapter 9. Generation does not
-imply human review; record later review decisions here when the author confirms
-them.
+The course has currently been generated through Chapter 8. The former Chapters 2
+(discrete probability) and 3 (continuous probability) were merged into one
+Chapter 2 and the later chapters moved down by one, so older notes and git
+history may use numbers that are one higher. Generation does not imply human
+review; record later review decisions here when the author confirms them.
 
 | Material | Status and use |
 |---|---|
 | `Chapter_1/Practicals/material.qmd` and its wrappers | Completed practical; primary reference for teaching voice, introductory R, and conditional solutions |
-| `Chapter_2/Theory.qmd` | Completed theory; primary reference for conceptual explanations, ecological examples, notation, and figures |
-| `Chapter_2/Practicals/no_solution.qmd` and `solution.qmd` | Completed practical; primary reference for exercises, worked reasoning, and interpretation |
-| `Chapter_3` through `Chapter_9` | Generated course material; review status unspecified, not assumed complete |
+| `Chapter_1/Theory.qmd` | Finalised by the author; reference for the author's voice in its essay register (motivation, opinion). Do not carry that level of opinion into technical chapters |
+| `Chapter_2/Theory.qmd` | Author text plus generated drafts awaiting review. The author's sections are the primary reference for voice in technical chapters, conceptual explanations, ecological examples, notation, and figures: "Discrete probability distributions", the discrete part of "Joint distributions" with the i.i.d. subsection, the discrete part of "Expectations and central moments", and "Choosing a distribution" with "Overdispersion". Generated drafts, not a model of voice: the introduction and learning goals, "Continuous probability distributions", "Joint distributions of continuous variables", the continuous forms and `integrate()` passage in the expectations section, the paragraph on continuous data in "Choosing a distribution", the summary, and quiz questions 4, 5, 6, 8 and 9 |
+| `Chapter_2/Practicals/no_solution.qmd` and `solution.qmd` | Exercises 1 (seedlings), 3 (`InsectSprays`) and 4 (Negative Binomial) are the author's completed work and the primary reference for exercises, worked reasoning, and interpretation. Exercises 2 (Normal), 5 (LogNormal) and 6 (Beta) are generated drafts awaiting review |
+| `Chapter_3/Theory.qmd` | Opens with author text, `# Samples and distributions` up to and including "Asymptotic convergence of the empirical distribution" (moved from Chapter 2), which is a reference for voice. "Samples of continuous measurements" and everything from "Parameters, estimators and estimates" onward are generated drafts awaiting review |
+| `Supplements/distributions.qmd` | Reference entry per distribution: summary table, description, `### Example:` verified in R, figure, and a `Practice` callout with a collapsed solution. The Binomial, Poisson, and Negative Binomial text is the author's (moved from Chapter 2); the other entries are generated drafts awaiting review. Tables and prose use the chapter symbols ($k$ for Negative Binomial, $\mu$ and $\sigma$ for LogNormal, $a$ and $b$ for Beta and Beta-Binomial). The author decided that detailed distribution descriptions live only here: Chapter 2 keeps two running examples (the Binomial for discrete data and the Normal for continuous data) and the Overdispersion section, and theory pages, practicals, and later chapters link to the entries by their `sec-` IDs. The Chapter 2 practical tells students to read the relevant entries first |
+| `Chapter_3/Practicals` and `Chapter_4` through `Chapter_8` | Generated course material; not rewritten by the author (Exercise 2 of the Chapter 3 practical is the author's, moved from Chapter 2). Use for topic coverage, never as a model of voice |
 
 The author requires `=` for all R assignment throughout the course, including
 function definitions. Apply this rule to existing and new code. The references contain occasional
@@ -51,7 +56,11 @@ of lines and new programming operations.
 
 Every chapter should begin with `# Introduction`, whose first sentence starts
 with “In this chapter, we learn how to...”, followed by `# Learning goals`.
-List learning goals in the order in which the chapter develops them.
+List learning goals in the order in which the chapter develops them. Every
+theory chapter ends with `# Summary` before `# Chapter quiz`. The author has
+also decided on British spelling throughout, capitalised distribution names
+(Binomial, Normal, LogNormal), and a formal tone from Chapter 2 onward, with
+Chapter 1 as the only personal, candid chapter; details are in `STYLE_GUIDE.md`.
 
 ## Responsibilities
 
@@ -69,8 +78,8 @@ Apply these roles as needed within the task; they do not require separate agents
   repetition and correct local language problems without making prose needlessly
   formal or expanding the requested scope.
 
-The authorial-voice transformation in `STYLE_GUIDE.md` is the priority prose
-standard when revising existing material. It takes precedence over generic
+The priority section on the author's voice in `STYLE_GUIDE.md` is the prose
+standard when revising existing material and writing new material. It takes precedence over generic
 textbook concision, while scientific accuracy and the course's stated scope
 remain mandatory.
 
@@ -84,15 +93,29 @@ remain mandatory.
   questions beyond a zero-effect test. Acknowledge that standard regression and
   mixed models remain useful, and connect these skills to prediction and
   uncertainty without expanding the course into forecasting methods.
-- The current progression is R foundations (Chapter 1), discrete probability
-  (Chapter 2), continuous probability (Chapter 3), estimation and sampling
-  distributions (Chapter 4), maximum likelihood (Chapter 5), deterministic
-  functions (Chapter 6), fitted ecological response curves (Chapter 7), grouped
-  response curves (Chapter 8), and numerical optimisation (Chapter 9). Verify
-  chapter details against
+- The current progression is R foundations (Chapter 1), probability
+  distributions for discrete and continuous data (Chapter 2), samples,
+  estimation and sampling distributions (Chapter 3), maximum likelihood
+  (Chapter 4), deterministic functions (Chapter 5), fitted ecological response
+  curves (Chapter 6), grouped response curves (Chapter 7), and numerical
+  optimisation (Chapter 8). Verify chapter details against
   `Chapter_1/Theory.qmd` and the actual files before referring students to them.
-- Chapter 7 introduces model comparison for fitted candidate models. Point
-  introductory promises about model comparison there, rather than to Chapter 5.
+- Chapter 2 ("Probability distributions") is about the distributions
+  themselves. The author decided that everything about how samples relate to
+  distributions (relative frequencies, empirical distributions, histograms,
+  kernel density estimates, `ecdf()`, convergence with sample size) lives in
+  Chapter 3 ("From samples to estimates"), where samples are used. Do not move
+  that material back into Chapter 2. Overdispersion, with the dispersion-ratio
+  diagnostic, stays in Chapter 2 with a forward pointer to Chapter 3 for what a
+  sample variance is.
+- Chapter 2 covers joint and marginal distributions and independence, for
+  discrete and continuous variables. Conditional distributions are not
+  introduced there; the author assigned them to the grouped-curves chapter
+  (Chapter 7), which has not yet received them.
+- Contour plots with `outer()` and `contour()` are taught in base R in the
+  Chapter 1 practical, so later chapters can use them without introduction.
+- Chapter 6 introduces model comparison for fitted candidate models. Point
+  introductory promises about model comparison there, rather than to Chapter 4.
 - Use simulation to connect known model parameters to samples, estimates, and
   repeated-sampling behaviour. Introduce unfamiliar R tools when they are needed.
 - Retain method of moments as a bridge to estimation. Do not replace the course's
@@ -123,8 +146,11 @@ remain mandatory.
    and sidebar lists belong in the mutually exclusive `_quarto-dev.yml` and
    `_quarto-prod.yml` profiles, so profile merging cannot duplicate navigation.
 4. Keep exercises and solutions aligned in numbering, data, notation, and learning
-   goals. A deliberately worked example may appear on the student page: Chapter
-   2's first exercise is an existing example. Do not remove it automatically.
+   goals. A deliberately worked example may appear on the student page: by
+   author decision the Chapter 2 practical starts with two worked exercises
+   (seedlings under a Binomial model, tree heights under a Normal model),
+   followed by four exercises for students to solve. Do not remove the worked
+   exercises automatically.
 5. Check new or changed mathematics and code against the accompanying explanation.
    For computational changes, run focused R checks when available. For changes to
    includes, metadata, or solution visibility, render the affected wrappers when

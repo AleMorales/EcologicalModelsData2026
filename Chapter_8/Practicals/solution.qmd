@@ -1,344 +1,659 @@
 ---
-title: "Chapter 8: Grouped ecological response curves (solutions)"
+title: "Numerical optimisation (solutions)"
 date: today
 ---
 
-
 # Introduction
 
-These exercises use `datasets::Loblolly`, a dataset built into R. It contains
-84 tree-height observations: `height` is in feet, `age` is in years, and
-`Seed` identifies a tree. There are 14 trees, each measured at six ages. The
-[Chapter 8 theory](../Theory.qmd) introduces the grouped-model ideas used here.
+This practical compares numerical searches for two simulated ecological
+likelihoods. The [Chapter 8 theory](../Theory.qmd) explains the algorithms and
+the diagnostic workflow. The data are generated in this document; they are not
+field observations.
 
-Work through the exercises in order. RTMB performs the marginalisation after
-you mark effects as random; you do not need to implement Laplace approximation
-yourself.
+Exercises 1–3 use Poisson counts of algal cells across nitrogen concentrations.
+Exercises 4–7 use binomial germination counts with an unknown moisture
+threshold. You need the DEoptim and GA packages for Exercises 5 and 6. Install
+them in your R environment before starting; do not put `install.packages()` in
+your analysis.
 
-We will use the saturating growth curve
+# Exercise 1: Grid and bounded one-dimensional search
+
+The expected algal cell count per millilitre follows
 
 $$
-m(t;A,R_0,k)=A-(A-R_0)e^{-kt}, \qquad A>0,\quad k>0.
+\mu(x)=\frac{Ax}{h+x},
 $$
 
-Here $t$ is age, $R_0$ is the extrapolated height at age zero, $A$ is the
-asymptotic height, and $k$ controls the approach to that asymptote. The first
-observed age is greater than zero, so interpret $R_0$ as an extrapolation rather
-than a directly observed height.
+where $A>0$ is the asymptotic expected count and $h>0$ is the nitrogen
+concentration at half the asymptote. Counts are conditionally independent and
+Poisson distributed. Simulate the data:
 
-# Exercise 1: Grouping and complete pooling
+```r
+algae_mean = function(x, A, h) A * x / (h + x)
 
-1. Load `datasets::Loblolly`, make an integer `tree_index` suitable for RTMB,
-   and count trees and observations per tree. Identify the observational and
-   grouping units.
-2. Plot height against age for each tree. Use both line type or symbol and colour
-   to distinguish trees.
-3. Fit a complete-pooling normal model with the growth curve above. Check the
-   convergence code, report $A$, $R_0$, $k$, and
-   $\sigma^2_{\mathrm{obs}}$ with their units, and overlay the fitted common
-   curve.
-4. Describe one systematic feature of the tree trajectories that this common
-   curve misses.
+set.seed(seed = 910)
+algae = data.frame(nitrogen = seq(0.05, 4, length.out = 45))
+algae$expected_cells = algae_mean(algae$nitrogen, A = 1200, h = 0.8)
+algae$cells = rpois(nrow(algae), lambda = algae$expected_cells)
+```
+
+For this exercise only, hold $h=0.8$ mg nitrogen per litre and estimate $A$.
+
+1. Write `algae_A_nll()` with `log_A` as its first argument. Plot it over a
+   coarse grid of 20 values and a fine grid of 500 values spanning
+   $A=100$ to $A=3000$ cells per millilitre.
+2. Record the best $A$ and objective value on each grid. Explain how range and
+   resolution affect a grid search.
+3. Use `optimize()` over the same log-scale interval. Report its parameter
+   estimate and objective value on their correct scales.
+4. Explain the difference between the value stored in `minimum` and that stored
+   in `objective`, and why the interval is part of the analysis.
 
 ## Solution
 
-`Loblolly` is supplied with R, so we can copy it to an object for this analysis.
-An observation is one recorded height at one age for one tree. A tree is the
-grouping unit. `as.integer()` changes the factor levels to consecutive indices
-that can index a parameter vector.
+The parameter is optimised on a log scale so every evaluated $A$ is positive.
+The objective remains the negative Poisson log-likelihood.
 
 ```r
-library(RTMB)
-
-trees = datasets::Loblolly
-trees$tree_index = as.integer(trees$Seed)
-table(trees$tree_index)
-c(number_trees = length(unique(trees$tree_index)),
-  number_observations = nrow(trees))
-
-tree_colours = rep(c("black", "#0072B2", "#D55E00", "#009E73"),
-                    length.out = 14)
-tree_symbols = rep(c(16, 17, 15, 18), length.out = 14)
-plot(trees$age, trees$height, type = "n",
-     xlab = "Age (years)", ylab = "Height (feet)")
-for (j in 1:14) {
-  tree_data = trees[trees$tree_index == j, ]
-  lines(tree_data$age, tree_data$height, lty = (j - 1) %% 4 + 1,
-        col = tree_colours[j])
-  points(tree_data$age, tree_data$height, pch = tree_symbols[j],
-         col = tree_colours[j])
+algae_A_nll = function(log_A, h, x, y) {
+  A = exp(log_A)
+  mu = algae_mean(x = x, A = A, h = h)
+  -sum(dpois(x = y, lambda = mu, log = TRUE))
 }
+
+coarse_log_A = seq(log(100), log(3000), length.out = 20)
+fine_log_A = seq(log(100), log(3000), length.out = 500)
+coarse_nll = vapply(coarse_log_A, algae_A_nll, 0.0,
+  h = 0.8, x = algae$nitrogen, y = algae$cells)
+fine_nll = vapply(fine_log_A, algae_A_nll, 0.0,
+  h = 0.8, x = algae$nitrogen, y = algae$cells)
+
+plot(exp(fine_log_A), fine_nll, type = "l",
+     xlab = "Asymptotic cell count, A (cells per ml)",
+     ylab = "Negative log-likelihood")
+points(exp(coarse_log_A), coarse_nll, pch = 1)
+legend("topright", c("Fine grid", "Coarse grid"),
+       lty = c(1, NA), pch = c(NA, 1), bty = "n")
+
+coarse_best = which.min(coarse_nll)
+fine_best = which.min(fine_nll)
+rbind(
+  coarse = c(A = exp(coarse_log_A[coarse_best]),
+             nll = coarse_nll[coarse_best]),
+  fine = c(A = exp(fine_log_A[fine_best]),
+           nll = fine_nll[fine_best])
+)
 ```
 
-The normal model describes heights conditional on age as independent around the
-common curve. Its `sd` argument is a standard deviation, so we estimate
-`sigma_obs` on a log scale and square it to report
-$\sigma^2_{\mathrm{obs}}$ in squared feet.
+The coarse grid selects approximately 1225.76 cells per millilitre with an
+objective of 226.21. The fine grid selects approximately 1203.54 with an
+objective of 218.53. A grid cannot select values outside its range or between
+its grid points, so range controls coverage and resolution controls precision.
 
 ```r
-tree_mean = function(age, A, R0, k) {
-  A - (A - R0) * exp(-k * age)
-}
-
-complete_model = function(par) {
-  A = exp(par$log_A)
-  k = exp(par$log_k)
-  sigma_obs = exp(par$log_sigma_obs)
-  mu = tree_mean(trees$age, A = A, R0 = par$R0, k = k)
-  trees$height %~% dnorm(mean = mu, sd = sigma_obs)
-}
-
-complete_start = list(
-  log_A = log(max(trees$height) + 5),
-  R0 = min(trees$height),
-  log_k = log(0.05),
-  log_sigma_obs = log(sd(trees$height))
+A_fit = optimize(
+  f = algae_A_nll,
+  interval = log(c(100, 3000)),
+  h = 0.8, x = algae$nitrogen, y = algae$cells
 )
-complete_obj = MakeADFun(complete_model, complete_start, silent = TRUE)
-complete_fit = optim(par = complete_obj$par, fn = complete_obj$fn,
-                     gr = complete_obj$gr, method = "BFGS")
-complete_fit$convergence
-
-complete_estimates = c(
-  A_feet = exp(complete_fit$par["log_A"]),
-  R0_feet = complete_fit$par["R0"],
-  k_per_year = exp(complete_fit$par["log_k"]),
-  sigma2_obs_squared_feet = exp(complete_fit$par["log_sigma_obs"])^2
-)
-complete_estimates
-
-age_grid = seq(min(trees$age), max(trees$age), length.out = 200)
-lines(age_grid,
-      tree_mean(age_grid, A = complete_estimates["A_feet"],
-                R0 = complete_estimates["R0_feet"],
-                k = complete_estimates["k_per_year"]),
-      lwd = 3)
+c(A_cells_per_ml = exp(A_fit$minimum), nll = A_fit$objective)
 ```
 
-You should inspect the code returned by `complete_fit$convergence`; zero is
-reassuring but does not verify the model. The common curve misses systematic
-between-tree differences: some trajectories lie mainly above it while others
-lie below it.
+`minimum` is the fitted `log_A`, so it must be exponentiated to give
+$\hat A\approx1200.15$ cells per millilitre. `objective` is the negative
+log-likelihood there, approximately 218.39. The interval is an assumption about
+the searched parameter domain, not merely software syntax.
 
-# Exercise 2: No pooling
+# Exercise 2: Local methods on a smooth likelihood
 
-Keep $R_0$, $k$, and $\sigma^2_{\mathrm{obs}}$ shared, but give every tree a
-separate asymptote $A_j$ on the log scale.
+Now estimate both $A$ and $h$.
 
-1. Fit this model with RTMB and check convergence.
-2. Plot the fitted curve for every tree and identify the large differences from
-   the complete-pooling curve.
-3. State which parameters and data remain shared. Are the 14 log asymptotes
-   random effects?
-
-
-Separate log asymptotes keep all fitted asymptotes positive. They are a vector
-of ordinary fitted parameters: do not declare this vector `random`.
+1. Write `algae_nll()` for `par = c(log_A, log_h)`. Confirm that it returns one
+   finite scalar at `algae_start`.
+2. Fit the model with BFGS and Nelder–Mead from the same start.
+3. Fit it with L-BFGS-B and `nlminb()` using the bounds below.
+4. Construct a comparison table containing the estimates of $A$ and $h$, the
+   negative log-likelihood, convergence information, and available objective
+   evaluation counts. Interpret both parameters in ecological units.
 
 ```r
-no_pool_model = function(par) {
-  A = exp(par$log_A_tree[trees$tree_index])
-  k = exp(par$log_k)
-  sigma_obs = exp(par$log_sigma_obs)
-  mu = tree_mean(trees$age, A = A, R0 = par$R0, k = k)
-  trees$height %~% dnorm(mean = mu, sd = sigma_obs)
-}
-
-no_pool_start = list(
-  log_A_tree = rep(log(max(trees$height) + 5), 14),
-  R0 = complete_estimates["R0_feet"],
-  log_k = log(0.05),
-  log_sigma_obs = log(sd(trees$height))
-)
-no_pool_obj = MakeADFun(no_pool_model, no_pool_start, silent = TRUE)
-no_pool_fit = optim(par = no_pool_obj$par, fn = no_pool_obj$fn,
-                    gr = no_pool_obj$gr, method = "BFGS")
-no_pool_fit$convergence
-
-no_pool_A = exp(no_pool_fit$par[grep("log_A_tree", names(no_pool_fit$par))])
-no_pool_A
-
-plot(trees$age, trees$height, type = "n",
-     xlab = "Age (years)", ylab = "Height (feet)")
-for (j in 1:14) {
-  tree_data = trees[trees$tree_index == j, ]
-  lines(tree_data$age,
-        tree_mean(tree_data$age, A = no_pool_A[j],
-                  R0 = no_pool_fit$par["R0"],
-                  k = exp(no_pool_fit$par["log_k"])),
-        lty = (j - 1) %% 4 + 1, col = tree_colours[j])
-  points(tree_data$age, tree_data$height, pch = tree_symbols[j],
-         col = tree_colours[j])
-}
+algae_start = c(log_A = log(700), log_h = log(2))
+algae_lower = log(c(A = 100, h = 0.02))
+algae_upper = log(c(A = 3000, h = 10))
 ```
-
-The data for all trees still jointly estimate the shared $R_0$, $k$, and
-$\sigma^2_{\mathrm{obs}}$. Each tree's data estimate its own log asymptote.
-Those 14 parameters are not random effects because the model gives them no
-population distribution and does not integrate them out.
-
-
-
-# Exercise 3: Partial pooling and shrinkage
-
-Use a log-asymptote random effect so every tree asymptote remains positive:
-
-$$
-\log A_j=\log A+u_j,\qquad
-u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{tree}}).
-$$
-
-1. Fit this model in RTMB, using `random = "u"`, and inspect convergence.
-2. Report $A$, $R_0$, $k$, $\sigma^2_{\mathrm{tree}}$, and
-   $\sigma^2_{\mathrm{obs}}$. State that the tree variance is on the
-   log-asymptote scale and that the observation variance is in squared feet.
-3. Draw conditional tree curves and compare their asymptotes with the no-pooling
-   curves. Identify the shrinkage pattern.
-4. Explain what RTMB did when `u` was declared random.
-
-
-The log-asymptote formulation keeps $A_j=\exp(\log A+u_j)$ positive. The
-standard deviation `sigma_tree` is on the log-asymptote scale, so its square is
-$\sigma^2_{\mathrm{tree}}$ on that scale. `sigma_obs` remains in feet and its
-square is in squared feet.
-
-```r
-partial_model = function(par) {
-  A = exp(par$log_A + par$u[trees$tree_index])
-  k = exp(par$log_k)
-  sigma_tree = exp(par$log_sigma_tree)
-  sigma_obs = exp(par$log_sigma_obs)
-  mu = tree_mean(trees$age, A = A, R0 = par$R0, k = k)
-  par$u %~% dnorm(mean = 0, sd = sigma_tree)
-  trees$height %~% dnorm(mean = mu, sd = sigma_obs)
-}
-
-partial_start = list(
-  log_A = log(max(trees$height) + 5),
-  R0 = complete_estimates["R0_feet"],
-  log_k = log(0.05),
-  log_sigma_tree = log(0.1),
-  log_sigma_obs = log(sd(trees$height)),
-  u = rep(0, 14)
-)
-partial_obj = MakeADFun(partial_model, partial_start,
-                         random = "u", silent = TRUE)
-partial_fit = optim(par = partial_obj$par, fn = partial_obj$fn,
-                    gr = partial_obj$gr, method = "BFGS")
-partial_fit$convergence
-
-partial_estimates = c(
-  A_feet = exp(partial_fit$par["log_A"]),
-  R0_feet = partial_fit$par["R0"],
-  k_per_year = exp(partial_fit$par["log_k"]),
-  sigma2_tree_log_asymptote = exp(partial_fit$par["log_sigma_tree"])^2,
-  sigma2_obs_squared_feet = exp(partial_fit$par["log_sigma_obs"])^2
-)
-partial_estimates
-
-conditional_parameters = partial_obj$env$parList(
-  partial_obj$env$last.par.best
-)
-conditional_u = conditional_parameters$u
-partial_A = exp(partial_fit$par["log_A"] + conditional_u)
-
-plot(trees$age, trees$height, type = "n",
-     xlab = "Age (years)", ylab = "Height (feet)")
-for (j in 1:14) {
-  tree_data = trees[trees$tree_index == j, ]
-  lines(tree_data$age,
-        tree_mean(tree_data$age, A = partial_A[j],
-                  R0 = partial_fit$par["R0"],
-                  k = exp(partial_fit$par["log_k"])),
-        lty = (j - 1) %% 4 + 1, col = tree_colours[j])
-  points(tree_data$age, tree_data$height, pch = tree_symbols[j],
-         col = tree_colours[j])
-}
-data.frame(no_pooling = no_pool_A, partial_pooling = partial_A)
-```
-
-The conditional effects are used here to draw and compare curves. They should
-usually be closer to the common asymptote than the no-pooling estimates: that
-is shrinkage. RTMB integrated the unobserved `u` values out of the objective
-with Laplace approximation before `optim()` fitted the shared parameters.
-
-
-# Exercise 4: Interpretation and checking
-
-1. Use the Hessian from the partial-pooling fit to calculate an approximate 95%
-   interval for the common asymptote $A$ on the feet scale. State the relevant
-   assumptions.
-2. Explain the difference between a fitted curve for an observed tree and a
-   prediction for a new tree.
-3. Simulate complete hierarchical data from the partial-pooling fit: simulate
-   one tree effect per tree and then one observation per recorded age. Plot the
-   simulated and observed trajectories for comparison.
-4. Give at least two limitations of this analysis, including the 14 groups and
-   the decision to vary only one curve component.
 
 ## Solution
 
-The Hessian is on the fitted parameter scale. We first make its dimensions
-explicit, then form an interval for `log_A` and exponentiate its endpoints to
-return to feet. This is a quadratic, large-sample approximation and is
-especially uncertain if the Hessian is not invertible, the fit has not
-converged, or the group variance is near its boundary.
+The function returns one summed negative log-likelihood, not one contribution
+per observation.
 
 ```r
-partial_hessian = partial_obj$he(partial_fit$par)
-dimnames(partial_hessian) = list(names(partial_fit$par),
-                                 names(partial_fit$par))
-partial_covariance = solve(partial_hessian)
-se_log_A = sqrt(partial_covariance["log_A", "log_A"])
-A_interval_feet = exp(
-  partial_fit$par["log_A"] +
-    c(-1, 1) * qnorm(p = 0.975) * se_log_A
-)
-A_interval_feet
-```
-
-A fitted curve for an observed tree conditions on that tree's estimated
-deviation. A prediction for a new tree must also allow for a new draw from the
-among-tree distribution, so it includes both tree-level and observation-level
-variation.
-
-The simulation below retains the observed ages and grouping structure. It first
-draws 14 new tree deviations, then generates height measurements around each
-tree's curve. Simulating observation variation alone would fail to check the
-grouped model.
-
-```r
-set.seed(seed = 801)
-sigma_tree = exp(partial_fit$par["log_sigma_tree"])
-sigma_obs = exp(partial_fit$par["log_sigma_obs"])
-simulated_u = rnorm(n = 14, mean = 0, sd = sigma_tree)
-simulated_A = exp(partial_fit$par["log_A"] + simulated_u)
-simulated_mu = tree_mean(
-  trees$age,
-  A = simulated_A[trees$tree_index],
-  R0 = partial_fit$par["R0"],
-  k = exp(partial_fit$par["log_k"])
-)
-simulated_height = rnorm(n = nrow(trees), mean = simulated_mu,
-                         sd = sigma_obs)
-
-old_par = par(mfrow = c(1, 2))
-plot(trees$age, trees$height, type = "n",
-     xlab = "Age (years)", ylab = "Observed height (feet)")
-plot(trees$age, simulated_height, type = "n",
-     xlab = "Age (years)", ylab = "Simulated height (feet)")
-for (j in 1:14) {
-  tree_data = trees$tree_index == j
-  lines(trees$age[tree_data], trees$height[tree_data],
-        lty = (j - 1) %% 4 + 1, col = tree_colours[j])
-  lines(trees$age[tree_data], simulated_height[tree_data],
-        lty = (j - 1) %% 4 + 1, col = tree_colours[j])
+algae_nll = function(par, x, y) {
+  A = exp(par[1])
+  h = exp(par[2])
+  mu = algae_mean(x = x, A = A, h = h)
+  -sum(dpois(x = y, lambda = mu, log = TRUE))
 }
-par(old_par)
+
+start_value = algae_nll(algae_start, algae$nitrogen, algae$cells)
+stopifnot(length(start_value) == 1, is.finite(start_value))
+
+fit_bfgs = optim(
+  par = algae_start, fn = algae_nll,
+  x = algae$nitrogen, y = algae$cells,
+  method = "BFGS"
+)
+fit_nm = optim(
+  par = algae_start, fn = algae_nll,
+  x = algae$nitrogen, y = algae$cells,
+  method = "Nelder-Mead"
+)
+fit_lbfgsb = optim(
+  par = algae_start, fn = algae_nll,
+  x = algae$nitrogen, y = algae$cells,
+  method = "L-BFGS-B", lower = algae_lower, upper = algae_upper
+)
+fit_nlminb = nlminb(
+  start = algae_start, objective = algae_nll,
+  lower = algae_lower, upper = algae_upper,
+  x = algae$nitrogen, y = algae$cells
+)
+
+comparison = rbind(
+  BFGS = c(A = exp(fit_bfgs$par[1]), h = exp(fit_bfgs$par[2]),
+    nll = fit_bfgs$value, convergence = fit_bfgs$convergence,
+    evaluations = fit_bfgs$counts["function"]),
+  Nelder_Mead = c(A = exp(fit_nm$par[1]), h = exp(fit_nm$par[2]),
+    nll = fit_nm$value, convergence = fit_nm$convergence,
+    evaluations = fit_nm$counts["function"]),
+  L_BFGS_B = c(A = exp(fit_lbfgsb$par[1]),
+    h = exp(fit_lbfgsb$par[2]), nll = fit_lbfgsb$value,
+    convergence = fit_lbfgsb$convergence,
+    evaluations = fit_lbfgsb$counts["function"]),
+  nlminb = c(A = exp(fit_nlminb$par[1]),
+    h = exp(fit_nlminb$par[2]), nll = fit_nlminb$objective,
+    convergence = fit_nlminb$convergence,
+    evaluations = fit_nlminb$evaluations["function"])
+)
+comparison
 ```
 
-Compare the range, spacing, and shapes of complete trajectories, not just the
-pointwise scatter. This model has only 14 groups, assumes normally distributed
-log-asymptote deviations, and allows trees to differ only in asymptote. It may
-miss differences in initial height, rate of approach, dependence across ages,
-or an unsuitable normal observation distribution.
+All four methods converge near $\hat A=1226.33$ cells per millilitre and
+$\hat h=0.859$ mg nitrogen per litre, with negative log-likelihood 216.705.
+$A$ is the asymptotic expected cell count; $h$ is the concentration at which
+the fitted mean is half of $A$. Agreement of these fits supports the numerical
+result for this smooth problem. It does not verify the Poisson assumption.
+
+# Exercise 3: Derivatives and scaling
+
+1. Derive or use the following analytical gradient and compare it with a
+   centred finite-difference gradient at `algae_start`:
+
+   $$
+   \frac{\partial Q}{\partial\log A}=\sum_i(\mu_i-y_i),
+   \qquad
+   \frac{\partial Q}{\partial\log h}=
+   \sum_i(y_i-\mu_i)\frac{h}{h+x_i}.
+   $$
+
+2. Refit BFGS while supplying the analytical gradient. Compare its objective
+   and reported function and gradient evaluation counts with the BFGS fit that
+   did not receive `gr`.
+3. Define `algae_nll_natural()` in terms of natural-scale `A` and `h`. Compare a
+   BFGS fit from `c(A = 700, h = 2)` with and without
+   `control = list(parscale = c(1000, 1))`. Do not allow either fit to replace
+   the transformed fit merely because it returns an answer.
+4. Evaluate the analytical gradient at the transformed BFGS estimate. Explain
+   why a small gradient supports numerical convergence but is not a check of the
+   Poisson model.
+
+## Solution
+
+The centred finite-difference calculation perturbs one coordinate at a time.
+
+```r
+algae_gradient = function(par, x, y) {
+  A = exp(par[1])
+  h = exp(par[2])
+  mu = algae_mean(x = x, A = A, h = h)
+  c(log_A = sum(mu - y),
+    log_h = sum((y - mu) * h / (h + x)))
+}
+
+centred_gradient = function(par, fn, step = 1e-5, ...) {
+  result = numeric(length(par))
+  for (j in seq_along(par)) {
+    upper = lower = par
+    upper[j] = upper[j] + step
+    lower[j] = lower[j] - step
+    result[j] = (fn(upper, ...) - fn(lower, ...)) / (2 * step)
+  }
+  names(result) = names(par)
+  result
+}
+
+rbind(
+  analytical = algae_gradient(algae_start, algae$nitrogen, algae$cells),
+  finite_difference = centred_gradient(
+    algae_start, algae_nll,
+    x = algae$nitrogen, y = algae$cells
+  )
+)
+```
+
+Close agreement checks both the formula and its implementation at this point.
+It does not prove that either is correct everywhere.
+
+```r
+fit_bfgs_gradient = optim(
+  par = algae_start, fn = algae_nll, gr = algae_gradient,
+  x = algae$nitrogen, y = algae$cells,
+  method = "BFGS"
+)
+rbind(
+  numerical_gradient = c(nll = fit_bfgs$value,
+    function_evaluations = fit_bfgs$counts["function"],
+    gradient_evaluations = fit_bfgs$counts["gradient"]),
+  analytical_gradient = c(nll = fit_bfgs_gradient$value,
+    function_evaluations = fit_bfgs_gradient$counts["function"],
+    gradient_evaluations = fit_bfgs_gradient$counts["gradient"])
+)
+```
+
+The objectives should agree. Remember that `optim()` does not include the
+additional objective calls used internally for a finite-difference gradient in
+its reported function count, so the table is not a complete cost accounting.
+
+```r
+algae_nll_natural = function(par, x, y) {
+  A = par[1]
+  h = par[2]
+  if (A <= 0 || h <= 0) return(1e10)
+  mu = algae_mean(x = x, A = A, h = h)
+  -sum(dpois(x = y, lambda = mu, log = TRUE))
+}
+
+natural_unscaled = optim(
+  par = c(A = 700, h = 2), fn = algae_nll_natural,
+  x = algae$nitrogen, y = algae$cells, method = "BFGS"
+)
+natural_scaled = optim(
+  par = c(A = 700, h = 2), fn = algae_nll_natural,
+  x = algae$nitrogen, y = algae$cells, method = "BFGS",
+  control = list(parscale = c(1000, 1))
+)
+rbind(
+  unscaled = c(natural_unscaled$par, nll = natural_unscaled$value,
+               convergence = natural_unscaled$convergence),
+  scaled = c(natural_scaled$par, nll = natural_scaled$value,
+             convergence = natural_scaled$convergence),
+  transformed = c(A = exp(fit_bfgs_gradient$par[1]),
+    h = exp(fit_bfgs_gradient$par[2]), nll = fit_bfgs_gradient$value,
+    convergence = fit_bfgs_gradient$convergence)
+)
+
+final_gradient = algae_gradient(
+  fit_bfgs_gradient$par, algae$nitrogen, algae$cells
+)
+final_gradient
+```
+
+The two natural-scale parameters have very different step sizes. `parscale`
+helps the optimizer treat a typical change of 1000 in $A$ as comparable to a
+change of one in $h$. The log transformation handles positivity and scaling
+more transparently here. A small final gradient says that the objective is
+locally flat on the fitted coordinates; it says nothing about whether Poisson
+variation or conditional independence describes algal cell counts.
+
+# Exercise 4: A difficult objective
+
+The second simulated study plants 25 seeds at each of 50 soil-moisture values.
+Below an unknown threshold $c$, germination probability is $p_{\mathrm L}$;
+at and above it, germination probability is $p_{\mathrm H}$.
+
+```r
+set.seed(seed = 911)
+germination = data.frame(
+  moisture = seq(10, 90, length.out = 50),
+  trials = 25
+)
+germination$probability = ifelse(
+  germination$moisture < 58, 0.2, 0.75
+)
+germination$germinated = rbinom(
+  nrow(germination), size = germination$trials,
+  prob = germination$probability
+)
+```
+
+1. Write `germination_nll()` for
+   `par = c(cut, logit_low, logit_high)`. Transform the probability parameters
+   with `plogis()`. Return a large finite penalty if `cut` is outside 15–85 or a
+   calculation is non-finite.
+2. For each threshold on a fine grid from 15 to 85, calculate the maximum
+   likelihood estimates of the two probabilities from the groups on either
+   side, then plot the resulting negative log-likelihood. Explain the plateaus
+   and jumps.
+3. Run L-BFGS-B from the three rows of `germination_starts`. Compare the
+   threshold estimates and objective values. Why can a zero convergence code be
+   misleading here?
+
+```r
+germination_lower = c(
+  cut = 15, logit_low = qlogis(0.02), logit_high = qlogis(0.02)
+)
+germination_upper = c(
+  cut = 85, logit_low = qlogis(0.98), logit_high = qlogis(0.98)
+)
+germination_starts = rbind(
+  early = c(cut = 30, logit_low = qlogis(0.2),
+            logit_high = qlogis(0.7)),
+  middle = c(cut = 55, logit_low = qlogis(0.2),
+             logit_high = qlogis(0.7)),
+  late = c(cut = 75, logit_low = qlogis(0.2),
+           logit_high = qlogis(0.7))
+)
+```
+
+## Solution
+
+The finite penalty lets stochastic proposals outside the domain be compared
+without returning `NA`. The fitted probability is constant on each side of the
+candidate threshold.
+
+```r
+germination_nll = function(par, moisture, germinated, trials) {
+  cut = par[1]
+  p_low = plogis(par[2])
+  p_high = plogis(par[3])
+  if (!is.finite(cut) || cut < 15 || cut > 85 ||
+      !is.finite(p_low) || !is.finite(p_high)) return(1e10)
+  probability = ifelse(moisture < cut, p_low, p_high)
+  value = -sum(dbinom(x = germinated, size = trials,
+    prob = probability, log = TRUE))
+  if (is.finite(value)) value else 1e10
+}
+
+cut_grid = seq(15, 85, length.out = 600)
+grid_nll = vapply(cut_grid, function(cut) {
+  low = germination$moisture < cut
+  p_low = sum(germination$germinated[low]) /
+    sum(germination$trials[low])
+  p_high = sum(germination$germinated[!low]) /
+    sum(germination$trials[!low])
+  germination_nll(
+    c(cut, qlogis(p_low), qlogis(p_high)),
+    germination$moisture, germination$germinated,
+    germination$trials
+  )
+}, 0.0)
+plot(cut_grid, grid_nll, type = "s",
+     xlab = "Soil-moisture threshold",
+     ylab = "Fitted negative log-likelihood")
+```
+
+The objective changes only when `cut` crosses an observed moisture value and
+moves an observation between groups. It is flat between those values and jumps
+at them, so a derivative with respect to `cut` is zero on a plateau and
+undefined at a jump.
+
+```r
+local_fits = lapply(seq_len(nrow(germination_starts)), function(i) {
+  optim(
+    par = germination_starts[i, ], fn = germination_nll,
+    moisture = germination$moisture,
+    germinated = germination$germinated,
+    trials = germination$trials,
+    method = "L-BFGS-B",
+    lower = germination_lower, upper = germination_upper
+  )
+})
+local_comparison = do.call(rbind, lapply(local_fits, function(fit) {
+  c(cut = fit$par[1], p_low = plogis(fit$par[2]),
+    p_high = plogis(fit$par[3]), nll = fit$value,
+    convergence = fit$convergence)
+}))
+rownames(local_comparison) = rownames(germination_starts)
+local_comparison
+```
+
+The fits remain at thresholds 30, 55, and 75, with negative log-likelihoods of
+approximately 250.82, 138.08, and 216.75. All can return convergence code zero
+because the threshold direction is locally flat. The middle start is much
+better, but the grid shows that an even lower plateau exists near 58.
+
+# Exercise 5: Differential evolution
+
+1. With seed 912, fit `germination_nll()` using `DEoptim::DEoptim()` and the
+   bounds from Exercise 4. Use `NP = 60`, `itermax = 120`, `F = 0.8`, and
+   `CR = 0.9`.
+2. Inspect the best parameter vector, best objective value, number of function
+   evaluations, and best value by generation. Plot the progress trace.
+3. Repeat the complete fit with seeds 913 and 914. Compare threshold plateaus,
+   probability estimates, and objective values.
+4. Explain the roles of the bounds, `NP`, `F`, and `CR`. Why do three similar
+   runs still not prove that the global minimum was found?
+
+## Solution
+
+Each run searches the same bounded parameter region. The helper function sets a
+distinct seed immediately before each stochastic fit.
+
+```r
+run_de = function(seed) {
+  set.seed(seed = seed)
+  DEoptim::DEoptim(
+    fn = germination_nll,
+    lower = germination_lower, upper = germination_upper,
+    moisture = germination$moisture,
+    germinated = germination$germinated,
+    trials = germination$trials,
+    control = DEoptim::DEoptim.control(
+      NP = 60, itermax = 120, F = 0.8, CR = 0.9,
+      trace = FALSE
+    )
+  )
+}
+
+de_fits = lapply(c(912, 913, 914), run_de)
+first_de = de_fits[[1]]
+first_de$optim$bestmem
+first_de$optim$bestval
+first_de$optim$nfeval
+first_de$member$bestvalit
+plot(first_de$member$bestvalit, type = "l",
+     xlab = "Generation", ylab = "Best negative log-likelihood")
+
+de_comparison = do.call(rbind, lapply(de_fits, function(fit) {
+  c(cut = fit$optim$bestmem[1],
+    p_low = plogis(fit$optim$bestmem[2]),
+    p_high = plogis(fit$optim$bestmem[3]),
+    nll = fit$optim$bestval,
+    evaluations = fit$optim$nfeval)
+}))
+rownames(de_comparison) = c("seed_912", "seed_913", "seed_914")
+de_comparison
+```
+
+All three runs reach the same objective, approximately 107.486, with
+$\hat p_{\mathrm L}=0.216$ and $\hat p_{\mathrm H}=0.740$. Their thresholds
+vary within the same best plateau, approximately 57.73–58.17.
+
+The bounds define what can be searched. `NP` is the number of population
+members, `F` scales difference-vector mutations, and `CR` controls how much of
+a mutant enters a trial vector. Similar seeded runs provide evidence of stable
+search behaviour in this domain, not a mathematical proof of global optimality.
+
+# Exercise 6: A real-valued genetic algorithm
+
+1. Define `germination_fitness()` with the correct sign and fit the same model
+   with `GA::ga(type = "real-valued")`, seed 915, and the same bounds. Use
+   `popSize = 60`, `maxiter = 150`, `run = 40`, `pcrossover = 0.8`, and
+   `pmutation = 0.1`.
+2. Extract the best candidate and fitness. Convert the fitness back to a
+   negative log-likelihood before comparing it with DEoptim. Plot best and mean
+   fitness by generation.
+3. Repeat with seeds 916 and 917. Compare the three runs.
+4. Explain selection, crossover, mutation, elitism, and `run` in this example.
+   State why the sign conversion is necessary.
+
+## Solution
+
+`GA::ga()` maximises, so high fitness must mean low negative log-likelihood.
+
+```r
+germination_fitness = function(par, moisture, germinated, trials) {
+  -germination_nll(par, moisture, germinated, trials)
+}
+
+run_ga = function(seed) {
+  set.seed(seed = seed)
+  GA::ga(
+    type = "real-valued", fitness = germination_fitness,
+    lower = germination_lower, upper = germination_upper,
+    moisture = germination$moisture,
+    germinated = germination$germinated,
+    trials = germination$trials,
+    popSize = 60, maxiter = 150, run = 40,
+    pcrossover = 0.8, pmutation = 0.1,
+    monitor = FALSE
+  )
+}
+
+ga_fits = lapply(c(915, 916, 917), run_ga)
+first_ga = ga_fits[[1]]
+first_ga_candidate = as.numeric(first_ga@solution[1, ])
+c(first_ga_candidate, nll = -first_ga@fitnessValue)
+
+plot(seq_len(nrow(first_ga@summary)), first_ga@summary[, "max"],
+     type = "l", lwd = 2,
+     xlab = "Generation", ylab = "Fitness")
+lines(seq_len(nrow(first_ga@summary)), first_ga@summary[, "mean"],
+      lty = 2, lwd = 2)
+legend("bottomright", c("Best", "Mean"), lty = c(1, 2),
+       lwd = 2, bty = "n")
+
+ga_comparison = do.call(rbind, lapply(ga_fits, function(fit) {
+  candidate = as.numeric(fit@solution[1, ])
+  c(cut = candidate[1], p_low = plogis(candidate[2]),
+    p_high = plogis(candidate[3]), nll = -fit@fitnessValue)
+}))
+rownames(ga_comparison) = c("seed_915", "seed_916", "seed_917")
+ga_comparison
+```
+
+The GA runs also reach negative log-likelihood 107.486, with probabilities near
+0.216 and 0.740 and thresholds on the same best plateau. Selection favours high
+fitness, crossover combines candidates, mutation introduces new variation, and
+elitism retains some strong candidates. `run = 40` stops after 40 generations
+without improvement, unless `maxiter` is reached first. Without the sign change,
+GA would favour a *larger* negative log-likelihood and therefore a worse fit.
+
+# Exercise 7: Global exploration followed by local refinement
+
+1. Select the lowest-objective DE candidate and the highest-fitness GA
+   candidate from Exercises 5 and 6.
+2. Pass each candidate to L-BFGS-B using the same objective and bounds. Confirm
+   that local refinement does not worsen the objective.
+3. Compare refined thresholds, probabilities, objective values, convergence
+   codes, and numerical gradients. Relate the threshold estimates to the
+   predictor values that bracket their plateaus.
+4. Explain why agreement across the two global searches and local refinement is
+   reassuring but does not prove a global optimum.
+5. Separate your numerical conclusion from ecological model adequacy. Name at
+   least three assumptions or limitations that would matter if these were field
+   data.
+
+## Solution
+
+We select candidates by their values on the same negative log-likelihood scale.
+
+```r
+best_de_index = which.min(vapply(
+  de_fits, function(fit) fit$optim$bestval, 0.0
+))
+best_ga_index = which.max(vapply(
+  ga_fits, function(fit) fit@fitnessValue, 0.0
+))
+best_de = de_fits[[best_de_index]]
+best_ga = ga_fits[[best_ga_index]]
+best_ga_candidate = as.numeric(best_ga@solution[1, ])
+
+refined_de = optim(
+  par = best_de$optim$bestmem, fn = germination_nll,
+  moisture = germination$moisture,
+  germinated = germination$germinated,
+  trials = germination$trials,
+  method = "L-BFGS-B",
+  lower = germination_lower, upper = germination_upper
+)
+refined_ga = optim(
+  par = best_ga_candidate, fn = germination_nll,
+  moisture = germination$moisture,
+  germinated = germination$germinated,
+  trials = germination$trials,
+  method = "L-BFGS-B",
+  lower = germination_lower, upper = germination_upper
+)
+
+c(DE_before = best_de$optim$bestval, DE_after = refined_de$value,
+  GA_before = -best_ga@fitnessValue, GA_after = refined_ga$value)
+```
+
+The objective remains approximately 107.486. Local refinement mostly adjusts
+the smooth probability coordinates because the threshold direction is flat
+within a plateau.
+
+```r
+refined_comparison = rbind(
+  DE_then_local = c(cut = refined_de$par[1],
+    p_low = plogis(refined_de$par[2]),
+    p_high = plogis(refined_de$par[3]), nll = refined_de$value,
+    convergence = refined_de$convergence),
+  GA_then_local = c(cut = refined_ga$par[1],
+    p_low = plogis(refined_ga$par[2]),
+    p_high = plogis(refined_ga$par[3]), nll = refined_ga$value,
+    convergence = refined_ga$convergence)
+)
+refined_comparison
+
+de_gradient = centred_gradient(
+  refined_de$par, germination_nll,
+  moisture = germination$moisture,
+  germinated = germination$germinated,
+  trials = germination$trials
+)
+ga_gradient = centred_gradient(
+  refined_ga$par, germination_nll,
+  moisture = germination$moisture,
+  germinated = germination$germinated,
+  trials = germination$trials
+)
+rbind(DE_then_local = de_gradient, GA_then_local = ga_gradient)
+
+sorted_moisture = sort(germination$moisture)
+sorted_moisture[sorted_moisture < refined_de$par[1]][
+  length(sorted_moisture[sorted_moisture < refined_de$par[1]])
+]
+sorted_moisture[sorted_moisture >= refined_de$par[1]][1]
+```
+
+The numerical gradients are close to zero, including exactly or nearly zero in
+the threshold direction. That small threshold gradient reflects a flat plateau,
+not precise identification of one cut point. For these data, the best plateau
+is bracketed by adjacent observed moisture values; every threshold inside it
+assigns observations to the same two groups.
+
+Agreement between independent stochastic searches, the grid, and local
+refinement is stronger evidence than one convergence code. It remains evidence
+within the chosen bounds and finite search budgets, not proof of a global
+minimum.
+
+If these were field data, the numerical conclusion would be that the algorithms
+found the same lowest observed objective region and fitted probabilities. Model
+adequacy would still require scrutiny. The analysis assumes binomial sampling,
+the same number and independence of seed outcomes within the stated trials,
+independence across moisture settings, constant probabilities on each side of
+an abrupt threshold, accurate moisture measurement, and no omitted site or
+batch effects. A gradual moisture response or overdispersion could make the
+threshold model unsuitable even when its optimisation is stable.

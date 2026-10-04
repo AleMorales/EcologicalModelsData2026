@@ -1,159 +1,171 @@
 ---
-title: "Chapter 3: Probability for continuous data"
+title: "Chapter 3: From samples to estimates"
 date: today
 ---
 
-These exercises use assumed probability models and simulated measurements. They
-do not represent observations from a field study. Work through the first example
-before trying the remaining exercises. The distribution functions are introduced
-in the [Chapter 3 theory](../Theory.qmd).
+These exercises use illustrative counts and simulated ecological
+measurements, not field observations. Work through the first example
+before trying the remaining exercises. The ideas and notation are
+introduced in the [Chapter 3 theory](../Theory.qmd).
 
-# Exercise 1: Tree heights under a normal model
+# Exercise 1: Seedlings in quadrats
 
-Suppose the height $X$ of a randomly selected tree follows a normal model with
-mean 22 m and standard deviation 4 m:
+Suppose the count $X_i$ in quadrat $i$ follows a Poisson model with an
+unknown mean $\lambda$ seedlings per quadrat. Assume equal-area,
+independent quadrats with the same expected count. These illustrative
+counts come from 12 quadrats:
 
-$$
-X\sim\operatorname{Normal}(22,4^2).
-$$
+```{r}
+seedling_counts = c(2, 4, 3, 5, 1, 6, 4, 2, 3, 5, 4, 3)
+```
 
-1. Calculate the probability that a tree is between 18 m and 26 m tall.
-2. Find the height below which 95% of trees fall under this model.
-3. Simulate 1,000 tree heights. Compare a density-scaled histogram with the
-   theoretical density and explain any differences.
+1. Name the parameter, a method-of-moments estimator, and its estimate
+   from these counts. State the estimate in ecological units.
+2. Calculate the estimated standard error of the mean under the Poisson
+   model. Explain how it differs from the standard deviation of the
+   individual counts.
+3. Construct an approximate 95% Wald confidence interval for
+   $\lambda$ using `qnorm()`. Interpret the interval and its confidence
+   level. Name one model assumption that matters for this interpretation.
 
 ## Solution
 
-The observational unit is one tree. Height is continuous, so we calculate
-probabilities for **intervals**, not for an exact height. The notation above
-uses the variance $4^2$; R's `sd` argument takes the standard deviation, 4 m.
-
-First, subtract the cumulative probability below 18 m from the cumulative
-probability below 26 m:
-
-$$
-P(18<X\leq26)=P(X\leq26)-P(X\leq18).
-$$
+The observational unit is one quadrat. The unknown parameter
+$\lambda=E[X_i]$ is the expected number of seedlings per quadrat.
+The method of moments matches the mean of the Poisson model with
+the mean of the sampled counts, giving the estimator
+$\hat\lambda=\overline X$.
 
 ```{r}
-height_mean = 22
-height_sd = 4
-
-prob_18_to_26 = pnorm(q = 26, mean = height_mean, sd = height_sd) -
-  pnorm(q = 18, mean = height_mean, sd = height_sd)
-prob_18_to_26
+n_quadrats = length(seedling_counts)
+lambda_hat = mean(seedling_counts)
+c(n_quadrats = n_quadrats, estimate_per_quadrat = lambda_hat)
 ```
 
-The probability is approximately 0.683. Under this model, about 68% of trees
-have heights in this interval. Including or excluding the endpoints makes no
-difference for a continuous model.
+The 12 counts sum to 42, so the estimate is $42/12=3.5$ seedlings
+per quadrat. The parameter is fixed but unknown; the estimator is a
+rule that could give another value for a different sample.
 
-Next, a 95th percentile is a height with 95% of the model's probability below it:
+Under the independent Poisson model,
+$\operatorname{SE}(\hat\lambda)=\sqrt{\lambda/n}$. We do not know
+$\lambda$, so we insert $\hat\lambda$:
 
 ```{r}
-height_95 = qnorm(p = 0.95, mean = height_mean, sd = height_sd)
-height_95
+estimated_se = sqrt(lambda_hat / n_quadrats)
+count_sd = sd(seedling_counts)
+c(estimated_se = estimated_se, count_sd = count_sd)
 ```
 
-The height is approximately 28.6 m. This is a model quantile, not the height
-of a particular observed tree.
+The estimated standard error is approximately 0.54 seedlings per
+quadrat. It describes variation in estimated **mean counts** across
+studies of 12 quadrats. The sample standard deviation describes
+variation among the **individual quadrat counts**.
 
-To compare a sample with the model, set a seed and generate 1,000 possible
-tree heights. The seed makes this example reproducible.
+For a Wald interval, use the 97.5th percentile of a standard normal
+distribution on each side of the estimate:
 
 ```{r}
-set.seed(seed = 101)
-tree_heights = rnorm(n = 1000, mean = height_mean, sd = height_sd)
-
-hist(
-  x = tree_heights, breaks = 25, probability = TRUE,
-  col = "grey85", border = "white",
-  xlab = "Tree height (m)", ylab = "Density per metre",
-  main = "Simulated tree heights and assumed model"
+critical_value = qnorm(p = 0.975)
+lambda_interval = c(
+  lower = lambda_hat - critical_value * estimated_se,
+  upper = lambda_hat + critical_value * estimated_se
 )
-curve(
-  dnorm(x = x, mean = height_mean, sd = height_sd),
-  add = TRUE, lwd = 2
-)
-legend(
-  "topright", legend = "Assumed normal density",
-  lty = 1, lwd = 2, bty = "n"
-)
+lambda_interval
 ```
 
-The histogram uses density scaling because the curve also shows density.
-The bars will not match the curve exactly: they summarise one finite sample,
-and their appearance also depends on the bin widths. The curve is the model
-that generated the sample.
+The endpoints are approximately 2.44 and 4.56 seedlings per quadrat.
+This is a range for the population **mean count**, not a range
+containing 95% of individual counts. If we repeatedly sampled
+quadrats and used this procedure, roughly 95% of the intervals
+would contain the fixed $\lambda$ if the model and normal
+approximation gave the procedure 95% coverage in this setting.
+Independence and a common mean across equal-area quadrats are
+important assumptions. Wald intervals can have poor coverage when
+expected counts are small.
 
-# Exercise 2: Body mass under a lognormal model
+# Exercise 2: Asymptotic convergence
 
-Suppose body mass $X$ in grams follows a lognormal model with
-`meanlog = log(30)` and `sdlog = 0.5`. These parameters describe **log body
-mass**, not body mass in grams.
+Simulate Poisson observations with $\lambda=3$ for two sample sizes: 10 and 1,000. The
+mean, variance and R functions are in the
+[Poisson entry](../../Supplements/distributions.qmd#sec-poisson) of the supplement.
 
-1. Calculate the model median and mean body mass. Explain why they differ.
-2. Calculate the probability that body mass exceeds 50 g and the 95th percentile.
-3. Simulate 500 body masses with seed 202. Make density-scaled histograms on the
-   original and log scales. Describe their shapes.
-4. Add the theoretical lognormal density to the original-scale histogram.
-   Explain what the comparison can and cannot tell you about field data.
+1. Calculate the mean, median and variance for each sample (use the actual variance of the
+sample, not `var()`).
+2. Repeat point 1 four times using different random seeds (tip: use a for loop). How much
+do the sample properties vary?
+3. Compare these sample properties to the model values at the two sample sizes. How does
+the median and mean differ in their behaviour? What is happening to the variation across
+repeated samples as sample size increases?
 
-# Exercise 3: Vegetation cover under a beta model
+# Exercise 3: Breeding success at bird nests
 
-Suppose $X$ is the continuously measured fraction of a quadrat covered by
-vegetation, and $X$ follows a beta model with $a=2$ and $b=5$. In R these
-parameters are `shape1` and `shape2`.
+Suppose each independently monitored nest either produces at least one
+fledgling or none, with the same success probability $p=0.6$. The number of
+successful nests in a study of $n$ nests follows a binomial model
+$X\sim\operatorname{Binomial}(n,p)$. The true $p$ is known here because
+you will simulate the studies.
 
-1. Calculate the model mean and variance. Express the mean as a percentage of
-   the quadrat.
-2. Calculate $P(X<0.20)$ and the 95th percentile of cover. Explain both results.
-3. Simulate 500 cover fractions with seed 303. Plot a density-scaled histogram
-   and add the theoretical beta density.
-4. A field survey also records some quadrats with exactly zero cover. Explain
-   why the proposed beta model cannot describe those observations directly.
+1. Set seed 422. Simulate one study of 40 nests and estimate $p$ by
+   matching the observed and model success proportions. Interpret the
+   estimate.
+2. Set seed 423. Simulate 2,000 studies of 20 nests and 2,000 studies
+   of 100 nests. Calculate $\hat p=X/n$ for every study. Plot and
+   compare the two sampling distributions.
+3. For each study size, calculate the average estimate, simulated
+   bias, variance, standard error, and mean squared error. Compare
+   the simulated variance with $p(1-p)/n$. Explain what changes with
+   sample size and why one study cannot establish bias.
+4. Give one ecological reason why outcomes at different nests might
+   fail to be independent.
 
-# Exercise 4: Two measurements on each tree
+Hint: one call to `rbinom()` can generate the success counts for all
+2,000 studies at a given sample size.
 
-Use this code to simulate heights in metres and diameters in centimetres for
-300 trees. Each position in the two vectors describes the **same** tree. The
-simulation assumes that height and diameter tend to increase together.
+# Exercise 4: Variation in tree heights
 
-```{r}
-set.seed(seed = 404)
-n_trees = 300
-z_height = rnorm(n = n_trees)
-z_other = rnorm(n = n_trees)
+Suppose heights of independently sampled trees follow a normal model
+with mean $\mu=22$ m and standard deviation $\sigma=4$ m. These are
+the simulation parameters; in a field study they would be unknown.
 
-tree_height = 22 + 4 * z_height
-tree_diameter = 30 + 5 * (0.7 * z_height + sqrt(1 - 0.7^2) * z_other)
-```
+1. Set seed 433 and simulate 25 heights. Estimate $\mu$ by method of
+   moments. Estimate $\sigma^2$ using the mean squared deviation
+   from the sample mean, with divisor $n$. Compare this variance
+   estimate with `var()`. Give their units.
+2. Set seed 434 and repeat the 25-tree study 2,000 times. For each
+   study, calculate both variance estimates. Compare their average
+   values and simulated biases with the true variance. The expected
+   bias of the method-of-moments estimate is $-\sigma^2/n$.
+3. Calculate the mean squared error of each variance estimator in
+   the simulation. Does knowing which estimator is unbiased, by
+   itself, tell you which has the smaller mean squared error?
 
-1. Plot height against diameter as a scatterplot. Describe the relationship
-   and one feature that the plot does not establish.
-2. Plot a histogram of all heights. Does it show a joint, marginal, or
-   conditional distribution?
-3. Compare height histograms for trees with diameters below 27 cm and above
-   33 cm. What type of distributions are these, and how do they differ?
-4. Use the density grid below to make a contour plot with `contour()`. Describe
-   what the tilted contours say about the model. Does a contour enclose a
-   specified probability?
+Hint: `replicate()` can return two named estimates for each study.
 
-The grid gives model density for combinations of diameter and height. You
-only need to plot and interpret it; deriving its formula is beyond this chapter.
+# Exercise 5: Mean body mass and interval coverage
 
-```{r}
-diameter_grid = seq(from = 10, to = 50, length.out = 100)
-height_grid = seq(from = 8, to = 36, length.out = 100)
-rho = 0.7
+Suppose independent small-mammal body masses in grams follow a
+lognormal model with `meanlog = log(30)` and `sdlog = 0.8`.
+As described in the [LogNormal entry](../../Supplements/distributions.qmd#sec-lognormal) of the supplement,
+the model median on the original scale is $e^{\mu}$ and the
+**mean mass** is $e^{\mu+\sigma^2/2}$, where $\mu$ and $\sigma$
+describe log mass. The parameters are known because you will simulate
+the studies.
 
-joint_density = outer(
-  X = diameter_grid, Y = height_grid,
-  FUN = function(diameter, height) {
-    dx = (diameter - 30) / 5
-    hy = (height - 22) / 4
-    exp(-(dx^2 - 2 * rho * dx * hy + hy^2) / (2 * (1 - rho^2))) /
-      (2 * pi * 5 * 4 * sqrt(1 - rho^2))
-  }
-)
-```
+1. Calculate the model mean and median mass in grams. Set seed 443,
+   simulate one study of 12 animals, and calculate its sample mean,
+   sample median, and estimated standard error of the sample mean.
+2. For this study, form a 95% $t$ interval for the **original-scale
+   mean mass** using the sample mean, `sd(mass) / sqrt(n)`, and
+   `qt(p = 0.975, df = n - 1)`. Interpret the interval. Why is its
+   coverage only approximate for these lognormal masses?
+3. Set seed 444. Simulate 2,000 studies of 12 animals and 2,000
+   studies of 100 animals. Recalculate the $t$ interval for every
+   study and find the fraction covering the true original-scale mean
+   at each size. Compare the fractions with 0.95 and explain why
+   coverage might change with sample size.
+4. State one reason why coverage in this simulation does not prove
+   that the same procedure will work equally well for field data.
+
+Hint: `replicate()` can return `TRUE` or `FALSE` for whether one
+interval contains the model mean. `mean()` then gives the coverage
+fraction.

@@ -1,5 +1,5 @@
 ---
-title: "Grouped ecological response curves"
+title: "Numerical optimisation: local and global search for ecological models"
 format:
   html:
     toc: true
@@ -13,422 +13,793 @@ execute:
 
 # Introduction
 
-In this chapter, we learn how to model repeated measurements with grouped
-ecological response curves. A grouped model lets us estimate a common response
-and variation among groups while recognising that measurements from one group
-need not behave as independent rows.
+In this chapter, we learn how to find and diagnose parameter values that
+minimise a likelihood-based objective function. Numerical optimisation is the
+search a computer performs after we have specified a probability model and its
+likelihood. We examine how an optimiser proposes parameter values, why searches
+can end at different places, and what evidence supports a numerical result.
 
-In Chapter 7, we fitted one light-response curve to net-photosynthesis
-measurements. The original experimental record now adds grouping information:
-at each light level, the five rows belong to the same five leaves, in the same
-order. This lets us ask how net photosynthesis changes with light and whether
-all leaves follow the same response curve.
+In [Chapter 4](../Chapter_4/Theory.qmd#sec-maximum-likelihood), we constructed
+negative log-likelihoods and supplied them to `optim()`. Chapters 6 and 7 used
+the same idea for nonlinear response curves and grouped models. This chapter
+looks inside that numerical search.
 
-That information changes the model. One observational unit is a net
-photosynthesis measurement on a leaf at one light intensity. The grouping unit
-is a leaf, which contributes several observations. Measurements on a leaf can
-share a tendency to lie above or below the common curve.
-
-This chapter compares ways of sharing information between leaves. It then uses
-a grouped likelihood to estimate both the common light response and variation
-among leaves. The practical applies the same ideas to repeated tree-height
-measurements in `datasets::Loblolly`.
+An optimiser answers a numerical question: which allowed parameter values give
+the smallest objective value it can find? Successful termination does not show
+that the probability model, its independence assumptions, or its ecological
+mechanism are suitable. Numerical convergence and model adequacy are separate
+questions.
 
 # Learning goals
 
-After this chapter, you should be able to:
+After studying this chapter, you should be able to:
 
-- identify repeated measurements and distinguish observational and grouping
-  units;
-- explain fixed effects, random effects, mixed-effects, hierarchical, and
-  multilevel models in a concrete example;
-- compare complete pooling, no pooling, and partial pooling for a response
-  curve;
-- interpret shrinkage, regularisation, and the variance components
-  $\sigma^2_{\mathrm{leaf}}$ and $\sigma^2_{\mathrm{obs}}$;
-- explain why a grouped model can use maximum marginal likelihood and the
-  intuition and limitations of Laplace approximation; and
-- fit a grouped RTMB model with `optim()` and interpret its shared parameters,
-  variance components, and conditional group-specific curves.
+- define an objective function and parameter space, and distinguish local from
+  global minima and a stopping rule;
+- explore a low-dimensional objective with a grid and use `optimize()` for a
+  bounded one-dimensional problem;
+- choose and use suitable local methods in `optim()` or `nlminb()`;
+- explain how gradients, Hessians, transformations, bounds, and scaling affect
+  a numerical search;
+- recognise difficult objective surfaces and use simulated annealing,
+  differential evolution, or a real-valued genetic algorithm when appropriate;
+- combine broad exploration with local refinement; and
+- diagnose numerical convergence without confusing it with parameter
+  identification or model adequacy.
 
-# Identify the repeated measurements
+# The numerical optimisation problem
 
-The light-response data are the same supplied data used in Chapter 7. You can
-download `shapes1.csv` from the
-[`Data` folder](https://github.com/AleMorales/EcologicalModelsData2026/tree/main/Data)
-in the course GitHub repository. The CSV file alone does not identify a leaf.
-The author supplied the mapping below from the original experimental record:
-within every set of five rows at a light level, rows 1 to 5 came from leaves 1
-to 5 respectively. This is not a general rule for reconstructing repeated
-measurements from row order.
+Let $\boldsymbol\theta$ be a vector of model parameters. We use the objective
+
+$$
+Q(\boldsymbol\theta)=-\ell(\boldsymbol\theta),
+$$
+
+where $\ell$ is the log-likelihood for the observed data. Minimising $Q$ is
+equivalent to maximising the likelihood. The likelihood construction is already
+covered in [Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood); here our subject
+is the search across the allowed **parameter space**.
+
+The **objective value** is $Q$ at one candidate parameter vector. A **local
+minimum** is lower than nearby points, whereas a **global minimum** is no higher
+than any allowed point. An **iteration** is one update of an algorithm. It may
+require one or many objective or derivative evaluations, so iteration counts
+from different algorithms are not directly comparable.
+
+A **stopping rule** ends the search when, for example, changes in parameters or
+the objective become sufficiently small, or an evaluation limit is reached.
+The word *convergence* usually means that such a numerical rule was satisfied.
+It does not mean that the global minimum was proved or that the fitted model is
+scientifically convincing.
+
+::: {.callout-warning title="Convergence is not model checking"}
+A convergence code describes the numerical search, not the ecological model. A
+fit can converge to a local minimum, estimate a weakly identified parameter, or
+rely on an unsuitable observation model.
+:::
+
+We will first use a smooth simulated example. One observational unit is the
+number of grazing insects recorded at one nutrient concentration. Conditional
+on the recorded concentration $x_i$, let the count $Y_i$, which can take values
+$0,1,2,\ldots$, have the model
+
+$$
+Y_i\sim\operatorname{Poisson}(\mu_i),\qquad
+\mu_i=\frac{Ax_i}{h+x_i},
+$$
+
+where $A>0$ is the asymptotic expected insect count and $h>0$ is the nutrient
+concentration at which the expected count is half of $A$. The Poisson model
+assumes that the counts are conditionally independent and that both their mean
+and variance equal $\mu_i$. This resembles the response curves fitted in
+Chapter 6, but our new question concerns the search algorithm. The data below
+are simulated, not field observations.
 
 ```r
-# Load the supplied light-response data.
-light = read.csv("../Data/shapes1.csv")
-# Attach the leaf mapping supplied from the original experimental record.
-light$leaf_id = factor(rep(1:5, times = 11))
+sat_mean = function(x, A, h) {
+  A * x / (h + x)
+}
 
-# Check the number of measurements at each light level and for each leaf.
-table(light$x)
-table(light$leaf_id)
+sat_nll = function(par, x, y) {
+  # Transform both positive response-curve parameters to their natural scales.
+  A = exp(par[1])
+  h = exp(par[2])
+  mu = sat_mean(x = x, A = A, h = h)
+  # Sum log probability masses because `optim()` minimises this objective.
+  -sum(dpois(x = y, lambda = mu, log = TRUE))
+}
+
+# Simulate one insect count at each recorded nutrient concentration.
+set.seed(seed = 901)
+nutrient = seq(0.5, 12, length.out = 36)
+expected_count = sat_mean(x = nutrient, A = 22, h = 3)
+insect_count = rpois(n = length(expected_count), lambda = expected_count)
 ```
-
-The two tables check the supplied structure: there are five measurements at
-each of 11 light levels, and 11 measurements for each derived leaf identifier.
-The following plot joins only observations with the author-supplied same leaf
-identifier. Symbols and line types distinguish leaves as well as colour.
 
 ```{r}
 #| echo: false
 #| eval: true
-#| fig-cap: "Net photosynthesis measurements by author-supplied leaf identifier. Lines join repeated measurements from the same leaf."
-# Load the data and apply the author-supplied leaf mapping.
-light = read.csv("../Data/shapes1.csv")
-light$leaf_id = factor(rep(1:5, times = 11))
-# Use both colour and symbol to distinguish the leaf trajectories.
-leaf_colours = c("black", "#0072B2", "#D55E00", "#009E73", "#CC79A7")
-leaf_symbols = c(16, 17, 15, 18, 8)
-old_par = par(mar = c(4, 4, 1, 1))
-# Draw the measurements, then join observations from the same leaf.
-plot(light$x, light$y, type = "n",
-     xlab = "Light intensity (recorded units)",
-     ylab = "Net photosynthesis (recorded units)")
-for (j in seq_along(levels(light$leaf_id))) {
-  leaf_data = light[light$leaf_id == levels(light$leaf_id)[j], ]
-  lines(leaf_data$x, leaf_data$y, lty = j, col = leaf_colours[j])
-  points(leaf_data$x, leaf_data$y, pch = leaf_symbols[j],
-         col = leaf_colours[j])
+#| fig-cap: "A one-dimensional grid through a smooth negative log-likelihood. The filled point is the lowest value on the fine grid."
+sat_mean = function(x, A, h) {
+  A * x / (h + x)
 }
-legend("bottomright", legend = paste("Leaf", 1:5),
-       col = leaf_colours, pch = leaf_symbols, lty = 1:5, bty = "n")
-# Restore the graphical settings used before this figure.
-par(old_par)
+sat_nll = function(par, x, y) {
+  A = exp(par[1])
+  h = exp(par[2])
+  mu = sat_mean(x = x, A = A, h = h)
+  -sum(dpois(x = y, lambda = mu, log = TRUE))
+}
+set.seed(seed = 901)
+nutrient = seq(0.5, 12, length.out = 36)
+# Recreate the simulated insect counts used to draw this likelihood slice.
+expected_count = sat_mean(x = nutrient, A = 22, h = 3)
+insect_count = rpois(n = length(expected_count), lambda = expected_count)
+# Hold h fixed to show how the objective changes along the A direction.
+a_grid = seq(12, 32, length.out = 300)
+grid_value = vapply(a_grid, function(A) {
+  sat_nll(par = c(log(A), log(3)), x = nutrient, y = insect_count)
+}, 0.0)
+plot(a_grid, grid_value, type = "l",
+     xlab = "Asymptotic expected insect count, A",
+     ylab = "Negative log-likelihood")
+best_grid = which.min(grid_value)
+points(a_grid[best_grid], grid_value[best_grid], pch = 16)
 ```
 
-:::: {.callout-important title="Question: what does row order establish?"}
-If this identifier had not been supplied, would repeated point patterns at each
-light level establish five leaf trajectories?
+# Direct exploration and one-dimensional search
 
-::: {.callout-tip title="Answer" collapse="true"}
-No. Repeated values at each light level show replication at that level, but
-they do not say which observation at one light level belongs with an
-observation at another. The trajectories in the figure depend on the
-author-supplied experimental record.
-:::
-::::
+A **grid search** evaluates the objective at selected parameter values. A coarse
+grid reveals the broad shape; a fine grid then searches a promising interval.
+The range must be wide enough to include scientifically plausible values, while
+the spacing must be fine enough for the required accuracy. If each of $p$
+parameters has $m$ grid values, a full grid requires $m^p$ evaluations. That
+rapid growth makes grids most useful for one or two parameters and for
+diagnosis rather than routine high-dimensional fitting.
 
-# Three ways to share information
-
-We retain Chapter 7's net-photosynthesis response function,
-
-$$
-m(x;r,a,k)=r+a(1-e^{-kx}), \qquad a>0,\quad k>0.
-$$
-
-Here $x$ is light intensity, $r$ is expected net photosynthesis at zero light,
-$r+a$ is its limiting expected value, and $k$ controls how quickly the curve
-increases. Net photosynthesis can be negative at low light when respiration
-exceeds carbon fixation.
-
-## Names for the parts of the model
-
-The concrete model helps make common terminology less mysterious:
-
-- **Fixed effects** are the shared, population-level parameters estimated from
-  these data, such as $r$, $a$, and $k$. Fixed does not mean known or causal.
-- **Random effects** are group deviations, such as $u_j$, modelled with a
-  distribution whose variance is estimated.
-- A **mixed-effects model** contains both shared parameters and random effects.
-- A **hierarchical** or **multilevel model** represents observations nested
-  within leaves.
-
-"Random effect" does not mean that leaves were randomly allocated to a
-treatment. It means that the model represents among-leaf variation with a
-distribution, conditional on the chosen curve and the other assumptions.
-
-The table separates three choices about leaf information while keeping the
-same curve and normal observation model.
-
-| Model | Leaf component | Question |
-|---|---|---|
-| Complete pooling | $u_j=0$ for every leaf | What common curve describes the recorded leaves? |
-| No pooling | A separately estimated $r_j$ for every leaf | How do these leaves differ when no information is shared? |
-| Partial pooling | $r_j=r+u_j$, with $u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{leaf}})$ | What common curve and among-leaf variation describe the data? |
-
-The following conceptual figure uses chosen parameter values, not estimates
-fitted to the light data.
-
-```{r}
-#| echo: false
-#| eval: true
-#| fig-cap: "Illustrative complete-pooling, no-pooling, and partial-pooling response curves. The partial-pooling deviations are closer to the common intercept than the no-pooling intercepts."
-# Define the light values and response curve used in this conceptual figure.
-x_grid = seq(from = 0, to = 1000, length.out = 200)
-light_curve = function(x, r, a, k) {
-  r + a * (1 - exp(-k * x))
-}
-# Choose illustrative, rather than fitted, intercepts for five leaves.
-common_r = -2
-leaf_r = c(-4, -3, -2, -1, 0)
-partial_r = common_r + 0.6 * (leaf_r - common_r)
-leaf_colours = c("black", "#0072B2", "#D55E00", "#009E73", "#CC79A7")
-old_par = par(mfrow = c(1, 3), mar = c(4, 4, 2, 1))
-# Draw one shared curve for complete pooling.
-plot(x_grid, light_curve(x_grid, common_r, 11, 0.004), type = "l",
-     ylim = c(-5, 10), lwd = 2,
-     xlab = "Light intensity (recorded units)",
-     ylab = "Expected net photosynthesis (recorded units)",
-     main = "Complete pooling")
-# Draw separately fitted intercepts for no pooling.
-plot(x_grid, light_curve(x_grid, leaf_r[1], 11, 0.004), type = "n",
-     ylim = c(-5, 10), xlab = "Light intensity (recorded units)",
-     ylab = "Expected net photosynthesis (recorded units)",
-     main = "No pooling")
-for (j in 1:5) {
-  lines(x_grid, light_curve(x_grid, leaf_r[j], 11, 0.004),
-        lty = j, col = leaf_colours[j])
-}
-# Draw intercepts pulled towards the common value for partial pooling.
-plot(x_grid, light_curve(x_grid, partial_r[1], 11, 0.004), type = "n",
-     ylim = c(-5, 10), xlab = "Light intensity (recorded units)",
-     ylab = "Expected net photosynthesis (recorded units)",
-     main = "Partial pooling")
-for (j in 1:5) {
-  lines(x_grid, light_curve(x_grid, partial_r[j], 11, 0.004),
-        lty = j, col = leaf_colours[j])
-}
-# Identify the five curves and restore the original graphical settings.
-legend("bottomright", legend = paste("Leaf", 1:5),
-       col = leaf_colours, lty = 1:5, bty = "n", cex = 0.7)
-par(old_par)
-```
-
-With complete pooling, every leaf has the same expected curve. With no
-pooling, each leaf receives its own intercept but the curve's increase and
-shape are still shared. These $r_j$ values are ordinary separately fitted
-parameters, not random effects. No pooling is useful for describing these
-recorded leaves, but a lightly measured leaf has no direct way to borrow
-information from the others.
-
-For partial pooling, use the model
-
-$$
-\begin{aligned}
-u_j &\sim \operatorname{Normal}(0,\sigma^2_{\mathrm{leaf}}),\\
-Y_{ij}\mid u_j,x_{ij} &\sim
-\operatorname{Normal}\{m(x_{ij};r,a,k)+u_j,\sigma^2_{\mathrm{obs}}\}.
-\end{aligned}
-$$
-
-$Y_{ij}$ is measurement $i$ on leaf $j$, $x_{ij}$ is its light intensity, and
-$u_j$ is leaf $j$'s deviation from the common curve. Conditional on the
-predictor, shared parameters, and its leaf effect, the normal observation model
-assumes the measurements are independent. It would be wrong to describe all 55
-rows as independent without that qualification.
-
-::: {.callout-warning title="More parameters do not remove every dependence"}
-Separate leaf intercepts do not automatically make the normal observation
-model adequate. For example, measurements can still be correlated over time
-within a leaf, or leaves can differ in curve shape rather than only intercept.
-The grouping structure helps us state a better model; it does not prove its
-remaining assumptions.
-:::
-
-# Shrinkage and variance components
-
-Partial pooling is a compromise between one common curve and wholly separate
-curves. The normal distribution for $u_j$ makes very large leaf deviations less
-compatible with the group model unless the leaf's data support them. This is
-**regularisation**: it is part of the model and likelihood, not a correction
-applied after fitting.
-
-The result is **shrinkage**. A noisy or lightly measured leaf is generally
-pulled further towards the common curve than a precisely measured leaf. How
-much it is pulled depends on its measurements and on the estimated
-$\sigma^2_{\mathrm{leaf}}$. Shrinkage does not show that a leaf equals the
-population mean; it expresses uncertainty about its individual deviation.
-
-::: {.callout-note title="The two variance components"}
-$\sigma^2_{\mathrm{leaf}}$ describes variation in leaf deviations around the
-common curve. $\sigma^2_{\mathrm{obs}}$ describes variation of measurements
-around a leaf's shifted curve. Both have squared net-photosynthesis units.
-Their standard deviations, $\sigma_{\mathrm{leaf}}$ and
-$\sigma_{\mathrm{obs}}$, have net-photosynthesis units, as do the deviations
-$u_j$. R's `dnorm(sd = ...)` takes a standard deviation, so code that estimates
-a standard deviation on a log scale squares it when reporting model variance.
-:::
-
-If the fitted $\sigma^2_{\mathrm{leaf}}$ is near zero, partial pooling
-approaches complete pooling. A variance estimate on this boundary makes usual
-large-sample confidence intervals delicate. The five balanced leaves here also
-give limited opportunity to see unequal shrinkage visually.
-
-# Maximum marginal likelihood
-
-For one candidate leaf effect $u_j$, the joint contribution has two parts: the
-normal densities for that leaf's measurements around its shifted curve and the
-normal density that says how compatible $u_j$ is with the leaf population. The
-leaf effect is unobserved, so maximum marginal likelihood compares shared
-parameters after integrating it out:
-
-$$
-L_{j,\mathrm{marg}}(\boldsymbol\theta\mid\mathbf y_j)=
-\int_{-\infty}^{\infty}
-L_{j,\mathrm{joint}}(\boldsymbol\theta,u_j\mid\mathbf y_j)\,du_j.
-$$
-
-Here $\mathbf y_j$ is all observations from leaf $j$, and
-$\boldsymbol\theta$ contains the shared curve parameters and both variance
-components. The integrand is the joint likelihood contribution from the leaf's
-measurements and its group distribution. The integral considers all possible
-leaf deviations, weighting each by how well it agrees with both the leaf's
-observations and the population model. The full marginal likelihood combines
-these contributions across leaves.
-
-Fitting only the single best $u_j$ as an ordinary fixed parameter is a different
-calculation. Marginal likelihood incorporates uncertainty in unobserved leaf
-effects before comparing shared parameter values. You will interpret this idea;
-you will not calculate the integral by hand.
-
-# Laplace approximation and RTMB
-
-The integral is usually impractical to solve algebraically for a nonlinear
-response curve. **Laplace approximation** uses the fact that the integrand is
-often largest near the leaf effect that balances that leaf's observations and
-the group distribution. Near this peak, a smooth log integrand can be
-approximated by a quadratic. A quadratic log curve has a normal-shaped peak with
-a calculable area, which gives an approximation to the integral.
-
-This approximation can be unreliable when conditional shapes are strongly
-non-normal, information is weak, a parameter is on a boundary, or the
-observation model is unsuitable. In a Gaussian linear random-intercept model,
-the calculation can be exact; that fact does not automatically extend to this
-nonlinear light-response model.
-
-RTMB records a grouped model and performs this numerical work. In the following
-outline, `u` is a vector of candidate leaf deviations. The `u %~%` line records
-their group distribution, and `random = "u"` tells `MakeADFun()` to integrate
-them out using Laplace approximation. RTMB returns the resulting marginal
-objective and derivatives for `optim()`.
+For one continuous parameter, `optimize()` searches a supplied interval using a
+combination of golden-section search and parabolic interpolation. Golden-section
+search repeatedly reduces a bracket containing the minimum. Parabolic
+interpolation uses recent objective values to propose a faster step when their
+curvature is informative.
 
 ```r
-# Load RTMB before recording the grouped likelihood calculation.
-library(RTMB)
-
-# Create consecutive indices that select each leaf's deviation.
-light$leaf_index = as.integer(light$leaf_id)
-# Define the grouped normal model and its two sources of variation.
-leaf_model = function(par) {
-  a = exp(par$log_a)
-  k = exp(par$log_k)
-  sigma_leaf = exp(par$log_sigma_leaf)
-  sigma_obs = exp(par$log_sigma_obs)
-  mu = par$r + a * (1 - exp(-k * light$x)) + par$u[light$leaf_index]
-  par$u %~% dnorm(mean = 0, sd = sigma_leaf)
-  light$y %~% dnorm(mean = mu, sd = sigma_obs)
+one_parameter_nll = function(log_A, h, x, y) {
+  sat_nll(par = c(log_A, log(h)), x = x, y = y)
 }
 
-# Supply starting values, including one initial deviation per leaf.
-leaf_parameters = list(
-  r = 0,
-  log_a = log(10),
-  log_k = log(0.01),
-  log_sigma_leaf = log(1),
-  log_sigma_obs = log(1),
-  u = rep(0, 5)
+# Search the log-scale interval while holding the half-saturation value fixed.
+one_fit = optimize(
+  f = one_parameter_nll,
+  interval = log(c(5, 60)),
+  h = 3, x = nutrient, y = insect_count
 )
-# Record the marginal objective, then minimise it using its gradient.
-leaf_obj = MakeADFun(leaf_model, leaf_parameters,
-                      random = "u", silent = TRUE)
-leaf_fit = optim(par = leaf_obj$par, fn = leaf_obj$fn,
-                 gr = leaf_obj$gr, method = "BFGS")
+c(A = exp(one_fit$minimum), nll = one_fit$objective)
 ```
 
-The fitted positive values `sigma_leaf` and `sigma_obs` are standard
-deviations. Their squares are the model variances
-$\sigma^2_{\mathrm{leaf}}$ and $\sigma^2_{\mathrm{obs}}$. Conditional fitted
-leaf effects can help draw curves, but they are not independent leaf maximum
-likelihood estimates. RTMB does not guarantee convergence or establish that the
-model describes the data suitably. Its [introduction vignette](https://cran.r-project.org/web/packages/RTMB/vignettes/RTMB-introduction.html)
-and the [Template Model Builder paper](https://www.jstatsoft.org/article/view/v070i05)
-give technical background.
+The bounds are part of the problem: `optimize()` does not discover a sensible
+ecological interval for us. `optim(method = "Brent")` provides the same kind of
+bounded one-dimensional search. When there are few parameters, a likelihood
+slice or profile can provide an additional diagnostic; [Chapter 4 explains the
+distinction](../Chapter_4/Theory.qmd#sec-likelihood-surface).
 
-# Interpretation and limits
+# Smooth local optimisation
 
-A fitted curve for an observed leaf conditions on its estimated leaf effect. A
-prediction for a new leaf also includes among-leaf variation, so it should be
-more variable. Five leaves provide limited information about a population
-distribution. The normal leaf distribution and common curve shape are model
-assumptions, and a random intercept can miss genuine leaf differences in the
-rate or shape of response.
+For a differentiable objective, the **gradient**
+$\mathbf g(\boldsymbol\theta)$ is the vector of local slopes. At an interior,
+well-identified minimum it should be close to zero. The **Hessian**
+$\mathbf H(\boldsymbol\theta)$ is the matrix of second derivatives, describing
+local curvature and interactions between parameter directions.
 
-The practical now applies this workflow to a distinct dataset of repeated tree
-heights. It fits complete pooling, no pooling, and partial pooling models in
-RTMB, while letting RTMB perform the marginalisation.
+Newton's method uses both:
+
+$$
+\boldsymbol\theta_{k+1}
+=\boldsymbol\theta_k-
+\mathbf H(\boldsymbol\theta_k)^{-1}\mathbf g(\boldsymbol\theta_k).
+$$
+
+Near a regular minimum, the local quadratic approximation can make this step
+fast. Far from the minimum, the curvature may point towards a poor step, the
+Hessian may be nearly singular, or the objective may not be approximately
+quadratic.
+
+**BFGS** is a quasi-Newton method. It evaluates gradients but builds an
+approximation to inverse curvature from successive steps rather than requiring
+the full Hessian at every iteration. It is a useful default for a smooth,
+unconstrained, reasonably scaled likelihood, but it remains a local search: its
+result can depend on the starting value.
+
+# Derivatives in practice
+
+An analytical derivative is derived from the objective's equation. For the
+saturating Poisson model on the log-parameter scale, one such gradient is:
+
+```r
+sat_gradient = function(par, x, y) {
+  # Evaluate the gradient on the log-A and log-h fitting scale.
+  A = exp(par[1])
+  h = exp(par[2])
+  mu = sat_mean(x = x, A = A, h = h)
+  c(log_A = sum(mu - y),
+    log_h = sum((y - mu) * h / (h + x)))
+}
+
+# Give BFGS the analytical gradient and request its local curvature matrix.
+bfgs_fit = optim(
+  par = c(log_A = log(15), log_h = log(5)),
+  fn = sat_nll, gr = sat_gradient,
+  x = nutrient, y = insect_count,
+  method = "BFGS", hessian = TRUE
+)
+```
+
+If `gr` is omitted, `optim()` can approximate the gradient with finite
+differences. In one dimension, a centred approximation is
+
+$$
+Q'(\theta)\approx
+\frac{Q(\theta+\varepsilon)-Q(\theta-\varepsilon)}{2\varepsilon}.
+$$
+
+A large $\varepsilon$ gives a poor local approximation. An extremely small
+$\varepsilon$ subtracts nearly equal floating-point numbers and can expose
+rounding error. Function noise makes the trade-off worse.
+
+RTMB supplied `obj$gr` and `obj$he` in Chapter 6 by **automatic
+differentiation**. It applies derivative rules to the recorded calculations and
+avoids choosing a finite-difference step. It does not make a discontinuous model
+smooth or repair an incorrect objective. Whether a gradient is analytical,
+numerical, or automatic, compare it with an independent numerical check while
+developing a model.
+
+The Hessian can guide optimisation and can support the local uncertainty
+approximation taught in
+[Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood-uncertainty). Here we use it
+only as evidence about local geometry: a nearly zero eigenvalue can signal a
+flat direction, while negative curvature would contradict a regular local
+minimum.
+
+# Derivative-free local optimisation
+
+Nelder–Mead maintains a **simplex**: three vertices in two dimensions, four in
+three dimensions, and generally one more vertex than the number of parameters.
+It compares objective values and changes the simplex through:
+
+- **reflection**, moving the worst vertex across the others;
+- **expansion**, moving farther when reflection is promising;
+- **contraction**, taking a smaller step when reflection disappoints; and
+- **shrinkage**, pulling the simplex towards its best vertex.
+
+```{r}
+#| echo: false
+#| eval: true
+#| fig-cap: "A two-dimensional simplex and illustrative reflection of its worst vertex. Nelder–Mead uses objective values at the vertices, not gradients."
+# Define an illustrative simplex and reflect its worst vertex across the centroid.
+simplex = rbind(c(1, 1), c(4, 1.5), c(2.5, 4))
+centroid = colMeans(simplex[1:2, , drop = FALSE])
+reflected = 2 * centroid - simplex[3, ]
+# Draw the current simplex and the proposed reflection.
+plot(rbind(simplex, reflected), type = "n", asp = 1,
+     xlab = "Parameter 1", ylab = "Parameter 2")
+polygon(simplex, border = "#0072B2", lwd = 2)
+segments(simplex[3, 1], simplex[3, 2], reflected[1], reflected[2],
+         lty = 2)
+points(simplex, pch = c(16, 16, 4), col = "#0072B2", cex = 1.2)
+points(reflected[1], reflected[2], pch = 17, col = "#D55E00")
+legend("topright", c("Current simplex", "Worst vertex", "Reflection"),
+       pch = c(NA, 4, 17), lty = c(1, NA, NA),
+       col = c("#0072B2", "#0072B2", "#D55E00"), bty = "n")
+```
+
+Because it needs only objective values, Nelder–Mead can tolerate some
+irregularity and is useful when reliable gradients are unavailable. It is often
+less efficient than BFGS on a smooth problem and remains vulnerable to flat
+regions and competing minima.
+
+```r
+# Start both local methods at the same log-scale parameter values.
+nelder_fit = optim(
+  par = c(log_A = log(15), log_h = log(5)),
+  fn = sat_nll, x = nutrient, y = insect_count,
+  method = "Nelder-Mead"
+)
+c(bfgs = bfgs_fit$value, nelder_mead = nelder_fit$value)
+```
+
+For these simulated data, both searches give $A\approx20.47$,
+$h\approx2.29$, and the same negative log-likelihood to the displayed
+precision. Agreement supports this smooth example, but it is not a universal
+ranking of the algorithms.
+
+# Constraints, transformations, and scaling
+
+Parameter constraints come from the model and ecological question. Two common
+approaches are:
+
+- transform a positive parameter as $\theta=\exp(\eta)$ or a probability as
+  $p=\operatorname{logit}^{-1}(\eta)$, then search over an unconstrained
+  parameter; or
+- give scientifically defensible lower and upper bounds to a box-constrained
+  method.
+
+`optim(method = "L-BFGS-B")` uses box constraints. `nlminb()` is another local
+optimiser that accepts lower and upper bounds and optional gradients and
+Hessians.
+
+```r
+# Define the same defensible parameter region on the log scale.
+lower = log(c(A = 1, h = 0.1))
+upper = log(c(A = 60, h = 20))
+
+# Fit within those bounds using a gradient-based local method.
+bounded_fit = optim(
+  par = c(log_A = log(15), log_h = log(5)),
+  fn = sat_nll, gr = sat_gradient,
+  x = nutrient, y = insect_count,
+  method = "L-BFGS-B", lower = lower, upper = upper
+)
+
+port_fit = nlminb(
+  start = c(log_A = log(15), log_h = log(5)),
+  objective = sat_nll, gradient = sat_gradient,
+  lower = lower, upper = upper,
+  x = nutrient, y = insect_count
+)
+
+sat_nll_natural = function(par, x, y) {
+  # This version receives the positive parameters on their natural scales.
+  mu = sat_mean(x = x, A = par[1], h = par[2])
+  -sum(dpois(x = y, lambda = mu, log = TRUE))
+}
+
+# Fit the natural-scale version over the corresponding bounded region.
+natural_bounded_fit = optim(
+  par = c(A = 15, h = 5),
+  fn = sat_nll_natural,
+  x = nutrient, y = insect_count,
+  method = "L-BFGS-B",
+  lower = c(A = 1, h = 0.1),
+  upper = c(A = 60, h = 20)
+)
+
+rbind(
+  transformed_bfgs = exp(bfgs_fit$par),
+  bounded_log_scale = exp(bounded_fit$par),
+  nlminb_log_scale = exp(port_fit$par),
+  natural_scale_bounds = natural_bounded_fit$par
+)
+```
+
+A boundary estimate deserves attention. It may be ecologically plausible, but
+it may also show that a bound is controlling the answer or that the parameter
+is weakly identified. Widening a bound is informative only when the wider range
+remains scientifically meaningful. Here the transformation-based BFGS fit and
+the natural-scale bounded fit describe the same scientific parameter space and
+reach the same ecological estimates. The table compares all four fits on the
+ecological parameter scale. That agreement need not hold when a bound is active.
+
+Optimisation also becomes harder when a one-unit step is enormous for one
+parameter and negligible for another. Transformations often improve scaling.
+For `optim()`, `control = list(parscale = ...)` expresses typical parameter
+changes on each coordinate. Tolerances and evaluation limits should be adjusted
+only after checking the objective and scaling; they cannot rescue an invalid
+start or non-finite likelihood. Always report final estimates on their
+ecological scales.
+
+# Difficult objective surfaces
+
+Local methods can struggle with separated basins, flat ridges, discontinuities,
+invalid regions, expensive calculations, and many parameters. A zero convergence
+code can still refer to the wrong basin or to a flat plateau.
+
+Consider simulated insect counts before and after an unknown environmental
+threshold $c$. One observation is again a count at one recorded predictor value.
+The expected count is $\lambda_{\mathrm L}$ when $x_i<c$ and
+$\lambda_{\mathrm H}$ otherwise. Moving $c$ without crossing an observed
+predictor value changes no fitted means, so the likelihood is flat between
+consecutive predictor values and jumps at the data. This verified piecewise
+structure is a reason to use broad exploration; different local answers alone
+would not prove it.
+
+```r
+threshold_nll = function(par, x, y) {
+  # Transform the two positive Poisson means from their log scales.
+  cut = par[1]
+  low = exp(par[2])
+  high = exp(par[3])
+  # Return a finite penalty outside the scientifically defined search region.
+  if (!is.finite(cut) || !is.finite(low) || !is.finite(high) ||
+      cut < 10 || cut > 90 || low <= 0 || high <= 0) {
+    return(1e10)
+  }
+  mu = ifelse(x < cut, low, high)
+  value = -sum(dpois(x = y, lambda = mu, log = TRUE))
+  if (is.finite(value)) value else 1e10
+}
+
+# Simulate the threshold-count study used by the global search examples.
+set.seed(seed = 902)
+threshold_x = seq(0, 100, length.out = 60)
+threshold_mu = ifelse(threshold_x < 55, 3, 12)
+threshold_y = rpois(n = length(threshold_x), lambda = threshold_mu)
+```
+
+```{r}
+#| echo: false
+#| eval: true
+#| fig-cap: "Negative log-likelihood over a threshold grid after fitting the two Poisson means at each threshold. Flat steps arise because group membership changes only when the threshold crosses an observed predictor value."
+# Recreate the simulated threshold data and evaluate one fitted value per cut.
+set.seed(seed = 902)
+threshold_x = seq(0, 100, length.out = 60)
+threshold_mu = ifelse(threshold_x < 55, 3, 12)
+threshold_y = rpois(n = length(threshold_x), lambda = threshold_mu)
+cut_grid = seq(10, 90, length.out = 500)
+cut_nll = vapply(cut_grid, function(cut) {
+  # Refit the two group means for each candidate threshold.
+  low_y = threshold_y[threshold_x < cut]
+  high_y = threshold_y[threshold_x >= cut]
+  low_mean = mean(low_y)
+  high_mean = mean(high_y)
+  -sum(dpois(low_y, lambda = low_mean, log = TRUE)) -
+    sum(dpois(high_y, lambda = high_mean, log = TRUE))
+}, 0.0)
+plot(cut_grid, cut_nll, type = "s",
+     xlab = "Environmental threshold (recorded units)",
+     ylab = "Fitted negative log-likelihood")
+```
+
+Useful checks include several plausible starts, objective plots in low
+dimensions, comparison of final objective values, gradient checks where
+derivatives exist, and a restart from the fitted values. Complex marginal
+objectives such as those in Chapter 7 make these checks more important; we do
+not need to repeat their construction here.
+
+# Simulated annealing
+
+`optim(method = "SANN")` uses **simulated annealing** (SANN) to propose
+stochastic moves. It accepts improvements and can accept worse moves,
+particularly at a high temperature. Cooling gradually shifts the balance from
+broad exploration towards local exploitation. This is an optimisation procedure,
+not posterior sampling or Markov chain Monte Carlo (MCMC).
+
+```r
+# Set a seed so this stochastic search can be reproduced.
+set.seed(seed = 903)
+sann_fit = optim(
+  par = c(cut = 25, log_low = log(3), log_high = log(10)),
+  fn = threshold_nll,
+  x = threshold_x, y = threshold_y,
+  method = "SANN",
+  control = list(maxit = 20000, temp = 10,
+                 parscale = c(15, 1, 1))
+)
+```
+
+The objective must return a finite penalty for proposals outside the intended
+domain because SANN does not apply `lower` and `upper` bounds. In R, SANN's
+`maxit` is its number of function evaluations and its reported convergence code
+does not demonstrate stability. Set a seed for reproducibility and compare
+multiple runs.
+
+# Differential evolution with DEoptim
+
+Differential evolution maintains a population of real-valued parameter vectors.
+One common mutation rule creates
+
+$$
+\mathbf v_i=
+\mathbf x_{r_0}+F(\mathbf x_{r_1}-\mathbf x_{r_2}),
+$$
+
+from three distinct population members. Crossover combines the mutant with the
+current member, and selection retains the candidate with the lower objective.
+Population differences therefore determine both direction and step size.
+
+`DEoptim::DEoptim()` minimises a scalar objective between supplied bounds. Its
+main controls here are population size `NP`, differential weight `F`, crossover
+probability `CR`, and generation limit `itermax`. `DEoptim` is an add-on R
+package, so install it before working through this example.
+
+```r
+# Define the scientifically defensible region for every population member.
+lower = c(cut = 10, log_low = log(0.2), log_high = log(0.2))
+upper = c(cut = 90, log_low = log(30), log_high = log(30))
+
+# Set a seed, then evolve a population within those bounds.
+set.seed(seed = 904)
+de_fit = DEoptim::DEoptim(
+  fn = threshold_nll,
+  lower = lower, upper = upper,
+  x = threshold_x, y = threshold_y,
+  control = DEoptim::DEoptim.control(
+    NP = 60, F = 0.8, CR = 0.9, itermax = 120,
+    trace = FALSE
+  )
+)
+
+de_fit$optim$bestmem
+de_fit$optim$bestval
+de_fit$optim$nfeval
+de_fit$member$bestvalit
+```
+
+The bounds define the search region and must be scientifically defensible.
+Differential evolution needs no derivative and can cross irregular regions, but
+it repeatedly evaluates the objective. Keep the function efficient and ensure
+it returns one finite scalar throughout the expected search region. Results can
+vary across seeds, and the label *global search* does not prove that a global
+minimum was found.
+
+# Genetic algorithms with GA
+
+A genetic algorithm also evolves a population. **Selection** favours candidates
+with high fitness, **crossover** combines candidates, **mutation** introduces
+variation, and **elitism** retains some of the strongest candidates. Search can
+stop at a generation limit or after a specified run without improvement.
+
+`GA::ga()` comes from the GA add-on package, which must be installed before you
+run this example.
+
+The sign convention matters:
+
+- `optim()`, `nlminb()`, and `DEoptim::DEoptim()` minimise our negative
+  log-likelihood;
+- `GA::ga()` maximises a fitness value;
+- therefore the fitness must be the negative of the negative log-likelihood.
+
+```r
+threshold_fitness = function(par, x, y) {
+  # Convert the objective to a fitness because GA maximises.
+  -threshold_nll(par = par, x = x, y = y)
+}
+
+# Set a seed, then search with real-valued candidate parameter vectors.
+set.seed(seed = 905)
+ga_fit = GA::ga(
+  type = "real-valued", fitness = threshold_fitness,
+  lower = lower, upper = upper,
+  x = threshold_x, y = threshold_y,
+  popSize = 60, maxiter = 150, run = 40,
+  pcrossover = 0.8, pmutation = 0.1,
+  monitor = FALSE
+)
+
+ga_candidate = as.numeric(ga_fit@solution[1, ])
+ga_nll = -ga_fit@fitnessValue
+ga_fit@summary
+```
+
+The package also supports binary and permutation encodings, but this chapter
+uses only real-valued parameter vectors. `optim = TRUE` requests a hybrid
+genetic algorithm that launches local searches from promising solutions. We
+will keep the global and local calls separate below so their objective values
+can be compared directly.
+
+```{r}
+#| echo: false
+#| eval: true
+#| fig-cap: "Progress of differential evolution and a real-valued genetic algorithm on the same simulated threshold likelihood. GA fitness is negated here to show both traces as negative log-likelihoods."
+# Define and simulate the threshold example used by both population methods.
+threshold_nll = function(par, x, y) {
+  cut = par[1]
+  low = exp(par[2])
+  high = exp(par[3])
+  if (!is.finite(cut) || !is.finite(low) || !is.finite(high) ||
+      cut < 10 || cut > 90 || low <= 0 || high <= 0) {
+    return(1e10)
+  }
+  mu = ifelse(x < cut, low, high)
+  value = -sum(dpois(x = y, lambda = mu, log = TRUE))
+  if (is.finite(value)) value else 1e10
+}
+set.seed(seed = 902)
+threshold_x = seq(0, 100, length.out = 60)
+threshold_mu = ifelse(threshold_x < 55, 3, 12)
+threshold_y = rpois(n = length(threshold_x), lambda = threshold_mu)
+lower = c(cut = 10, log_low = log(0.2), log_high = log(0.2))
+upper = c(cut = 90, log_low = log(30), log_high = log(30))
+# Run differential evolution and calculate GA fitness from the same objective.
+set.seed(seed = 904)
+de_fit = DEoptim::DEoptim(fn = threshold_nll, lower = lower, upper = upper,
+  x = threshold_x, y = threshold_y,
+  control = DEoptim::DEoptim.control(NP = 60, F = 0.8, CR = 0.9,
+    itermax = 120, trace = FALSE))
+threshold_fitness = function(par, x, y) {
+  -threshold_nll(par = par, x = x, y = y)
+}
+set.seed(seed = 905)
+ga_fit = GA::ga(type = "real-valued", fitness = threshold_fitness,
+  lower = lower, upper = upper, x = threshold_x, y = threshold_y,
+  popSize = 60, maxiter = 150, run = 40,
+  pcrossover = 0.8, pmutation = 0.1, monitor = FALSE)
+# Plot both progress traces as negative log-likelihoods.
+plot(seq_along(de_fit$member$bestvalit), de_fit$member$bestvalit,
+     type = "l", lwd = 2, col = "#0072B2",
+     xlab = "Generation", ylab = "Best negative log-likelihood",
+     ylim = range(c(de_fit$member$bestvalit, -ga_fit@summary[, "max"])))
+lines(seq_len(nrow(ga_fit@summary)), -ga_fit@summary[, "max"],
+      lty = 2, lwd = 2, col = "#D55E00")
+legend("topright", c("DEoptim", "GA"), lty = c(1, 2), lwd = 2,
+       col = c("#0072B2", "#D55E00"), bty = "n")
+```
+
+# Hybrid global and local optimisation
+
+Global and local methods are complementary. A useful workflow is:
+
+1. Define and test one negative log-likelihood and its ecological domain.
+2. Explore broadly with multiple starts or a population method.
+3. Pass the strongest candidate to BFGS, L-BFGS-B, or `nlminb()`.
+4. Inspect the refined objective, gradient, convergence information, and nearby
+   surface.
+5. Compare results across algorithms and stochastic seeds.
+6. Transform estimates back to ecological units and check the fitted model.
+
+```r
+# Refine each population candidate with the same bounded local method.
+refined_de = optim(
+  par = de_fit$optim$bestmem,
+  fn = threshold_nll,
+  x = threshold_x, y = threshold_y,
+  method = "L-BFGS-B", lower = lower, upper = upper
+)
+
+refined_ga = optim(
+  par = ga_candidate,
+  fn = threshold_nll,
+  x = threshold_x, y = threshold_y,
+  method = "L-BFGS-B", lower = lower, upper = upper
+)
+
+c(de_before = de_fit$optim$bestval,
+  de_after = refined_de$value,
+  ga_before = ga_nll,
+  ga_after = refined_ga$value)
+```
+
+For the stated seeds, both population methods reach a threshold plateau near
+55 and a negative log-likelihood of approximately 145.565. Local refinement
+does not worsen that value and refines the two mean parameters. The exact
+threshold within a plateau is not identified by these data. Agreement across
+methods is reassuring, but it is not a proof of global optimality or model
+adequacy.
+
+# Comparing methods fairly
+
+| Method | Exploration | Derivatives | Bounds | Reproducibility | Typical strength | Important limitation |
+|---|---|---|---|---|---|---|
+| Grid | Global over the grid | No | Grid range | Deterministic | Reveals low-dimensional geometry | Cost grows rapidly with dimension |
+| Brent / `optimize()` | One-dimensional | No | Required | Deterministic | Efficient bounded scalar search | Only one parameter |
+| BFGS | Local | Gradient; can be numerical | No box bounds | Deterministic | Efficient on smooth, scaled problems | Start and surface matter |
+| Nelder–Mead | Local | No | No box bounds | Deterministic | Works without a gradient | Often slower; can stall |
+| L-BFGS-B | Local | Gradient; can be numerical | Box bounds | Deterministic | Smooth constrained problems | Needs finite values and reliable local geometry |
+| `nlminb()` | Local | Optional gradient and Hessian | Box bounds | Deterministic | Flexible bounded local fitting | Still start-dependent |
+| SANN | Broad stochastic search | No | Must be handled in the objective | Stochastic | Can leave a local basin | Tuning and many evaluations |
+| DEoptim | Population global search | No | Required | Stochastic | Irregular, bounded real problems | Computational cost; no proof of global optimum |
+| GA | Population global search | No | Required here | Stochastic | Flexible population exploration | Fitness sign and tuning require care |
+
+Fair comparisons use the same objective definition, comparable parameter
+domains, and either the same parameterisation or an explicit reason for changing
+it. Compare final objective values as well as estimates, record objective and
+derivative evaluations where available, and repeat stochastic searches with
+several seeds. A generation, a simplex iteration, and a BFGS iteration represent
+different amounts of work. Timing comparisons are meaningful only on the same
+machine and implementation and should be interpreted cautiously.
+
+# A diagnostic workflow
+
+- Use `optimize()` for a genuinely one-dimensional bounded problem.
+- Use BFGS with reliable derivatives for a smooth, reasonably scaled local
+  problem.
+- Use Nelder–Mead when a gradient is unavailable or mildly unreliable.
+- Use L-BFGS-B or `nlminb()` for box constraints.
+- Use several plausible starts when more than one basin is possible.
+- Consider SANN, DEoptim, or GA when local fits disagree or the objective is
+  strongly irregular or multimodal.
+- Refine a global candidate locally where the objective permits it.
+- Check objective values, convergence messages, gradients, boundaries, and the
+  surrounding surface.
+- Finally, return to the ecological scale and assess the fitted observation
+  model. Numerical convergence is not a model check.
+
+# Summary
+
+Optimisation turns a likelihood into a numerical search over allowed parameter
+values. Smooth local methods use objective geometry efficiently, while
+derivative-free and stochastic methods trade additional evaluations for less
+dependence on local derivatives. Transformations, bounds, scaling, starts, and
+stopping rules are part of the analysis, not afterthoughts. Difficult problems
+often benefit from global exploration followed by local refinement. No
+algorithm removes the need to inspect the objective and interpret the fitted
+model ecologically.
+
+The discussion of direct search, quasi-Newton ideas, numerical derivatives,
+simplex search, simulated annealing, scaling, discontinuities, and fitting
+challenges draws on Benjamin Bolker's *Optimization and all that* (supplied 2007
+draft, especially Sections 1, 2, and 4). The R interfaces follow the current
+[`optim()` documentation](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/optim.html),
+[`nlminb()` documentation](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/nlminb.html),
+[`DEoptim` reference manual](https://cran.r-project.org/web/packages/DEoptim/refman/DEoptim.html),
+and [GA vignette](https://luca-scr.github.io/GA/articles/GA.html).
 
 # Chapter quiz
 
-:::: {.callout-important title="Question 1: units"}
-What is the observational unit and what is the grouping unit in the light data?
+:::: {.callout-important title="Question 1: local or global?"}
+
+Three BFGS fits from plausible starts end at substantially different negative
+log-likelihood values. What should you conclude and do next?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-An observational unit is one net-photosynthesis measurement at one light
-intensity on a leaf. A grouping unit is one leaf, which contributes repeated
-measurements.
+
+The local searches have not established a common solution. Check the objective
+and parameter domains, plot low-dimensional regions where possible, try more
+starts, and consider broad stochastic exploration followed by local refinement.
+Different results alone do not prove which minimum is global.
+
 :::
 ::::
 
-:::: {.callout-important title="Question 2: pooling"}
-How do complete pooling, no pooling, and partial pooling differ?
+:::: {.callout-important title="Question 2: sign convention"}
+
+Your function returns a negative log-likelihood. What should `GA::ga()` use as
+fitness?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-Complete pooling uses one common curve. No pooling estimates a separate leaf
-intercept without sharing information between those intercepts. Partial pooling
-models leaf deviations from a common intercept with an estimated variance.
+
+Use the negative of the negative log-likelihood. `GA::ga()` maximises fitness,
+whereas the other optimisers in this chapter minimise the objective.
+
 :::
 ::::
 
-:::: {.callout-important title="Question 3: shrinkage"}
-Does shrinkage show that a leaf is the same as the population mean?
+:::: {.callout-important title="Question 3: derivative source"}
+
+Why might an automatic gradient improve a BFGS fit without guaranteeing a
+valid result?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-No. It reflects the compromise between a leaf's data and the estimated
-among-leaf distribution, especially when the leaf provides limited information.
+
+It avoids finite-difference step-size error for a smooth recorded objective.
+It cannot repair an incorrect model, a discontinuity, weak identification, or
+a poor ecological assumption.
+
 :::
 ::::
 
-:::: {.callout-important title="Question 4: two variances"}
-What do $\sigma^2_{\mathrm{leaf}}$ and $\sigma^2_{\mathrm{obs}}$ describe?
+:::: {.callout-important title="Question 4: boundary estimate"}
+
+An L-BFGS-B fit places a rate at its upper bound. What should you inspect?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-The first describes variation in leaf deviations around the common curve. The
-second describes measurement-to-measurement variation around a leaf's curve.
+
+Check whether the bound is scientifically justified, inspect the objective near
+the boundary, and determine whether a wider defensible range changes the fit.
+Do not silently report the boundary value as an unconstrained estimate.
+
 :::
 ::::
 
-:::: {.callout-important title="Question 5: marginal likelihood"}
-What is integrated over in the marginal likelihood for one leaf?
+:::: {.callout-important title="Question 5: stochastic reproducibility"}
+
+Why are a seed and repeated runs both useful for DEoptim or GA?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-All possible unobserved values of that leaf's deviation are integrated over,
-with their compatibility with the observations and group distribution included.
+
+The seed makes one run reproducible. Distinct seeded runs reveal whether the
+conclusion is stable under the algorithm's stochastic variation.
+
 :::
 ::::
 
-:::: {.callout-important title="Question 6: Laplace approximation"}
-What is the main intuition behind Laplace approximation?
+:::: {.callout-important title="Question 6: convergence"}
+
+What does a zero convergence code establish?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-It approximates the log integrand near its important peak by a quadratic, then
-uses the area of the resulting normal-shaped peak to approximate the integral.
-:::
-::::
 
-:::: {.callout-important title="Question 7: RTMB"}
-What does `random = "u"` mean in `MakeADFun()`?
+It indicates that the algorithm satisfied its numerical stopping rule. It does
+not prove a global optimum, strong parameter identification, or an adequate
+ecological probability model.
 
-::: {.callout-tip title="Answer" collapse="true"}
-It tells RTMB to treat `u` as random effects and calculate a marginal objective
-by integrating them out with Laplace approximation.
 :::
 ::::

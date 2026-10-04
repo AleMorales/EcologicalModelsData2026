@@ -2,144 +2,218 @@
 
 ## Basis and scope
 
-This guide is derived from the completed Chapter 1 practical and Chapter 2 theory
-and practical. Chapters 3–5 provide provisional continuity of topics. It governs
-new and revised material, without requiring a wholesale rewrite of existing pages.
+This guide is derived from the material the author has written or rewritten by
+hand: `Chapter_1/Theory.qmd`, the Chapter 1 practical, and the author's chapter
+on discrete probability with its practical. That chapter has since been merged
+with the generated chapter on continuous probability, and its sections on
+samples moved to the estimation chapter, so the author's text is now spread
+over the author's sections of `Chapter_2/Theory.qmd`, the opening section of
+`Chapter_3/Theory.qmd` (`# Samples and distributions`), and the author's
+exercises in the Chapter 2 and Chapter 3 practicals. `AGENTS.md` lists which
+sections and exercises these are. They are the only references for voice. The
+rest of Chapters 2 and 3 and the theory pages of Chapters 4 to 8 were generated
+from learning goals and have not been rewritten by the author. Use them for
+topic coverage and continuity, never as a model of how to write. The guide governs new and revised material, without requiring a
+wholesale rewrite of existing pages.
 
 Explicit conventions, such as `=` for R assignment, are retained. Where existing
 files differ, the defaults below are editorial choices for consistency: sentence
 case headings, British English, dollar-delimited mathematics, and modern Quarto
 chunk options. These choices do not imply that the existing files already follow
-them uniformly.
+them uniformly. The author's chapters contain typos and slips of grammar; those
+are not part of the voice and should not be imitated.
 
-## PRIORITY: transform material into the author's voice
+## PRIORITY: the author's voice and how generated text differs from it
 
-**This section takes priority over the other prose-style preferences in this
-guide.** When revising material that predates the author's new Chapter 1 voice,
-do more than correct wording or make it more concise. Recast it so that it sounds
-like an ecologist speaking candidly to students about the gap between ecological
-questions, field data, and conventional statistics. Preserve the scientific claim,
-the course sequence, and any necessary qualification; change the route by which
-the reader reaches the idea.
+**This section takes priority over the other prose preferences in this guide.**
+It comes from comparing the author's text (Chapter 1 and the chapter on
+discrete probability) with the generated chapters, and from the edits the
+author made when rewriting generated text (the rewrite of the discrete
+probability chapter and the first edits to the former chapter on continuous
+probability, now part of Chapter 2). Scientific accuracy and the course scope
+stay mandatory.
 
-The intended voice is personal, direct, curious, and sometimes lightly
-provocative. It is not a neutral institutional textbook voice. The author is a
-teacher and fellow ecologist, not an all-knowing authority: the text can share
-the motivation for the book, acknowledge live debates, and say where a method is
-useful without pretending that it solves every problem. Technical precision,
-fairness to other approaches, and careful copy editing remain non-negotiable.
-Informal language must never become a reason to make a false, unsupported, or
-overstated statistical claim.
+An earlier attempt to describe this voice asked for an "ecologist speaking
+candidly", openings built on "a recognisable ecological tension", and "lightly
+provocative" wording. Applied to the former continuous-probability chapter and
+the estimation chapter (now Chapter 3), it produced quips and slogans that the
+author then deleted. Do not write to that brief. The author's
+voice is plainer than that: a teacher who defines a concept, shows it on one
+example, says what it is for in this book, and adds an honest aside when one is
+useful.
 
-### What should change in a revision
+### What the author's voice is
 
-Use the following contrasts as an editing target. They describe a change in
-emphasis and structure, not an instruction to reproduce particular phrases.
+- **Definition first.** A section opens with the concept, usually in bold in the
+  first sentence, and then brings in the example: "A **random variable** is the
+  quantity whose value is uncertain before we make that observation. [...] We
+  will use a hypothetical experiment on seed survival to illustrate how to model
+  ecological count data." The example is announced as an example.
+- **A guide through the book.** The author keeps telling the reader what a
+  concept is for and where it returns: "We will use quantiles to describe a
+  distribution numerically [...] We will also use quantiles to quantify
+  parameter uncertainty as confidence intervals (see Chapter 3)." The author
+  also says what the course will not use: "We will not use it much in this
+  course", with a footnote explaining that cumulative probabilities are the
+  basis of p-values. Write these signposts; they replace generic motivation.
+- **First person where the author is really speaking.** "I" marks the author's
+  own choices and judgement: "I call them the four faces; this is terminology
+  that I completely made up", "Below I go over three important examples", "My
+  best example of this is...". "We" is for shared reasoning and "you" for what
+  the student does. Never invent an anecdote, opinion, or reading history for
+  the author. When a passage would need one, write it neutrally and flag it for
+  the author to fill in.
+- **Connected reasoning in full paragraphs.** Sentences are linked by plain
+  connectives: "Note that", "That is,", "In other words", "However,", "So",
+  "Also,", "It turns out that", "Now, if". One step leads to the next, and a
+  paragraph usually carries a whole argument. Parentheses hold short asides and
+  examples, often with "e.g." or "i.e.".
+- **Mathematics stated properly, then translated.** The author uses the correct
+  term and symbol (countably infinite, product space, weak law of large numbers,
+  convergence in probability), gives the equation, and then says what it means:
+  "In plain English, as $n$ grows, the chance that the relative frequency
+  differs from the model probability by at least $\varepsilon$ becomes small."
+  When rewriting generated text the author added rigour of this kind. Do not
+  water the mathematics down to sound friendly. Symbols are explained in a
+  "where ..." clause directly after the equation.
+- **Worked numbers.** A general statement is followed by a small case the
+  student can check: a table of joint probabilities filled in with
+  $0.4 \times 0.7 = 0.28$, a probability calculated by hand and then "We can
+  verify our math with R:". Code is introduced by a short lead-in ending in a
+  colon ("In R:", "We can calculate it in R:").
+- **Footnotes for asides.** History and sources (Bernoulli 1713), remarks on
+  terminology ("In some texts this is called subjective probability, but this
+  has an unwarranted pejorative connotation"), technical qualifications, and
+  further reading go in footnotes, so the main line of reasoning stays clean.
+- **Frank and occasionally dry.** The author says when something is confusing
+  or debated and takes a position: "language in applied statistics is often
+  used lazily and inconsistently", "those pesky assumptions". This happens a few
+  times per chapter and is always about something real. It is not decoration.
+- **Model, not truth.** The author writes "model probability", "model
+  distribution", and "data generating process", and replaced "theoretical" and
+  "population" wording when rewriting. Data are "treated as if they were a
+  random sample from the model".
+- **Chapter 1 is the exception in register.** The author confirmed this. It is
+  a personal introduction to the book, written with more candour: personal
+  history, rhetorical questions ("So what is the issue?"), and opinion on
+  p-values. From Chapter 2 onward the chapters describe mathematics and
+  statistics and take a more formal tone: the same person, but mostly
+  definitions, equations, examples, and signposts. The author's text in Chapter 2 is the register
+  to match. Do not carry Chapter 1's candour or level of opinion into the
+  technical chapters.
 
-- **Old:** begin with an abstract course description or a finished conclusion.
-  **New:** begin with a recognisable ecological tension, question, or frustration,
-  then show why the chapter's idea helps. For example, connect an elegant model
-  learned in class to the messy, unbalanced, non-Normal data that fieldwork often
-  produces.
-- **Old:** present modelling and statistics as a tidy, predefined sequence of
-  tools. **New:** explain why students need to bring the two together: ecological
-  theory supplies interpretable relationships, while statistical machinery lets
-  us confront those relationships with variable observations.
-- **Old:** use detached phrasing such as "this course introduces" or "an analysis
-  should". **New:** speak to the reader and reason alongside them: use **you** for
-  their questions and actions, **we** for shared reasoning, and occasional **I**
-  where the author's experience or judgement genuinely helps orient the reader.
-- **Old:** state that a method has limitations in general terms. **New:** name the
-  practical consequence. Explain, for instance, why a balanced factorial design,
-  a straight-line response, or a zero-effect question may fail to express the
-  ecological question or the way the data arose.
-- **Old:** contrast methods only at the level of technical labels. **New:** put
-  competing questions side by side. Replace a binary question such as "Does
-  temperature affect development?" with an estimable ecological question about
-  the rate of change, a thermal optimum, effect size, or biological consequence.
-- **Old:** hide uncertainty behind polished, impersonal claims. **New:** say what
-  is debated, conditional, approximate, or outside the book's scope. Explain the
-  practical choice the book makes and why, rather than treating it as inevitable.
-- **Old:** avoid any authorial position in the name of neutrality. **New:** allow
-  a clear position--explicit probability models and ecologically interpretable
-  parameters are more useful than reducing every question to a p-value--while
-  recognising that linear, generalised linear, mixed  models remain
-  useful in some circumstances.
-- **Old:** use an ecological example merely to illustrate a definition. **New:**
-  make the example do argumentative work: it should show what an ecologist wants
-  to know, what the observation process complicates, and how the model can give a
-  more informative answer.
+### What generated text does instead
 
-### How to write in this voice
+These patterns separate the generated chapters from the author's. Remove them
+when revising and do not produce them in new text.
 
-- Let motivation come before formalism. Open a section by identifying what a
-  student might be trying to understand, where the familiar approach becomes
-  unsatisfying, and what the new idea makes possible. Then define terms, state
-  assumptions, introduce equations, and show code.
-- Use conversational transitions and well-placed questions: "So what do we do
-  then?", "The important point is...", or "Do not confuse...". Use them to move
-  the argument forward, not as decoration. Vary sentence length so a dense idea
-  can be followed by a short, clear conclusion.
-- Make the author visible where it has teaching value. A short first-person
-  reflection, a disciplinary observation, or an admission that a concept is
-  genuinely subtle can make the explanation more trustworthy. Do not manufacture
-  personal anecdotes, opinions, reading history, or experiences on the author's
-  behalf.
-- Prefer concrete ecological language over generic statistical slogans. Name the
-  organism, driver, response, measurement difficulty, and consequence when they
-  clarify the point. Show how a parameter answers an ecological question rather
-  than calling it merely "meaningful" or "important".
-- Use lightly informal, vivid wording to make a difficult idea memorable, but
-  keep it deliberate and sparse. A phrase such as "messy field data" can help;
-  a stream of jokes, rhetorical questions, or slang makes the explanation feel
-  less trustworthy.
-- Treat standard statistics as limited defaults, not villains. Explain why
-  p-values, significance tests, linear responses, Normal models, and formula
-  interfaces can be inadequate for a particular question. Do not imply that they
-  are universally wrong, obsolete, or incapable of modelling nonlinearity,
-  grouping, or uncertainty.
-- Explain statistical debates pragmatically. When discussing frequentist and
-  Bayesian ideas, probability interpretations, or model selection, identify the
-  practical decision made in this book and its limits. Do not turn an introductory
-  chapter into a philosophical survey or make unsupported claims about what an
-  entire research community believes.
-- Keep the ecology, probability model, data-generating process, and inference
-  connected. The voice should make the course feel more grounded, not replace a
-  definition, assumption, derivation, or interpretation that students need.
+- **Scene-setting hooks before the concept.** "When we put a quadrat in the
+  field, we do not know in advance how many of its seeds will survive." "When we
+  measure a tree, there is no ecological reason for its height to jump only
+  from 22 m to 23 m." The author deleted both and started with the definition.
+- **Quips, personification, and slogans.** "measurements that refuse to stay
+  neatly in whole numbers", "it is not a prize awarded because data were
+  collected in the same way", "neither one gives a model a free pass", "not a
+  rubber stamp", "a body-mass column does not come with 'lognormal' written on
+  it", "not a magic label". Say the plain thing.
+- **"X, not Y" as a reflex.** Generated paragraphs keep ending on a correction
+  of a mistake nobody made: "These are assumed population values, not estimates
+  from a forest." "It is a model prediction, not the height of a particular
+  observed tree." "That is a mathematical convenience, not permission to forget
+  how precisely the field measurement was made." State what is true. Keep a
+  contrast only where students really do confuse the two things (density and
+  probability, standard deviation and standard error), and then explain the
+  difference instead of asserting it. The author kept a handful of these in a
+  whole chapter of their own text; treat that as the ceiling.
+- **A caveat after every statement.** "does not establish", "does not
+  guarantee", "does not, by itself", "is not proof that" appear in almost every
+  paragraph of Chapters 4 to 8. One caveat, placed where the risk is, teaches
+  more than twenty. Put a recurring misconception in a single warning callout
+  and stop repeating it in the prose and again in the quiz.
+- **Repeated provenance disclaimers.** "These are simulated observations, not
+  field measurements" after each example. State once, where the data are
+  introduced, whether they are simulated, built in, or supplied.
+- **Leaking the authoring process.** "The author supplied the mapping below",
+  "author-supplied leaf identifier", "supplied 2007 PDF", "This verified
+  piecewise structure", "outside this chapter's learning goals", "replace these
+  labels with physical units when they are available". The reader is a student;
+  write what the data are and where they come from, in the author's voice ("In
+  the original experiment, each leaf was measured at every light level").
+- **Clipped, stacked declaratives.** "A peak shows an estimate. Its width helps
+  describe uncertainty." "Independence is an assumption that permits this
+  product." Each sentence is correct, but nothing links them and nobody is
+  speaking. Rewrite as reasoning with connectives, and say why the step matters.
+- **Lists and tables in place of explanation.** Chapter 7 defines fixed effects,
+  random effects, mixed-effects, hierarchical, and multilevel models as five
+  bullets. The author explains one idea at a time in prose and keeps lists for
+  things that are really parallel (the four faces, sources of process error).
+- **Imperative and slogan headings.** "Find the maximum", "Add logs rather than
+  multiply", "Read the ends of a curve", "What larger samples change". The
+  author's headings name the topic: "Joint distributions and independence",
+  "Expectations", "Samples and distributions", "A simple diagnostic for
+  overdispersion". A question heading is fine now and then ("What do these
+  probabilities mean?").
+- **Italics for emphasis on ordinary words.** "the *estimated mean*", "its
+  *mean*", "that *procedure*". The author rarely does this. Use bold for a new
+  term and let the sentence carry the emphasis.
+- **Splitting what belongs together.** The generated four faces were four
+  numbered subsections, each with its own plot and code. The author merged them
+  into one section with one list, one code block, and one composite figure.
+  Prefer the integrated treatment when ideas are introduced as a set.
+- **Defensive links.** "These conditions also appear in R's AIC documentation."
+  The author cites to credit a source, point to a debate, or recommend reading,
+  not to back up a routine statement.
 
-### Revision workflow and final check
+### Before and after
 
-When transforming an existing passage, first identify its scientific job: the
-question it answers, the prerequisite ideas, the claims that require
-qualification, and the examples or equations that must remain consistent with
-the surrounding chapter. Rewrite the passage around the reader's problem and
-the ecological stakes. Only then tighten the prose, correct grammar, and apply
-the conventions elsewhere in this guide.
+The author's own rewrite of the opening of the independence section shows the
+change. Generated:
 
-Before finishing, ask:
+> Independence is one of those assumptions that makes probability calculations
+> beautifully neat and ecological data rather awkward. Two random variables are
+> **independent** if knowing the value of one does not change the probabilities
+> for the other. Consider germination of two planted seeds.
 
-1. Does the opening give a student a reason to care before it becomes technical?
-2. Does the passage sound like a thoughtful ecologist speaking to students, rather
-   than a generic course catalogue or a research-paper introduction?
-3. Does it make a concrete connection between the ecological question, the data,
-   and the model or parameter?
-4. Does it replace a purely binary or method-centred framing with a quantitative,
-   ecologically relevant question where appropriate?
-5. Are informal turns of phrase serving the explanation rather than obscuring it?
-6. Have all personal claims, historical claims, quotations, links, and
-   disciplinary generalisations been retained only when supplied or verified?
-7. Have grammar, spelling, terminology, mathematical notation, and statistical
-   qualifications been checked independently of the voice transformation?
+Author:
+
+> Two random variables are said to be **independent** if knowledge about one of
+> them does not change the probabilities for the other. Understanding this
+> concept requires understanding joint distributions of multiple random
+> variables. Let's first illustrate it with a simple example involving two
+> binary random variables (for variety, I will use seed germination).
+
+The quip is gone, the definition comes first, the prerequisite is named, and
+the example is announced as an example in the first person. The author then
+added a joint-probability table with numbers, which the generated text lacked.
+
+### Checklist for a revised or new passage
+
+1. Does the section open with the concept, with the example announced after it?
+2. Does it say what the concept is for in this book and where it comes back?
+3. Is the mathematics stated correctly and then put in plain words, with a small
+   numerical case?
+4. Can any "not Y", "does not establish", or "simulated, not field data"
+   sentence be deleted without losing a point the student needs?
+5. Are there quips, personified data, or slogan-like closing sentences? Remove
+   them.
+6. Does anything refer to how the text or data were supplied to the writer?
+7. Is every "I" a real choice or view of the author, and is nothing invented on
+   their behalf?
 
 ## Voice and vocabulary
 
 - Address students as **you** for actions and use **we** for shared reasoning:
-  “We can compare the sample variance with the mean.”
+  “We can compare the sample variance with the mean.” Use **I** only for the
+  author's own choices and views, as described in the priority section.
 - Use plain, conversational English. Contractions and questions are appropriate
   when they help a student follow the reasoning. Avoid impersonal research-paper
   prose and unexplained technical shorthand.
 - Give each paragraph one main idea. Keep related sentences together; avoid
   turning every sentence into its own paragraph or every paragraph into a list.
+  Link sentences with plain connectives so the paragraph reads as an argument.
+- Say “model probability”, “model distribution”, and “data generating process”
+  in preference to “theoretical” or “true” values, except in a simulation where
+  the generating parameter is known and that is the point being made.
 - Explain a technical term at first use, preferably through an ecological example.
   Expand abbreviations such as maximum likelihood estimation (MLE) and independent
   and identically distributed (i.i.d.) before using them alone.
@@ -148,12 +222,21 @@ Before finishing, ask:
   tool”, and “it is important to note that”. State the actual point.
 - Avoid “obviously”, “trivially”, and “simply” when they dismiss a step a beginner
   may find difficult. Do not label a model “best” without specifying the criterion.
-- Use British English for new prose: modelling, behaviour, parameterisation,
-  summarise. Preserve R identifiers, quoted text, official titles, and dataset
-  names exactly, including `summarize()` if that is the function being discussed.
-- Write binomial, negative binomial, normal, lognormal, and beta in lower case in
-  running prose; retain Poisson as a proper name. Preserve existing document titles
-  unless their revision is part of the task.
+- Use British English throughout: modelling, behaviour, parameterisation,
+  summarise, generalise, randomisation, optimisation. This is an author
+  decision. The author's own chapters mix British and American spellings, and
+  the author has asked for spelling to be corrected, so change American
+  spellings to British when editing any page, including the author's own text.
+  Preserve R identifiers, quoted text, official titles, and dataset names
+  exactly, including `summarize()` if that is the function being discussed.
+- Capitalise the names of distributions everywhere, in prose, headings,
+  captions, and callouts: Binomial, Poisson, Negative Binomial, Normal,
+  LogNormal, Beta, Gamma. This is an author decision. Write “the Binomial
+  distribution”, “a Negative Binomial model”, “Normal errors”. In a sentence-case
+  heading the distribution name keeps its capital: “The Negative Binomial
+  distribution”. Words that are not distribution names stay in lower case
+  (“distribution”, “model”, “density”). Correct lower-case forms when editing a
+  page.
 - Write function names as code, usually with parentheses: `var()`, `optim()`.
   Write R and RStudio as ordinary proper names; put object and argument names in
   backticks, such as `seed_count`, `mu`, and `lower.tail`.
@@ -163,11 +246,24 @@ Before finishing, ask:
 Start every chapter with a section headed `# Introduction`. Its first sentence
 must begin exactly with **“In this chapter, we learn how to...”** and should
 state the chapter's main ecological or statistical purpose before connecting it
-to earlier material. Follow it with a section headed `# Learning goals`. List
-goals as actions students will be able to perform, in the same order as the
-ideas appear in the chapter. The goals should cover the chapter's actual
-content rather than promising material introduced later. Avoid imposing a fixed
-length or a fixed number of goals.
+to earlier material. Keep the introduction short: one or two paragraphs that
+say what the chapter covers, how it differs from the previous one, and which
+distributions or examples it uses. Follow it with a section headed
+`# Learning goals`, in the format of Chapter 2: the lead-in “In this chapter,
+we will cover:”, then a list of short topic phrases ending in semicolons
+(“discrete random variables and probability;”, “the assumption of
+independence;”), in the same order as the ideas appear in the chapter. Do not
+use “After studying this chapter, you should be able to:” with a list of
+assessment verbs; the author replaced that format in the probability chapters. A closing
+sentence may name the distributions or tools the chapter practises with and
+point to a supplement. The goals should cover the chapter's actual content
+rather than promising material introduced later. Avoid imposing a fixed length
+or a fixed number of goals.
+
+Use headings that name the topic as a noun phrase (“Expectations”, “Samples
+and distributions”, “The Poisson distribution”). Avoid imperative or slogan
+headings. Within a distribution section, put the worked case under a subsection
+titled `### Example: ...`.
 
 Introduce the general concept before applying it to a concrete example. Explain
 what the concept means and why it matters, then use an ecological setting to show
@@ -200,10 +296,26 @@ Chapter 2 order: probability mass or density, cumulative probability, quantiles,
 and sampling. Explain useful parameter conversions rather than merely listing
 formulas. Put optional detail in a short footnote or a linked supplement.
 
-Use summaries when they consolidate learning; do not repeat the entire chapter.
-Keep cross-chapter promises specific and check the destination. For example,
-method of moments currently belongs to Chapter 4, despite a Chapter 3 reference
-in the Chapter 5 draft.
+Detailed descriptions of distributions belong in `Supplements/distributions.qmd`,
+not in the theory chapters. Chapter 2 uses one distribution as the running
+example for each type of data (the Binomial for discrete data and the Normal for
+continuous data) and links to the supplement entries through their
+`sec-` IDs (for example `distributions.qmd#sec-negative_binomial`). The
+author's entries there (Binomial, Poisson, Negative Binomial) give the order to follow: when the
+distribution is useful and what it assumes; its probability mass or density
+function with the symbols explained; its mean and variance as displayed
+equations; an `### Example:` subsection that calculates a probability by hand
+and then verifies it in R; a figure; and a practice exercise.
+
+After the prose has explained a concept, a short note callout may restate the
+definition in one or two sentences for later reference. The callout does not
+replace the explanation.
+
+End every theory chapter with a `# Summary` section, placed before
+`# Chapter quiz`. This is an author decision; Chapters 6 and 7 currently lack
+one and need it added. A summary consolidates the main ideas in a few short paragraphs
+and does not repeat the entire chapter or introduce new material. Keep cross-chapter promises specific and check the destination. For example,
+method of moments belongs to Chapter 3 and model comparison to Chapter 6.
 
 ## Statistical language and notation
 
@@ -221,9 +333,9 @@ in the Chapter 5 draft.
 
 Use $E[X]$, $\operatorname{Var}(X)$, and
 $X \sim \operatorname{Poisson}(\lambda)$ consistently. Define sample size separately
-from binomial trial count when both occur. For the negative binomial, use mean
+from Binomial trial count when both occur. For the Negative Binomial, use mean
 $\mu$ and shape $k$ with $\operatorname{Var}(X)=\mu+\mu^2/k$, mapped to R's `mu`
-and `size`. Explain any alternative parameterisation explicitly. For a normal
+and `size`. Explain any alternative parameterisation explicitly. For a Normal
 model written with variance $\sigma^2$, R's `sd` argument takes $\sigma$.
 Use $\sigma^2$ for variance parameters, with descriptive subscripts when a
 model has several variance components, such as $\sigma^2_{\mathrm{group}}$
@@ -259,24 +371,23 @@ conditions behind general claims about estimator performance.
 - Save text as UTF-8. Aim for readable source lines of roughly 80–100 characters;
   do not break links or code just to meet a line-width target.
 
-Typical theory metadata follows Chapter 2:
+Theory metadata follows Chapters 1 to 3, which contain only a title:
 
 ```yaml
 ---
 title: "Descriptive chapter title"
-format:
-  html:
-    toc: true
-    number-sections: true
-execute:
-  echo: true
-  warning: false
-  message: false
-  eval: false
 ---
 ```
 
-Preserve the target page's settings rather than applying this template blindly.
+The table of contents and section numbering are set once in `_quarto.yml`. The
+per-page `format` and `execute` blocks have been removed from Chapters 2 and 3;
+Chapters 4 to 8 still carry them, including a global `eval: false`. Do not add
+those blocks to new pages. When removing them from an existing page, check every
+chunk first: without the global setting, chunks are evaluated unless they carry
+`#| eval: false`. Chapters 4 to 8 also still contain display-only ```` ```r ````
+fences, which the rule below replaces.
+
+Preserve the target page's other settings rather than changing them in passing.
 Practicals also use `date: today`; Chapter 1's material uses the installed
 `wordcount-html` extension. Do not remove that setup as an incidental cleanup.
 
@@ -285,8 +396,8 @@ display-only ```` ```r```` blocks. This applies to code examples that students
 run themselves as well as code that the document evaluates. When code should be
 shown but not run during rendering, keep the executable chunk and set
 `#| eval: false` (or disable evaluation globally with `execute: eval: false`).
-Use chunk options on `#|` lines. Theory pages usually disable evaluation globally
-and enable it for selected figures:
+Use chunk options on `#|` lines. A figure chunk that the page evaluates and hides
+looks like this:
 
 ````markdown
 ```{r}
@@ -354,8 +465,9 @@ one group.
 Keep fence lengths matched and nesting intact. Collapsing a solution alone does
 not hide it from the student version; retain the conditional div. In Chapter 2's
 separate files, retain `# Exercise N: Topic` and `## Solution` as appropriate.
-The first exercise on its student page currently includes a worked solution. Do not
-assume every `no_solution.qmd` must contain no explanatory answers at all.
+The first two exercises on its student page are worked solutions, by author
+decision. Do not assume every `no_solution.qmd` must contain no explanatory
+answers at all.
 
 ## R coding patterns
 
@@ -385,8 +497,8 @@ assume every `no_solution.qmd` must contain no explanatory answers at all.
   object, then pass that object to `summarise()`.
 - Set a seed before each reproducible simulation example or batch of repetitions.
   Do not reset the same seed inside every repetition when independent simulated
-  samples are intended. Explicitly varied seeds are appropriate for the Chapter 2
-  exercise about variation across samples.
+  samples are intended. Explicitly varied seeds are appropriate for the Chapter 3
+  exercise about variation across samples (Exercise 2, asymptotic convergence).
 - Define objects in teaching order and pass data explicitly to functions. Examples
   must work without objects left in the author's interactive workspace.
 - Use project or document-relative data paths consistent with execution context.

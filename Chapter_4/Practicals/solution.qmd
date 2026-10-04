@@ -1,5 +1,5 @@
 ---
-title: "Chapter 4: Estimation and sampling distributions — solutions"
+title: "Chapter 4: Maximum likelihood — solutions"
 date: today
 ---
 
@@ -7,283 +7,315 @@ The fully worked first exercise is on the
 [student practical page](no_solution.qmd). These solutions use the
 same models, tasks, and seeds as Exercises 2–4 on that page.
 
-# Exercise 2: Breeding success at bird nests
+# Exercise 2: Tree heights and two parameters
 
-One observational unit is a monitored nest. Under the assumed
-binomial model, the expected proportion of successes is $p$, so
-matching it to the observed proportion gives the method-of-moments
-estimator $\hat p=X/n$.
+For a normal model, the density contribution from height $h$ is
 
-```{r}
-set.seed(seed = 422)
-p_true = 0.6
-n_nests = 40
-successful_nests = rbinom(n = 1, size = n_nests, prob = p_true)
-p_hat = successful_nests / n_nests
-c(successful_nests = successful_nests, estimate = p_hat)
-```
+$$
+f(h\mid\mu,\sigma)
+=\frac{1}{\sigma\sqrt{2\pi}}
+  \exp\left[-\frac{(h-\mu)^2}{2\sigma^2}\right].
+$$
 
-In this simulated study, 25 of 40 nests succeed, giving an estimated
-success probability of 0.625. It need not equal the model probability of 0.6.
-We know the latter only because we generated the data.
+For heights 21 m and 23 m, each contribution under candidate A
+$(\mu,\sigma)=(22,1)$ is
+$e^{-1/2}/\sqrt{2\pi}$. Under candidate B $(22,3)$, each is
+$e^{-1/18}/(3\sqrt{2\pi})$. Multiply within each pair, then
+take logs:
 
-For the sampling distributions, each call to `rbinom()` generates
-2,000 possible study totals. Dividing by the number of nests in
-that study produces one estimated success probability per study.
+$$
+\begin{aligned}
+L_A&=\frac{e^{-1}}{2\pi},
+&\ell_A&=-\log(2\pi)-1\approx-2.838,\\
+L_B&=\frac{e^{-1/9}}{18\pi},
+&\ell_B&=-\log(18\pi)-\frac19\approx-4.146.
+\end{aligned}
+$$
 
-```{r}
-set.seed(seed = 423)
-n_studies = 2000
-n_small = 20
-n_large = 100
+Candidate A has the greater likelihood for these **fixed**
+measurements. Each factor is a density, not the probability of
+observing an exact continuous height. Probabilities under this
+model apply to height intervals.
 
-p_estimates_small = rbinom(
-  n = n_studies, size = n_small, prob = p_true
-) / n_small
-p_estimates_large = rbinom(
-  n = n_studies, size = n_large, prob = p_true
-) / n_large
-
-old_par = par(no.readonly = TRUE)
-par(mfrow = c(1, 2))
-hist(
-  x = p_estimates_small, breaks = 20, probability = TRUE,
-  xlim = c(0, 1), col = "grey85", border = "white",
-  xlab = "Estimated nest success probability", ylab = "Density",
-  main = "20 nests"
-)
-abline(v = p_true, lty = 2, lwd = 2)
-hist(
-  x = p_estimates_large, breaks = 20, probability = TRUE,
-  xlim = c(0, 1), col = "grey85", border = "white",
-  xlab = "Estimated nest success probability", ylab = "Density",
-  main = "100 nests"
-)
-abline(v = p_true, lty = 2, lwd = 2)
-par(old_par)
-```
-
-The distribution for 100 nests is more concentrated around 0.6.
-The estimates are still variable and discrete because the number
-of successful nests is an integer.
-
-For independent nests with the same $p$, the estimator is unbiased
-and has variance $p(1-p)/n$. Simulated bias is the average estimate
-minus the known model value. Mean squared error (MSE) is the average
-squared distance from that value.
+For the larger simulated sample, define $\sigma=\exp(\log\sigma)$
+inside the negative log-likelihood. This keeps the standard
+deviation positive while `optim()` varies the fitted parameters.
 
 ```{r}
-nest_summary = data.frame(
-  n_nests = c(n_small, n_large),
-  average_estimate = c(
-    mean(p_estimates_small), mean(p_estimates_large)
-  ),
-  simulated_bias = c(
-    mean(p_estimates_small) - p_true,
-    mean(p_estimates_large) - p_true
-  ),
-  simulated_variance = c(
-    var(p_estimates_small), var(p_estimates_large)
-  ),
-  simulated_se = c(
-    sd(p_estimates_small), sd(p_estimates_large)
-  ),
-  simulated_mse = c(
-    mean((p_estimates_small - p_true)^2),
-    mean((p_estimates_large - p_true)^2)
-  ),
-  model_variance = p_true * (1 - p_true) /
-    c(n_small, n_large)
-)
-round(nest_summary, digits = 4)
-```
+set.seed(seed = 522)
+heights = rnorm(n = 30, mean = 22, sd = 4)
 
-The average estimates are approximately 0.602 and 0.601, close to
-the true 0.6. Simulated variance falls from about 0.0121 for 20
-nests to 0.0023 for 100 nests; standard error and MSE fall too.
-Their simulated values do not exactly equal the model values.
-Bias concerns the estimator's average across possible studies; a
-single estimate cannot reveal it.
-Neighbouring nests could share weather, food supply, or predation
-conditions, making their outcomes dependent.
-
-# Exercise 3: Variation in tree heights
-
-The first method-of-moments estimate matches the sample mean to
-$E[X]=\mu$. The second averages squared deviations from that sample
-mean with divisor $n$. R's `var()` uses $n-1$ instead.
-
-```{r}
-set.seed(seed = 433)
-n_trees = 25
-true_mu = 22
-true_sigma = 4
-true_variance = true_sigma^2
-tree_heights = rnorm(
-  n = n_trees, mean = true_mu, sd = true_sigma
-)
-
-mu_hat = mean(tree_heights)
-variance_mm = mean((tree_heights - mu_hat)^2)
-variance_with_var = var(tree_heights)
-c(
-  estimated_mean_m = mu_hat,
-  variance_mm_m2 = variance_mm,
-  variance_with_var_m2 = variance_with_var
-)
-```
-
-The estimated mean is in metres; both variance estimates are in
-square metres. They differ because `var()` adjusts the divisor.
-Neither single-sample estimate needs to equal the model variance
-of $4^2=16$ square metres.
-
-To study bias, repeat the entire 25-tree study. Each repetition
-returns a pair of variance estimates.
-
-```{r}
-set.seed(seed = 434)
-n_studies = 2000
-variance_estimates = replicate(
-  n = n_studies,
-  expr = {
-    heights = rnorm(
-      n = n_trees, mean = true_mu, sd = true_sigma
-    )
-    sample_mean = mean(heights)
-    c(
-      method_of_moments = mean((heights - sample_mean)^2),
-      with_var = var(heights)
-    )
-  }
-)
-
-average_variance = rowMeans(variance_estimates)
-simulated_bias = average_variance - true_variance
-simulated_mse = rowMeans(
-  (variance_estimates - true_variance)^2
-)
-
-variance_summary = data.frame(
-  estimator = rownames(variance_estimates),
-  average_variance_m2 = average_variance,
-  simulated_bias_m2 = simulated_bias,
-  simulated_mse_m4 = simulated_mse,
-  row.names = NULL
-)
-variance_summary
-```
-
-The method-of-moments estimate averages about 15.14 square metres,
-below the true 16. Its simulated bias is about $-0.86$ square
-metres; its theoretical bias is $-16/25=-0.64$ square metres.
-The estimate from `var()` averages about 15.77, with simulated
-bias about $-0.23$ rather than exactly zero. The differences from
-theoretical values reflect finite simulation.
-
-MSE includes both variance across studies and squared bias. In
-this simulation, the method-of-moments estimator has MSE about
-$19.84\ \mathrm{m}^4$, compared with about $20.77\ \mathrm{m}^4$
-for `var()`. Knowing that one estimator is unbiased does not,
-by itself, settle which has smaller MSE.
-
-# Exercise 4: Mean body mass and interval coverage
-
-The lognormal parameters describe **log mass**. On the original
-gram scale, the median is $e^\mu$ and the mean is
-$e^{\mu+\sigma^2/2}$. Right skew makes the mean larger than the
-median.
-
-```{r}
-mass_meanlog = log(30)
-mass_sdlog = 0.8
-true_median = exp(mass_meanlog)
-true_mean = exp(mass_meanlog + mass_sdlog^2 / 2)
-c(median_g = true_median, mean_g = true_mean)
-```
-
-The model median is 30 g and the model mean is approximately
-41.3 g. Simulate one study and calculate the standard error of
-its original-scale sample mean:
-
-```{r}
-set.seed(seed = 443)
-n_animals = 12
-body_mass = rlnorm(
-  n = n_animals,
-  meanlog = mass_meanlog, sdlog = mass_sdlog
-)
-
-sample_mean = mean(body_mass)
-sample_median = median(body_mass)
-estimated_se = sd(body_mass) / sqrt(n_animals)
-c(
-  sample_mean_g = sample_mean,
-  sample_median_g = sample_median,
-  estimated_se_g = estimated_se
-)
-```
-
-This standard error describes uncertainty in the sample mean, not
-variation among the 12 individual masses. The $t$ interval uses
-the estimated standard error and $n-1$ degrees of freedom:
-
-```{r}
-critical_value = qt(p = 0.975, df = n_animals - 1)
-mass_interval = c(
-  lower = sample_mean - critical_value * estimated_se,
-  upper = sample_mean + critical_value * estimated_se
-)
-mass_interval
-```
-
-The interval runs from approximately 14.1 to 54.6 g. Its endpoints
-are candidate values for the **population mean mass in grams**,
-not an interval containing 95% of animal masses.
-This $t$ interval has exact 95% coverage for independent normal
-observations. Lognormal masses are skewed, so here it is an
-approximation; its actual coverage must be checked.
-
-For each simulated study below, calculate a new interval and
-record whether it contains the known model mean. The proportion
-of `TRUE` results estimates coverage.
-
-```{r}
-coverage_for_size = function(n_animals, n_studies = 2000) {
-  critical_value = qt(p = 0.975, df = n_animals - 1)
-  covered = replicate(
-    n = n_studies,
-    expr = {
-      mass = rlnorm(
-        n = n_animals,
-        meanlog = mass_meanlog, sdlog = mass_sdlog
-      )
-      estimate = mean(mass)
-      se = sd(mass) / sqrt(n_animals)
-      lower = estimate - critical_value * se
-      upper = estimate + critical_value * se
-      lower <= true_mean && true_mean <= upper
-    }
-  )
-  mean(covered)
+normal_nll = function(par, heights) {
+  mu = par[1]
+  sigma = exp(par[2])
+  -sum(dnorm(x = heights, mean = mu, sd = sigma, log = TRUE))
 }
 
-set.seed(seed = 444)
-simulated_coverage = c(
-  n_12 = coverage_for_size(n_animals = 12),
-  n_100 = coverage_for_size(n_animals = 100)
+normal_fit = optim(
+  par = c(mu = mean(heights), log_sigma = log(sd(heights))),
+  fn = normal_nll, heights = heights, method = "BFGS"
 )
-simulated_coverage
+normal_fit$convergence
+estimates = c(
+  mu_m = unname(normal_fit$par[1]),
+  sigma_m = exp(unname(normal_fit$par[2]))
+)
+estimates
 ```
 
-The simulated coverage is 0.889 for 12 animals and 0.927 for 100
-animals, both below 0.95. These fractions depend on the seed and
-2,000 repetitions. With the more skewed sampling distribution at
-12 animals, the usual $t$ interval misses the true mean more often
-than its nominal 5% rate. At 100 animals, the sample mean tends
-to have a more nearly normal sampling distribution, making this
-approximation more plausible. These results describe performance
-**under the specified lognormal model and independent sampling**.
-Actual body masses or a field sampling design could depart from
-both assumptions, so simulated coverage alone does not establish
-coverage for a real study.
+The fitted mean is approximately 22.97 m and the fitted standard
+deviation is approximately 4.08 m. They need not equal 22 m and
+4 m: those values generated one random sample, whose realised
+mean and spread can differ.
+
+Evaluate the same log-likelihood across pairs of parameter
+values. Subtracting the largest grid value makes the plotted
+log-likelihood relative to its grid maximum.
+
+```{r}
+mu_grid = seq(from = 17, to = 27, length.out = 80)
+sigma_grid = seq(from = 1.5, to = 7, length.out = 80)
+loglik_surface = outer(
+  X = mu_grid, Y = sigma_grid,
+  FUN = Vectorize(function(mu, sigma) {
+    sum(dnorm(
+      x = heights, mean = mu, sd = sigma, log = TRUE
+    ))
+  })
+)
+contour(
+  x = mu_grid, y = sigma_grid,
+  z = loglik_surface - max(loglik_surface),
+  levels = c(-10, -5, -2, -1, -0.5, -0.1),
+  xlab = "Mean tree height (m)",
+  ylab = "Tree-height SD (m)"
+)
+points(x = estimates["mu_m"], y = estimates["sigma_m"], pch = 19)
+points(x = 22, y = 4, pch = 4, lwd = 2)
+legend(
+  "topright", legend = c("MLE", "Generating values"),
+  pch = c(19, 4), bty = "n"
+)
+```
+
+A slice for $\mu$ evaluates $\ell(\mu,\hat\sigma)$ while keeping
+$\sigma$ fixed at its joint estimate. A profile for $\mu$
+re-estimates $\sigma$ at **each** candidate $\mu$. Both curves
+describe fit to these data; neither is a probability distribution
+for $\mu$.
+
+# Exercise 3: Overdispersed seedling counts
+
+For $k=1$, the supplied probability mass gives
+$P(X=0\mid\mu,1)=1/(1+\mu)$ and
+$P(X=1\mid\mu,1)=\mu/(1+\mu)^2$. Assuming independent quadrats,
+
+$$
+L(\mu\mid0,1;k=1)
+=\frac{\mu}{(1+\mu)^3},
+\qquad
+\ell(\mu)=\log\mu-3\log(1+\mu).
+$$
+
+At $\mu=1$, the likelihood is $1/8=0.125$ and the
+log-likelihood is $-\log8\approx-2.079$. At $\mu=2$, they
+are $2/27\approx0.07407$ and
+$\log2-3\log3\approx-2.603$. Thus $\mu=1$ gives these
+two counts greater likelihood among the proposed means.
+
+The model used to simulate the larger sample has mean 4 seedlings
+per quadrat and variance
+$4+4^2/1.5\approx14.67$ squared seedlings per quadrat.
+
+```{r}
+set.seed(seed = 533)
+counts = rnbinom(n = 80, size = 1.5, mu = 4)
+c(
+  model_mean = 4,
+  model_variance = 4 + 4^2 / 1.5,
+  sample_mean = mean(counts),
+  sample_variance = var(counts)
+)
+```
+
+With this seed, the sample mean is 4.65 and its sample variance
+is approximately 13.45. The sample summaries vary between
+simulations. A variance larger than the mean is exploratory
+evidence of overdispersion
+relative to a common-mean Poisson model; it cannot establish
+whether habitat differences, clustering, dependence, or another
+process caused it.
+
+Both $\mu$ and $k$ must be positive. Their logarithms are
+unconstrained optimisation parameters. The starting mean uses
+the sample mean; a starting $k$ comes from rearranging the
+negative binomial mean–variance relation. If the sample variance
+is too close to or below its mean, the small positive floor in
+the denominator still supplies a valid starting value. It does
+not change the fitted likelihood.
+
+```{r}
+nb_nll = function(par, counts) {
+  mu = exp(par[1])
+  k = exp(par[2])
+  -sum(dnbinom(x = counts, size = k, mu = mu, log = TRUE))
+}
+
+start_mu = max(mean(counts), 0.1)
+start_k = start_mu^2 / max(var(counts) - start_mu, 0.1)
+nb_fit = optim(
+  par = log(c(mu = start_mu, k = start_k)),
+  fn = nb_nll, counts = counts, method = "BFGS"
+)
+nb_fit$convergence
+nb_estimates = exp(nb_fit$par)
+nb_estimates
+```
+
+The fit returns a convergence code of zero, an estimated mean
+of approximately 4.65 seedlings per quadrat, and an estimated
+shape of approximately 2.64. These positive estimates need
+not reproduce the known generating values exactly. We also
+need to check whether the fitted probabilities reasonably
+describe the observed counts.
+
+```{r}
+count_values = 0:max(
+  counts,
+  qnbinom(
+    p = 0.995, size = nb_estimates["k"], mu = nb_estimates["mu"]
+  )
+)
+observed_frequency = as.numeric(
+  table(factor(counts, levels = count_values))
+) / length(counts)
+fitted_probability = dnbinom(
+  x = count_values,
+  size = nb_estimates["k"], mu = nb_estimates["mu"]
+)
+
+plot(
+  x = count_values, y = observed_frequency,
+  type = "h", lwd = 5, col = "grey60",
+  xlab = "Seedlings per quadrat",
+  ylab = "Relative frequency or probability",
+  ylim = c(0, max(observed_frequency, fitted_probability))
+)
+lines(
+  x = count_values, y = fitted_probability,
+  type = "b", pch = 19, lwd = 2
+)
+legend(
+  "topright",
+  legend = c("Observed relative frequency", "Fitted probability"),
+  col = c("grey60", "black"), lty = 1, lwd = c(5, 2),
+  pch = c(NA, 19), bty = "n"
+)
+```
+
+Large, systematic differences at zero or in the upper tail
+would call the model into question. Some differences are expected
+from a finite sample, so a plot is a check rather than proof that
+the model is correct.
+
+# Exercise 4: Uncertainty in mean tree height
+
+Fit the normal model on the $(\mu,\log\sigma)$ scale. Inverting
+the Hessian gives an approximate covariance matrix on that
+same fitted scale. Its diagonal supplies approximate squared
+standard errors.
+
+```{r}
+set.seed(seed = 544)
+heights = rnorm(n = 30, mean = 22, sd = 4)
+
+normal_nll = function(par, heights) {
+  mu = par[1]
+  sigma = exp(par[2])
+  -sum(dnorm(x = heights, mean = mu, sd = sigma, log = TRUE))
+}
+
+fit = optim(
+  par = c(mu = mean(heights), log_sigma = log(sd(heights))),
+  fn = normal_nll, heights = heights,
+  method = "BFGS", hessian = TRUE
+)
+fit$convergence
+c(
+  mu_m = unname(fit$par[1]),
+  sigma_m = exp(unname(fit$par[2]))
+)
+
+covariance_on_fit_scale = solve(fit$hessian)
+se_on_fit_scale = sqrt(diag(covariance_on_fit_scale))
+se_on_fit_scale
+
+z_critical = qnorm(p = 0.975)
+mu_quadratic_ci = fit$par[1] +
+  c(-1, 1) * z_critical * se_on_fit_scale[1]
+sigma_quadratic_ci = exp(
+  fit$par[2] +
+    c(-1, 1) * z_critical * se_on_fit_scale[2]
+)
+mu_quadratic_ci
+sigma_quadratic_ci
+```
+
+The first standard error and interval refer to mean height
+in metres. The second standard error refers to
+$\log\sigma$; exponentiating its interval endpoints gives
+an interval of approximately 3.13–5.20 m for the standard
+deviation.
+The quadratic intervals rely on a local normal approximation
+to the estimator's sampling distribution. Check that the Hessian
+can be inverted and gives sensible positive variances.
+
+For a candidate $\mu$, re-estimate $\sigma$ using the root
+mean squared deviation from that candidate mean. The
+relative profile log-likelihood must be at least
+$-qchisq(0.95,1)/2$ to lie inside the approximate 95%
+profile interval. The function `crossing()` is zero
+at either interval endpoint.
+
+```{r}
+profile_mu = function(mu, heights) {
+  sigma_at_mu = sqrt(mean((heights - mu)^2))
+  sum(dnorm(
+    x = heights, mean = mu, sd = sigma_at_mu, log = TRUE
+  ))
+}
+
+mu_hat = fit$par[1]
+max_log_likelihood = -fit$value
+cutoff = qchisq(p = 0.95, df = 1) / 2
+crossing = function(mu) {
+  profile_mu(mu = mu, heights = heights) -
+    max_log_likelihood + cutoff
+}
+
+mu_profile_ci = c(
+  lower = uniroot(
+    f = crossing,
+    interval = c(mu_hat - 10 * sd(heights), mu_hat)
+  )$root,
+  upper = uniroot(
+    f = crossing,
+    interval = c(mu_hat, mu_hat + 10 * sd(heights))
+  )$root
+)
+rbind(
+  quadratic_mu = mu_quadratic_ci,
+  profile_mu = mu_profile_ci
+)
+```
+
+The quadratic interval for $\mu$ is approximately 19.84–22.73 m;
+the profile interval is approximately 19.80–22.78 m. They differ
+because the profile follows the log-likelihood while re-estimating
+$\sigma$, whereas the quadratic interval uses curvature near
+the fitted point. Both describe uncertainty about **mean tree
+height in metres**, not the spread of individual heights.
+Their coverage depends on the normal model, independence,
+and the approximations used. Neither assigns 95% probability
+to the fixed population mean being inside the already
+calculated endpoints.

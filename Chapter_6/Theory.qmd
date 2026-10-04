@@ -1,5 +1,5 @@
 ---
-title: "Deterministic functions in ecology"
+title: "Fitting ecological response curves"
 format:
   html:
     toc: true
@@ -11,577 +11,539 @@ execute:
   eval: false
 ---
 
+TODO: Make sure to explain the concept of automatic differentiation.
+
 # Introduction
 
-In this chapter, we learn how to use deterministic functions to describe how an
-expected ecological response changes with a predictor. A **deterministic
-function** gives the same output whenever its inputs and parameter values are
-held fixed. It lets us study the shape and interpretation of an expected response
-before deciding how observations might vary around that response.
+In this chapter, we learn how to fit an ecological response curve together
+with a probability model for observations around that curve. This lets us use
+maximum likelihood to estimate the curve's parameters, describe their
+uncertainty, compare plausible models, and check whether the fitted model can
+reproduce key features of the data.
 
-In [Chapter 5](../Chapter_5/Theory.qmd), we used probability models and
-likelihood to estimate parameters from observations. Here we first study the
-shapes of functions that could describe an ecological response. We will calculate
-their slopes, limits, peaks, and other landmarks before deciding how observations
-might vary around a curve. This gives us a way to interpret a fitted curve later,
-rather than treating it as a line drawn by software.
+In [Chapter 5](../Chapter_5/Theory.qmd), we used a Holling type II function to
+describe an expected intake rate. Here, we return to that function for a
+predator consuming prey at different prey densities. Real intake measurements
+will not all fall on the expected curve, so we need an observation model as
+well as a response function. We first write that likelihood as an ordinary R
+function, then express the same model in RTMB. This prepares us to add random
+effects to nonlinear curves in Chapter 7.
 
-For example, how does the number of prey eaten by one predator change as prey
-become more abundant? At low prey density, encounters may limit consumption. At
-high density, handling each prey item may limit it instead. A deterministic
-function can describe this expected response.
-
-The functions and numerical values in this chapter are illustrative. A curve
-that looks plausible does not, by itself, establish an ecological mechanism.
-A compact [reference to common functions](../Supplements/deterministic-functions.qmd)
-is available alongside this chapter.
+The supplied practical datasets are simulated ecological examples. Their
+generating models and parameter values are not given when you analyse them.
 
 # Learning goals
 
 After studying this chapter, you should be able to:
 
-- define the input, output, domain, parameters, and units of an ecological
-  response function;
-- calculate and plot a function in R, and explain how changing a parameter
-  changes its curve;
-- use limits and derivatives to find intercepts, asymptotes, initial slopes,
-  maxima, and inflection points;
-- calculate half-lives and half-saturation points and interpret them in
-  ecological units;
-- shift, scale, and reparameterise a function without changing its intended
-  meaning;
-- use a transformation or a local approximation to understand a curve while
-  recognising the range over which it is useful.
+- specify a response function, observation distribution, parameter domain,
+  and observational unit for a single-predictor dataset;
+- write and optimise the resulting log-likelihood, check convergence, and
+  interpret estimates in ecological units;
+- express an observation model in RTMB, use its derivatives for fitting,
+  and recognise when its automatic differentiation may be unsuitable;
+- calculate and interpret approximate confidence intervals, then use a
+  simulation study to investigate their bias and coverage;
+- compare models fitted to the same observations using information criteria
+  and held-out predictive performance;
+- simulate from a fitted model and interpret scaled quantile residuals.
 
-# From an ecological question to a function {#sec-deterministic-functions}
+# From a curve to a model for observations {#sec-response-observation}
 
-Let $N$ be prey density, measured in prey per square metre, and let $F(N)$ be
-the expected number of prey eaten by one predator per hour. A possible response
-is
+For one intake-rate measurement at a specified prey density, let $x_i$ be the
+recorded prey density and let $Y_i$ be the recorded intake rate. The supplied
+data use recorded units, so replace these labels with physical units when they
+are available. A possible expected response is
 
 $$
-F(N)=\frac{aN}{b+N}, \qquad N\geq 0,\quad a>0,\quad b>0.
+\mu_i=m(x_i;a,b)=\frac{a x_i}{b+x_i}, \qquad x_i\geq0,\ a,b>0.
 $$
 
-Here $a$ has units of prey per hour for one predator, and $b$ has the same units as
-$N$: prey per square metre. We will soon see that $a$ is the upper limit of
-the response and $b$ is the density at which the response reaches half that
-limit. This curve is called a **Holling type II functional response**; the
-same mathematical shape appears in other ecological and biochemical settings.
+The parameter $a$ is the limiting intake rate; $b$ is the prey density at
+half that rate. The function returns one expected rate for each density.
+It does not say how far an observed $Y_i$ might lie from that expectation.
 
-For fixed $a$, $b$, and $N$, the equation returns one number. It contains no
-random variable and gives no probability to a possible observation. A useful
-general notation is $m(x;\boldsymbol\theta)$, where $x$ is a predictor and
-$\boldsymbol\theta$ is a set of parameters. Whether the output represents a
-mean count, a rate, a probability, or something else must be stated separately.
+If rates vary approximately symmetrically around the curve, a first
+observation model is
 
-::: {.callout-note title="Domain and units"}
-A mathematical formula may be defined for inputs that make no ecological
-sense. Prey density cannot be negative, so our domain is $N\geq0$. The
-denominator is positive on that domain when $b>0$. Stating the domain and
-parameter restrictions is part of specifying the model.
+$$
+Y_i\mid x_i\sim\operatorname{Normal}(\mu_i,\sigma^2),
+\qquad \sigma>0.
+$$
+
+Here $\sigma$ describes variation in individual intake measurements, in the
+same units as the rate. We also assume measurements are independent after
+conditioning on their predictor values. With these assumptions, the model has
+three unknown parameters: $a$, $b$, and $\sigma$. Because a normal distribution
+also permits negative rates, check whether that part of its support matters
+near low prey density.
+
+::: {.callout-note title="Mean curve and observations"}
+The curve describes $E[Y_i\mid x_i]$. The distribution describes possible
+observations at that $x_i$. A close-looking curve alone does not specify a
+likelihood or show that the chosen distribution is suitable.
 :::
 
-## Calculate and plot curves in R
-
-We can translate the formula directly into an R function. The input comes
-first, followed by the parameters:
-
-```r
-# Define the response for prey density N and two ecological parameters.
-holling_type_ii = function(N, a, b) {
-  a * N / (b + N)
-}
-
-# Evaluate the response at several prey densities.
-holling_type_ii(N = c(0, 3, 6, 12), a = 12, b = 6)
-```
-
-Base R works on a vector of input values here because multiplication and
-division are vectorised. To see the whole shape, use `curve()`:
-
-```r
-# Plot the response across a useful range of prey densities.
-curve(
-  holling_type_ii(N = x, a = 12, b = 6),
-  from = 0, to = 30,
-  xlab = "Prey density (prey per square metre)",
-  ylab = "Prey eaten by one predator per hour"
-)
-```
-
-The formal input to `curve()` is called `x`; inside the call we pass it to
-the argument named `N`. Comparing curves while changing only $b$ helps us
-see its effect:
+The points in this illustration were simulated from a known curve with
+normal variation. Their spread shows why a likelihood needs both parts:
 
 ```{r}
 #| echo: false
 #| eval: true
-#| fig-cap: "Holling type II responses with the same upper limit and different half-saturation densities."
-# Define the response before drawing curves with two half-saturation densities.
-holling_type_ii = function(N, a, b) {
-  a * N / (b + N)
-}
-# Draw the first response, then add the second with a different line type.
-curve(
-  holling_type_ii(N = x, a = 12, b = 3),
-  from = 0, to = 30, ylim = c(0, 12),
-  xlab = "Prey density (prey per square metre)",
-  ylab = "Prey eaten by one predator per hour",
-  lty = 1
-)
-curve(
-  holling_type_ii(N = x, a = 12, b = 9),
-  from = 0, to = 30, add = TRUE, lty = 2
-)
-legend(
-  "bottomright", legend = c("b = 3", "b = 9"),
-  lty = c(1, 2), bty = "n"
-)
+#| fig-cap: "Simulated predator intake measurements around a Holling type II mean curve."
+# Simulate four intake measurements at each prey density.
+set.seed(seed = 710)
+prey_density = rep(seq(from = 3, to = 30, by = 3), each = 4)
+expected_intake = 12 * prey_density / (6 + prey_density)
+observed_intake = rnorm(n = length(prey_density),
+                        mean = expected_intake, sd = 1)
+# Plot the observations and add their generating mean curve.
+plot(prey_density, observed_intake,
+     xlab = "Prey density (illustrative units)",
+     ylab = "Intake rate (illustrative units)", pch = 16)
+curve(12 * x / (6 + x), from = 0, to = 30, add = TRUE, lwd = 2)
+legend("bottomright", legend = c("Simulated observations", "Mean curve"),
+       pch = c(16, NA), lty = c(NA, 1), bty = "n")
 ```
 
-Both curves approach 12 prey per hour for one predator. The curve with larger
-$b$ rises more slowly across the densities shown. We can make that statement
-precise by calculating the half-saturation point below.
+The response determines which distributions are possible. A count of cones
+can use a Poisson model with a positive mean curve. Presence or absence can
+use a Bernoulli model with a probability curve between zero and one:
 
-If a function depends on two varying quantities, we can evaluate it on a
-grid. For example, we might ask how the predicted response varies with both
-prey density $N$ and handling time $H$. Here $H$ is a parameter that we vary
-to explore the model, not a measured predictor in a fitted analysis:
+| Response | Example conditional model | What the curve must return |
+|---|---|---|
+| Continuous intake rate | $Y_i\mid x_i\sim\operatorname{Normal}(\mu_i,\sigma^2)$ | A mean in rate units |
+| Number of cones | $Y_i\mid x_i\sim\operatorname{Poisson}(\mu_i)$ | A positive expected count |
+| Presence or absence | $Y_i\mid x_i\sim\operatorname{Bernoulli}(p_i)$ | A probability in $[0,1]$ |
 
-```r
-# Define the response for each prey-density and handling-time combination.
-response = function(N, H, alpha = 0.6) {
-  alpha * N / (1 + alpha * H * N)
-}
+The observation model is a scientific assumption, not a label determined by
+the response variable alone. Counts can be more variable than a Poisson
+model allows; continuous variation can be asymmetric. Later diagnostics
+help us find such disagreements.
 
-# Choose values for the two quantities that we vary across the grid.
-density_values = seq(from = 0, to = 30, length.out = 60)
-handling_values = seq(from = 0.15, to = 0.5, length.out = 60)
-# Calculate the response for every density and handling-time combination.
-response_grid = outer(
-  X = density_values, Y = handling_values,
-  FUN = response
-)
-# Show the predicted response as contours over the two inputs.
-contour(
-  x = density_values, y = handling_values, z = response_grid,
-  xlab = "Prey density (prey per square metre)",
-  ylab = "Handling time (hours per prey)"
-)
-```
+:::: {.callout-important title="Try it: identify the random part"}
+Suppose $p(x)=1/[1+e^{-k(x-c)}]$ predicts species presence. Which part of
+the model says that two sites with the same $x$ may have different outcomes?
 
-The grid and contour plot show how the same equation responds to combinations
-of inputs. They do not tell us which parameter values describe any observed
-data.
-
-# Read the ends of a curve {#sec-function-limits}
-
-Before taking a derivative, check where a function starts and what happens
-as its input grows. A **limit** describes a value approached by a function,
-whether or not the function reaches it at a finite input. A finite limiting
-value as $x\to\infty$ is a horizontal **asymptote**.
-
-Suppose $D(t)=Ae^{-kt}$ describes a quantity that declines with time, where
-$A>0$, $k>0$, and $t\geq0$. At $t=0$, $D(0)=A$. As $t\to\infty$,
-$e^{-kt}\to0$, so $D(t)\to0$. If the input instead represents canopy depth,
-the rate parameter has units of inverse depth. Always attach its units
-to the particular input.
-
-For the Holling response, divide numerator and denominator by $N$ when
-$N>0$:
-
-$$
-F(N)=\frac{a}{b/N+1}
-\longrightarrow a
-\quad\text{as }N\to\infty.
-$$
-
-Thus $a$ is the upper asymptote. At $N=0$, $F(0)=0$. For densities that are
-small compared with $b$, $b+N\approx b$, giving
-$F(N)\approx(a/b)N$. This is a *local* straight-line approximation: it
-should not be extrapolated to arbitrarily high prey density.
-
-The **Ricker function** provides a different shape. If $N$ is adult density
-and $R(N)$ is recruit density, one form is
-
-$$
-R(N)=rNe^{-qN}, \qquad N\geq0,\quad r>0,\quad q>0.
-$$
-
-It begins at zero. As $N$ grows very large, exponential decline eventually
-overcomes the factor $N$, so $R(N)\to0$. We will use a derivative to find
-the peak between those two ends.
-
-:::: {.callout-important title="Try it on paper"}
-
-For $G(N)=8N/(4+N)$:
-
-1. Calculate $G(0)$ and $\lim_{N\to\infty}G(N)$.
-2. Write the straight-line approximation when $N$ is small compared with 4.
-3. Explain what the limiting value and approximation say about the curve's
-   behaviour. Keep R closed until you have completed each task.
-
-::: {.callout-tip title="Solution" collapse="true"}
-
-$G(0)=0$. Dividing top and bottom by $N$ gives
-$G(N)=8/(4/N+1)\to8$. For $N\ll4$, the denominator is
-approximately 4, so $G(N)\approx2N$. The horizontal asymptote is 8.
-Thus the response starts at zero, initially rises by about two output units per
-input unit, and later flattens towards 8.
-
+::: {.callout-tip title="Answer" collapse="true"}
+The Bernoulli observation model does. The function gives the same $p(x)$
+at both sites, while each presence/absence observation remains random.
 :::
 ::::
 
-# Slopes and derivatives {#sec-function-derivatives}
+# Fit a response curve by maximum likelihood {#sec-fit-response}
 
-The **derivative** $f'(x)=df/dx$ is the slope of a curve at $x$. It
-describes the change in the output per unit change in the input near that
-point. Its units are output units divided by input units.
-
-You will use four rules repeatedly. If $u(x)$ and $v(x)$ are functions,
-
-| Rule | Derivative |
-|---|---|
-| Power | $(x^p)'=px^{p-1}$ |
-| Chain | $(e^{u})'=e^u u'$ |
-| Product | $(uv)'=u'v+uv'$ |
-| Quotient | $(u/v)'=(u'v-uv')/v^2$, where $v\ne0$ |
-
-For example, the chain rule gives the slope of exponential decay:
+For independent normal observations, the log-likelihood is the sum of the
+normal log densities at the observed rates. For $n$ intake measurements,
+$f_{\mathrm N}$ denotes the normal density:
 
 $$
-\frac{d}{dt}\left(Ae^{-kt}\right)
-=Ae^{-kt}(-k)
-=-Ak e^{-kt}.
+\ell(a,b,\sigma)=\sum_{i=1}^n
+\log f_{\mathrm N}\{y_i;m(x_i;a,b),\sigma\}.
 $$
 
-The initial slope is $D'(0)=-Ak$, not $Ak$. The negative sign says the
-quantity decreases as time increases. Since $D'(t)$ approaches zero from
-below, the decline flattens towards its asymptote.
+Here $y_i$ is the observed value of $Y_i$. As in
+[Chapter 4](../Chapter_4/Theory.qmd), `optim()` minimises a function by
+default, so we minimise the negative log-likelihood. We optimise the logarithms
+of positive parameters and transform the estimates back afterwards.
 
-The Holling response uses the quotient rule. With $u(N)=aN$ and
-$v(N)=b+N$, we have $u'(N)=a$ and $v'(N)=1$, so
+The supplied predator data can be downloaded as `shapes2.csv` from the
+[`Data` folder](https://github.com/AleMorales/EcologicalModelsData2026/tree/main/Data)
+in the course GitHub repository. In this Quarto website, the file is one
+directory above this theory page:
 
-$$
-\begin{aligned}
-F'(N)
-&=\frac{a(b+N)-aN}{(b+N)^2}\\
-&=\frac{ab}{(b+N)^2}.
-\end{aligned}
-$$
+```r
+# Load the supplied simulated intake data.
+intake_data = read.csv("../Data/shapes2.csv")
 
-For $a,b>0$ and $N\geq0$, this slope is positive. It starts at
-$F'(0)=a/b$ and approaches zero as $N$ grows. The response increases
-and flattens; it never exceeds $a$ on its domain. Taking one more
-derivative gives
-
-$$
-F''(N)=-\frac{2ab}{(b+N)^3}<0,
-$$
-
-so the curve bends down throughout its domain.
-
-::: {.callout-warning title="Derivative and asymptote"}
-Calculate the derivative's limit when you need its limiting slope.
-A function approaching a finite value does not, by that fact alone, prove
-that its derivative approaches zero.
-:::
-
-# Scale, half-saturation, and half-life {#sec-function-scales}
-
-The position where a curve reaches half its asymptote is often easier to
-read from a graph than the asymptote itself. For the Holling response,
-set $F(N_{1/2})=a/2$:
-
-$$
-\begin{aligned}
-\frac{aN_{1/2}}{b+N_{1/2}}&=\frac a2,\\
-2N_{1/2}&=b+N_{1/2},\\
-N_{1/2}&=b.
-\end{aligned}
-$$
-
-$b$ is therefore the **half-saturation density**, not half the response
-value. If $a=12$ prey per hour for one predator and $b=6$ prey per square
-metre, then $F(6)=6$ prey per hour for one predator.
-
-For exponential decay, a **half-life** $t_{1/2}$ solves
-$D(t_{1/2})=A/2$:
-
-$$
-e^{-kt_{1/2}}=\frac12,
-\qquad
-t_{1/2}=\frac{\log 2}{k}.
-$$
-
-The characteristic input scale $1/k$ makes the quantity fall to $A/e$.
-It has the same units as $t$. When a parameter multiplies an input, as
-$k$ does in $kt$, its units must cancel the input units in the exponent.
-
-# Peaks and changes in curvature {#sec-function-peaks}
-
-A derivative of zero can mark a maximum, minimum, or a point where the
-curve briefly flattens. A derivative may also fail to exist at a sharp
-corner. Check the derivative's sign on either side, and check domain
-boundaries, before calling a point a maximum or minimum.
-
-For the Ricker function, use the product and chain rules:
-
-$$
-\begin{aligned}
-R'(N)
-&=r e^{-qN}+rN(-q)e^{-qN}\\
-&=r e^{-qN}(1-qN).
-\end{aligned}
-$$
-
-Because $r e^{-qN}>0$, the slope changes from positive to negative
-when $1-qN=0$. The peak is at
-
-$$
-N_{\mathrm{peak}}=\frac1q,
-\qquad
-R(N_{\mathrm{peak}})=\frac{r}{qe}.
-$$
-
-The peak location has the units of adult density. Since $R(0)=0$ and
-$R(N)\to0$ as $N\to\infty$, this is the global maximum for $N\geq0$.
-This mathematical pattern alone does not tell us which ecological process
-causes recruitment to decline at high density.
-
-The sign of the **second derivative** describes curvature. A change from
-$f''>0$ to $f''<0$ is an **inflection point**. Consider the logistic curve
-
-$$
-p(x)=\frac{1}{1+e^{-k(x-c)}}, \qquad k>0.
-$$
-
-It rises from 0 to 1, crosses $1/2$ at $x=c$, and has
-$p'(x)=kp(x)[1-p(x)]$. Its slope is greatest at $p=1/2$, where
-$p'(c)=k/4$. Differentiating again gives
-$p''(x)=k^2p(x)[1-p(x)][1-2p(x)]$, which changes from positive to
-negative at $x=c$. The midpoint is therefore an inflection point.
-
-# What the parameters mean {#sec-function-parameters}
-
-The same curve can be written with parameters that answer different
-ecological questions. The Holling type II response is also often written
-
-$$
-F(N)=\frac{\alpha N}{1+\alpha HN},
-$$
-
-where $\alpha>0$ is an encounter or attack coefficient and $H>0$ is
-handling time per prey. With $N$ in prey per square metre and $F$ in
-prey per hour for one predator, $\alpha$ has units of square metres per hour
-and $H$ has units of hours per prey. The denominator is dimensionless.
-
-Divide the numerator and denominator by $\alpha H$:
-
-$$
-\frac{\alpha N}{1+\alpha HN}
-=\frac{(1/H)N}{1/(\alpha H)+N}.
-$$
-
-Comparison with $aN/(b+N)$ gives
-
-$$
-a=\frac1H,\qquad b=\frac1{\alpha H},
-\qquad \alpha=\frac ab,\qquad H=\frac1a.
-$$
-
-Both forms describe exactly the same curve. The $(a,b)$ form makes
-the asymptote and half-saturation easy to read; the $(\alpha,H)$ form
-emphasises an interpretation in terms of encounters and handling.
-Such an interpretation depends on whether the assumptions about those
-processes are appropriate for the ecological system.
-
-For a Ricker curve, the form $rNe^{-qN}$ makes the initial slope $r$
-clear. Writing $q=1/p$ instead gives $rNe^{-N/p}$, where $p$ directly
-names the adult density at the peak. Reparameterising changes the labels
-and numerical values of parameters, but not the predicted curve.
-
-# Shift and scale a curve {#sec-function-shifts}
-
-Suppose we know the shape of a basic function $g(z)$. We can construct
-
-$$
-f(x)=d+A\,g\left(\frac{x-c}{s}\right),
-\qquad s>0.
-$$
-
-$c$ shifts the curve right by $c$ input units, $s$ stretches it
-horizontally, $A$ scales its output, and $d$ shifts it vertically.
-The order matters: we transform the input *inside* $g$ and the output
-*outside* it.
-
-For $g(z)=z/(1+z)$ on $z\geq0$, the transformed curve is
-
-$$
-f(x)=d+\frac{A(x-c)}{s+x-c},
-\qquad x\geq c,\quad A>0.
-$$
-
-It begins at $f(c)=d$, approaches $d+A$, and reaches halfway
-between those values when $x=c+s$. Its initial slope at $c$ is
-$A/s$. Restricting the domain to $x\geq c$ prevents the shifted
-formula from being used at ecologically unintended inputs.
-
-```{r}
-#| echo: false
-#| eval: true
-#| fig-cap: "A saturating response shifted right by three input units and up by two output units."
-# Define a shifted and scaled saturating response.
-shifted_response = function(x, A = 10, s = 4, c = 3, d = 2) {
-  d + A * (x - c) / (s + x - c)
+# Define the Holling type II mean curve.
+intake_curve = function(x, a, b) {
+  a * x / (b + x)
 }
-# Draw the curve and mark its start and halfway point.
-curve(
-  shifted_response(x),
-  from = 3, to = 27, ylim = c(0, 12),
-  xlab = "Input x", ylab = "Response f(x)"
+
+# Calculate the negative normal log-likelihood on log parameter scales.
+intake_nll = function(par, x, y) {
+  a = exp(par[1])
+  b = exp(par[2])
+  sigma = exp(par[3])
+  mu = intake_curve(x = x, a = a, b = b)
+  -sum(dnorm(x = y, mean = mu, sd = sigma, log = TRUE))
+}
+
+# Choose positive starting values and minimise the negative log-likelihood.
+fit = optim(
+  par = c(log_a = log(max(intake_data$y)),
+          log_b = log(median(intake_data$x)),
+          log_sigma = log(sd(intake_data$y))),
+  fn = intake_nll,
+  x = intake_data$x, y = intake_data$y,
+  method = "BFGS", hessian = TRUE
 )
-abline(h = c(2, 12), lty = 2)
-points(x = c(3, 7), y = c(2, 7), pch = 19)
+# Check convergence, then return estimates on their ecological scales.
+fit$convergence
+estimates = c(a = exp(fit$par["log_a"]),
+              b = exp(fit$par["log_b"]),
+              sigma = exp(fit$par["log_sigma"]))
+estimates
 ```
 
-# Transform and approximate {#sec-function-approximations}
+Check the convergence code, the fitted curve against the points, and whether
+the estimates make ecological sense. Try another plausible starting value
+if the fit is unstable. A convergence code of zero is reassuring, but it
+does not establish that the model describes the observations well.
 
-Transformations can expose a relationship hidden in a curved plot. For
-$D(t)=Ae^{-kt}$, with $D(t)>0$, taking logarithms gives
+## Write the same model in RTMB
+
+The manual likelihood above makes every part of the model visible. We will
+now express the same likelihood using [RTMB](https://cran.r-project.org/web/packages/RTMB/vignettes/RTMB-introduction.html),
+an R interface to Template Model Builder (TMB). RTMB records the calculations
+in the objective function and supplies derivatives through **automatic
+differentiation**. These derivatives can help an optimiser find and check a
+solution; they do not guarantee convergence or a suitable statistical model.
+We will return to how differentiation works in Chapter 8.
+
+```r
+# Load RTMB before recording the likelihood calculation.
+library(RTMB)
+
+# Define the same likelihood with RTMB's distribution notation.
+intake_rtmb = function(par) {
+  a = exp(par$log_a)
+  b = exp(par$log_b)
+  sigma = exp(par$log_sigma)
+  mu = intake_curve(x = intake_data$x, a = a, b = b)
+  y = intake_data$y
+  y %~% dnorm(mean = mu, sd = sigma)
+}
+
+# Supply starting values, then record the objective and its derivatives.
+intake_parameters = list(
+  log_a = log(max(intake_data$y)),
+  log_b = log(median(intake_data$x)),
+  log_sigma = log(sd(intake_data$y))
+)
+intake_obj = MakeADFun(intake_rtmb, intake_parameters, silent = TRUE)
+# Check that the ordinary R and recorded objectives agree before fitting.
+c(in_R = intake_rtmb(intake_parameters),
+  recorded = intake_obj$fn(intake_obj$par))
+# Use the recorded gradient to minimise the negative log-likelihood.
+rtmb_fit = optim(par = intake_obj$par, fn = intake_obj$fn,
+                 gr = intake_obj$gr, method = "BFGS")
+# Check convergence and compare the two fitted objective values.
+rtmb_fit$convergence
+exp(rtmb_fit$par)
+c(manual = fit$value, RTMB = rtmb_fit$value)
+```
+
+The `par` argument is now a named list; `$` selects each parameter. The
+data remain available to the objective through the surrounding R
+environment. The left side of `%~%` is the observed response. The right
+side is its distribution, whose mean comes from the deterministic curve.
+RTMB converts that expression to a **negative** log-likelihood, including
+the distribution's normalising terms. `MakeADFun()` returns an objective
+`fn`, a gradient `gr`, and a Hessian method `he`. Its parameter names and
+order come from the starting list. The two fits should give nearly the
+same estimates and negative log-likelihood. Small numerical differences
+can arise because the derivatives and stopping rules differ. Evaluating
+the R objective before fitting provides a useful first debugging check.
+
+The practical advantage for Chapter 7 is that the same RTMB syntax can
+also include random effects. For example, a parameter named `u` can
+be marked with `random = "u"` in `MakeADFun()`. RTMB can then approximate
+the likelihood after integrating over `u`, using a Laplace approximation.
+We will introduce that calculation with the new models, rather than
+requiring you to carry out the integration yourself.
+
+::: {.callout-warning title="When RTMB is awkward"}
+Automatic differentiation follows a smooth calculation. A curve with a
+sharp change at an *unknown* threshold, or a branch that depends on a
+parameter, can have undefined or misleading derivatives at the change.
+Such [piecewise calculations need special care](https://cran.r-project.org/web/packages/RTMB/vignettes/RTMB-tips.html).
+It can also be harder to debug a model after RTMB has recorded its
+calculation: the automatic differentiation tape runs through TMB's
+compiled machinery, which you cannot step through like ordinary R code.
+Check the objective on sensible parameter values in R first, compare its
+value with a manually calculated likelihood when possible, and inspect
+`intake_obj$fn(intake_obj$par)` and `intake_obj$gr(intake_obj$par)` before
+trusting a fitted result.
+:::
+
+## Return to confidence intervals
+
+The Hessian from this fit describes curvature on the **log-parameter
+scale**. Under the regularity conditions discussed in Chapter 4, its inverse
+approximates the covariance matrix on that scale. An approximate 95%
+quadratic interval for the limiting rate $a$ is:
+
+```r
+# Use the inverse Hessian to estimate standard errors on the log scale.
+se_log = sqrt(diag(solve(fit$hessian)))
+z = qnorm(p = 0.975)
+# Transform the interval endpoints back to intake-rate units.
+a_interval = exp(fit$par["log_a"] + c(-1, 1) * z * se_log["log_a"])
+a_interval
+```
+
+The endpoints are transformed back to rate units. For the RTMB fit,
+`intake_obj$he(rtmb_fit$par)` supplies the Hessian of the same negative
+log-likelihood at its optimum. The same inverse-Hessian calculation
+applies on the log-parameter scale. For a profile interval,
+hold a candidate value of $a$ fixed and re-optimise **both** $b$ and
+$\sigma$ at every candidate value. The profile follows the best possible
+fit at each $a$; a slice that fixes $b$ and $\sigma$ at their original
+estimates is different. Both methods remain approximate and depend on the
+observation model and independence assumption.
+
+::: {.callout-warning title="A confidence interval is conditional"}
+If several measurements come from the same leaf or one population followed
+over time, they may be dependent. Treating every row as independent can
+make an interval too narrow. A calculation from the Hessian cannot repair
+an unsuitable observation model.
+:::
+
+## Check an interval by simulation
+
+When we simulate data, we choose the generating parameters and know their
+values. We can repeatedly simulate responses at specified predictor values,
+refit the model, and check how often each interval contains the fixed
+generating value. That proportion estimates **coverage** for this simulation
+setting. The mean of the fitted estimates minus the generating value
+estimates **bias**.
+
+For a simulation study, repeat the entire fitting and interval procedure in
+each simulated dataset. Record failed fits rather than quietly removing them,
+and vary features such as sample size or the range of predictor values. The
+result describes the procedure under the chosen generating model; it is not
+proof that the model generated the supplied data. Exercise 3 in the
+[Chapter 6 practical](Practicals/no_solution.qmd) provides a full example.
+
+# Compare candidate models {#sec-response-comparison}
+
+An ecological question may support several curves. A Holling type II and
+a saturating exponential can both increase towards a plateau, but differ
+between low and high prey density. Compare candidates that represent
+plausible explanations and use the same observational unit and response.
+
+## Information criteria
+
+A model with more free parameters can often fit the observed data more
+closely. Information criteria balance fit against model complexity. For
+$k$ estimated parameters and maximised log-likelihood $\hat\ell$,
 
 $$
-\log D(t)=\log A-kt.
+\mathrm{AIC}=2k-2\hat\ell,
+\qquad
+\mathrm{BIC}=k\log(n)-2\hat\ell.
 $$
 
-A graph of $\log D$ against $t$ is a line with intercept $\log A$ and
-slope $-k$. Similarly, if $Y=ax^p$ with $x,Y>0$, then
-$\log Y=\log a+p\log x$. These identities help us understand
-parameters and find rough starting values. They do not automatically
-justify fitting a straight line to transformed observations: doing so
-changes the scale of the residual variation and can imply a different
-statistical model.
+Both use the same fitted likelihood, but BIC's penalty per parameter
+grows with sample size. Count observation-distribution parameters such as
+$\sigma$ or a negative binomial shape parameter in $k$. On our `optim()`
+fits, `fit$value` is the *negative* log-likelihood, so
+`2 * k + 2 * fit$value` calculates AIC. A lower value is preferred by
+that criterion **among the candidates compared**. The value does not
+measure absolute model adequacy.
 
-For a logistic response $p(x)$ between zero and one, the
-**logit** is $\log[p/(1-p)]$. If
-$p(x)=1/(1+e^{-(u+vx)})$, then
+Only compare likelihoods computed for the same observed response on the
+same scale, using the same rows and compatible probability masses or
+densities. For example, dropping missing rows for one model but not
+another makes an AIC comparison misleading. AIC and BIC can rank
+misspecified candidates, so residual checks remain necessary. These
+conditions also appear in [R's AIC documentation](https://search.r-project.org/R/refmans/stats/html/AIC.html).
 
-$$
-\log\left(\frac{p(x)}{1-p(x)}\right)=u+vx.
-$$
+::: {.callout-note title="What a small difference means"}
+A small AIC or BIC difference gives little reason to claim that one
+curve has a clearly preferable score. Neither criterion identifies a
+biological mechanism or assigns a probability that a candidate is true.
+:::
 
-This equation describes the deterministic curve. An observed binary
-outcome is either zero or one; its logit is not defined at either endpoint.
+## Cross-validation
 
-A **Taylor approximation** replaces a smooth curve near $x_0$ by a
-short polynomial:
+**Cross-validation** checks prediction on observations that were not used
+to estimate a model's parameters. In five-fold cross-validation, divide
+the observations into five parts. For each part, fit each candidate to
+the other four parts, then score the held-out observations. Repeat until
+every part has been held out once.
 
-$$
-f(x)\approx
-f(x_0)+f'(x_0)(x-x_0)
-+\frac{f''(x_0)}{2}(x-x_0)^2.
-$$
+A useful score here is the sum of held-out log probabilities or densities.
+It uses the whole predictive distribution, so it can assess continuous,
+count, and binary models. Prefer the *larger* held-out log score. Refit
+all parameters, including $\sigma$ or dispersion, within each training
+set. Using the full-data estimates for held-out predictions would leak
+information across the split.
 
-The first two terms give the tangent line. The quadratic term adds
-local curvature. For the Holling response near $N=0$,
-$F(0)=0$, $F'(0)=a/b$, and $F''(0)=-2a/b^2$, so
+Random folds suit observations that can reasonably be treated as
+independent. For population measurements ordered in time, training on
+later measurements to predict earlier ones answers a different question.
+If the goal is future prediction, hold out later times and fit to earlier
+times. [Time-based resampling guidance](https://rsample.tidymodels.org/articles/Common_Patterns.html)
+uses this ordering for the same reason.
 
-$$
-F(N)\approx\frac abN-\frac{a}{b^2}N^2.
-$$
+:::: {.callout-important title="Try it: score a held-out observation"}
+A model assigns probability $0.8$ to a held-out species presence. Another
+assigns probability $0.3$. Which model receives the higher log score
+for this observation?
 
-This is useful only for $N$ small relative to $b$. A polynomial
-approximation can behave implausibly far from the point where it was
-constructed. The same local-curvature idea helps explain why
-[Chapter 5](../Chapter_5/Theory.qmd#sec-likelihood-uncertainty)
-used a quadratic approximation near a likelihood maximum.
+::: {.callout-tip title="Answer" collapse="true"}
+The first: $\log(0.8)>\log(0.3)$. This one observation does not establish
+which model predicts better across the whole dataset.
+:::
+::::
 
-# Summary
+# Check the fitted observation model {#sec-response-residuals}
 
-For a new ecological function, first state what its input and output
-represent, their units, and the domain. Then calculate values at useful
-points, limits, slopes, and any peaks or inflection points. Translate
-those mathematical features into ecological claims only under the
-assumptions that give the function that meaning. R plots can check and
-communicate the shape, while the algebra explains it.
+An ordinary residual such as $y_i-\hat\mu_i$ changes its meaning across
+response distributions. It may also change its spread with the predictor
+even when a count model is correct. **Simulation-based scaled quantile
+residuals** provide a common scale: values between 0 and 1.
 
-In a later analysis, a deterministic response such as $F(N)$ can describe
-how a model's expected value changes with $N$. A probability distribution
-would then describe variation among observations at a given $N$. The
-function alone does not supply that variation.
+For each observation, simulate many possible responses from the fitted
+model at its predictor value. Locate the observed response within those
+simulations. An observation near the lower end gives a residual near 0;
+one near the upper end gives a residual near 1. When the simulation
+matches the observation process, the residuals should be approximately
+uniform across 0 to 1 and show no systematic pattern against the
+predictor. For discrete responses, randomisation handles ties. This is
+the approach used by [DHARMa's scaled quantile residuals](https://search.r-project.org/CRAN/refmans/DHARMa/html/getQuantile.html).
 
-The approach to exploring curve shapes in this chapter draws on
-Benjamin Bolker's *Deterministic functions for ecological modeling*
-(supplied 2007 PDF, especially sections 3 and 4).
+Our fits are ordinary `optim()` results, for which DHARMa does not know
+the response distribution. We therefore generate a matrix with one row
+per observation and one column per simulation, then supply it to
+`DHARMa::createDHARMa()`:
+
+```r
+# Fix the random simulation sequence for a reproducible residual check.
+set.seed(seed = 701)
+# Calculate fitted means, then simulate complete intake measurements.
+mu_hat = intake_curve(
+  x = intake_data$x,
+  a = estimates["a"], b = estimates["b"]
+)
+sigma_hat = estimates["sigma"]
+simulated_rates = replicate(
+  n = 500,
+  expr = rnorm(n = nrow(intake_data), mean = mu_hat, sd = sigma_hat)
+)
+# Create scaled residuals from the simulations and plot them against density.
+scaled = DHARMa::createDHARMa(
+  simulatedResponse = simulated_rates,
+  observedResponse = intake_data$y,
+  fittedPredictedResponse = mu_hat,
+  integerResponse = FALSE
+)
+plot(scaled)
+DHARMa::plotResiduals(scaled, predictor = intake_data$x)
+```
+
+Run this code after installing DHARMa in your R environment. For counts or
+presence/absence, simulate with `rpois()` or `rbinom()` as specified by the
+fitted model and set `integerResponse = TRUE`. The package's
+[`createDHARMa()` documentation](https://search.r-project.org/CRAN/refmans/DHARMa/html/createDHARMa.html)
+describes this interface for custom simulations.
+
+Look for a non-uniform residual distribution, a trend against $x$, changing
+spread, or unusual concentrations near 0 or 1. For time measurements,
+also plot against time in order. A diagnostic indicates where the model
+disagrees with observations; it does not, on its own, tell us whether the
+curve, observation distribution, dependence assumption, or data quality
+caused the disagreement. Randomisation and a finite number of simulations
+also make the exact plot vary between runs, so set a seed.
+
+::: {.callout-warning title="What was simulated?"}
+Simulate complete observations from the fitted distribution at each
+predictor value. Simulating only the fitted mean curve produces no
+observation-level variation and cannot support this residual check.
+:::
+
+# A fitting workflow
+
+1. Plot the observations and check their units, support, missing values,
+   repeated measurements, and predictor range.
+2. Choose a small set of plausible mean curves and observation models.
+3. Write the likelihood, check it at sensible parameter values, fit every
+   parameter (using RTMB for the smooth models in the practical), inspect
+   convergence, and plot fitted curves against the data.
+4. Estimate confidence intervals for ecologically meaningful parameters.
+5. Compare compatible candidates by AIC or BIC and, when appropriate,
+   cross-validated predictive scores.
+6. Simulate observations from the fitted model and inspect scaled
+   residuals. Revise the model or qualify the conclusion when a pattern
+   remains.
 
 # Chapter quiz
 
-:::: {.callout-important title="Question 1: read a saturating curve"}
-
-For $f(x)=9x/(3+x)$ on $x\geq0$, what are $f(0)$, its upper
-asymptote, its half-saturation input, and its initial slope?
+:::: {.callout-important title="Question 1: the missing component"}
+You have written $m(x)=ax/(b+x)$ and plotted it over the data. What must
+you add before calculating a likelihood?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-
-$f(0)=0$, the upper asymptote is 9, the half-saturation input
-is $x=3$, and $f'(0)=9/3=3$ output units per input unit.
-
+Specify a distribution for observations around the curve, its remaining
+parameters, and the dependence assumptions for the observational units.
 :::
 ::::
 
-:::: {.callout-important title="Question 2: check a stationary point"}
-
-Why does a derivative of zero require an additional check before
-you call a point a maximum?
+:::: {.callout-important title="Question 2: a positive parameter"}
+Why might you estimate $\log b$ rather than $b$ directly? On which scale
+should the final ecological interval be reported?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-
-The point could be a minimum or a flat point. Check the
-derivative's sign on either side and compare any domain
-boundaries. A change from positive to negative indicates
-a local maximum.
-
+Exponentiating an unconstrained estimate keeps $b$ positive. Calculate
+the interval consistently on the fitted scale, then transform its
+endpoints back to the units of the predictor.
 :::
 ::::
 
-:::: {.callout-important title="Question 3: locate a Ricker peak"}
-
-A Ricker curve is $R(N)=rNe^{-qN}$. Which parameter controls
-its peak location, and what is that location?
+:::: {.callout-important title="Question 3: comparing models"}
+Two models use different subsets of rows because only one removed
+missing responses. Can their AIC values be compared as calculated?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-
-$q$ controls the peak location, $N=1/q$. The value of
-$r$ scales the height without moving the peak.
-
+No. Fit both to the same observed responses and rows before comparing
+their AIC values.
 :::
 ::::
 
-:::: {.callout-important title="Question 4: shift a curve"}
-
-If a function is shifted from $g(x)$ to $g(x-4)+2$, where
-does its original point $(0,g(0))$ move?
+:::: {.callout-important title="Question 4: held-out prediction"}
+Why must an observation held out in cross-validation be absent from
+*every* estimation step for its fold?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-
-It moves to $(4,g(0)+2)$: four input units right and
-two output units up.
-
+Using it to choose parameters or dispersion would let information from
+the assessment observation influence its own prediction.
 :::
 ::::
 
-:::: {.callout-important title="Question 5: add variation"}
-
-What additional component would be needed before a deterministic
-curve could assign a likelihood to observations?
+:::: {.callout-important title="Question 5: scaled residuals"}
+A residual plot slopes upwards as the predictor increases. What can you
+conclude, and what can you not conclude?
 
 ::: {.callout-tip title="Answer" collapse="true"}
+The simulated model does not reproduce how the observations change with
+the predictor. The plot alone does not identify which assumption or
+ecological process caused that pattern.
+:::
+::::
 
-We need a probability distribution for observations
-conditional on the predictor and the curve's parameters,
-together with its assumptions. The deterministic curve
-alone supplies only a predicted value.
+:::: {.callout-important title="Question 6: coverage"}
+What must be known to estimate a confidence interval's coverage in a
+simulation study, and why is this unavailable for an ordinary dataset?
 
+::: {.callout-tip title="Answer" collapse="true"}
+We must know the fixed generating parameter and repeat sampling and
+interval construction. The generating parameter is unknown in an
+ordinary dataset.
+:::
+::::
+
+:::: {.callout-important title="Question 7: choosing RTMB"}
+What does RTMB provide to the optimiser, and why might a response curve
+with an unknown sharp threshold need extra care?
+
+::: {.callout-tip title="Answer" collapse="true"}
+RTMB supplies derivatives of the recorded likelihood calculation.
+At a sharp threshold the derivative may be undefined, and a branch
+chosen according to a parameter may not be recorded as intended.
+Check the R objective and consider a smooth curve or a different
+fitting strategy for that model.
 :::
 ::::

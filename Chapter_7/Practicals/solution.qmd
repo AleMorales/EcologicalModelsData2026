@@ -1,734 +1,344 @@
 ---
-title: "Chapter 7: Fitting ecological response curves — solutions"
+title: "Chapter 7: Grouped ecological response curves (solutions)"
 date: today
 ---
 
+
 # Introduction
 
-These six files are simulated ecological datasets supplied as CSV files. You
-can download them from the
-[`Data` folder](https://github.com/AleMorales/EcologicalModelsData2026/tree/main/Data)
-in the course GitHub repository. Treat their generating models and parameters
-as unknown while analysing them. In this Quarto website, this practical runs
-from its own folder, so use `read.csv("../../Data/shapes2.csv")`. The
-[theory](../Theory.qmd) develops the methods, and the
-[function reference](../../Supplements/deterministic-functions.qmd)
-summarises candidate curves.
+These exercises use `datasets::Loblolly`, a dataset built into R. It contains
+84 tree-height observations: `height` is in feet, `age` is in years, and
+`Seed` identifies a tree. There are 14 trees, each measured at six ages. The
+[Chapter 7 theory](../Theory.qmd) introduces the grouped-model ideas used here.
 
-Complete **Exercises 1â€“3** before moving to Chapter 8. **Exercises 4â€“6
-are further practice**: they give you more time with repeated
-measurements, a time series, and a dataset whose context is withheld.
-Each exercise asks for maximum likelihood estimates and at least one
-confidence interval. Run the code yourself, inspect the output, and
-explain what the estimates mean. You will need the DHARMa package for
-the scaled residual checks; install it in your R environment before
-working through those steps. The core exercises also use RTMB: install
-it in your R environment before starting. Begin with an ordinary R
-likelihood in Exercise 1, then use RTMB for the remaining core fits.
+Work through the exercises in order. RTMB performs the marginalisation after
+you mark effects as random; you do not need to implement Laplace approximation
+yourself.
 
+We will use the saturating growth curve
 
-# Exercise 2: Diameter and pine-cone counts
+$$
+m(t;A,R_0,k)=A-(A-R_0)e^{-kt}, \qquad A>0,\quad k>0.
+$$
 
-The file `shapes3.csv` records tree diameter `x` and pine-cone count `y`.
-Some entries are missing. Begin with an allometric mean
-$\mu(x)=a x^p$ for $x>0$, where $a>0$, and independent Poisson counts.
+Here $t$ is age, $R_0$ is the extrapolated height at age zero, $A$ is the
+asymptotic height, and $k$ controls the approach to that asymptote. The first
+observed age is greater than zero, so interpret $R_0$ as an extrapolation rather
+than a directly observed height.
 
-1. Load the file. Count missing `x` and `y` values and the rows with
-   both values present. Explain why a missing count is not a count of zero.
-   Use complete predictorâ€“response pairs for **both** candidate models.
-2. Plot count against diameter. Write and fit the Poisson
-   likelihood in RTMB for $a$ and $p$. What does $p$ say about a doubling
-   of diameter?
-3. Fit a negative binomial model with the same mean curve and an
-   additional positive shape parameter $k$, for which
-   $\operatorname{Var}(Y_i\mid x_i)=\mu_i+\mu_i^2/k$. Calculate and compare AIC
-   and BIC, counting every estimated parameter.
-4. Calculate a 95% quadratic confidence interval for $p$ from the
-   negative binomial fit. Explain what could make this interval
-   unreliable.
-5. Simulate counts from the fitted negative binomial model and inspect
-   DHARMa scaled residuals against diameter. Explain what the
-   diagnostics can and cannot tell you about the missing values.
+# Exercise 1: Grouping and complete pooling
+
+1. Load `datasets::Loblolly`, make an integer `tree_index` suitable for RTMB,
+   and count trees and observations per tree. Identify the observational and
+   grouping units.
+2. Plot height against age for each tree. Use both line type or symbol and colour
+   to distinguish trees.
+3. Fit a complete-pooling normal model with the growth curve above. Check the
+   convergence code, report $A$, $R_0$, $k$, and
+   $\sigma^2_{\mathrm{obs}}$ with their units, and overlay the fitted common
+   curve.
+4. Describe one systematic feature of the tree trajectories that this common
+   curve misses.
 
 ## Solution
 
-`read.csv()` converts the file's `NA` entries to missing values. The
-complete-pair rule removes a row only after we have counted what is
-missing. It retains 242 of the 371 rows. Removing rows changes the
-population to which our fitted relationship may apply if missingness
-is related to diameter or cone production; these data alone do not
-establish the missingness mechanism.
+`Loblolly` is supplied with R, so we can copy it to an object for this analysis.
+An observation is one recorded height at one age for one tree. A tree is the
+grouping unit. `as.integer()` changes the factor levels to consecutive indices
+that can index a parameter vector.
 
 ```r
 library(RTMB)
-cones_all = read.csv("../../Data/shapes3.csv")
-sum(is.na(cones_all$x))
-sum(is.na(cones_all$y))
-keep = complete.cases(cones_all[, c("x", "y")])
-sum(keep)
-cones = cones_all[keep, c("x", "y")]
-stopifnot(all(cones$x > 0), all(cones$y >= 0))
 
-plot(cones$x, cones$y, pch = 16, cex = 0.6,
-     xlab = "Diameter (recorded units)", ylab = "Pine cones")
+trees = datasets::Loblolly
+trees$tree_index = as.integer(trees$Seed)
+table(trees$tree_index)
+c(number_trees = length(unique(trees$tree_index)),
+  number_observations = nrow(trees))
 
-cone_mean = function(x, a, p) a * x^p
-
-cone_poisson = function(par) {
-  mu = cone_mean(cones$x, exp(par$log_a), par$p)
-  y = cones$y
-  y %~% dpois(lambda = mu)
+tree_colours = rep(c("black", "#0072B2", "#D55E00", "#009E73"),
+                    length.out = 14)
+tree_symbols = rep(c(16, 17, 15, 18), length.out = 14)
+plot(trees$age, trees$height, type = "n",
+     xlab = "Age (years)", ylab = "Height (feet)")
+for (j in 1:14) {
+  tree_data = trees[trees$tree_index == j, ]
+  lines(tree_data$age, tree_data$height, lty = (j - 1) %% 4 + 1,
+        col = tree_colours[j])
+  points(tree_data$age, tree_data$height, pch = tree_symbols[j],
+         col = tree_colours[j])
 }
-
-start_poisson = list(
-  log_a = log(mean(cones$y) / median(cones$x)^2), p = 2
-)
-poisson_obj = MakeADFun(cone_poisson, start_poisson, silent = TRUE)
-fit_poisson = optim(par = poisson_obj$par, fn = poisson_obj$fn,
-                    gr = poisson_obj$gr, method = "BFGS")
-
-cone_nb = function(par) {
-  mu = cone_mean(cones$x, exp(par$log_a), par$p)
-  size = exp(par$log_size)
-  y = cones$y
-  y %~% dnbinom(size = size, prob = size / (size + mu))
-}
-
-start_nb = as.list(fit_poisson$par)
-start_nb$log_size = log(2)
-nb_obj = MakeADFun(cone_nb, start_nb, silent = TRUE)
-fit_nb = optim(par = nb_obj$par, fn = nb_obj$fn,
-               gr = nb_obj$gr, method = "BFGS")
-c(poisson = fit_poisson$convergence, negative_binomial = fit_nb$convergence)
-c(a = exp(fit_nb$par["log_a"]), p = fit_nb$par["p"],
-  size = exp(fit_nb$par["log_size"]))
-
-x_grid = seq(min(cones$x), max(cones$x), length.out = 200)
-lines(x_grid, cone_mean(x_grid, exp(fit_poisson$par[1]),
-                        fit_poisson$par[2]), lty = 1)
-lines(x_grid, cone_mean(x_grid, exp(fit_nb$par[1]),
-                        fit_nb$par[2]), lty = 2)
-legend("topleft", c("Poisson mean", "Negative binomial mean"),
-       lty = c(1, 2), bty = "n")
 ```
 
-RTMB's negative binomial density uses `size` and `prob` here; the
-conversion `prob = size / (size + mu)` keeps $\mu$ as the mean and
-$\mu+\mu^2/\mathrm{size}$ as the variance. For a power law, doubling
-diameter multiplies the expected cone count by $2^p$. The two
-distributions share the same mean-curve form but
-allow different count variation. Their AIC and BIC are comparable
-because both likelihoods include all probability-mass terms for the
-same observed counts:
+The normal model describes heights conditional on age as independent around the
+common curve. Its `sd` argument is a standard deviation, so we estimate
+`sigma_obs` on a log scale and square it to report
+$\sigma^2_{\mathrm{obs}}$ in squared feet.
 
 ```r
-n = nrow(cones)
-comparison = data.frame(
-  model = c("Poisson", "Negative binomial"),
-  k = c(2, 3),
-  AIC = c(2 * fit_poisson$value + 2 * 2,
-          2 * fit_nb$value + 2 * 3),
-  BIC = c(2 * fit_poisson$value + log(n) * 2,
-          2 * fit_nb$value + log(n) * 3)
-)
-comparison
-
-hessian_nb = nb_obj$he(fit_nb$par)
-dimnames(hessian_nb) = list(names(fit_nb$par), names(fit_nb$par))
-se_p = sqrt(solve(hessian_nb)["p", "p"])
-p_interval = fit_nb$par["p"] + c(-1, 1) * qnorm(p = 0.975) * se_p
-p_interval
-```
-
-The negative binomial has much lower AIC and BIC for these complete
-cases. Its estimated allometric exponent is approximately 2.32, with
-a quadratic interval of approximately 1.96 to 2.68. That comparison
-indicates that the Poisson version describes these counts poorly
-relative to this negative binomial candidate; it does not identify
-the source of extra variation.
-
-This interval uses local likelihood curvature. If the fit did not
-converge, the Hessian is unstable, or the count distribution is
-unsuitable, its claimed coverage may be poor. It also says nothing
-by itself about why some values are missing.
-
-```r
-set.seed(seed = 704)
-mu_nb = cone_mean(cones$x, exp(fit_nb$par["log_a"]), fit_nb$par["p"])
-size_nb = exp(fit_nb$par["log_size"])
-sim_cones = replicate(
-  500, rnbinom(n = nrow(cones), mu = mu_nb, size = size_nb)
-)
-scaled_cones = DHARMa::createDHARMa(
-  simulatedResponse = sim_cones,
-  observedResponse = cones$y,
-  fittedPredictedResponse = mu_nb,
-  integerResponse = TRUE
-)
-plot(scaled_cones)
-DHARMa::plotResiduals(scaled_cones, predictor = cones$x)
-```
-
-The simulation compares the model with **observed complete cases**.
-It cannot check the unobserved cone counts or prove that excluding
-incomplete rows was harmless.
-
-# Exercise 3: Species presence and interval coverage
-
-The file `shapes6.csv` contains one predictor `x` and a binary
-presence/absence response `y`. To allow presence to be most likely
-at an intermediate predictor value, use the bounded, hump-shaped curve
-$p(x)=\operatorname{logit}^{-1}[h-q(x-c)^2]$, where $q>0$.
-Here $\operatorname{logit}^{-1}(z)=1/(1+e^{-z})$.
-Each response is an independent Bernoulli observation with probability
-$p(x)$.
-
-1. Load and plot the data. What are the possible response values?
-   Explain the ecological meaning of $c$, $h$, and $q$.
-2. Fit $c$, $h$, and $q$ by maximum likelihood with RTMB and `optim()`.
-   Plot the fitted probability curve, checking that it remains between
-   0 and 1.
-3. Calculate a 95% quadratic confidence interval for $c$. Compare
-   AIC with an intercept-only Bernoulli model whose constant
-   presence probability is estimated from the data.
-4. Simulate binary observations from the fitted curve and inspect
-   DHARMa residuals. Why is randomisation needed for a binary response?
-5. Conduct a simulation study at the observed `x` values. Choose
-   generating $c$, $h$, and $q$, simulate and refit at least 300 datasets,
-   and calculate bias, interval coverage, and the number of failed fits.
-   What part of the result is specific to your chosen simulation setting?
-
-## Solution
-
-The response is 0 or 1 at each observation. The probability peaks at
-$x=c$, where it equals $\operatorname{logit}^{-1}(h)$. Larger $q$
-makes the curve narrower. We optimise $\log q$ to keep $q$ positive.
-`plogis()` computes the inverse-logit function for plotting and
-simulation. In the RTMB objective we write the same inverse-logit
-using `exp()`; `dbinom()` with `size = 1` provides the Bernoulli
-likelihood.
-
-```r
-library(RTMB)
-presence = read.csv("../../Data/shapes6.csv")
-stopifnot(all(presence$y %in% c(0, 1)))
-plot(presence$x, presence$y,
-     xlab = "Predictor x (recorded units)",
-     ylab = "Presence (1) or absence (0)")
-
-presence_prob = function(x, c, h, q) {
-  plogis(q = h - q * (x - c)^2)
+tree_mean = function(age, A, R0, k) {
+  A - (A - R0) * exp(-k * age)
 }
 
-presence_start = function(x, y) {
-  centre = if (any(y == 1)) median(x[y == 1]) else median(x)
-  list(c = centre, h = qlogis(p = 0.8), log_q = log(0.5))
+complete_model = function(par) {
+  A = exp(par$log_A)
+  k = exp(par$log_k)
+  sigma_obs = exp(par$log_sigma_obs)
+  mu = tree_mean(trees$age, A = A, R0 = par$R0, k = k)
+  trees$height %~% dnorm(mean = mu, sd = sigma_obs)
 }
 
-make_presence_obj = function(x, y) {
-  objective = function(par) {
-    q = exp(par$log_q)
-    p = 1 / (1 + exp(-(par$h - q * (x - par$c)^2)))
-    y %~% dbinom(size = 1, prob = p)
-  }
-  MakeADFun(objective, presence_start(x, y), silent = TRUE)
-}
-
-presence_obj = make_presence_obj(presence$x, presence$y)
-fit_presence = optim(par = presence_obj$par, fn = presence_obj$fn,
-                     gr = presence_obj$gr, method = "BFGS")
-fit_presence$convergence
-c(c = fit_presence$par["c"], h = fit_presence$par["h"],
-  q = exp(fit_presence$par["log_q"]))
-
-x_grid = seq(min(presence$x), max(presence$x), length.out = 200)
-lines(x_grid, presence_prob(x_grid, fit_presence$par["c"],
-                            fit_presence$par["h"],
-                            exp(fit_presence$par["log_q"])))
-
-hessian_presence = presence_obj$he(fit_presence$par)
-dimnames(hessian_presence) = list(names(fit_presence$par),
-                                  names(fit_presence$par))
-se_c = sqrt(solve(hessian_presence)["c", "c"])
-c_interval = fit_presence$par["c"] +
-  c(-1, 1) * qnorm(p = 0.975) * se_c
-c_interval
-
-p_constant = mean(presence$y)
-constant_nll = -sum(dbinom(x = presence$y, size = 1,
-                            prob = p_constant, log = TRUE))
-data.frame(
-  model = c("Constant probability", "Response curve"),
-  AIC = c(2 * constant_nll + 2 * 1,
-          2 * fit_presence$value + 2 * 3)
+complete_start = list(
+  log_A = log(max(trees$height) + 5),
+  R0 = min(trees$height),
+  log_k = log(0.05),
+  log_sigma_obs = log(sd(trees$height))
 )
+complete_obj = MakeADFun(complete_model, complete_start, silent = TRUE)
+complete_fit = optim(par = complete_obj$par, fn = complete_obj$fn,
+                     gr = complete_obj$gr, method = "BFGS")
+complete_fit$convergence
+
+complete_estimates = c(
+  A_feet = exp(complete_fit$par["log_A"]),
+  R0_feet = complete_fit$par["R0"],
+  k_per_year = exp(complete_fit$par["log_k"]),
+  sigma2_obs_squared_feet = exp(complete_fit$par["log_sigma_obs"])^2
+)
+complete_estimates
+
+age_grid = seq(min(trees$age), max(trees$age), length.out = 200)
+lines(age_grid,
+      tree_mean(age_grid, A = complete_estimates["A_feet"],
+                R0 = complete_estimates["R0_feet"],
+                k = complete_estimates["k_per_year"]),
+      lwd = 3)
 ```
 
-The intercept-only model estimates one probability; the response
-curve estimates three parameters. The peaked curve has the lower AIC
-(approximately 47.4 versus 69.3). Its fitted optimum is near
-$x=5.02$, with an approximate quadratic interval of 4.73 to 5.31
-in the predictor's recorded units. The comparison remains conditional
-on the Bernoulli observation model.
+You should inspect the code returned by `complete_fit$convergence`; zero is
+reassuring but does not verify the model. The common curve misses systematic
+between-tree differences: some trajectories lie mainly above it while others
+lie below it.
+
+# Exercise 2: No pooling
+
+Keep $R_0$, $k$, and $\sigma^2_{\mathrm{obs}}$ shared, but give every tree a
+separate asymptote $A_j$ on the log scale.
+
+1. Fit this model with RTMB and check convergence.
+2. Plot the fitted curve for every tree and identify the large differences from
+   the complete-pooling curve.
+3. State which parameters and data remain shared. Are the 14 log asymptotes
+   random effects?
+
+
+Separate log asymptotes keep all fitted asymptotes positive. They are a vector
+of ordinary fitted parameters: do not declare this vector `random`.
 
 ```r
-set.seed(seed = 705)
-p_hat = presence_prob(presence$x, fit_presence$par["c"],
-                      fit_presence$par["h"],
-                      exp(fit_presence$par["log_q"]))
-sim_presence = replicate(
-  500, rbinom(n = nrow(presence), size = 1, prob = p_hat)
-)
-scaled_presence = DHARMa::createDHARMa(
-  simulatedResponse = sim_presence,
-  observedResponse = presence$y,
-  fittedPredictedResponse = p_hat,
-  integerResponse = TRUE
-)
-plot(scaled_presence)
-DHARMa::plotResiduals(scaled_presence, predictor = presence$x)
-```
-
-There are only two possible observed responses, so many simulated
-values tie with an observation. The scaled-residual method
-randomises ties to avoid two piles of identical residual values.
-With 50 binary observations, diagnostic patterns may be hard to see.
-
-For the simulation study, the chosen values below are **generating
-values for this exercise**; they are not claimed to be the values that
-generated `shapes6.csv`. Every repetition generates new outcomes at
-the same predictor values and repeats the fit and interval calculation.
-
-```r
-set.seed(seed = 706)
-true_c = 5.5
-true_h = 2
-true_q = 0.65
-n_studies = 300
-true_p = presence_prob(presence$x, true_c, true_h, true_q)
-
-one_study = function() {
-  y_sim = rbinom(n = length(true_p), size = 1, prob = true_p)
-  result = tryCatch({
-    obj = make_presence_obj(presence$x, y_sim)
-    fit = optim(par = obj$par, fn = obj$fn, gr = obj$gr,
-                method = "BFGS")
-    list(obj = obj, fit = fit)
-  }, error = function(e) NULL)
-  if (is.null(result) || result$fit$convergence != 0) {
-    return(c(estimate = NA_real_, covered = NA_real_))
-  }
-  variance_c = tryCatch(
-    solve(result$obj$he(result$fit$par))[1, 1],
-    error = function(e) NA_real_
-  )
-  if (!is.finite(variance_c) || variance_c <= 0) {
-    return(c(estimate = NA_real_, covered = NA_real_))
-  }
-  limits = result$fit$par["c"] +
-    c(-1, 1) * qnorm(p = 0.975) * sqrt(variance_c)
-  c(estimate = unname(result$fit$par["c"]),
-    covered = as.numeric(limits[1] <= true_c && true_c <= limits[2]))
+no_pool_model = function(par) {
+  A = exp(par$log_A_tree[trees$tree_index])
+  k = exp(par$log_k)
+  sigma_obs = exp(par$log_sigma_obs)
+  mu = tree_mean(trees$age, A = A, R0 = par$R0, k = k)
+  trees$height %~% dnorm(mean = mu, sd = sigma_obs)
 }
 
-study_results = replicate(n_studies, one_study())
-successful = is.finite(study_results["estimate", ])
-number_failed = sum(!successful)
-bias = mean(study_results["estimate", successful]) - true_c
-coverage = mean(study_results["covered", successful])
-c(number_failed = number_failed, bias = bias, coverage = coverage)
+no_pool_start = list(
+  log_A_tree = rep(log(max(trees$height) + 5), 14),
+  R0 = complete_estimates["R0_feet"],
+  log_k = log(0.05),
+  log_sigma_obs = log(sd(trees$height))
+)
+no_pool_obj = MakeADFun(no_pool_model, no_pool_start, silent = TRUE)
+no_pool_fit = optim(par = no_pool_obj$par, fn = no_pool_obj$fn,
+                    gr = no_pool_obj$gr, method = "BFGS")
+no_pool_fit$convergence
+
+no_pool_A = exp(no_pool_fit$par[grep("log_A_tree", names(no_pool_fit$par))])
+no_pool_A
+
+plot(trees$age, trees$height, type = "n",
+     xlab = "Age (years)", ylab = "Height (feet)")
+for (j in 1:14) {
+  tree_data = trees[trees$tree_index == j, ]
+  lines(tree_data$age,
+        tree_mean(tree_data$age, A = no_pool_A[j],
+                  R0 = no_pool_fit$par["R0"],
+                  k = exp(no_pool_fit$par["log_k"])),
+        lty = (j - 1) %% 4 + 1, col = tree_colours[j])
+  points(tree_data$age, tree_data$height, pch = tree_symbols[j],
+         col = tree_colours[j])
+}
 ```
 
-Coverage here is conditional on successful fits; always report
-`number_failed` alongside it. The result changes with predictor
-values, generating parameters, study size, interval method, and
-number of repetitions. The Monte Carlo estimate of coverage also
-varies slightly with the random seed. With the stated seed and 300
-studies, the estimated bias is about $-0.014$ and coverage about
-0.967; no fit failed in this run.
+The data for all trees still jointly estimate the shared $R_0$, $k$, and
+$\sigma^2_{\mathrm{obs}}$. Each tree's data estimate its own log asymptote.
+Those 14 parameters are not random effects because the model gives them no
+population distribution and does not integrate them out.
 
-# Exercise 4: Five leaves along a light gradient
 
-The file `shapes1.csv` contains photosynthesis measurements at 11 light
-intensities for **five leaves on different plants**. Each leaf contributes
-measurements along a curve, but the file has no leaf identifier linking
-its rows across intensities. Fit a pooled *working model* for the mean
-response,
+
+# Exercise 3: Partial pooling and shrinkage
+
+Use a log-asymptote random effect so every tree asymptote remains positive:
 
 $$
-m(x)=r+a(1-e^{-kx}), \qquad a,k>0,
+\log A_j=\log A+u_j,\qquad
+u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{tree}}).
 $$
 
-with normal observation errors of standard deviation $\sigma$.
+1. Fit this model in RTMB, using `random = "u"`, and inspect convergence.
+2. Report $A$, $R_0$, $k$, $\sigma^2_{\mathrm{tree}}$, and
+   $\sigma^2_{\mathrm{obs}}$. State that the tree variance is on the
+   log-asymptote scale and that the observation variance is in squared feet.
+3. Draw conditional tree curves and compare their asymptotes with the no-pooling
+   curves. Identify the shrinkage pattern.
+4. Explain what RTMB did when `u` was declared random.
 
-1. Load and plot the data, including the five responses at each light
-   intensity. Why might $r$ be below zero for net photosynthesis?
-2. Fit $r$, $a$, $k$, and $\sigma$ by maximum likelihood under the
-   working assumption that rows are independent. Plot the fitted
-   curve and interpret its baseline and upper limit.
-3. Calculate a 95% quadratic confidence interval for $a$. State
-   precisely which assumption makes this interval provisional.
-4. Simulate from the fitted pooled model and inspect scaled residuals
-   against light intensity. Explain why these plots cannot check
-   within-leaf dependence without leaf identifiers.
+
+The log-asymptote formulation keeps $A_j=\exp(\log A+u_j)$ positive. The
+standard deviation `sigma_tree` is on the log-asymptote scale, so its square is
+$\sigma^2_{\mathrm{tree}}$ on that scale. `sigma_obs` remains in feet and its
+square is in squared feet.
+
+```r
+partial_model = function(par) {
+  A = exp(par$log_A + par$u[trees$tree_index])
+  k = exp(par$log_k)
+  sigma_tree = exp(par$log_sigma_tree)
+  sigma_obs = exp(par$log_sigma_obs)
+  mu = tree_mean(trees$age, A = A, R0 = par$R0, k = k)
+  par$u %~% dnorm(mean = 0, sd = sigma_tree)
+  trees$height %~% dnorm(mean = mu, sd = sigma_obs)
+}
+
+partial_start = list(
+  log_A = log(max(trees$height) + 5),
+  R0 = complete_estimates["R0_feet"],
+  log_k = log(0.05),
+  log_sigma_tree = log(0.1),
+  log_sigma_obs = log(sd(trees$height)),
+  u = rep(0, 14)
+)
+partial_obj = MakeADFun(partial_model, partial_start,
+                         random = "u", silent = TRUE)
+partial_fit = optim(par = partial_obj$par, fn = partial_obj$fn,
+                    gr = partial_obj$gr, method = "BFGS")
+partial_fit$convergence
+
+partial_estimates = c(
+  A_feet = exp(partial_fit$par["log_A"]),
+  R0_feet = partial_fit$par["R0"],
+  k_per_year = exp(partial_fit$par["log_k"]),
+  sigma2_tree_log_asymptote = exp(partial_fit$par["log_sigma_tree"])^2,
+  sigma2_obs_squared_feet = exp(partial_fit$par["log_sigma_obs"])^2
+)
+partial_estimates
+
+conditional_parameters = partial_obj$env$parList(
+  partial_obj$env$last.par.best
+)
+conditional_u = conditional_parameters$u
+partial_A = exp(partial_fit$par["log_A"] + conditional_u)
+
+plot(trees$age, trees$height, type = "n",
+     xlab = "Age (years)", ylab = "Height (feet)")
+for (j in 1:14) {
+  tree_data = trees[trees$tree_index == j, ]
+  lines(tree_data$age,
+        tree_mean(tree_data$age, A = partial_A[j],
+                  R0 = partial_fit$par["R0"],
+                  k = exp(partial_fit$par["log_k"])),
+        lty = (j - 1) %% 4 + 1, col = tree_colours[j])
+  points(tree_data$age, tree_data$height, pch = tree_symbols[j],
+         col = tree_colours[j])
+}
+data.frame(no_pooling = no_pool_A, partial_pooling = partial_A)
+```
+
+The conditional effects are used here to draw and compare curves. They should
+usually be closer to the common asymptote than the no-pooling estimates: that
+is shrinkage. RTMB integrated the unobserved `u` values out of the objective
+with Laplace approximation before `optim()` fitted the shared parameters.
+
+
+# Exercise 4: Interpretation and checking
+
+1. Use the Hessian from the partial-pooling fit to calculate an approximate 95%
+   interval for the common asymptote $A$ on the feet scale. State the relevant
+   assumptions.
+2. Explain the difference between a fitted curve for an observed tree and a
+   prediction for a new tree.
+3. Simulate complete hierarchical data from the partial-pooling fit: simulate
+   one tree effect per tree and then one observation per recorded age. Plot the
+   simulated and observed trajectories for comparison.
+4. Give at least two limitations of this analysis, including the 14 groups and
+   the decision to vary only one curve component.
 
 ## Solution
 
-Net photosynthesis can be negative when respiration exceeds carbon
-fixation at low light. The parameter $r$ is the mean response at
-zero light, while $r+a$ is the upper limit. We use every row for a
-pooled mean curve, but the repeated measurements on each leaf mean
-the independent-error likelihood is a simplification.
+The Hessian is on the fitted parameter scale. We first make its dimensions
+explicit, then form an interval for `log_A` and exponentiate its endpoints to
+return to feet. This is a quadratic, large-sample approximation and is
+especially uncertain if the Hessian is not invertible, the fit has not
+converged, or the group variance is near its boundary.
 
 ```r
-light = read.csv("../../Data/shapes1.csv")
-table(light$x)
-plot(light$x, light$y,
-     xlab = "Light intensity (recorded units)",
-     ylab = "Net photosynthesis (recorded units)")
-
-light_mean = function(x, r, a, k) {
-  r + a * (1 - exp(-k * x))
-}
-light_nll = function(par, data) {
-  r = par[1]
-  a = exp(par[2])
-  k = exp(par[3])
-  sigma = exp(par[4])
-  mu = light_mean(data$x, r, a, k)
-  -sum(dnorm(x = data$y, mean = mu, sd = sigma, log = TRUE))
-}
-
-start_r = mean(light$y[light$x == 0])
-fit_light = optim(
-  par = c(r = start_r,
-          log_a = log(max(light$y) - start_r),
-          log_k = log(1 / 100),
-          log_sigma = log(sd(light$y))),
-  fn = light_nll, data = light, method = "BFGS", hessian = TRUE
+partial_hessian = partial_obj$he(partial_fit$par)
+dimnames(partial_hessian) = list(names(partial_fit$par),
+                                 names(partial_fit$par))
+partial_covariance = solve(partial_hessian)
+se_log_A = sqrt(partial_covariance["log_A", "log_A"])
+A_interval_feet = exp(
+  partial_fit$par["log_A"] +
+    c(-1, 1) * qnorm(p = 0.975) * se_log_A
 )
-fit_light$convergence
-c(r = fit_light$par["r"], a = exp(fit_light$par["log_a"]),
-  k = exp(fit_light$par["log_k"]),
-  sigma = exp(fit_light$par["log_sigma"]))
-
-x_grid = seq(min(light$x), max(light$x), length.out = 200)
-lines(x_grid, light_mean(x_grid, fit_light$par["r"],
-                         exp(fit_light$par["log_a"]),
-                         exp(fit_light$par["log_k"])))
-abline(h = fit_light$par["r"] + exp(fit_light$par["log_a"]),
-       lty = 2)
-
-se_log_a = sqrt(solve(fit_light$hessian)["log_a", "log_a"])
-a_interval = exp(fit_light$par["log_a"] +
-                   c(-1, 1) * qnorm(p = 0.975) * se_log_a)
-a_interval
+A_interval_feet
 ```
 
-The interval is valid only as an approximation **under the working
-independent-row model**. Rows from the same leaf may share deviations
-from the pooled curve, so the effective information can be less than
-55 independent measurements would provide. Because the CSV has no
-leaf IDs, we cannot reconstruct each leaf's trajectory reliably or
-fit a leaf-level model from this file.
+A fitted curve for an observed tree conditions on that tree's estimated
+deviation. A prediction for a new tree must also allow for a new draw from the
+among-tree distribution, so it includes both tree-level and observation-level
+variation.
+
+The simulation below retains the observed ages and grouping structure. It first
+draws 14 new tree deviations, then generates height measurements around each
+tree's curve. Simulating observation variation alone would fail to check the
+grouped model.
 
 ```r
-set.seed(seed = 707)
-mu_light = light_mean(light$x, fit_light$par["r"],
-                      exp(fit_light$par["log_a"]),
-                      exp(fit_light$par["log_k"]))
-sim_light = replicate(
-  500, rnorm(n = nrow(light), mean = mu_light,
-             sd = exp(fit_light$par["log_sigma"]))
+set.seed(seed = 801)
+sigma_tree = exp(partial_fit$par["log_sigma_tree"])
+sigma_obs = exp(partial_fit$par["log_sigma_obs"])
+simulated_u = rnorm(n = 14, mean = 0, sd = sigma_tree)
+simulated_A = exp(partial_fit$par["log_A"] + simulated_u)
+simulated_mu = tree_mean(
+  trees$age,
+  A = simulated_A[trees$tree_index],
+  R0 = partial_fit$par["R0"],
+  k = exp(partial_fit$par["log_k"])
 )
-scaled_light = DHARMa::createDHARMa(
-  simulatedResponse = sim_light,
-  observedResponse = light$y,
-  fittedPredictedResponse = mu_light,
-  integerResponse = FALSE
-)
-plot(scaled_light)
-DHARMa::plotResiduals(scaled_light, predictor = light$x)
+simulated_height = rnorm(n = nrow(trees), mean = simulated_mu,
+                         sd = sigma_obs)
+
+old_par = par(mfrow = c(1, 2))
+plot(trees$age, trees$height, type = "n",
+     xlab = "Age (years)", ylab = "Observed height (feet)")
+plot(trees$age, simulated_height, type = "n",
+     xlab = "Age (years)", ylab = "Simulated height (feet)")
+for (j in 1:14) {
+  tree_data = trees$tree_index == j
+  lines(trees$age[tree_data], trees$height[tree_data],
+        lty = (j - 1) %% 4 + 1, col = tree_colours[j])
+  lines(trees$age[tree_data], simulated_height[tree_data],
+        lty = (j - 1) %% 4 + 1, col = tree_colours[j])
+}
+par(old_par)
 ```
 
-These simulations reproduce the pooled model's independent errors.
-They do not reproduce possible correlations within a leaf, so an
-apparently even pooled residual plot cannot settle that issue.
-
-# Exercise 5: Population size through time
-
-The file `shapes4.csv` records population `size` at `time`. Treat the
-recorded size as a count and begin with a logistic expected size
-$m(t)=K/[1+e^{-r(t-t_0)}]$, where $K,r>0$. As a working model,
-assume each count is Poisson with that mean.
-
-1. Plot size against time. Identify the upper limit $K$, the
-   midpoint time $t_0$, and the role of $r$ in the mean curve.
-2. Fit all three parameters by maximum likelihood and calculate
-   a 95% quadratic confidence interval for $K$.
-3. Fit a Gompertz mean curve
-   $g(t)=K\exp[-\exp\{-r(t-t_0)\}]$ with the same Poisson
-   observation model. Compare AIC and BIC on the same 25 counts.
-4. Hold out the observations after time 62, fit both models to
-   earlier observations, and score the later counts with their
-   Poisson log probabilities. What does this check that a random
-   fold split would not check?
-5. Inspect scaled residuals in time order. Which assumptions are
-   especially uncertain when repeated sizes of one population are
-   treated as independent counts?
-
-## Solution
-
-The logistic reaches half of $K$ at $t_0$; a larger $r$ makes the
-increase steeper around that time. The Gompertz curve has a different
-shape near its inflection point. Both means remain positive, which
-is required by the Poisson observation model.
-
-```r
-population = read.csv("../../Data/shapes4.csv")
-plot(population$time, population$size,
-     xlab = "Time (recorded units)", ylab = "Population size")
-
-logistic_mean = function(time, K, r, t0) {
-  K * plogis(q = r * (time - t0))
-}
-gompertz_mean = function(time, K, r, t0) {
-  K * exp(-exp(-r * (time - t0)))
-}
-growth_nll = function(par, data, curve) {
-  K = exp(par[1])
-  r = exp(par[2])
-  t0 = par[3]
-  mu = curve(data$time, K, r, t0)
-  -sum(dpois(x = data$size, lambda = mu, log = TRUE))
-}
-growth_start = function(data) {
-  c(log_K = log(max(data$size)), log_r = log(0.1),
-    t0 = median(data$time))
-}
-
-fit_logistic = optim(
-  par = growth_start(population), fn = growth_nll,
-  data = population, curve = logistic_mean,
-  method = "BFGS", hessian = TRUE
-)
-fit_gompertz = optim(
-  par = growth_start(population), fn = growth_nll,
-  data = population, curve = gompertz_mean,
-  method = "BFGS", hessian = TRUE
-)
-c(logistic = fit_logistic$convergence,
-  Gompertz = fit_gompertz$convergence)
-c(K = exp(fit_logistic$par["log_K"]),
-  r = exp(fit_logistic$par["log_r"]),
-  t0 = fit_logistic$par["t0"])
-
-time_grid = seq(min(population$time), max(population$time),
-                length.out = 200)
-lines(time_grid, logistic_mean(time_grid,
-      exp(fit_logistic$par["log_K"]),
-      exp(fit_logistic$par["log_r"]), fit_logistic$par["t0"]),
-      lty = 1)
-lines(time_grid, gompertz_mean(time_grid,
-      exp(fit_gompertz$par["log_K"]),
-      exp(fit_gompertz$par["log_r"]), fit_gompertz$par["t0"]),
-      lty = 2)
-legend("bottomright", c("Logistic", "Gompertz"),
-       lty = c(1, 2), bty = "n")
-
-se_log_K = sqrt(solve(fit_logistic$hessian)["log_K", "log_K"])
-K_interval = exp(fit_logistic$par["log_K"] +
-                   c(-1, 1) * qnorm(p = 0.975) * se_log_K)
-K_interval
-
-data.frame(
-  model = c("Logistic", "Gompertz"),
-  AIC = 2 * c(fit_logistic$value, fit_gompertz$value) + 2 * 3,
-  BIC = 2 * c(fit_logistic$value, fit_gompertz$value) +
-    log(nrow(population)) * 3
-)
-```
-
-The Gompertz model has the lower full-data AIC and BIC here, by about
-3.2 points on each score. This is a comparison of the two Poisson
-working models, not evidence that their independence assumption holds.
-
-For future prediction, the assessment times must follow the
-training times. The later-time score asks whether a fitted early
-trajectory can predict later observations; a random split would
-allow later sizes to influence the fit used to predict earlier ones.
-
-```r
-early = population[population$time <= 62, ]
-later = population[population$time > 62, ]
-early_logistic = optim(
-  par = growth_start(early), fn = growth_nll,
-  data = early, curve = logistic_mean, method = "BFGS"
-)
-early_gompertz = optim(
-  par = growth_start(early), fn = growth_nll,
-  data = early, curve = gompertz_mean, method = "BFGS"
-)
-stopifnot(early_logistic$convergence == 0,
-          early_gompertz$convergence == 0)
-
-predict_later = function(fit, curve) {
-  curve(later$time, exp(fit$par["log_K"]),
-        exp(fit$par["log_r"]), fit$par["t0"])
-}
-c(
-  logistic = sum(dpois(x = later$size,
-    lambda = predict_later(early_logistic, logistic_mean), log = TRUE)),
-  Gompertz = sum(dpois(x = later$size,
-    lambda = predict_later(early_gompertz, gompertz_mean), log = TRUE))
-)
-
-set.seed(seed = 708)
-mu_logistic = logistic_mean(population$time,
-  exp(fit_logistic$par["log_K"]),
-  exp(fit_logistic$par["log_r"]), fit_logistic$par["t0"])
-sim_population = replicate(
-  500, rpois(n = nrow(population), lambda = mu_logistic)
-)
-scaled_population = DHARMa::createDHARMa(
-  simulatedResponse = sim_population,
-  observedResponse = population$size,
-  fittedPredictedResponse = mu_logistic,
-  integerResponse = TRUE
-)
-plot(scaled_population)
-DHARMa::plotResiduals(scaled_population,
-                      predictor = population$time)
-```
-
-The later-time log scores are very close (about $-19.11$ for logistic
-and $-19.22$ for Gompertz). This one holdout provides little reason
-to prefer either curve for later-time prediction.
-
-The model assumes Poisson variation and conditional independence
-between recorded times. Successive sizes of the same population may
-instead be correlated, and measurement error may differ from Poisson
-variation. A residual trend or run of high and low values warrants
-further investigation. Even a quiet plot cannot establish
-independence with only 25 observations.
-
-# Exercise 6: A mystery response curve
-
-The ecological context of `shapes5.csv` is deliberately withheld.
-Use `x` as the single predictor and `y` as the response. The `no`
-column is a row index; leave `group` out of this chapter's models.
-Do not infer a biological meaning for either field from its name.
-
-1. Load the file, examine missing values and the response's possible
-   values, and plot `y` against `x`. Propose a suitable observation
-   distribution and two plausible mean curves from the plotted shape.
-2. As one defensible comparison, fit independent Poisson counts with
-   either $m_E(x)=a e^{-bx}$ or $m_H(x)=a/(1+bx)$, where $a,b>0$.
-   Estimate each model by maximum likelihood and plot both curves.
-3. Compare AIC and BIC, then calculate a 95% quadratic interval for
-   $b$ in the lower-AIC model. Interpret $b$ for that curve without
-   assigning an ecological meaning to the response.
-4. Simulate from that fitted model and inspect scaled residuals
-   against `x`. Explain what a poor residual pattern would mean for
-   your conclusion and why ignoring `group` limits this analysis.
-
-## Solution
-
-The response takes non-negative integer values, so a Poisson model
-is a reasonable **starting assumption**. The plotted decline supports
-trying both curves, but the context is unknown and neither curve
-should be given a biological interpretation from its shape alone.
-
-```r
-mystery = read.csv("../../Data/shapes5.csv")
-colSums(is.na(mystery))
-sort(unique(mystery$y))
-plot(mystery$x, mystery$y,
-     xlab = "Predictor x (recorded units)",
-     ylab = "Response count y")
-
-exp_mean = function(x, a, b) a * exp(-b * x)
-hyper_mean = function(x, a, b) a / (1 + b * x)
-
-mystery_nll = function(par, data, curve) {
-  a = exp(par[1])
-  b = exp(par[2])
-  mu = curve(data$x, a, b)
-  -sum(dpois(x = data$y, lambda = mu, log = TRUE))
-}
-
-start = c(log_a = log(mean(mystery$y[mystery$x < 1])),
-          log_b = log(0.2))
-fit_exponential = optim(
-  par = start, fn = mystery_nll, data = mystery,
-  curve = exp_mean, method = "BFGS", hessian = TRUE
-)
-fit_hyperbolic = optim(
-  par = start, fn = mystery_nll, data = mystery,
-  curve = hyper_mean, method = "BFGS", hessian = TRUE
-)
-c(exponential = fit_exponential$convergence,
-  hyperbolic = fit_hyperbolic$convergence)
-
-x_grid = seq(min(mystery$x), max(mystery$x), length.out = 200)
-lines(x_grid, exp_mean(x_grid, exp(fit_exponential$par[1]),
-                            exp(fit_exponential$par[2])), lty = 1)
-lines(x_grid, hyper_mean(x_grid, exp(fit_hyperbolic$par[1]),
-                              exp(fit_hyperbolic$par[2])), lty = 2)
-legend("topright", c("Exponential", "Hyperbolic"),
-       lty = c(1, 2), bty = "n")
-
-fits = list(exponential = fit_exponential,
-            hyperbolic = fit_hyperbolic)
-curves = list(exponential = exp_mean, hyperbolic = hyper_mean)
-scores = data.frame(
-  model = names(fits),
-  AIC = vapply(fits, function(fit) 2 * fit$value + 2 * 2, 0.0),
-  BIC = vapply(fits, function(fit) {
-    2 * fit$value + log(nrow(mystery)) * 2
-  }, 0.0)
-)
-scores
-chosen_name = scores$model[which.min(scores$AIC)]
-chosen_fit = fits[[chosen_name]]
-chosen_curve = curves[[chosen_name]]
-se_log_b = sqrt(solve(chosen_fit$hessian)["log_b", "log_b"])
-b_interval = exp(chosen_fit$par["log_b"] +
-                   c(-1, 1) * qnorm(p = 0.975) * se_log_b)
-b_interval
-```
-
-The exponential has the lower AIC and BIC in this two-curve comparison.
-For its fitted $b$, the approximate quadratic interval is 0.305 to
-0.393 in inverse predictor units. Those numbers describe the pooled
-statistical relationship only.
-
-For the exponential curve, $\log(2)/b$ is the predictor increase
-needed to halve its expected response. For the hyperbolic curve,
-$1/b$ is the predictor value at which its mean is half of $a$.
-Both AIC and BIC have the same penalty for these two-parameter
-models. A smaller score gives a preference within this comparison,
-subject to the Poisson assumption.
-
-```r
-set.seed(seed = 709)
-mu_mystery = chosen_curve(mystery$x,
-  exp(chosen_fit$par["log_a"]), exp(chosen_fit$par["log_b"]))
-sim_mystery = replicate(
-  500, rpois(n = nrow(mystery), lambda = mu_mystery)
-)
-scaled_mystery = DHARMa::createDHARMa(
-  simulatedResponse = sim_mystery,
-  observedResponse = mystery$y,
-  fittedPredictedResponse = mu_mystery,
-  integerResponse = TRUE
-)
-plot(scaled_mystery)
-DHARMa::plotResiduals(scaled_mystery, predictor = mystery$x)
-```
-
-If the residuals are non-uniform or vary with `x`, the selected
-curve and Poisson distribution do not reproduce some aspect of the
-observed responses. The `group` column was intentionally excluded:
-this pooled fit cannot estimate differences between groups, and
-unmodelled group structure may affect fit and uncertainty.
+Compare the range, spacing, and shapes of complete trajectories, not just the
+pointwise scatter. This model has only 14 groups, assumes normally distributed
+log-asymptote deviations, and allows trees to differ only in asymptote. It may
+miss differences in initial height, rate of approach, dependence across ages,
+or an unsuitable normal observation distribution.
