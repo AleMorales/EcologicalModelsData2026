@@ -1,251 +1,405 @@
 ---
-title: "Chapter 3: Probability for continuous data — solutions"
+title: "Chapter 3: From samples to estimates — solutions"
 date: today
 ---
 
 The fully worked first exercise is on the
-[student practical page](no_solution.qmd). These solutions follow the same
-assumed models, tasks, and seeds as Exercises 2–4 on that page. The formulae used
-below are in the LogNormal and Beta entries of the
-[distribution supplement](../../Supplements/distributions.qmd).
+[student practical page](no_solution.qmd). These solutions use the
+same models, tasks, and seeds as Exercises 2–5 on that page.
 
-# Exercise 2: Body mass under a lognormal model
+# Exercise 2: Asymptotic convergence
 
+Simulate Poisson observations with $\lambda=3$ for two sample sizes: 10 and 1,000. The
+mean, variance and R functions are in the
+[Poisson entry](../../Supplements/distributions.qmd#sec-poisson) of the supplement.
 
-The lognormal parameters describe $\log(X)$. On the original scale, the
-median is $e^\mu$ and the mean is $e^{\mu+\sigma^2/2}$, where `meanlog` is
-$\mu$ and `sdlog` is $\sigma$.
+1. Calculate the mean, median and variance for each sample (use the actual variance of the
+sample, not `var()`).
+2. Repeat point 1 four times using different random seeds (tip: use a for loop). How much
+do the sample properties vary?
+3. Compare these sample properties to the model values at the two sample sizes. How does
+the median and mean differ in their behaviour? What is happening to the variation across
+repeated samples as sample size increases?
 
-```{r}
-mass_meanlog = log(30)
-mass_sdlog = 0.5
+## Solution
 
-median_mass = exp(mass_meanlog)
-mean_mass = exp(mass_meanlog + mass_sdlog^2 / 2)
-c(median_g = median_mass, mean_g = mean_mass)
-```
+### Question 1
 
-The median is 30 g and the mean is approximately 34 g. A few possible
-large masses in the right tail pull the mean above the median.
+For a Poisson distribution with $\lambda=3$, the model mean and variance are both 3, and the model median is also 3.
 
-`plnorm()` gives the cumulative probability. For mass *above* 50 g, we
-request its upper tail. `qlnorm()` gives the mass below which 95% of the
-model's probability falls.
+First simulate one sample of each size. Calculate the empirical variance using the divisor $n$, rather than using `var()`.
 
 ```{r}
-prob_over_50 = plnorm(
-  q = 50, meanlog = mass_meanlog, sdlog = mass_sdlog,
-  lower.tail = FALSE
+lambda = 3
+sample_sizes = c(10, 1000)
+
+initial_results = data.frame(
+  n = integer(),
+  mean = numeric(),
+  median = numeric(),
+  variance = numeric()
 )
-mass_95 = qlnorm(p = 0.95, meanlog = mass_meanlog, sdlog = mass_sdlog)
-c(prob_over_50 = prob_over_50, percentile_95_g = mass_95)
+
+set.seed(123)
+
+for (sample_size in sample_sizes) {
+  observations = rpois(sample_size, lambda = lambda)
+  sample_mean = mean(observations)
+
+  initial_results = rbind(
+    initial_results,
+    data.frame(
+      n = sample_size,
+      mean = sample_mean,
+      median = median(observations),
+      variance = mean((observations - sample_mean)^2)
+    )
+  )
+}
+
+initial_results
 ```
 
-These are predictions under the assumed model for a randomly selected
-animal's mass. The quantile is a mass in grams, not a probability.
+### Question 2
 
-Generate a sample and compare its shape on the two scales. The model density
-must be placed over a **density-scaled** histogram on the original scale.
+Repeat the simulations four times, using a different seed for each repetition:
 
 ```{r}
-set.seed(seed = 202)
-body_mass = rlnorm(n = 500, meanlog = mass_meanlog, sdlog = mass_sdlog)
+seeds = c(11, 22, 33, 44)
+
+repeated_results = data.frame(
+  seed = integer(),
+  n = integer(),
+  mean = numeric(),
+  median = numeric(),
+  variance = numeric()
+)
+
+for (seed in seeds) {
+  set.seed(seed)
+
+  for (sample_size in sample_sizes) {
+    observations = rpois(sample_size, lambda = lambda)
+    sample_mean = mean(observations)
+
+    repeated_results = rbind(
+      repeated_results,
+      data.frame(
+        seed = seed,
+        n = sample_size,
+        mean = sample_mean,
+        median = median(observations),
+        variance = mean((observations - sample_mean)^2)
+      )
+    )
+  }
+}
+
+repeated_results
+```
+
+### Question 3
+
+Compare the results with the model values, then summarise the variation in the sample statistics across repetitions:
+
+```{r}
+model_values = data.frame(
+  n = sample_sizes,
+  mean = lambda,
+  median = qpois(0.5, lambda = lambda),
+  variance = lambda
+)
+
+model_values
+
+aggregate(
+  cbind(mean, median, variance) ~ n,
+  data = repeated_results,
+  FUN = sd
+)
+```
+
+The model values are the same for both sample sizes. With $n=10$, the sample mean, median, and variance can differ noticeably from their model values. With $n=1{,}000$, they will generally be closer to 3 and vary less across repetitions.
+
+The mean changes smoothly between samples, while the median is a quantile and changes in discrete steps. For even sample sizes, R’s median can also be halfway between two integer counts. Because the empirical variance uses divisor $n$, it tends to be slightly below the model variance for finite samples; this difference becomes negligible as sample size increases. The four repetitions illustrate the general pattern, though more repetitions would provide a clearer picture of the variation.
+
+# Exercise 3: Breeding success at bird nests
+
+One observational unit is a monitored nest. Under the assumed
+binomial model, the expected proportion of successes is $p$, so
+matching it to the observed proportion gives the method-of-moments
+estimator $\hat p=X/n$.
+
+```{r}
+set.seed(seed = 422)
+p_true = 0.6
+n_nests = 40
+successful_nests = rbinom(n = 1, size = n_nests, prob = p_true)
+p_hat = successful_nests / n_nests
+c(successful_nests = successful_nests, estimate = p_hat)
+```
+
+In this simulated study, 25 of 40 nests succeed, giving an estimated
+success probability of 0.625. It need not equal the model probability of 0.6.
+We know the latter only because we generated the data.
+
+For the sampling distributions, each call to `rbinom()` generates
+2,000 possible study totals. Dividing by the number of nests in
+that study produces one estimated success probability per study.
+
+```{r}
+set.seed(seed = 423)
+n_studies = 2000
+n_small = 20
+n_large = 100
+
+p_estimates_small = rbinom(
+  n = n_studies, size = n_small, prob = p_true
+) / n_small
+p_estimates_large = rbinom(
+  n = n_studies, size = n_large, prob = p_true
+) / n_large
 
 old_par = par(no.readonly = TRUE)
 par(mfrow = c(1, 2))
-
 hist(
-  x = body_mass, breaks = 25, probability = TRUE,
-  col = "grey85", border = "white",
-  xlab = "Body mass (g)", ylab = "Density per gram",
-  main = "Original scale"
+  x = p_estimates_small, breaks = 20, probability = TRUE,
+  xlim = c(0, 1), col = "grey85", border = "white",
+  xlab = "Estimated nest success probability", ylab = "Density",
+  main = "20 nests"
 )
-curve(
-  dlnorm(x = x, meanlog = mass_meanlog, sdlog = mass_sdlog),
-  add = TRUE, lwd = 2
-)
-
+abline(v = p_true, lty = 2, lwd = 2)
 hist(
-  x = log(body_mass), breaks = 25, probability = TRUE,
-  col = "grey85", border = "white",
-  xlab = "Log body mass", ylab = "Density",
-  main = "Log scale"
+  x = p_estimates_large, breaks = 20, probability = TRUE,
+  xlim = c(0, 1), col = "grey85", border = "white",
+  xlab = "Estimated nest success probability", ylab = "Density",
+  main = "100 nests"
 )
-
+abline(v = p_true, lty = 2, lwd = 2)
 par(old_par)
 ```
 
-The original masses are positive and right-skewed; their logarithms are
-more symmetric. The histogram and curve need not agree exactly for 500
-simulated values. Because the data were generated from this very model, this
-comparison checks what sampling variation looks like. It cannot establish
-that a lognormal model fits body masses measured in a field study.
+The distribution for 100 nests is more concentrated around 0.6.
+The estimates are still variable and discrete because the number
+of successful nests is an integer.
 
-# Exercise 3: Vegetation cover under a beta model
-
-
-For beta shape parameters $a=2$ and $b=5$, the model mean and variance are
-$a/(a+b)$ and $ab/[(a+b)^2(a+b+1)]$.
+For independent nests with the same $p$, the estimator is unbiased
+and has variance $p(1-p)/n$. Simulated bias is the average estimate
+minus the known model value. Mean squared error (MSE) is the average
+squared distance from that value.
 
 ```{r}
-cover_a = 2
-cover_b = 5
-
-mean_cover = cover_a / (cover_a + cover_b)
-variance_cover = cover_a * cover_b /
-  ((cover_a + cover_b)^2 * (cover_a + cover_b + 1))
-
-c(mean_fraction = mean_cover,
-  mean_percent = 100 * mean_cover,
-  variance_fraction_squared = variance_cover)
+nest_summary = data.frame(
+  n_nests = c(n_small, n_large),
+  average_estimate = c(
+    mean(p_estimates_small), mean(p_estimates_large)
+  ),
+  simulated_bias = c(
+    mean(p_estimates_small) - p_true,
+    mean(p_estimates_large) - p_true
+  ),
+  simulated_variance = c(
+    var(p_estimates_small), var(p_estimates_large)
+  ),
+  simulated_se = c(
+    sd(p_estimates_small), sd(p_estimates_large)
+  ),
+  simulated_mse = c(
+    mean((p_estimates_small - p_true)^2),
+    mean((p_estimates_large - p_true)^2)
+  ),
+  model_variance = p_true * (1 - p_true) /
+    c(n_small, n_large)
+)
+round(nest_summary, digits = 4)
 ```
 
-The expected fraction covered is approximately 0.286, or 28.6% of a
-quadrat. The variance describes variation in squared fraction units.
+The average estimates are approximately 0.602 and 0.601, close to
+the true 0.6. Simulated variance falls from about 0.0121 for 20
+nests to 0.0023 for 100 nests; standard error and MSE fall too.
+Their simulated values do not exactly equal the model values.
+Bias concerns the estimator's average across possible studies; a
+single estimate cannot reveal it.
+Neighbouring nests could share weather, food supply, or predation
+conditions, making their outcomes dependent.
+
+# Exercise 4: Variation in tree heights
+
+The first method-of-moments estimate matches the sample mean to
+$E[X]=\mu$. The second averages squared deviations from that sample
+mean with divisor $n$. R's `var()` uses $n-1$ instead.
 
 ```{r}
-prob_below_20_percent = pbeta(
-  q = 0.20, shape1 = cover_a, shape2 = cover_b
-)
-cover_95 = qbeta(p = 0.95, shape1 = cover_a, shape2 = cover_b)
-
-c(prob_below_20_percent = prob_below_20_percent,
-  percentile_95_fraction = cover_95)
-```
-
-The first result is the model probability of less than 20% cover. The
-second is a cover fraction below which 95% of modelled quadrats fall.
-For a continuous model, using $<$ or $\leq$ at 0.20 gives the same
-probability.
-
-```{r}
-set.seed(seed = 303)
-cover_fraction = rbeta(n = 500, shape1 = cover_a, shape2 = cover_b)
-
-hist(
-  x = cover_fraction, breaks = 25, probability = TRUE,
-  col = "grey85", border = "white",
-  xlab = "Vegetation cover (fraction)", ylab = "Density",
-  main = "Simulated cover and beta model"
-)
-curve(
-  dbeta(x = x, shape1 = cover_a, shape2 = cover_b),
-  add = TRUE, lwd = 2
-)
-```
-
-The histogram shows one simulated sample. Its bars need not follow the
-theoretical curve exactly. A standard continuous beta model assigns zero
-probability to cover of exactly zero or one. Before modelling field
-observations at those boundaries, we would ask whether they represent
-genuine bare or fully covered quadrats and account for how they arose.
-
-# Exercise 4: Two measurements on each tree
-
-
-Recreate the paired measurements with the exercise's seed. The values at
-the same position in the vectors belong to one simulated tree.
-
-```{r}
-set.seed(seed = 404)
-n_trees = 300
-z_height = rnorm(n = n_trees)
-z_other = rnorm(n = n_trees)
-
-tree_height = 22 + 4 * z_height
-tree_diameter = 30 + 5 * (0.7 * z_height + sqrt(1 - 0.7^2) * z_other)
-
-plot(
-  x = tree_diameter, y = tree_height, pch = 16,
-  col = grDevices::adjustcolor("black", alpha.f = 0.35),
-  xlab = "Tree diameter (cm)", ylab = "Tree height (m)",
-  main = "Simulated trees"
-)
-```
-
-Heights and diameters tend to increase together, although there is
-variation among trees. The scatterplot shows an association in a simulated
-sample. It does not establish that changing a tree's diameter would cause
-its height to change.
-
-A histogram of *all* heights estimates the marginal distribution of height:
-
-```{r}
-hist(
-  x = tree_height, breaks = 15,
-  col = "grey85", border = "white",
-  xlab = "Tree height (m)", ylab = "Number of trees",
-  main = "All simulated trees"
-)
-```
-
-Now select trees by diameter and compare their height distributions. These
-are **conditional on diameter ranges**, rather than height distributions
-for all trees.
-
-```{r}
-small_trees = tree_diameter < 27
-large_trees = tree_diameter > 33
-height_limits = range(tree_height)
-
-old_par = par(no.readonly = TRUE)
-par(mfrow = c(1, 2))
-
-hist(
-  x = tree_height[small_trees], breaks = 10,
-  xlim = height_limits, probability = TRUE,
-  col = "grey85", border = "white",
-  xlab = "Tree height (m)", ylab = "Density",
-  main = "Diameter below 27 cm"
-)
-hist(
-  x = tree_height[large_trees], breaks = 10,
-  xlim = height_limits, probability = TRUE,
-  col = "grey85", border = "white",
-  xlab = "Tree height (m)", ylab = "Density",
-  main = "Diameter above 33 cm"
+set.seed(seed = 433)
+n_trees = 25
+true_mu = 22
+true_sigma = 4
+true_variance = true_sigma^2
+tree_heights = rnorm(
+  n = n_trees, mean = true_mu, sd = true_sigma
 )
 
-par(old_par)
-
+mu_hat = mean(tree_heights)
+variance_mm = mean((tree_heights - mu_hat)^2)
+variance_with_var = var(tree_heights)
 c(
-  mean_height_small_m = mean(tree_height[small_trees]),
-  mean_height_large_m = mean(tree_height[large_trees])
+  estimated_mean_m = mu_hat,
+  variance_mm_m2 = variance_mm,
+  variance_with_var_m2 = variance_with_var
 )
 ```
 
-The larger-diameter group tends to contain taller trees in this simulation.
-The common horizontal scale makes their positions easier to compare. The
-histograms are sample summaries, so their shapes also vary with sample size
-and bin choice.
+The estimated mean is in metres; both variance estimates are in
+square metres. They differ because `var()` adjusts the divisor.
+Neither single-sample estimate needs to equal the model variance
+of $4^2=16$ square metres.
 
-Finally, use the supplied grid to display the **model's joint density**.
+To study bias, repeat the entire 25-tree study. Each repetition
+returns a pair of variance estimates.
 
 ```{r}
-diameter_grid = seq(from = 10, to = 50, length.out = 100)
-height_grid = seq(from = 8, to = 36, length.out = 100)
-rho = 0.7
-
-joint_density = outer(
-  X = diameter_grid, Y = height_grid,
-  FUN = function(diameter, height) {
-    dx = (diameter - 30) / 5
-    hy = (height - 22) / 4
-    exp(-(dx^2 - 2 * rho * dx * hy + hy^2) / (2 * (1 - rho^2))) /
-      (2 * pi * 5 * 4 * sqrt(1 - rho^2))
+set.seed(seed = 434)
+n_studies = 2000
+variance_estimates = replicate(
+  n = n_studies,
+  expr = {
+    heights = rnorm(
+      n = n_trees, mean = true_mu, sd = true_sigma
+    )
+    sample_mean = mean(heights)
+    c(
+      method_of_moments = mean((heights - sample_mean)^2),
+      with_var = var(heights)
+    )
   }
 )
 
-contour(
-  x = diameter_grid, y = height_grid, z = joint_density,
-  nlevels = 8,
-  xlab = "Tree diameter (cm)", ylab = "Tree height (m)",
-  main = "Assumed joint density"
+average_variance = rowMeans(variance_estimates)
+simulated_bias = average_variance - true_variance
+simulated_mse = rowMeans(
+  (variance_estimates - true_variance)^2
+)
+
+variance_summary = data.frame(
+  estimator = rownames(variance_estimates),
+  average_variance_m2 = average_variance,
+  simulated_bias_m2 = simulated_bias,
+  simulated_mse_m4 = simulated_mse,
+  row.names = NULL
+)
+variance_summary
+```
+
+The method-of-moments estimate averages about 15.14 square metres,
+below the true 16. Its simulated bias is about $-0.86$ square
+metres; its theoretical bias is $-16/25=-0.64$ square metres.
+The estimate from `var()` averages about 15.77, with simulated
+bias about $-0.23$ rather than exactly zero. The differences from
+theoretical values reflect finite simulation.
+
+MSE includes both variance across studies and squared bias. In
+this simulation, the method-of-moments estimator has MSE about
+$19.84\ \mathrm{m}^4$, compared with about $20.77\ \mathrm{m}^4$
+for `var()`. Knowing that one estimator is unbiased does not,
+by itself, settle which has smaller MSE.
+
+# Exercise 5: Mean body mass and interval coverage
+
+The lognormal parameters describe **log mass**. On the original
+gram scale, the median is $e^\mu$ and the mean is
+$e^{\mu+\sigma^2/2}$. Right skew makes the mean larger than the
+median.
+
+```{r}
+mass_meanlog = log(30)
+mass_sdlog = 0.8
+true_median = exp(mass_meanlog)
+true_mean = exp(mass_meanlog + mass_sdlog^2 / 2)
+c(median_g = true_median, mean_g = true_mean)
+```
+
+The model median is 30 g and the model mean is approximately
+41.3 g. Simulate one study and calculate the standard error of
+its original-scale sample mean:
+
+```{r}
+set.seed(seed = 443)
+n_animals = 12
+body_mass = rlnorm(
+  n = n_animals,
+  meanlog = mass_meanlog, sdlog = mass_sdlog
+)
+
+sample_mean = mean(body_mass)
+sample_median = median(body_mass)
+estimated_se = sd(body_mass) / sqrt(n_animals)
+c(
+  sample_mean_g = sample_mean,
+  sample_median_g = sample_median,
+  estimated_se_g = estimated_se
 )
 ```
 
-Each line connects combinations with equal **density**. The tilted
-contours show that greater diameter tends to accompany greater height
-under the model. A line or the region inside it does not automatically
-correspond to a specified probability; probability for a region depends
-on the density across its area.
+This standard error describes uncertainty in the sample mean, not
+variation among the 12 individual masses. The $t$ interval uses
+the estimated standard error and $n-1$ degrees of freedom:
+
+```{r}
+critical_value = qt(p = 0.975, df = n_animals - 1)
+mass_interval = c(
+  lower = sample_mean - critical_value * estimated_se,
+  upper = sample_mean + critical_value * estimated_se
+)
+mass_interval
+```
+
+The interval runs from approximately 14.1 to 54.6 g. Its endpoints
+are candidate values for the **population mean mass in grams**,
+not an interval containing 95% of animal masses.
+This $t$ interval has exact 95% coverage for independent normal
+observations. Lognormal masses are skewed, so here it is an
+approximation; its actual coverage must be checked.
+
+For each simulated study below, calculate a new interval and
+record whether it contains the known model mean. The proportion
+of `TRUE` results estimates coverage.
+
+```{r}
+coverage_for_size = function(n_animals, n_studies = 2000) {
+  critical_value = qt(p = 0.975, df = n_animals - 1)
+  covered = replicate(
+    n = n_studies,
+    expr = {
+      mass = rlnorm(
+        n = n_animals,
+        meanlog = mass_meanlog, sdlog = mass_sdlog
+      )
+      estimate = mean(mass)
+      se = sd(mass) / sqrt(n_animals)
+      lower = estimate - critical_value * se
+      upper = estimate + critical_value * se
+      lower <= true_mean && true_mean <= upper
+    }
+  )
+  mean(covered)
+}
+
+set.seed(seed = 444)
+simulated_coverage = c(
+  n_12 = coverage_for_size(n_animals = 12),
+  n_100 = coverage_for_size(n_animals = 100)
+)
+simulated_coverage
+```
+
+The simulated coverage is 0.889 for 12 animals and 0.927 for 100
+animals, both below 0.95. These fractions depend on the seed and
+2,000 repetitions. With the more skewed sampling distribution at
+12 animals, the usual $t$ interval misses the true mean more often
+than its nominal 5% rate. At 100 animals, the sample mean tends
+to have a more nearly normal sampling distribution, making this
+approximation more plausible. These results describe performance
+**under the specified lognormal model and independent sampling**.
+Actual body masses or a field sampling design could depart from
+both assumptions, so simulated coverage alone does not establish
+coverage for a real study.

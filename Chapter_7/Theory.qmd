@@ -1,5 +1,5 @@
 ---
-title: "Fitting ecological response curves"
+title: "Grouped ecological response curves"
 format:
   html:
     toc: true
@@ -11,539 +11,426 @@ execute:
   eval: false
 ---
 
-TODO: Make sure to explain the concept of automatic differentiation.
+TODO: Introduce conditional and marginal distribution (we move it from chapter 3 here)
 
 # Introduction
 
-In this chapter, we learn how to fit an ecological response curve together
-with a probability model for observations around that curve. This lets us use
-maximum likelihood to estimate the curve's parameters, describe their
-uncertainty, compare plausible models, and check whether the fitted model can
-reproduce key features of the data.
+In this chapter, we learn how to model repeated measurements with grouped
+ecological response curves. A grouped model lets us estimate a common response
+and variation among groups while recognising that measurements from one group
+need not behave as independent rows.
 
-In [Chapter 6](../Chapter_6/Theory.qmd), we used a Holling type II function to
-describe an expected intake rate. Here, we return to that function for a
-predator consuming prey at different prey densities. Real intake measurements
-will not all fall on the expected curve, so we need an observation model as
-well as a response function. We first write that likelihood as an ordinary R
-function, then express the same model in RTMB. This prepares us to add random
-effects to nonlinear curves in Chapter 8.
+In Chapter 6, we fitted one light-response curve to net-photosynthesis
+measurements. The original experimental record now adds grouping information:
+at each light level, the five rows belong to the same five leaves, in the same
+order. This lets us ask how net photosynthesis changes with light and whether
+all leaves follow the same response curve.
 
-The supplied practical datasets are simulated ecological examples. Their
-generating models and parameter values are not given when you analyse them.
+That information changes the model. One observational unit is a net
+photosynthesis measurement on a leaf at one light intensity. The grouping unit
+is a leaf, which contributes several observations. Measurements on a leaf can
+share a tendency to lie above or below the common curve.
+
+This chapter compares ways of sharing information between leaves. It then uses
+a grouped likelihood to estimate both the common light response and variation
+among leaves. The practical applies the same ideas to repeated tree-height
+measurements in `datasets::Loblolly`.
 
 # Learning goals
 
-After studying this chapter, you should be able to:
+After this chapter, you should be able to:
 
-- specify a response function, observation distribution, parameter domain,
-  and observational unit for a single-predictor dataset;
-- write and optimise the resulting log-likelihood, check convergence, and
-  interpret estimates in ecological units;
-- express an observation model in RTMB, use its derivatives for fitting,
-  and recognise when its automatic differentiation may be unsuitable;
-- calculate and interpret approximate confidence intervals, then use a
-  simulation study to investigate their bias and coverage;
-- compare models fitted to the same observations using information criteria
-  and held-out predictive performance;
-- simulate from a fitted model and interpret scaled quantile residuals.
+- identify repeated measurements and distinguish observational and grouping
+  units;
+- explain fixed effects, random effects, mixed-effects, hierarchical, and
+  multilevel models in a concrete example;
+- compare complete pooling, no pooling, and partial pooling for a response
+  curve;
+- interpret shrinkage, regularisation, and the variance components
+  $\sigma^2_{\mathrm{leaf}}$ and $\sigma^2_{\mathrm{obs}}$;
+- explain why a grouped model can use maximum marginal likelihood and the
+  intuition and limitations of Laplace approximation; and
+- fit a grouped RTMB model with `optim()` and interpret its shared parameters,
+  variance components, and conditional group-specific curves.
 
-# From a curve to a model for observations {#sec-response-observation}
+# Identify the repeated measurements
 
-For one intake-rate measurement at a specified prey density, let $x_i$ be the
-recorded prey density and let $Y_i$ be the recorded intake rate. The supplied
-data use recorded units, so replace these labels with physical units when they
-are available. A possible expected response is
+The light-response data are the same supplied data used in Chapter 6. You can
+download `shapes1.csv` from the
+[`Data` folder](https://github.com/AleMorales/EcologicalModelsData2026/tree/main/Data)
+in the course GitHub repository. The CSV file alone does not identify a leaf.
+The author supplied the mapping below from the original experimental record:
+within every set of five rows at a light level, rows 1 to 5 came from leaves 1
+to 5 respectively. This is not a general rule for reconstructing repeated
+measurements from row order.
 
-$$
-\mu_i=m(x_i;a,b)=\frac{a x_i}{b+x_i}, \qquad x_i\geq0,\ a,b>0.
-$$
+```r
+# Load the supplied light-response data.
+light = read.csv("../Data/shapes1.csv")
+# Attach the leaf mapping supplied from the original experimental record.
+light$leaf_id = factor(rep(1:5, times = 11))
 
-The parameter $a$ is the limiting intake rate; $b$ is the prey density at
-half that rate. The function returns one expected rate for each density.
-It does not say how far an observed $Y_i$ might lie from that expectation.
+# Check the number of measurements at each light level and for each leaf.
+table(light$x)
+table(light$leaf_id)
+```
 
-If rates vary approximately symmetrically around the curve, a first
-observation model is
-
-$$
-Y_i\mid x_i\sim\operatorname{Normal}(\mu_i,\sigma^2),
-\qquad \sigma>0.
-$$
-
-Here $\sigma$ describes variation in individual intake measurements, in the
-same units as the rate. We also assume measurements are independent after
-conditioning on their predictor values. With these assumptions, the model has
-three unknown parameters: $a$, $b$, and $\sigma$. Because a normal distribution
-also permits negative rates, check whether that part of its support matters
-near low prey density.
-
-::: {.callout-note title="Mean curve and observations"}
-The curve describes $E[Y_i\mid x_i]$. The distribution describes possible
-observations at that $x_i$. A close-looking curve alone does not specify a
-likelihood or show that the chosen distribution is suitable.
-:::
-
-The points in this illustration were simulated from a known curve with
-normal variation. Their spread shows why a likelihood needs both parts:
+The two tables check the supplied structure: there are five measurements at
+each of 11 light levels, and 11 measurements for each derived leaf identifier.
+The following plot joins only observations with the author-supplied same leaf
+identifier. Symbols and line types distinguish leaves as well as colour.
 
 ```{r}
 #| echo: false
 #| eval: true
-#| fig-cap: "Simulated predator intake measurements around a Holling type II mean curve."
-# Simulate four intake measurements at each prey density.
-set.seed(seed = 710)
-prey_density = rep(seq(from = 3, to = 30, by = 3), each = 4)
-expected_intake = 12 * prey_density / (6 + prey_density)
-observed_intake = rnorm(n = length(prey_density),
-                        mean = expected_intake, sd = 1)
-# Plot the observations and add their generating mean curve.
-plot(prey_density, observed_intake,
-     xlab = "Prey density (illustrative units)",
-     ylab = "Intake rate (illustrative units)", pch = 16)
-curve(12 * x / (6 + x), from = 0, to = 30, add = TRUE, lwd = 2)
-legend("bottomright", legend = c("Simulated observations", "Mean curve"),
-       pch = c(16, NA), lty = c(NA, 1), bty = "n")
+#| fig-cap: "Net photosynthesis measurements by author-supplied leaf identifier. Lines join repeated measurements from the same leaf."
+# Load the data and apply the author-supplied leaf mapping.
+light = read.csv("../Data/shapes1.csv")
+light$leaf_id = factor(rep(1:5, times = 11))
+# Use both colour and symbol to distinguish the leaf trajectories.
+leaf_colours = c("black", "#0072B2", "#D55E00", "#009E73", "#CC79A7")
+leaf_symbols = c(16, 17, 15, 18, 8)
+old_par = par(mar = c(4, 4, 1, 1))
+# Draw the measurements, then join observations from the same leaf.
+plot(light$x, light$y, type = "n",
+     xlab = "Light intensity (recorded units)",
+     ylab = "Net photosynthesis (recorded units)")
+for (j in seq_along(levels(light$leaf_id))) {
+  leaf_data = light[light$leaf_id == levels(light$leaf_id)[j], ]
+  lines(leaf_data$x, leaf_data$y, lty = j, col = leaf_colours[j])
+  points(leaf_data$x, leaf_data$y, pch = leaf_symbols[j],
+         col = leaf_colours[j])
+}
+legend("bottomright", legend = paste("Leaf", 1:5),
+       col = leaf_colours, pch = leaf_symbols, lty = 1:5, bty = "n")
+# Restore the graphical settings used before this figure.
+par(old_par)
 ```
 
-The response determines which distributions are possible. A count of cones
-can use a Poisson model with a positive mean curve. Presence or absence can
-use a Bernoulli model with a probability curve between zero and one:
-
-| Response | Example conditional model | What the curve must return |
-|---|---|---|
-| Continuous intake rate | $Y_i\mid x_i\sim\operatorname{Normal}(\mu_i,\sigma^2)$ | A mean in rate units |
-| Number of cones | $Y_i\mid x_i\sim\operatorname{Poisson}(\mu_i)$ | A positive expected count |
-| Presence or absence | $Y_i\mid x_i\sim\operatorname{Bernoulli}(p_i)$ | A probability in $[0,1]$ |
-
-The observation model is a scientific assumption, not a label determined by
-the response variable alone. Counts can be more variable than a Poisson
-model allows; continuous variation can be asymmetric. Later diagnostics
-help us find such disagreements.
-
-:::: {.callout-important title="Try it: identify the random part"}
-Suppose $p(x)=1/[1+e^{-k(x-c)}]$ predicts species presence. Which part of
-the model says that two sites with the same $x$ may have different outcomes?
+:::: {.callout-important title="Question: what does row order establish?"}
+If this identifier had not been supplied, would repeated point patterns at each
+light level establish five leaf trajectories?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-The Bernoulli observation model does. The function gives the same $p(x)$
-at both sites, while each presence/absence observation remains random.
+No. Repeated values at each light level show replication at that level, but
+they do not say which observation at one light level belongs with an
+observation at another. The trajectories in the figure depend on the
+author-supplied experimental record.
 :::
 ::::
 
-# Fit a response curve by maximum likelihood {#sec-fit-response}
+# Three ways to share information
 
-For independent normal observations, the log-likelihood is the sum of the
-normal log densities at the observed rates. For $n$ intake measurements,
-$f_{\mathrm N}$ denotes the normal density:
+We retain Chapter 6's net-photosynthesis response function,
 
 $$
-\ell(a,b,\sigma)=\sum_{i=1}^n
-\log f_{\mathrm N}\{y_i;m(x_i;a,b),\sigma\}.
+m(x;r,a,k)=r+a(1-e^{-kx}), \qquad a>0,\quad k>0.
 $$
 
-Here $y_i$ is the observed value of $Y_i$. As in
-[Chapter 5](../Chapter_5/Theory.qmd), `optim()` minimises a function by
-default, so we minimise the negative log-likelihood. We optimise the logarithms
-of positive parameters and transform the estimates back afterwards.
+Here $x$ is light intensity, $r$ is expected net photosynthesis at zero light,
+$r+a$ is its limiting expected value, and $k$ controls how quickly the curve
+increases. Net photosynthesis can be negative at low light when respiration
+exceeds carbon fixation.
 
-The supplied predator data can be downloaded as `shapes2.csv` from the
-[`Data` folder](https://github.com/AleMorales/EcologicalModelsData2026/tree/main/Data)
-in the course GitHub repository. In this Quarto website, the file is one
-directory above this theory page:
+## Names for the parts of the model
 
-```r
-# Load the supplied simulated intake data.
-intake_data = read.csv("../Data/shapes2.csv")
+The concrete model helps make common terminology less mysterious:
 
-# Define the Holling type II mean curve.
-intake_curve = function(x, a, b) {
-  a * x / (b + x)
+- **Fixed effects** are the shared, population-level parameters estimated from
+  these data, such as $r$, $a$, and $k$. Fixed does not mean known or causal.
+- **Random effects** are group deviations, such as $u_j$, modelled with a
+  distribution whose variance is estimated.
+- A **mixed-effects model** contains both shared parameters and random effects.
+- A **hierarchical** or **multilevel model** represents observations nested
+  within leaves.
+
+"Random effect" does not mean that leaves were randomly allocated to a
+treatment. It means that the model represents among-leaf variation with a
+distribution, conditional on the chosen curve and the other assumptions.
+
+The table separates three choices about leaf information while keeping the
+same curve and normal observation model.
+
+| Model | Leaf component | Question |
+|---|---|---|
+| Complete pooling | $u_j=0$ for every leaf | What common curve describes the recorded leaves? |
+| No pooling | A separately estimated $r_j$ for every leaf | How do these leaves differ when no information is shared? |
+| Partial pooling | $r_j=r+u_j$, with $u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{leaf}})$ | What common curve and among-leaf variation describe the data? |
+
+The following conceptual figure uses chosen parameter values, not estimates
+fitted to the light data.
+
+```{r}
+#| echo: false
+#| eval: true
+#| fig-cap: "Illustrative complete-pooling, no-pooling, and partial-pooling response curves. The partial-pooling deviations are closer to the common intercept than the no-pooling intercepts."
+# Define the light values and response curve used in this conceptual figure.
+x_grid = seq(from = 0, to = 1000, length.out = 200)
+light_curve = function(x, r, a, k) {
+  r + a * (1 - exp(-k * x))
 }
-
-# Calculate the negative normal log-likelihood on log parameter scales.
-intake_nll = function(par, x, y) {
-  a = exp(par[1])
-  b = exp(par[2])
-  sigma = exp(par[3])
-  mu = intake_curve(x = x, a = a, b = b)
-  -sum(dnorm(x = y, mean = mu, sd = sigma, log = TRUE))
+# Choose illustrative, rather than fitted, intercepts for five leaves.
+common_r = -2
+leaf_r = c(-4, -3, -2, -1, 0)
+partial_r = common_r + 0.6 * (leaf_r - common_r)
+leaf_colours = c("black", "#0072B2", "#D55E00", "#009E73", "#CC79A7")
+old_par = par(mfrow = c(1, 3), mar = c(4, 4, 2, 1))
+# Draw one shared curve for complete pooling.
+plot(x_grid, light_curve(x_grid, common_r, 11, 0.004), type = "l",
+     ylim = c(-5, 10), lwd = 2,
+     xlab = "Light intensity (recorded units)",
+     ylab = "Expected net photosynthesis (recorded units)",
+     main = "Complete pooling")
+# Draw separately fitted intercepts for no pooling.
+plot(x_grid, light_curve(x_grid, leaf_r[1], 11, 0.004), type = "n",
+     ylim = c(-5, 10), xlab = "Light intensity (recorded units)",
+     ylab = "Expected net photosynthesis (recorded units)",
+     main = "No pooling")
+for (j in 1:5) {
+  lines(x_grid, light_curve(x_grid, leaf_r[j], 11, 0.004),
+        lty = j, col = leaf_colours[j])
 }
-
-# Choose positive starting values and minimise the negative log-likelihood.
-fit = optim(
-  par = c(log_a = log(max(intake_data$y)),
-          log_b = log(median(intake_data$x)),
-          log_sigma = log(sd(intake_data$y))),
-  fn = intake_nll,
-  x = intake_data$x, y = intake_data$y,
-  method = "BFGS", hessian = TRUE
-)
-# Check convergence, then return estimates on their ecological scales.
-fit$convergence
-estimates = c(a = exp(fit$par["log_a"]),
-              b = exp(fit$par["log_b"]),
-              sigma = exp(fit$par["log_sigma"]))
-estimates
+# Draw intercepts pulled towards the common value for partial pooling.
+plot(x_grid, light_curve(x_grid, partial_r[1], 11, 0.004), type = "n",
+     ylim = c(-5, 10), xlab = "Light intensity (recorded units)",
+     ylab = "Expected net photosynthesis (recorded units)",
+     main = "Partial pooling")
+for (j in 1:5) {
+  lines(x_grid, light_curve(x_grid, partial_r[j], 11, 0.004),
+        lty = j, col = leaf_colours[j])
+}
+# Identify the five curves and restore the original graphical settings.
+legend("bottomright", legend = paste("Leaf", 1:5),
+       col = leaf_colours, lty = 1:5, bty = "n", cex = 0.7)
+par(old_par)
 ```
 
-Check the convergence code, the fitted curve against the points, and whether
-the estimates make ecological sense. Try another plausible starting value
-if the fit is unstable. A convergence code of zero is reassuring, but it
-does not establish that the model describes the observations well.
+With complete pooling, every leaf has the same expected curve. With no
+pooling, each leaf receives its own intercept but the curve's increase and
+shape are still shared. These $r_j$ values are ordinary separately fitted
+parameters, not random effects. No pooling is useful for describing these
+recorded leaves, but a lightly measured leaf has no direct way to borrow
+information from the others.
 
-## Write the same model in RTMB
+For partial pooling, use the model
 
-The manual likelihood above makes every part of the model visible. We will
-now express the same likelihood using [RTMB](https://cran.r-project.org/web/packages/RTMB/vignettes/RTMB-introduction.html),
-an R interface to Template Model Builder (TMB). RTMB records the calculations
-in the objective function and supplies derivatives through **automatic
-differentiation**. These derivatives can help an optimiser find and check a
-solution; they do not guarantee convergence or a suitable statistical model.
-We will return to how differentiation works in Chapter 9.
+$$
+\begin{aligned}
+u_j &\sim \operatorname{Normal}(0,\sigma^2_{\mathrm{leaf}}),\\
+Y_{ij}\mid u_j,x_{ij} &\sim
+\operatorname{Normal}\{m(x_{ij};r,a,k)+u_j,\sigma^2_{\mathrm{obs}}\}.
+\end{aligned}
+$$
+
+$Y_{ij}$ is measurement $i$ on leaf $j$, $x_{ij}$ is its light intensity, and
+$u_j$ is leaf $j$'s deviation from the common curve. Conditional on the
+predictor, shared parameters, and its leaf effect, the normal observation model
+assumes the measurements are independent. It would be wrong to describe all 55
+rows as independent without that qualification.
+
+::: {.callout-warning title="More parameters do not remove every dependence"}
+Separate leaf intercepts do not automatically make the normal observation
+model adequate. For example, measurements can still be correlated over time
+within a leaf, or leaves can differ in curve shape rather than only intercept.
+The grouping structure helps us state a better model; it does not prove its
+remaining assumptions.
+:::
+
+# Shrinkage and variance components
+
+Partial pooling is a compromise between one common curve and wholly separate
+curves. The normal distribution for $u_j$ makes very large leaf deviations less
+compatible with the group model unless the leaf's data support them. This is
+**regularisation**: it is part of the model and likelihood, not a correction
+applied after fitting.
+
+The result is **shrinkage**. A noisy or lightly measured leaf is generally
+pulled further towards the common curve than a precisely measured leaf. How
+much it is pulled depends on its measurements and on the estimated
+$\sigma^2_{\mathrm{leaf}}$. Shrinkage does not show that a leaf equals the
+population mean; it expresses uncertainty about its individual deviation.
+
+::: {.callout-note title="The two variance components"}
+$\sigma^2_{\mathrm{leaf}}$ describes variation in leaf deviations around the
+common curve. $\sigma^2_{\mathrm{obs}}$ describes variation of measurements
+around a leaf's shifted curve. Both have squared net-photosynthesis units.
+Their standard deviations, $\sigma_{\mathrm{leaf}}$ and
+$\sigma_{\mathrm{obs}}$, have net-photosynthesis units, as do the deviations
+$u_j$. R's `dnorm(sd = ...)` takes a standard deviation, so code that estimates
+a standard deviation on a log scale squares it when reporting model variance.
+:::
+
+If the fitted $\sigma^2_{\mathrm{leaf}}$ is near zero, partial pooling
+approaches complete pooling. A variance estimate on this boundary makes usual
+large-sample confidence intervals delicate. The five balanced leaves here also
+give limited opportunity to see unequal shrinkage visually.
+
+# Maximum marginal likelihood
+
+For one candidate leaf effect $u_j$, the joint contribution has two parts: the
+normal densities for that leaf's measurements around its shifted curve and the
+normal density that says how compatible $u_j$ is with the leaf population. The
+leaf effect is unobserved, so maximum marginal likelihood compares shared
+parameters after integrating it out:
+
+$$
+L_{j,\mathrm{marg}}(\boldsymbol\theta\mid\mathbf y_j)=
+\int_{-\infty}^{\infty}
+L_{j,\mathrm{joint}}(\boldsymbol\theta,u_j\mid\mathbf y_j)\,du_j.
+$$
+
+Here $\mathbf y_j$ is all observations from leaf $j$, and
+$\boldsymbol\theta$ contains the shared curve parameters and both variance
+components. The integrand is the joint likelihood contribution from the leaf's
+measurements and its group distribution. The integral considers all possible
+leaf deviations, weighting each by how well it agrees with both the leaf's
+observations and the population model. The full marginal likelihood combines
+these contributions across leaves.
+
+Fitting only the single best $u_j$ as an ordinary fixed parameter is a different
+calculation. Marginal likelihood incorporates uncertainty in unobserved leaf
+effects before comparing shared parameter values. You will interpret this idea;
+you will not calculate the integral by hand.
+
+# Laplace approximation and RTMB
+
+The integral is usually impractical to solve algebraically for a nonlinear
+response curve. **Laplace approximation** uses the fact that the integrand is
+often largest near the leaf effect that balances that leaf's observations and
+the group distribution. Near this peak, a smooth log integrand can be
+approximated by a quadratic. A quadratic log curve has a normal-shaped peak with
+a calculable area, which gives an approximation to the integral.
+
+This approximation can be unreliable when conditional shapes are strongly
+non-normal, information is weak, a parameter is on a boundary, or the
+observation model is unsuitable. In a Gaussian linear random-intercept model,
+the calculation can be exact; that fact does not automatically extend to this
+nonlinear light-response model.
+
+RTMB records a grouped model and performs this numerical work. In the following
+outline, `u` is a vector of candidate leaf deviations. The `u %~%` line records
+their group distribution, and `random = "u"` tells `MakeADFun()` to integrate
+them out using Laplace approximation. RTMB returns the resulting marginal
+objective and derivatives for `optim()`.
 
 ```r
-# Load RTMB before recording the likelihood calculation.
+# Load RTMB before recording the grouped likelihood calculation.
 library(RTMB)
 
-# Define the same likelihood with RTMB's distribution notation.
-intake_rtmb = function(par) {
+# Create consecutive indices that select each leaf's deviation.
+light$leaf_index = as.integer(light$leaf_id)
+# Define the grouped normal model and its two sources of variation.
+leaf_model = function(par) {
   a = exp(par$log_a)
-  b = exp(par$log_b)
-  sigma = exp(par$log_sigma)
-  mu = intake_curve(x = intake_data$x, a = a, b = b)
-  y = intake_data$y
-  y %~% dnorm(mean = mu, sd = sigma)
+  k = exp(par$log_k)
+  sigma_leaf = exp(par$log_sigma_leaf)
+  sigma_obs = exp(par$log_sigma_obs)
+  mu = par$r + a * (1 - exp(-k * light$x)) + par$u[light$leaf_index]
+  par$u %~% dnorm(mean = 0, sd = sigma_leaf)
+  light$y %~% dnorm(mean = mu, sd = sigma_obs)
 }
 
-# Supply starting values, then record the objective and its derivatives.
-intake_parameters = list(
-  log_a = log(max(intake_data$y)),
-  log_b = log(median(intake_data$x)),
-  log_sigma = log(sd(intake_data$y))
+# Supply starting values, including one initial deviation per leaf.
+leaf_parameters = list(
+  r = 0,
+  log_a = log(10),
+  log_k = log(0.01),
+  log_sigma_leaf = log(1),
+  log_sigma_obs = log(1),
+  u = rep(0, 5)
 )
-intake_obj = MakeADFun(intake_rtmb, intake_parameters, silent = TRUE)
-# Check that the ordinary R and recorded objectives agree before fitting.
-c(in_R = intake_rtmb(intake_parameters),
-  recorded = intake_obj$fn(intake_obj$par))
-# Use the recorded gradient to minimise the negative log-likelihood.
-rtmb_fit = optim(par = intake_obj$par, fn = intake_obj$fn,
-                 gr = intake_obj$gr, method = "BFGS")
-# Check convergence and compare the two fitted objective values.
-rtmb_fit$convergence
-exp(rtmb_fit$par)
-c(manual = fit$value, RTMB = rtmb_fit$value)
+# Record the marginal objective, then minimise it using its gradient.
+leaf_obj = MakeADFun(leaf_model, leaf_parameters,
+                      random = "u", silent = TRUE)
+leaf_fit = optim(par = leaf_obj$par, fn = leaf_obj$fn,
+                 gr = leaf_obj$gr, method = "BFGS")
 ```
 
-The `par` argument is now a named list; `$` selects each parameter. The
-data remain available to the objective through the surrounding R
-environment. The left side of `%~%` is the observed response. The right
-side is its distribution, whose mean comes from the deterministic curve.
-RTMB converts that expression to a **negative** log-likelihood, including
-the distribution's normalising terms. `MakeADFun()` returns an objective
-`fn`, a gradient `gr`, and a Hessian method `he`. Its parameter names and
-order come from the starting list. The two fits should give nearly the
-same estimates and negative log-likelihood. Small numerical differences
-can arise because the derivatives and stopping rules differ. Evaluating
-the R objective before fitting provides a useful first debugging check.
+The fitted positive values `sigma_leaf` and `sigma_obs` are standard
+deviations. Their squares are the model variances
+$\sigma^2_{\mathrm{leaf}}$ and $\sigma^2_{\mathrm{obs}}$. Conditional fitted
+leaf effects can help draw curves, but they are not independent leaf maximum
+likelihood estimates. RTMB does not guarantee convergence or establish that the
+model describes the data suitably. Its [introduction vignette](https://cran.r-project.org/web/packages/RTMB/vignettes/RTMB-introduction.html)
+and the [Template Model Builder paper](https://www.jstatsoft.org/article/view/v070i05)
+give technical background.
 
-The practical advantage for Chapter 8 is that the same RTMB syntax can
-also include random effects. For example, a parameter named `u` can
-be marked with `random = "u"` in `MakeADFun()`. RTMB can then approximate
-the likelihood after integrating over `u`, using a Laplace approximation.
-We will introduce that calculation with the new models, rather than
-requiring you to carry out the integration yourself.
+# Interpretation and limits
 
-::: {.callout-warning title="When RTMB is awkward"}
-Automatic differentiation follows a smooth calculation. A curve with a
-sharp change at an *unknown* threshold, or a branch that depends on a
-parameter, can have undefined or misleading derivatives at the change.
-Such [piecewise calculations need special care](https://cran.r-project.org/web/packages/RTMB/vignettes/RTMB-tips.html).
-It can also be harder to debug a model after RTMB has recorded its
-calculation: the automatic differentiation tape runs through TMB's
-compiled machinery, which you cannot step through like ordinary R code.
-Check the objective on sensible parameter values in R first, compare its
-value with a manually calculated likelihood when possible, and inspect
-`intake_obj$fn(intake_obj$par)` and `intake_obj$gr(intake_obj$par)` before
-trusting a fitted result.
-:::
+A fitted curve for an observed leaf conditions on its estimated leaf effect. A
+prediction for a new leaf also includes among-leaf variation, so it should be
+more variable. Five leaves provide limited information about a population
+distribution. The normal leaf distribution and common curve shape are model
+assumptions, and a random intercept can miss genuine leaf differences in the
+rate or shape of response.
 
-## Return to confidence intervals
-
-The Hessian from this fit describes curvature on the **log-parameter
-scale**. Under the regularity conditions discussed in Chapter 5, its inverse
-approximates the covariance matrix on that scale. An approximate 95%
-quadratic interval for the limiting rate $a$ is:
-
-```r
-# Use the inverse Hessian to estimate standard errors on the log scale.
-se_log = sqrt(diag(solve(fit$hessian)))
-z = qnorm(p = 0.975)
-# Transform the interval endpoints back to intake-rate units.
-a_interval = exp(fit$par["log_a"] + c(-1, 1) * z * se_log["log_a"])
-a_interval
-```
-
-The endpoints are transformed back to rate units. For the RTMB fit,
-`intake_obj$he(rtmb_fit$par)` supplies the Hessian of the same negative
-log-likelihood at its optimum. The same inverse-Hessian calculation
-applies on the log-parameter scale. For a profile interval,
-hold a candidate value of $a$ fixed and re-optimise **both** $b$ and
-$\sigma$ at every candidate value. The profile follows the best possible
-fit at each $a$; a slice that fixes $b$ and $\sigma$ at their original
-estimates is different. Both methods remain approximate and depend on the
-observation model and independence assumption.
-
-::: {.callout-warning title="A confidence interval is conditional"}
-If several measurements come from the same leaf or one population followed
-over time, they may be dependent. Treating every row as independent can
-make an interval too narrow. A calculation from the Hessian cannot repair
-an unsuitable observation model.
-:::
-
-## Check an interval by simulation
-
-When we simulate data, we choose the generating parameters and know their
-values. We can repeatedly simulate responses at specified predictor values,
-refit the model, and check how often each interval contains the fixed
-generating value. That proportion estimates **coverage** for this simulation
-setting. The mean of the fitted estimates minus the generating value
-estimates **bias**.
-
-For a simulation study, repeat the entire fitting and interval procedure in
-each simulated dataset. Record failed fits rather than quietly removing them,
-and vary features such as sample size or the range of predictor values. The
-result describes the procedure under the chosen generating model; it is not
-proof that the model generated the supplied data. Exercise 3 in the
-[Chapter 7 practical](Practicals/no_solution.qmd) provides a full example.
-
-# Compare candidate models {#sec-response-comparison}
-
-An ecological question may support several curves. A Holling type II and
-a saturating exponential can both increase towards a plateau, but differ
-between low and high prey density. Compare candidates that represent
-plausible explanations and use the same observational unit and response.
-
-## Information criteria
-
-A model with more free parameters can often fit the observed data more
-closely. Information criteria balance fit against model complexity. For
-$k$ estimated parameters and maximised log-likelihood $\hat\ell$,
-
-$$
-\mathrm{AIC}=2k-2\hat\ell,
-\qquad
-\mathrm{BIC}=k\log(n)-2\hat\ell.
-$$
-
-Both use the same fitted likelihood, but BIC's penalty per parameter
-grows with sample size. Count observation-distribution parameters such as
-$\sigma$ or a negative binomial shape parameter in $k$. On our `optim()`
-fits, `fit$value` is the *negative* log-likelihood, so
-`2 * k + 2 * fit$value` calculates AIC. A lower value is preferred by
-that criterion **among the candidates compared**. The value does not
-measure absolute model adequacy.
-
-Only compare likelihoods computed for the same observed response on the
-same scale, using the same rows and compatible probability masses or
-densities. For example, dropping missing rows for one model but not
-another makes an AIC comparison misleading. AIC and BIC can rank
-misspecified candidates, so residual checks remain necessary. These
-conditions also appear in [R's AIC documentation](https://search.r-project.org/R/refmans/stats/html/AIC.html).
-
-::: {.callout-note title="What a small difference means"}
-A small AIC or BIC difference gives little reason to claim that one
-curve has a clearly preferable score. Neither criterion identifies a
-biological mechanism or assigns a probability that a candidate is true.
-:::
-
-## Cross-validation
-
-**Cross-validation** checks prediction on observations that were not used
-to estimate a model's parameters. In five-fold cross-validation, divide
-the observations into five parts. For each part, fit each candidate to
-the other four parts, then score the held-out observations. Repeat until
-every part has been held out once.
-
-A useful score here is the sum of held-out log probabilities or densities.
-It uses the whole predictive distribution, so it can assess continuous,
-count, and binary models. Prefer the *larger* held-out log score. Refit
-all parameters, including $\sigma$ or dispersion, within each training
-set. Using the full-data estimates for held-out predictions would leak
-information across the split.
-
-Random folds suit observations that can reasonably be treated as
-independent. For population measurements ordered in time, training on
-later measurements to predict earlier ones answers a different question.
-If the goal is future prediction, hold out later times and fit to earlier
-times. [Time-based resampling guidance](https://rsample.tidymodels.org/articles/Common_Patterns.html)
-uses this ordering for the same reason.
-
-:::: {.callout-important title="Try it: score a held-out observation"}
-A model assigns probability $0.8$ to a held-out species presence. Another
-assigns probability $0.3$. Which model receives the higher log score
-for this observation?
-
-::: {.callout-tip title="Answer" collapse="true"}
-The first: $\log(0.8)>\log(0.3)$. This one observation does not establish
-which model predicts better across the whole dataset.
-:::
-::::
-
-# Check the fitted observation model {#sec-response-residuals}
-
-An ordinary residual such as $y_i-\hat\mu_i$ changes its meaning across
-response distributions. It may also change its spread with the predictor
-even when a count model is correct. **Simulation-based scaled quantile
-residuals** provide a common scale: values between 0 and 1.
-
-For each observation, simulate many possible responses from the fitted
-model at its predictor value. Locate the observed response within those
-simulations. An observation near the lower end gives a residual near 0;
-one near the upper end gives a residual near 1. When the simulation
-matches the observation process, the residuals should be approximately
-uniform across 0 to 1 and show no systematic pattern against the
-predictor. For discrete responses, randomisation handles ties. This is
-the approach used by [DHARMa's scaled quantile residuals](https://search.r-project.org/CRAN/refmans/DHARMa/html/getQuantile.html).
-
-Our fits are ordinary `optim()` results, for which DHARMa does not know
-the response distribution. We therefore generate a matrix with one row
-per observation and one column per simulation, then supply it to
-`DHARMa::createDHARMa()`:
-
-```r
-# Fix the random simulation sequence for a reproducible residual check.
-set.seed(seed = 701)
-# Calculate fitted means, then simulate complete intake measurements.
-mu_hat = intake_curve(
-  x = intake_data$x,
-  a = estimates["a"], b = estimates["b"]
-)
-sigma_hat = estimates["sigma"]
-simulated_rates = replicate(
-  n = 500,
-  expr = rnorm(n = nrow(intake_data), mean = mu_hat, sd = sigma_hat)
-)
-# Create scaled residuals from the simulations and plot them against density.
-scaled = DHARMa::createDHARMa(
-  simulatedResponse = simulated_rates,
-  observedResponse = intake_data$y,
-  fittedPredictedResponse = mu_hat,
-  integerResponse = FALSE
-)
-plot(scaled)
-DHARMa::plotResiduals(scaled, predictor = intake_data$x)
-```
-
-Run this code after installing DHARMa in your R environment. For counts or
-presence/absence, simulate with `rpois()` or `rbinom()` as specified by the
-fitted model and set `integerResponse = TRUE`. The package's
-[`createDHARMa()` documentation](https://search.r-project.org/CRAN/refmans/DHARMa/html/createDHARMa.html)
-describes this interface for custom simulations.
-
-Look for a non-uniform residual distribution, a trend against $x$, changing
-spread, or unusual concentrations near 0 or 1. For time measurements,
-also plot against time in order. A diagnostic indicates where the model
-disagrees with observations; it does not, on its own, tell us whether the
-curve, observation distribution, dependence assumption, or data quality
-caused the disagreement. Randomisation and a finite number of simulations
-also make the exact plot vary between runs, so set a seed.
-
-::: {.callout-warning title="What was simulated?"}
-Simulate complete observations from the fitted distribution at each
-predictor value. Simulating only the fitted mean curve produces no
-observation-level variation and cannot support this residual check.
-:::
-
-# A fitting workflow
-
-1. Plot the observations and check their units, support, missing values,
-   repeated measurements, and predictor range.
-2. Choose a small set of plausible mean curves and observation models.
-3. Write the likelihood, check it at sensible parameter values, fit every
-   parameter (using RTMB for the smooth models in the practical), inspect
-   convergence, and plot fitted curves against the data.
-4. Estimate confidence intervals for ecologically meaningful parameters.
-5. Compare compatible candidates by AIC or BIC and, when appropriate,
-   cross-validated predictive scores.
-6. Simulate observations from the fitted model and inspect scaled
-   residuals. Revise the model or qualify the conclusion when a pattern
-   remains.
+The practical now applies this workflow to a distinct dataset of repeated tree
+heights. It fits complete pooling, no pooling, and partial pooling models in
+RTMB, while letting RTMB perform the marginalisation.
 
 # Chapter quiz
 
-:::: {.callout-important title="Question 1: the missing component"}
-You have written $m(x)=ax/(b+x)$ and plotted it over the data. What must
-you add before calculating a likelihood?
+:::: {.callout-important title="Question 1: units"}
+What is the observational unit and what is the grouping unit in the light data?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-Specify a distribution for observations around the curve, its remaining
-parameters, and the dependence assumptions for the observational units.
+An observational unit is one net-photosynthesis measurement at one light
+intensity on a leaf. A grouping unit is one leaf, which contributes repeated
+measurements.
 :::
 ::::
 
-:::: {.callout-important title="Question 2: a positive parameter"}
-Why might you estimate $\log b$ rather than $b$ directly? On which scale
-should the final ecological interval be reported?
+:::: {.callout-important title="Question 2: pooling"}
+How do complete pooling, no pooling, and partial pooling differ?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-Exponentiating an unconstrained estimate keeps $b$ positive. Calculate
-the interval consistently on the fitted scale, then transform its
-endpoints back to the units of the predictor.
+Complete pooling uses one common curve. No pooling estimates a separate leaf
+intercept without sharing information between those intercepts. Partial pooling
+models leaf deviations from a common intercept with an estimated variance.
 :::
 ::::
 
-:::: {.callout-important title="Question 3: comparing models"}
-Two models use different subsets of rows because only one removed
-missing responses. Can their AIC values be compared as calculated?
+:::: {.callout-important title="Question 3: shrinkage"}
+Does shrinkage show that a leaf is the same as the population mean?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-No. Fit both to the same observed responses and rows before comparing
-their AIC values.
+No. It reflects the compromise between a leaf's data and the estimated
+among-leaf distribution, especially when the leaf provides limited information.
 :::
 ::::
 
-:::: {.callout-important title="Question 4: held-out prediction"}
-Why must an observation held out in cross-validation be absent from
-*every* estimation step for its fold?
+:::: {.callout-important title="Question 4: two variances"}
+What do $\sigma^2_{\mathrm{leaf}}$ and $\sigma^2_{\mathrm{obs}}$ describe?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-Using it to choose parameters or dispersion would let information from
-the assessment observation influence its own prediction.
+The first describes variation in leaf deviations around the common curve. The
+second describes measurement-to-measurement variation around a leaf's curve.
 :::
 ::::
 
-:::: {.callout-important title="Question 5: scaled residuals"}
-A residual plot slopes upwards as the predictor increases. What can you
-conclude, and what can you not conclude?
+:::: {.callout-important title="Question 5: marginal likelihood"}
+What is integrated over in the marginal likelihood for one leaf?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-The simulated model does not reproduce how the observations change with
-the predictor. The plot alone does not identify which assumption or
-ecological process caused that pattern.
+All possible unobserved values of that leaf's deviation are integrated over,
+with their compatibility with the observations and group distribution included.
 :::
 ::::
 
-:::: {.callout-important title="Question 6: coverage"}
-What must be known to estimate a confidence interval's coverage in a
-simulation study, and why is this unavailable for an ordinary dataset?
+:::: {.callout-important title="Question 6: Laplace approximation"}
+What is the main intuition behind Laplace approximation?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-We must know the fixed generating parameter and repeat sampling and
-interval construction. The generating parameter is unknown in an
-ordinary dataset.
+It approximates the log integrand near its important peak by a quadratic, then
+uses the area of the resulting normal-shaped peak to approximate the integral.
 :::
 ::::
 
-:::: {.callout-important title="Question 7: choosing RTMB"}
-What does RTMB provide to the optimiser, and why might a response curve
-with an unknown sharp threshold need extra care?
+:::: {.callout-important title="Question 7: RTMB"}
+What does `random = "u"` mean in `MakeADFun()`?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-RTMB supplies derivatives of the recorded likelihood calculation.
-At a sharp threshold the derivative may be undefined, and a branch
-chosen according to a parameter may not be recorded as intended.
-Check the R objective and consider a smooth curve or a different
-fitting strategy for that model.
+It tells RTMB to treat `u` as random effects and calculate a marginal objective
+by integrating them out with Laplace approximation.
 :::
 ::::

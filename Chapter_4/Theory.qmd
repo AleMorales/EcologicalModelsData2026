@@ -1,1741 +1,934 @@
 ---
-title: "From samples to estimates"
+title: "Maximum likelihood and likelihood-based inference"
+format:
+  html:
+    toc: true
+    number-sections: true
+execute:
+  echo: true
+  warning: false
+  message: false
+  eval: false
 ---
-
-```{r}
-#| include: false
-# Load ggplot2 for the consistently formatted rendered figures in this chapter.
-library(ggplot2)
-```
 
 # Introduction
 
-In this chapter, we learn how to relate samples of data to probability distributions and how
-to use a sample to estimate the parameters of a model. In
-[Chapter 2](../Chapter_2/Theory.qmd) we chose the parameters of a distribution and
-calculated probabilities, quantiles and expectations from them. In research we face the
-reverse problem: we have a limited sample of observations and we want to learn about the
-parameters of the model that we use to describe them.
+In this chapter, we learn how to use maximum likelihood to estimate unknown
+parameters in ecological probability models and describe uncertainty from the
+likelihood. In [Chapter 3](../Chapter_3/Theory.qmd#sec-estimates), we
+estimated the mean number of seedlings per quadrat by matching a sample mean
+to the mean of a Poisson model. But the model tells us more than its mean: it
+assigns a probability to every possible count. Can we use that information to
+estimate the unknown mean?
 
-The chapter has two parts. First we look at how samples and distributions are related,
-through relative frequencies and the empirical distribution of a sample, both for counts
-and for continuous measurements. We then define estimators and study how their estimates
-vary across repeated samples, which leads to standard errors and confidence intervals. The
-first part continues with the Binomial model of seed survival from Chapter 2. The second
-part uses a Poisson model for counts of seedlings and a Normal model for tree heights. Most
-of the data in this chapter are simulated, because in a simulation we know the parameters
-that generated each sample and we can compare the estimates with them.
+We will answer this question using **maximum likelihood estimation** (MLE).
+We will first calculate likelihoods for a few counts by hand. Then we will
+use R to fit the same model to a larger sample. Tree heights will show what
+changes when a model has two parameters, and negative binomial counts will
+bring the steps together. All data in this chapter are illustrative or
+simulated; they are not field observations.
 
 # Learning goals
 
-In this chapter, we will cover:
+After studying this chapter, you should be able to:
 
-- how samples and distributions are related (relative frequencies and the empirical
-  distribution);
-- histograms, density estimates and empirical cumulative distributions for continuous
-  measurements;
-- parameters, estimators and estimates;
-- the method of moments;
-- the sampling distribution of an estimator, its bias, variance and mean squared error;
-- standard errors;
-- confidence intervals and their coverage;
-- consistency and asymptotic normality.
+- distinguish probability from likelihood and calculate a likelihood and
+  log-likelihood for a small sample by hand;
+- construct a log-likelihood from independent probability masses or densities;
+- find a maximum likelihood estimate from a likelihood curve or with
+  `optim()`, including a transformation for a constrained parameter;
+- describe finite-sample behaviour, consistency, asymptotic normality,
+  asymptotic efficiency, and invariance of maximum likelihood estimators;
+- interpret a two-parameter likelihood surface, a slice, and a profile;
+- calculate and interpret approximate quadratic confidence intervals
+  using a Hessian and profile likelihood confidence intervals;
+- compare these intervals and check whether a fitted ecological model
+  describes the data reasonably.
 
-We will use the Binomial, Poisson and Normal distributions throughout the chapter. They are
-described in the [Supplement](../Supplements/distributions.qmd).
+# From a probability model to a likelihood {#sec-likelihood}
 
-# Samples and distributions {#sec-samples}
+Likelihood uses a probability model for a different question from probability
+itself. After observing data, we hold those observations fixed and compare how
+well different candidate parameter values describe them. We now apply that
+idea to seedling counts.
 
-So far we have been working with mathematical models: we calculate probabilities and
-expectations of distributions. But in research we collect limited, often noisy, samples of
-data and want to generalise from these observations to the broader context in which they
-were collected. As discussed in Chapter 1, we use statistical models as approximations for the
-data generating process. This means that we treat the observations from our experiments as
-if they were random samples from our statistical model. In this section we learn in more
-detail about this relationship as it will be the basis for the rest of this
-chapter.
-
-For example, we might want to learn about seed survival across a restoration site while observing
-only some quadrats. We cannot quietly turn those observed quadrats into a claim about the whole
-site. To make that connection, we need assumptions about how quadrats were selected and how their
-counts vary from quadrat to quadrat. We model this data generating process with a distribution
-that is (at least qualitatively) compatible with that process.
-
-## From frequency to probability
-
-For a sample of counts, the **relative frequency** of a value is the number of times it appears
-divided by the sample size. Let's simulate ten quadrats from the Binomial model of seed survival used
-in [Chapter 2](../Chapter_2/Theory.qmd#sec-four_faces) (four seeds per quadrat, each surviving with probability 0.4):
-
-```{r}
-# Parameters of the Binomial model of seed survival used in Chapter 2.
-seed_count = 4
-seed_survival_probability = 0.4
-# Simulate ten quadrats from the Binomial model.
-set.seed(seed = 123)
-n_quadrats = 10
-sample_survivors = rbinom(
-  n = n_quadrats,
-  size = seed_count,
-  prob = seed_survival_probability
-)
-```
-
-`table()` counts how often each value appears. Divide by the number of quadrats to
-calculate relative frequencies:
-
-```{r}
-# Count each possible value and divide by the sample size.
-seed_values = seq.int(from = 0, to = seed_count)
-count_survivors = table(factor(x = sample_survivors, levels = seed_values))
-relative_frequency = count_survivors / length(sample_survivors)
-relative_frequency
-```
-
-Some possible counts may be absent from a small sample. Setting all possible
-values as `factor()` levels makes `table()` include those counts with frequency zero.
-
-The relative frequencies lie between zero and one and sum to one. Compare them
-with the probabilities predicted by the Binomial model that we use to approximate the
-data generating process:
-
-```{r}
-# Put the sample frequencies beside the model probabilities for comparison.
-data.frame(
-  seed_count = seed_values,
-  relative_frequency = as.numeric(x = relative_frequency),
-  probability = dbinom(
-    x = seed_values,
-    size = seed_count,
-    prob = seed_survival_probability
-  )
-)
-```
-
-The two columns differ because the sample contains only ten quadrats. That is not a failure
-of the model: it is what sampling variation looks like. For small sample sizes, the relative
-frequencies and model probabilities can differ greatly. However, for independent and identically
-distributed (i.i.d.) observations, the relative frequency of each count approaches its model
-probability as sample size grows. This is an application of the **weak law of large numbers**.
-
-For example, let $I_i=1$ when the $i$th quadrat has exactly three surviving seeds and
-$I_i=0$ otherwise. The relative frequency of three survivors is
-$\bar{I}_n=(I_1+\cdots+I_n)/n$. For any positive margin $\varepsilon$,
+Suppose $X_i$ is the number of seedlings in equal-area quadrat $i$. We assume
+the quadrat counts are independent and have a common Poisson mean $\lambda$,
+measured in seedlings per quadrat:
 
 $$
-\lim_{n \to \infty}
-P\left(\left|\bar{I}_n - P(X=3)\right| \ge \varepsilon\right)=0.
+X_i \sim \operatorname{Poisson}(\lambda).
 $$
 
-In plain English, as $n$ grows, the chance that the relative frequency differs from the
-model probability by at least $\varepsilon$ becomes small. There are two probabilities here:
-the probability assigned to a count by the model, and the probability of seeing a
-relative frequency that is far from the model one. This convergence is
-not deterministic: a larger realised sample need not be closer to the model probability
-than every smaller realised sample.
+The [Poisson model](../Supplements/distributions.qmd#sec-poisson)
+assigns probability
 
-::: {.callout-note title="Frequencies converge to probabilities"}
-For independent observations from the same distribution, the relative frequency of any
-specified value converges in probability to its probability mass as sample size grows.
+$$
+P(X_i=x_i\mid\lambda)
+=\frac{e^{-\lambda}\lambda^{x_i}}{x_i!}
+$$
+
+to one possible count $x_i$. If $\lambda$ is fixed, we can ask how probable
+different counts are. Once the counts have been observed, we can hold
+those counts fixed and compare candidate values of $\lambda$.
+
+::: {.callout-note title="Likelihood"}
+The **likelihood** $L(\lambda\mid x_1,\ldots,x_n)$ is the joint
+probability of the observed discrete data, viewed as a function of
+$\lambda$. For continuous data, it uses joint density instead.
+The data are fixed while the parameter varies.
 :::
 
-We can push the simulation further and compare relative frequencies at sample sizes
-from 10 to 100,000 to see this convergence in action:
+For independent quadrats, multiply the contribution from each count:
 
-```{r}
-# Compare relative frequencies for several sample sizes with the model.
-set.seed(123)
-sample_sizes = 10^(seq_len(length.out = 5))
-seed_values = seq.int(from = 0, to = seed_count)
+$$
+L(\lambda\mid x_1,\ldots,x_n)
+=\prod_{i=1}^{n}P(X_i=x_i\mid\lambda).
+$$
 
-all_frequencies = matrix(NA, nrow = length(seed_values),
-                         ncol = length(sample_sizes) + 1)
-colnames(all_frequencies) = c(as.character(sample_sizes), "theory")
+Independence is an assumption that permits this product. Separate
+quadrats can still share conditions that make their counts dependent.
 
-for (i in seq_along(sample_sizes)) {
-  sample_survivors = rbinom(
-    n = sample_sizes[i],
-    size = seed_count,
-    prob = seed_survival_probability
-  )
-  count_survivors = table(factor(
-    x = sample_survivors,
-    levels = seed_values
-  ))
-  all_frequencies[, i] = as.numeric(count_survivors) / sample_sizes[i]
-}
-all_frequencies[, length(sample_sizes) + 1] = dbinom(
-  x = seed_values,
-  size = seed_count,
-  prob = seed_survival_probability
-)
-round(all_frequencies, 3)
+## Calculate a likelihood by hand
+
+Consider the illustrative counts $x_1=1$, $x_2=2$, and $x_3=3$. For a
+candidate mean of one seedling per quadrat,
+
+$$
+\begin{aligned}
+L(1\mid 1,2,3)
+&=P(X_1=1\mid1)P(X_2=2\mid1)P(X_3=3\mid1)\\
+&=\frac{e^{-1}1^1}{1!}
+  \frac{e^{-1}1^2}{2!}
+  \frac{e^{-1}1^3}{3!}\\
+&=\frac{e^{-3}}{12}\approx 0.00415.
+\end{aligned}
+$$
+
+For a candidate mean of two seedlings per quadrat, the same *observed*
+counts give
+
+$$
+L(2\mid1,2,3)
+=\frac{e^{-6}2^{1+2+3}}{1!\,2!\,3!}
+=\frac{64e^{-6}}{12}
+\approx 0.01322.
+$$
+
+The counts are more likely under $\lambda=2$ than under $\lambda=1$.
+This comparison does not give the probability that either value of
+$\lambda$ is true.
+
+::: {.callout-warning title="Likelihood is not probability for the parameter"}
+Likelihood compares parameter values using fixed data. It need not
+integrate to one over parameter values, and $L(2\mid1,2,3)$ is not the
+probability that $\lambda=2$.
+:::
+
+## Add logs rather than multiply
+
+Products of many small contributions can become too small for a computer
+to represent. The **log-likelihood** turns the product into a sum:
+
+$$
+\ell(\lambda)
+=\log L(\lambda)
+=\sum_{i=1}^{n}\log P(X_i=x_i\mid\lambda).
+$$
+
+For our three counts, substitute into the Poisson formula:
+
+$$
+\begin{aligned}
+\ell(\lambda\mid1,2,3)
+&=\sum_{i=1}^{3}
+  [-\lambda+x_i\log\lambda-\log(x_i!)]\\
+&=-3\lambda+6\log\lambda-\log(12).
+\end{aligned}
+$$
+
+Hence $\ell(1)=-3-\log(12)\approx-5.485$ and
+$\ell(2)=-6+6\log(2)-\log(12)\approx-4.326$.
+The larger log-likelihood again belongs to $\lambda=2$. Logarithms
+preserve the ordering, so likelihood and log-likelihood have the same
+maximum. A negative log-likelihood is ordinary: it is the logarithm
+of a joint probability smaller than one.
+
+In R, `log = TRUE` asks `dpois()` for each log probability. Sum these
+values directly rather than taking the logarithm of a product:
+
+```r
+# Store the observed counts and calculate their log-likelihoods.
+counts = c(1, 2, 3)
+sum(dpois(x = counts, lambda = 1, log = TRUE))
+sum(dpois(x = counts, lambda = 2, log = TRUE))
 ```
 
-One sequence of samples cannot show convergence directly. For example, the relative frequency
-of three surviving seeds at 10,000 quadrats can happen to be closer to the model probability
-than its value at 100,000 quadrats. To show what usually changes with sample size, repeat the
-simulation 100 times at each size. This is shown in @fig-relative-frequency-convergence.
-At small sample sizes, the repeated relative frequencies cover a wide range. As the sample
-size grows, the relative frequencies concentrate around the probabilities of the model.
-Individual samples can still generate values far from the line, but large deviations become
-less likely.
+:::: {.callout-important title="Practice: a likelihood on paper"}
 
-```{r}
-#| echo: false
-#| eval: true
-#| label: fig-relative-frequency-convergence
-#| fig-cap: "Relative frequencies of exactly three surviving seeds for simulated samples of different sizes. The horizontal line is the probability assigned by the Binomial distribution."
-# Repeatedly simulate samples and retain the relative frequency of three survivors.
-set.seed(seed = 20261003)
-seed_count = 4
-seed_survival_probability = 0.4
-target_count = 3
-sample_sizes = 10^(seq_len(length.out = 5))
-n_repetitions = 100
-
-repeated_frequencies = data.frame(
-  sample_size = numeric(),
-  relative_frequency = numeric()
-)
-
-for (sample_size in sample_sizes) {
-  relative_frequency = numeric(length = n_repetitions)
-
-  for (repetition in seq_len(n_repetitions)) {
-    sample_survivors = rbinom(
-      n = sample_size,
-      size = seed_count,
-      prob = seed_survival_probability
-    )
-    relative_frequency[repetition] = mean(sample_survivors == target_count)
-  }
-
-  repeated_frequencies = rbind(
-    repeated_frequencies,
-    data.frame(
-      sample_size = sample_size,
-      relative_frequency = relative_frequency
-    )
-  )
-}
-
-# Calculate the model probability that the figure uses as a reference line.
-probability = dbinom(
-  x = target_count,
-  size = seed_count,
-  prob = seed_survival_probability
-)
-
-ggplot(
-  repeated_frequencies,
-  aes(
-    x = sample_size,
-    y = relative_frequency,
-    group = sample_size
-  )
-) +
-  geom_point(colour = "grey40",
-             position = position_jitter(width = 0.05, height = 0.005)) +
-  geom_hline(
-    yintercept = probability,
-    colour = "#D55E00",
-    linewidth = 0.8
-  ) +
-  scale_x_log10(
-    breaks = sample_sizes,
-    labels = c("10", "100", "1,000", "10,000", "100,000")
-  ) +
-  labs(
-    x = "Sample size (log10 scale)",
-    y = "Relative frequency of three surviving seeds"
-  ) +
-  theme_classic()
-```
-
-:::: {.callout-important title="Practice: fruit-set frequency"}
-In a sample of 24 tagged orchid flowers, 15 set fruit. Calculate the relative frequency
-of fruit set. Explain what this value estimates and why it need not equal the model
-fruit-set probability exactly.
+Three other quadrats contain 0, 1, and 2 seedlings. Without R, write
+the three Poisson probability contributions, their product, and the
+log-likelihood. Evaluate both at $\lambda=1$ and $\lambda=2$ with a
+calculator. Which candidate has greater likelihood?
 
 ::: {.callout-tip title="Solution" collapse="true"}
 
-The relative frequency is $15/24=0.625$. It is not equal to the probability assigned by the
-model to that count, but it is probably not too different for a sample of 24.
-:::
-::::
-
-## Empirical distribution
-
-Because of this relationship between the relative frequencies and probabilities, we often
-define the **empirical distribution** of a sample. This is a procedure where we assign each
-observed count its relative frequency and we treat it as if it were a probability mass
-function (@fig-ecdf). In principle it is just a way to tabulate a (potentially long) collection of
-observations, but we will see that this also facilitates calculating properties of a sample
-such as quantiles or expectations that we can relate to the equivalent properties of the
-model.
-
-::: {.callout-note title="Empirical distribution"}
-A distribution whose mass at each count equals the relative frequency in the sample.
-:::
-
-The empirical distribution is also important because, generally speaking^[this is not a
-formal statistical statement, more of a heuristic derived from experience and common sense,
-to build intuition], a sample whose empirical distribution matches well the model
-distribution will generate reasonable estimates of the model's parameters with relatively
-low uncertainty. In this we would say that the "sample is representative" of the process we
-are trying to model. This is why it is crucial to avoid introducing biases in the way we
-collect data from experiment (motivating procedures such as randomisation).
-
-Like any distribution, an empirical distribution has a cumulative function: the fraction
-of observations at or below each count. When comparing the empirical and model cumulative
-probability functions, we often use step-plots, which easily allow both functions side by
-side (@fig-ecdf). These types of visualisations are useful if you want to compare how well a
-distribution matches a given sample of data (i.e., we want to test if a sample of observations
-could be treated as a random sample from a given distribution). We will expand on this notion
-in later chapters.
-
-```{r}
-#| echo: false
-#| eval: true
-#| fig-width: 9
-#| fig-height: 4
-#| label: fig-ecdf
-#| fig-cap: "Empirical and model distribution for a sample of ten quadrats in the example on seed survival."
-# Simulate a sample and calculate its empirical distribution.
-set.seed(142)
-seed_count = 4
-seed_survival_probability = 0.4
-n_quadrats = 10
-seed_values = seq.int(from = 0, to = seed_count)
-model_mass = dbinom(
-  x = seed_values, size = seed_count, prob = seed_survival_probability
-)
-model_cumulative = pbinom(
-  q = seed_values, size = seed_count, prob = seed_survival_probability
-)
-sample_survivors = rbinom(
-  n = n_quadrats, size = seed_count, prob = seed_survival_probability
-)
-count_survivors = table(factor(x = sample_survivors, levels = seed_values))
-relative_frequency = as.numeric(count_survivors) / n_quadrats
-cumulative_relative_frequency = cumsum(relative_frequency)
-
-model_comparison_data = rbind(
-  data.frame(
-    surviving_seeds = seed_values,
-    value = model_mass,
-    quantity = "Probability mass",
-    series = "Model"
-  ),
-  data.frame(
-    surviving_seeds = seed_values,
-    value = relative_frequency,
-    quantity = "Probability mass",
-    series = "Sample"
-  ),
-  data.frame(
-    surviving_seeds = seed_values,
-    value = model_cumulative,
-    quantity = "Cumulative probability",
-    series = "Model"
-  ),
-  data.frame(
-    surviving_seeds = seed_values,
-    value = cumulative_relative_frequency,
-    quantity = "Cumulative probability",
-    series = "Sample"
-  )
-)
-model_comparison_data$quantity = factor(
-  model_comparison_data$quantity,
-  levels = c("Probability mass", "Cumulative probability")
-)
-
-# Use different geometries as well as colours to distinguish the model and sample.
-ggplot() +
-  geom_linerange(
-    data = subset(
-      model_comparison_data,
-      quantity == "Probability mass" & series == "Model"
-    ),
-    aes(x = surviving_seeds, ymin = 0, ymax = value, colour = series),
-    linewidth = 0.8
-  ) +
-  geom_point(
-    data = subset(
-      model_comparison_data,
-      quantity == "Probability mass" & series == "Sample"
-    ),
-    aes(x = surviving_seeds, y = value, colour = series),
-    alpha = 0.7,
-    size = 2
-  ) +
-  geom_step(
-    data = subset(model_comparison_data, quantity == "Cumulative probability"),
-    aes(x = surviving_seeds, y = value, colour = series, linetype = series),
-    direction = "hv",
-    linewidth = 0.8
-  ) +
-  facet_wrap(~quantity, nrow = 1, scales = "free_y") +
-  scale_colour_manual(values = c(Model = "#D55E00", Sample = "#0072B2")) +
-  scale_linetype_manual(values = c(Model = "solid", Sample = "dashed")) +
-  scale_x_continuous(breaks = seed_values) +
-  labs(
-    x = "Surviving seeds per quadrat",
-    y = "Probability or relative frequency",
-    colour = NULL,
-    linetype = NULL
-  ) +
-  theme_classic()
-```
-
-### Mean, variance and quantiles of a data sample
-
-Just like for any probability distribution described in
-[Chapter 2](../Chapter_2/Theory.qmd#sec-expectations), we can compute
-expectations such as means and variances from an empirical distribution, as well as quantiles
-by inverting the empirical cumulative distribution. We will simply replace probabilities in
-the formulae by relative frequencies of the sample.
-
-Note that, strictly speaking, a data sample is just a collection of values. It does not have
-a mean or a variance; those are properties of distributions. However, language in applied
-statistics is often used lazily and inconsistently, which can lead to a lot of confusion.
-Whenever we say *sample mean* or *sample variance* we actually imply the mean or variance of
-the empirical distribution (but see below that the variance of a sample is an even more
-confusing term).
-
-It is trivial to see that the mean of the empirical distribution equals the arithmetic
-mean of the sample:
-
-```{r}
-# Simulate a small sample and calculate its weighted and ordinary means.
-set.seed(123)
-n_quadrats = 10
-seed_count = 4
-seed_survival_probability = 0.4
-seed_values = seq.int(from = 0, to = seed_count)
-sample_survivors = rbinom(
-  n = n_quadrats, size = seed_count, prob = seed_survival_probability
-)
-count_survivors = table(factor(x = sample_survivors, levels = seed_values))
-relative_frequency = as.numeric(count_survivors) / n_quadrats
-weighted_average = sum(relative_frequency * seed_values)
-sample_mean = mean(sample_survivors)
-c(weighted_average, sample_mean)
-```
-
-However, the variance of the empirical distribution is not exactly the same as what we normally
-call *sample variance*:
-
-```{r}
-# Calculate the variance of the empirical distribution
-empirical_variance = sum((seed_values - weighted_average)^2 * relative_frequency)
-sample_variance = var(sample_survivors)
-c(empirical_variance, sample_variance)
-```
-
-It turns out that what most people call sample variance is actually a statistical estimator
-of the variance of the model distribution (i.e., in this case the variance of the Binomial
-distribution), which is a completely different concept. For reasons that will become clear in
-@sec-two_parameters, this
-variance is calculated with a different formula^[To make matters worse, many individuals will
-claim dogmatically that this second way of calculating the sample variance is the correct one,
-without realising what the differences are between the two. Unfortunately, this type of
-confusion and misunderstanding from sloppy use of language is very common in applied
-statistics... And this has also polluted AI chatbots, so sometimes trying to understand
-proper statistics becomes a very uphill battle.].
-
-A quantile from the empirical distribution can be derived from the `quantile()` function. Note
-that when dealing with discrete data you need to use `type = 1` as an argument. For example,
-if we calculate the quantile for a cumulative probability of 0.5 (i.e. the median) it will
-return the smallest observed count whose empirical cumulative probability reaches $0.5$:
-
-```{r}
-# Use type = 1 so the empirical quantile is one of the observed counts.
-quantile(x = sample_survivors, probs = 0.5, type = 1)
-```
-
-The function `quantile()` appears in many areas of statistics, and there are up to nine different
-ways of computing it in R. So the purpose for which we calculate the quantile really matters.
-
-### Asymptotic convergence of the empirical distribution
-
-::: {.callout-note title="Asymptotic convergence of empirical distribution"}
-For independent observations from the same fixed distribution, the empirical
-probability mass function converges to the model probability mass function as sample size
-grows towards infinity. All the moments (means, variances, and others), as well as all
-quantiles from the empirical distribution, will also converge to their equivalent values
-in the model. With bounded counts, as in our Binomial example, the empirical mean and
-variance also converge to the values in the model. A finite sample can sometimes agree
-exactly; agreement is not guaranteed at any finite size.
-:::
-
-By defining the empirical distribution we can now better understand how samples and
-distributions are related. That is, a collection of observations can be treated as a random
-sample from a model if the empirical distribution converges to that model as sample size
-increases. This does not imply that the observations are actual random samples from some
-mathematical stochastic representation; it simply means that we have modelled the variation
-across different observations correctly.
-
-Note that in practice we can never verify this relationship as we will never have infinite
-samples and for any finite size there can be deviations. But it does mean that the larger the
-sample, the better we can judge if we have a good model (@fig-ecdf-binom). Also, larger
-samples are more **stable**, meaning that there will be less variation across repeated samples,
-which will increase our confidence (reduce our uncertainty) in the results (we cover this
-in more detail in @sec-sampling_distribution).
-
-```{r}
-#| echo: false
-#| eval: true
-#| label: fig-ecdf-binom
-#| fig-width: 9
-#| fig-height: 8
-#| fig-cap: "Model probabilities and sample frequencies for 10 quadrats (top) and 1,000 quadrats (bottom)."
-# Compare empirical distributions at two sample sizes.
-set.seed(142)
-seed_count = 4
-seed_survival_probability = 0.4
-seed_values = seq.int(from = 0, to = seed_count)
-sample_sizes = c(10, 1000)
-model_mass = dbinom(
-  x = seed_values, size = seed_count, prob = seed_survival_probability
-)
-model_cumulative = pbinom(
-  q = seed_values, size = seed_count, prob = seed_survival_probability
-)
-
-# Store the model and empirical summaries for both sample sizes before plotting.
-sample_comparison_data = data.frame()
-for (n_quadrats in sample_sizes) {
-  sample_survivors = rbinom(
-    n = n_quadrats, size = seed_count, prob = seed_survival_probability
-  )
-  count_survivors = table(factor(x = sample_survivors, levels = seed_values))
-  relative_frequency = as.numeric(count_survivors) / n_quadrats
-  cumulative_relative_frequency = cumsum(relative_frequency)
-
-  sample_size_label = paste(format(n_quadrats, big.mark = ","), "quadrats")
-  sample_comparison_data = rbind(
-    sample_comparison_data,
-    data.frame(
-      surviving_seeds = seed_values,
-      value = model_mass,
-      quantity = "Probability mass",
-      series = "Model",
-      sample_size = sample_size_label
-    ),
-    data.frame(
-      surviving_seeds = seed_values,
-      value = relative_frequency,
-      quantity = "Probability mass",
-      series = "Sample",
-      sample_size = sample_size_label
-    ),
-    data.frame(
-      surviving_seeds = seed_values,
-      value = model_cumulative,
-      quantity = "Cumulative probability",
-      series = "Model",
-      sample_size = sample_size_label
-    ),
-    data.frame(
-      surviving_seeds = seed_values,
-      value = cumulative_relative_frequency,
-      quantity = "Cumulative probability",
-      series = "Sample",
-      sample_size = sample_size_label
-    )
-  )
-}
-
-sample_comparison_data$sample_size = factor(
-  sample_comparison_data$sample_size,
-  levels = c("10 quadrats", "1,000 quadrats")
-)
-sample_comparison_data$quantity = factor(
-  sample_comparison_data$quantity,
-  levels = c("Probability mass", "Cumulative probability")
-)
-
-# Compare each empirical distribution with the same model using matching panels.
-ggplot() +
-  geom_linerange(
-    data = subset(
-      sample_comparison_data,
-      quantity == "Probability mass" & series == "Model"
-    ),
-    aes(x = surviving_seeds, ymin = 0, ymax = value, colour = series),
-    linewidth = 0.8
-  ) +
-  geom_point(
-    data = subset(
-      sample_comparison_data,
-      quantity == "Probability mass" & series == "Sample"
-    ),
-    aes(x = surviving_seeds, y = value, colour = series),
-    alpha = 0.7,
-    size = 2
-  ) +
-  geom_step(
-    data = subset(sample_comparison_data, quantity == "Cumulative probability"),
-    aes(x = surviving_seeds, y = value, colour = series, linetype = series),
-    direction = "hv",
-    linewidth = 0.8
-  ) +
-  facet_grid(sample_size ~ quantity, scales = "free_y") +
-  scale_colour_manual(values = c(Model = "#D55E00", Sample = "#0072B2")) +
-  scale_linetype_manual(values = c(Model = "solid", Sample = "dashed")) +
-  scale_x_continuous(breaks = seed_values) +
-  labs(
-    x = "Surviving seeds per quadrat",
-    y = "Probability or relative frequency",
-    colour = NULL,
-    linetype = NULL
-  ) +
-  theme_bw() + theme(panel.grid = element_blank())
-```
-
-:::: {.callout-important title="Practice: orchid flowering across plots"}
-
-Suppose each restoration plot contains 12 orchid plants. Each plant flowers with
-probability 0.25, independently of the others. Let $X$ be the number of flowering
-plants in a plot. This is a Binomial model. Simulate counts for 12 plots and for 500
-plots. For each sample, calculate the empirical mean and plot the empirical mass function.
-Compare both distributions with the model probability mass function. What changes in
-the result from the larger sample? How much can you rely on a single simulation?
-
-::: {.callout-tip title="Solution" collapse="true"}
-
-One possible simulation is:
-
-```{r}
-# Simulate the two sample sizes and compare each with the same model.
-set.seed(246)
-
-plants_per_plot = 12
-flowering_probability = 0.25
-
-small_plot_counts = rbinom(
-  n = 12,
-  size = plants_per_plot,
-  prob = flowering_probability
-)
-large_plot_counts = rbinom(
-  n = 500,
-  size = plants_per_plot,
-  prob = flowering_probability
-)
-
-mean(small_plot_counts)
-mean(large_plot_counts)
-
-count_values = seq.int(from = 0, to = plants_per_plot)
-small_plot_table = table(factor(
-  x = small_plot_counts,
-  levels = count_values
-))
-large_plot_table = table(factor(
-  x = large_plot_counts,
-  levels = count_values
-))
-
-small_frequency = as.numeric(small_plot_table) / length(small_plot_counts)
-large_frequency = as.numeric(large_plot_table) / length(large_plot_counts)
-model_mass = dbinom(
-  x = count_values,
-  size = plants_per_plot,
-  prob = flowering_probability
-)
-
-small_frequency_data = data.frame(
-  flowering_plants = count_values,
-  probability = small_frequency,
-  series = "12 plots"
-)
-large_frequency_data = data.frame(
-  flowering_plants = count_values,
-  probability = large_frequency,
-  series = "500 plots"
-)
-model_mass_data = data.frame(
-  flowering_plants = count_values,
-  probability = model_mass,
-  series = "Binomial model"
-)
-
-# Use bars for one empirical distribution, points for the other, and lines for the model.
-# Set common axis limits
-all_probabilities = c(
-  small_frequency_data$probability,
-  large_frequency_data$probability,
-  model_mass_data$probability
-)
-
-plot(
-  NA,
-  xlim = range(count_values),
-  ylim = c(0, max(all_probabilities)),
-  xaxt = "n",
-  xlab = "Flowering plants per plot",
-  ylab = "Probability or relative frequency"
-)
-
-axis(1, at = count_values)
-
-# Draw bars for the small empirical distribution
-with(
-  small_frequency_data,
-  rect(
-    flowering_plants - 0.35,
-    0,
-    flowering_plants + 0.35,
-    probability,
-    col = "grey",
-    border = 1
-  )
-)
-
-# Add points for the large empirical distribution
-with(
-  large_frequency_data,
-  points(
-    flowering_plants,
-    probability,
-    pch = 16,
-    col = 2
-  )
-)
-
-# Add vertical lines for the model distribution
-with(
-  model_mass_data,
-  segments(
-    flowering_plants,
-    0,
-    flowering_plants,
-    probability,
-    col = 3
-  )
-)
-
-# Add one legend for all three series
-legend(
-  "topright",
-  legend = c("12 plots", "500 plots", "Binomial model"),
-  col = c(1, 2, 3),
-  fill = c("grey", NA, NA),
-  border = c(1, NA, NA),
-  pch = c(NA, 16, NA),
-  lty = c(0, 0, 1)
-)
-```
-
-The larger sample will generally give a more stable empirical distribution and mean
-closer to the values in the model. A particular simulation need not be closer in every
-summary, and the empirical distribution need not exactly match the model.
+For these counts,
+$L(\lambda)=e^{-3\lambda}\lambda^{0+1+2}/(0!\,1!\,2!)
+=e^{-3\lambda}\lambda^3/2$ and
+$\ell(\lambda)=-3\lambda+3\log\lambda-\log2$.
+At $\lambda=1$, the likelihood is $e^{-3}/2\approx0.02489$ and
+the log-likelihood is approximately $-3.693$.
+At $\lambda=2$, they are $4e^{-6}\approx0.009915$ and
+$-6+2\log2\approx-4.614$. Among these candidates, $\lambda=1$ fits
+the fixed counts better.
 
 :::
 ::::
 
-## Samples of continuous measurements {#sec-continuous_samples}
+For a continuous model, the same multiplication and log-sum steps use
+**density** values. As [Chapter 2](../Chapter_2/Theory.qmd#sec-continuous_measurements)
+explains, a density at an exact height is not a probability of that
+exact height.
 
-The relationship between samples and distributions is the same for continuous measurements,
-but the tools to describe a sample need to be adapted. In a sample of continuous values we
-do not expect any value to be repeated, so the relative frequency of every observed value
-is $1/n$ and a table of relative frequencies tells us nothing. We will use the Normal model
-of tree height from [Chapter 2](../Chapter_2/Theory.qmd#sec-continuous_four_faces), with a
-mean of 22 m and a standard deviation of 4 m, to illustrate how to describe a sample of
-continuous data. We simulate the heights of 200 trees from this model:
+# Find the maximum {#sec-maximum-likelihood}
 
-```{r}
-# Simulate the heights (in m) of 200 trees from the Normal model.
-set.seed(seed = 73)
-height_sample = rnorm(n = 200, mean = 22, sd = 4)
-```
-
-A **histogram** is the continuous counterpart of the table of relative frequencies. We
-divide the range of the measurements into intervals (called **bins**) and count the
-observations that fall in each bin. Dividing the count by the sample size gives the relative
-frequency of the bin, which we can compare with the probability that the model assigns to
-that interval. For example, for heights between 20 and 22 m:
-
-```{r}
-# Relative frequency of heights between 20 and 22 m in the sample.
-mean(height_sample > 20 & height_sample <= 22)
-# Probability that the model assigns to the same interval.
-pnorm(q = 22, mean = 22, sd = 4) - pnorm(q = 20, mean = 22, sd = 4)
-```
-
-That is, 39 of the 200 trees are in this bin, a relative frequency of $39/200 = 0.195$,
-and the model probability is approximately $0.191$. As with counts, the weak law of large
-numbers applies to each bin: its relative frequency converges in probability to the model
-probability of the interval as sample size grows.
-
-To compare a histogram with a probability density function we need to scale it in the same
-units. In a **density-scaled histogram** the height of each bar is the relative frequency
-divided by the width of the bin, so that the area of the bar equals the relative frequency
-and the areas of all bars add up to one. For the bin above, the height of the bar is
-$0.195 / 2 = 0.0975$ per metre (middle panel of @fig-histogram_density), which we can compare with the Normal density in the
-middle of the bin (`dnorm(x = 21, mean = 22, sd = 4)` is approximately $0.097$ per metre).
-In R, `hist()` draws a histogram of counts by default and a density-scaled histogram with
-the argument `probability = TRUE`.
-
-The width of the bins is our choice and it changes how the same sample looks
-(@fig-histogram_density). Narrow bins contain few observations each, so the heights of the
-bars vary a lot from bin to bin. Wide bins are more stable, but hide the shape of the
-distribution within each bin. There is no correct bin width; the larger the sample, the
-narrower the bins can be.
-
-A **kernel density estimate** is a smooth alternative to the histogram. Instead of counting
-observations in bins, it places a small smooth curve (the kernel, by default a Normal
-density) on top of every observation and averages these curves. The standard deviation of
-the kernel is called the **bandwidth** and it plays the same role as the bin width: a small
-bandwidth produces a wiggly estimate and a large bandwidth a very smooth one. In R,
-`density()` calculates the kernel density estimate and chooses a bandwidth from the sample:
-
-```{r}
-# Kernel density estimate of the sample; bw is the bandwidth that R chose (in m).
-height_density = density(x = height_sample)
-height_density$bw
-```
-
-Note that a kernel density estimate is calculated from the sample without assuming a
-model, whereas `dnorm()` is the density of the model that we chose. The two curves in
-@fig-histogram_density differ because of sampling variation, even though the sample was
-generated from that model.
-
-```{r}
-#| echo: false
-#| label: fig-histogram_density
-#| fig-width: 10
-#| fig-height: 3.5
-#| fig-cap: "Density-scaled histograms of 200 simulated tree heights with bins of 0.5 m, 2 m and 6 m. The solid line is the density of the Normal model and the dashed line is the kernel density estimate of the sample."
-library(patchwork)
-
-# Density of the model and kernel density estimate of the sample on the same grid.
-height_grid = seq(from = 8, to = 36, length.out = 300)
-model_curve = data.frame(
-  height = height_grid,
-  density = dnorm(x = height_grid, mean = 22, sd = 4)
-)
-kernel_curve = data.frame(height = height_density$x, density = height_density$y)
-height_data = data.frame(height = height_sample)
-
-# Draw one density-scaled histogram for a given bin width.
-plot_histogram = function(bin_width) {
-  ggplot(height_data, aes(x = height)) +
-    geom_histogram(
-      aes(y = after_stat(density)),
-      binwidth = bin_width,
-      boundary = 0,
-      fill = "grey90",
-      colour = "grey40"
-    ) +
-    geom_line(
-      data = model_curve,
-      aes(x = height, y = density),
-      colour = "#D55E00",
-      linewidth = 0.8
-    ) +
-    geom_line(
-      data = kernel_curve,
-      aes(x = height, y = density),
-      colour = "#0072B2",
-      linetype = "dashed",
-      linewidth = 0.8
-    ) +
-    coord_cartesian(xlim = c(8, 36), ylim = c(0, 0.2)) +
-    labs(
-      title = paste("Bin width:", bin_width, "m"),
-      x = "Tree height (m)",
-      y = "Density (per m)"
-    ) +
-    theme_classic()
-}
-
-plot_histogram(bin_width = 0.5) |
-  plot_histogram(bin_width = 2) |
-  plot_histogram(bin_width = 6)
-```
-
-The empirical cumulative distribution needs no adaptation: it is still the fraction of
-observations at or below each value, and it requires neither bins nor a bandwidth. With
-continuous data it increases by $1/n$ at each observed value, whereas the cumulative
-probability function of the model is a smooth curve (@fig-ecdf_normal). In R, `ecdf()`
-returns the empirical cumulative distribution of a sample as a function that we can evaluate
-at any value:
-
-```{r}
-# ecdf() returns a function; evaluate it at a height of 26 m.
-height_ecdf = ecdf(height_sample)
-height_ecdf(26)
-# Cumulative probability of the model at the same height.
-pnorm(q = 26, mean = 22, sd = 4)
-```
-
-So 81% of the simulated trees are at most 26 m tall, while the model assigns a probability
-of approximately $0.84$ to that event. The mean, variance and quantiles of the sample are
-calculated as before (for continuous data the default `type` of `quantile()` is
-appropriate), and the asymptotic convergence described above also holds: the empirical
-cumulative distribution converges to the cumulative probability function of the model as
-sample size grows.
-
-```{r}
-#| echo: false
-#| label: fig-ecdf_normal
-#| fig-cap: "Empirical cumulative distribution of 200 simulated tree heights (dashed steps) and cumulative probability function of the Normal model (solid line)."
-# Cumulative probability of the model on the same grid of heights.
-model_cumulative_curve = data.frame(
-  height = height_grid,
-  cumulative = pnorm(q = height_grid, mean = 22, sd = 4)
-)
-
-ggplot() +
-  geom_line(
-    data = model_cumulative_curve,
-    aes(x = height, y = cumulative, colour = "Model", linetype = "Model"),
-    linewidth = 0.8
-  ) +
-  stat_ecdf(
-    data = height_data,
-    aes(x = height, colour = "Sample", linetype = "Sample"),
-    geom = "step",
-    linewidth = 0.8
-  ) +
-  scale_colour_manual(values = c(Model = "#D55E00", Sample = "#0072B2")) +
-  scale_linetype_manual(values = c(Model = "solid", Sample = "dashed")) +
-  labs(
-    x = "Tree height (m)",
-    y = "Cumulative probability or relative frequency",
-    colour = NULL,
-    linetype = NULL
-  ) +
-  theme_classic()
-```
-
-:::: {.callout-important title="Practice: bins and seeds"}
-
-You simulate 200 tree heights from the Normal model and draw a density-scaled histogram.
-Would a different seed produce the same histogram? Would a different bin width change the
-mean of the sample?
-
-::: {.callout-tip title="Solution" collapse="true"}
-
-A different seed produces a different sample, so the histogram will change (although with
-200 trees its overall shape should remain similar). The bin width only changes how the
-sample is displayed. The values in the sample remain the same and so does their mean.
-
-:::
-::::
-
-# Parameters, estimators and estimates {#sec-estimates}
-
-A **parameter** is a quantity that defines a model distribution, such as the probability
-$p$ of a Binomial distribution or the mean $\mu$ and standard deviation $\sigma$ of a
-Normal distribution. So far we have chosen the values of the parameters ourselves. With
-real data the parameters are unknown and we want to learn about them from a sample. An
-**estimator** is a rule (i.e., a function) that we apply to a sample to calculate a value
-for a parameter. Since we treat the observations as random variables, an estimator is also
-a random variable: a different sample would give a different result. An **estimate** is the
-value that the estimator returns for the sample that we actually observed. We mark
-estimators and estimates with a hat, e.g., $\hat\lambda$ for a parameter $\lambda$.
-
-To illustrate these concepts we will use counts of seedlings in quadrats across a
-restoration site. Let $X_i$ be the number of seedlings in quadrat $i$. We model the counts
-with a [Poisson distribution](../Supplements/distributions.qmd#sec-poisson),
+The **maximum likelihood estimator** is a rule that chooses the
+parameter value with the highest likelihood. Applying it to one sample
+produces a **maximum likelihood estimate**. For the Poisson mean,
 
 $$
-X_i \sim \operatorname{Poisson}(\lambda),
+\hat\lambda_{\mathrm{ML}}
+=\operatorname*{arg\,max}_{\lambda\geq0}\ell(\lambda).
 $$
 
-where $\lambda$ is the expected number of seedlings per quadrat. We assume that the counts
-are i.i.d. (see [Chapter 2](../Chapter_2/Theory.qmd#sec-joint-independence)). That is, all
-quadrats have the same area and the same expected count, and the count in one quadrat does
-not change the probabilities for the others. The parameter $\lambda$ is unknown.
+For independent Poisson counts, the maximum occurs at the sample mean
+$\bar x$. We also reached $\bar x$ by the
+[method of moments in Chapter 3](../Chapter_3/Theory.qmd#sec-estimates).
+The two methods happen to agree for this model; they answer the
+estimation problem in different ways. If all counts are zero, the
+maximum is at the boundary $\lambda=0$.
 
-::: {.callout-note title="Parameter, estimator, and estimate"}
-A **parameter** is a fixed, unknown quantity that defines the model distribution, such as
-$\lambda$. An **estimator** is a rule applied to a random sample, so its result varies
-across samples. An **estimate** is the number obtained by applying that rule to one
-particular sample.
-:::
+Consider a larger illustrative sample from 12 equal-area quadrats:
 
-Suppose that ten quadrats give us the following counts (these are illustrative values, not
-field data):
-
-```{r}
-# Seedling counts from ten illustrative quadrats.
-seedling_counts = c(3, 5, 2, 7, 4, 3, 4, 1, 6, 5)
-# Mean of the sample (seedlings per quadrat).
+```r
+# Store the illustrative counts and calculate their maximum likelihood estimate.
+seedling_counts = c(1, 2, 3, 2, 4, 1, 3, 2, 2, 3, 1, 2)
 mean(seedling_counts)
 ```
 
-The mean of the sample is 4 seedlings per quadrat. As $\lambda$ is the mean of the Poisson
-distribution, the mean of the sample seems a reasonable estimate of $\lambda$. The method
-of moments turns this intuition into a general procedure.
-
-## Method of moments
-
-The **method of moments** constructs estimators by equating expectations of the model
-distribution to the same expectations of the empirical distribution of the sample
-(@sec-samples), and solving the resulting equations for the parameters. The expectations
-that we equate are called **moments**: $E[X]$ is the first moment, $E[X^2]$ the second
-moment, and so on. The justification for the method is the asymptotic convergence of the
-empirical distribution: if the moments of the empirical distribution converge to the
-moments of the model as sample size grows, then a parameter calculated from the former
-should be close to the parameter of the model when the sample is large enough.
-
-For a Poisson distribution the first moment is $E[X_i]=\lambda$. The first moment of the
-empirical distribution is the mean of the $n$ counts in the sample,
-
-$$
-\overline X = \frac{1}{n}\sum_{i=1}^{n}X_i.
-$$
-
-Equating the two gives the method-of-moments estimator of $\lambda$:
-
-$$
-\hat\lambda = \overline X.
-$$
-
-Applied to our ten quadrats, the estimate is $\hat\lambda=4$ seedlings per quadrat. A model
-with two parameters requires two moments, as we will see in @sec-two_parameters.
-
-Maximum likelihood ([Chapter 5](../Chapter_5/Theory.qmd)) is the method of estimation that
-we use in the rest of the course. We start with the method of moments because its
-estimators are short formulae, which makes it easier to study how estimates vary across
-samples. The concepts introduced in the rest of this chapter (sampling distribution,
-standard error and confidence interval) apply to any estimator.
-
-:::: {.callout-important title="Practice: estimate from quadrats"}
-
-A second sample of five quadrats has counts 2, 4, 3, 5, and 1. What are the parameter, the
-estimator, and the estimate under a Poisson model? Give the estimate with its units.
-
-::: {.callout-tip title="Solution" collapse="true"}
-
-The parameter is $\lambda$, the expected number of seedlings per quadrat. The estimator is
-$\hat\lambda=\overline X$. For these five counts, the estimate is $(2+4+3+5+1)/5=3$
-seedlings per quadrat.
-
-:::
-::::
-
-# Sampling distributions {#sec-sampling_distribution}
-
-The **sampling distribution** of an estimator is the distribution of its estimates across
-repeated samples of the same size from the same model. It tells us how much an estimate
-could change if we repeated the study, so we will use it to quantify the uncertainty in an
-estimate (@sec-standard_errors and @sec-confidence_intervals). Note that there are two
-distributions involved. The Poisson distribution describes the variation of the counts
-across individual quadrats. The sampling distribution of $\hat\lambda$ describes the
-variation of the mean of $n$ quadrats across repeated samples.
-
-With real data we only have one sample, so we cannot observe the sampling distribution.
-However, we can approximate it with a simulation, where we choose the parameter of the
-model and generate as many samples as we want. Let's assume a Poisson model with
-$\lambda=4$ and a sample size of 30 quadrats, and repeat the sampling 2,000 times. For each
-sample we calculate the estimate of $\lambda$:
-
-```{r}
-# Parameter of the model, sample size and number of repeated samples.
-set.seed(seed = 401)
-true_lambda = 4
-n_quadrats = 30
-n_studies = 2000
-
-# replicate() runs the expression n times and collects the results in a vector.
-# Each run simulates one sample of 30 quadrats and returns its estimate of lambda.
-lambda_estimates = replicate(
-  n = n_studies,
-  expr = mean(rpois(n = n_quadrats, lambda = true_lambda))
-)
-
-# Mean and standard deviation of the 2,000 estimates.
-mean(lambda_estimates)
-sd(lambda_estimates)
-```
-
-The estimates have a mean of approximately 4.00 and a standard deviation of approximately
-0.37 seedlings per quadrat. Their distribution is shown in @fig-sampling_distribution. The
-horizontal axis is a mean count per quadrat, which is why its values are not restricted to
-integers.
+The mean is approximately 2.17 seedlings per quadrat. We can evaluate
+the log-likelihood at many candidate values and plot it. The highest
+point lies at the estimate.
 
 ```{r}
 #| echo: false
-#| label: fig-sampling_distribution
-#| fig-cap: "Estimates of the mean seedling count from 2,000 simulated samples of 30 quadrats each. The vertical line is the value of the parameter used in the simulation."
-# Plot the simulated sampling distribution and mark the parameter of the model.
-ggplot(data.frame(estimate = lambda_estimates), aes(x = estimate)) +
-  geom_histogram(
-    aes(y = after_stat(density)),
-    binwidth = 0.1,
-    center = true_lambda,
-    fill = "grey90",
-    colour = "grey40"
-  ) +
-  geom_vline(xintercept = true_lambda, colour = "#D55E00", linewidth = 0.8) +
-  labs(
-    x = "Estimated seedlings per quadrat",
-    y = "Density"
-  ) +
-  theme_classic()
-```
-
-## Bias and variance
-
-We describe a sampling distribution with its mean and its variance, which tell us whether
-the estimator is centred on the parameter and how much the estimates vary around that
-centre. The **bias** of an estimator is the difference between the mean of its sampling
-distribution and the parameter that it estimates. Using $\theta$ for a parameter in general
-and $\hat\theta$ for its estimator:
-
-$$
-\operatorname{Bias}(\hat\theta)=E[\hat\theta]-\theta.
-$$
-
-An estimator is **unbiased** when its bias is zero. For i.i.d. Poisson counts,
-$E[\hat\lambda]=\lambda$, so the mean of the sample is an unbiased estimator of $\lambda$.
-Bias is a property of the whole sampling distribution: individual estimates of an unbiased
-estimator still fall above or below the parameter (@fig-sampling_distribution).
-
-The **variance of an estimator** is the variance of its sampling distribution. For the mean
-of $n$ i.i.d. Poisson counts,
-
-$$
-\operatorname{Var}(\hat\lambda)=\frac{\lambda}{n}.
-$$
-
-In other words, the variance of the estimator decreases as the sample size grows. The
-variance of the counts in individual quadrats remains $\lambda$; what decreases is the
-variation among the means of repeated samples. We can compare these results with the
-simulation:
-
-```{r}
-# Compare the simulated bias and variance with the variance derived from the model.
-c(
-  simulated_bias = mean(lambda_estimates) - true_lambda,
-  simulated_variance = var(lambda_estimates),
-  model_variance = true_lambda / n_quadrats
+#| eval: true
+#| fig-cap: "Relative log-likelihood for illustrative seedling counts in 12 quadrats. The vertical line marks the maximum likelihood estimate."
+# Store the counts and choose candidate Poisson means.
+seedling_counts = c(1, 2, 3, 2, 4, 1, 3, 2, 2, 3, 1, 2)
+lambda_grid = seq(from = 0.2, to = 5, length.out = 200)
+# Calculate the log-likelihood at each candidate mean.
+log_likelihood = vapply(
+  X = lambda_grid,
+  FUN = function(lambda) {
+    sum(dpois(x = seedling_counts, lambda = lambda, log = TRUE))
+  },
+  FUN.VALUE = numeric(1)
 )
-```
-
-The simulated bias is close to zero (approximately $-0.005$) and the simulated variance
-(approximately $0.136$) is close to $4/30 \approx 0.133$. They do not match exactly because
-2,000 repetitions are also a finite sample, in this case a sample of estimates.
-
-## Mean squared error
-
-The **mean squared error** (MSE) combines bias and variance into one measure of the
-quality of an estimator. It is the expected squared distance between the estimator and the
-parameter:
-
-$$
-\operatorname{MSE}(\hat\theta)
-= E[(\hat\theta-\theta)^2]
-= \operatorname{Var}(\hat\theta)
-  + \operatorname{Bias}(\hat\theta)^2.
-$$
-
-For an unbiased estimator the MSE equals its variance, so for the mean of Poisson counts
-it is $\lambda/n$. In the simulation:
-
-```{r}
-# Average squared distance between the estimates and the parameter.
-mean((lambda_estimates - true_lambda)^2)
-```
-
-The MSE is useful to compare estimators of the same parameter. A biased estimator can have
-a smaller MSE than an unbiased one if its variance is sufficiently smaller. We will see an
-example with two estimators of a variance in @sec-two_parameters and in the practical.
-
-:::: {.callout-important title="Practice: what varies?"}
-
-Two independent studies each sample 30 quadrats and report means of 3.7 and 4.2 seedlings
-per quadrat. What varies between the studies? Can we conclude from these two estimates that
-the estimator is biased?
-
-::: {.callout-tip title="Solution" collapse="true"}
-
-The samples and therefore the estimates vary; the parameter $\lambda$ of the model is the
-same in both studies. Bias is the difference between the mean of the sampling distribution
-and the parameter, and two estimates are not enough to describe a sampling distribution
-(also, in a real study we would not know $\lambda$).
-
-:::
-::::
-
-# Standard errors {#sec-standard_errors}
-
-The **standard error** (SE) of an estimator is the standard deviation of its sampling
-distribution:
-
-$$
-\operatorname{SE}(\hat\theta)
-= \sqrt{\operatorname{Var}(\hat\theta)}.
-$$
-
-We prefer it to the variance when reporting uncertainty because it has the same units as
-the estimate. For the mean of Poisson counts, $\operatorname{SE}(\hat\lambda)=\sqrt{\lambda/n}$.
-In the simulation above this is $\sqrt{4/30} \approx 0.365$, which is close to the standard
-deviation of the 2,000 estimates (0.37).
-
-With real data we do not know $\lambda$, so we cannot calculate the standard error. Instead
-we replace the parameter with its estimate:
-
-$$
-\widehat{\operatorname{SE}}(\hat\lambda)
-= \sqrt{\frac{\hat\lambda}{n}}.
-$$
-
-This is known as a **plug-in estimate**, and it means that the standard error that we
-report is itself an estimate. For the ten quadrats of @sec-estimates:
-
-```{r}
-# Estimate of lambda and number of quadrats in the sample.
-lambda_hat = mean(seedling_counts)
-n_counts = length(seedling_counts)
-# Plug the estimate into the formula of the standard error.
-estimated_se = sqrt(lambda_hat / n_counts)
-estimated_se
-```
-
-The estimated standard error is approximately 0.63 seedlings per quadrat. That is, if we
-repeated the study with ten quadrats, we would expect the estimates of $\lambda$ to vary
-with a standard deviation of about 0.63 seedlings per quadrat. This calculation relies on
-the Poisson model: if the counts are overdispersed with respect to the Poisson distribution
-(see [Chapter 2](../Chapter_2/Theory.qmd#sec-discrete_distributions)), this formula will
-underestimate the variation across samples.
-
-::: {.callout-warning title="Standard deviation and standard error"}
-These two terms are often confused. The **standard deviation** describes the variation
-among the observations (here, the counts in individual quadrats). For our ten quadrats
-`sd(seedling_counts)` is approximately 1.83 seedlings per quadrat. The **standard error**
-describes the variation of an estimate across repeated samples (here, 0.63 seedlings per
-quadrat for the mean). A larger sample reduces the standard error, but it does not reduce
-the standard deviation of the observations.
-:::
-
-:::: {.callout-important title="Practice: change the sample size"}
-
-If the mean of the model is 4 seedlings per quadrat, what happens to the standard error of
-$\hat\lambda$ when the sample grows from 25 to 100 quadrats? Does the standard deviation of
-the individual counts change?
-
-::: {.callout-tip title="Solution" collapse="true"}
-
-The standard error changes from $\sqrt{4/25}=0.4$ to $\sqrt{4/100}=0.2$ seedlings per
-quadrat. That is, a sample four times larger halves the standard error. The standard
-deviation of an individual count remains $\sqrt{4}=2$ seedlings per quadrat.
-
-:::
-::::
-
-# Confidence intervals {#sec-confidence_intervals}
-
-A **confidence interval** is a range of values for a parameter, calculated from a sample
-with a procedure that has a known behaviour across repeated samples. The **confidence
-level** (e.g., 95%) is the fraction of repeated samples for which the interval calculated
-with that procedure would contain the parameter. We will use confidence intervals to report
-the uncertainty of parameter estimates in the rest of the course.
-
-A simple procedure is available when the sampling distribution of the estimator is
-approximately Normal (@sec-large_samples discusses when this is the case). An approximate
-95% confidence interval is then
-
-$$
-\hat\theta \pm z_{0.975}\,\widehat{\operatorname{SE}}(\hat\theta),
-$$
-
-where $z_{0.975} \approx 1.96$ is the $0.975$ quantile of the standard Normal distribution
-(mean 0 and standard deviation 1). This quantile leaves a probability of $0.025$ in each
-tail, hence 95% in between. This type of interval is known as a **Wald interval**. For the
-ten quadrats:
-
-```{r}
-# 0.975 quantile of the standard Normal distribution.
-critical_value = qnorm(p = 0.975)
-# Lower and upper endpoints of the interval.
-interval = lambda_hat + c(-1, 1) * critical_value * estimated_se
-interval
-```
-
-The interval goes from approximately 2.76 to 5.24 seedlings per quadrat. It is an interval
-for the parameter $\lambda$ (the mean count), so it says nothing about the range of counts
-in individual quadrats.
-
-::: {.callout-note title="What 95% confidence means"}
-The parameter is fixed and the interval is random: its endpoints change from sample to
-sample. If we repeated the study many times and calculated an interval from each sample
-with the same procedure, about 95% of those intervals would contain the parameter. Once an
-interval has been calculated, it either contains the parameter or it does not, so we do not
-say that the parameter has a probability of 95% of being inside it.
-:::
-
-## Coverage checked by simulation
-
-The fraction of repeated samples for which the interval contains the parameter is called
-the **coverage** of the procedure. The Wald interval relies on an approximation (and on a
-plug-in standard error), so its coverage may differ from the confidence level that we
-intended. We can check this with a simulation, where we know $\lambda$. For each simulated
-sample we calculate the interval and record whether it contains the parameter:
-
-```{r}
-# Parameter of the model, sample size and number of repeated samples.
-set.seed(seed = 402)
-true_lambda = 4
-n_quadrats = 30
-n_studies = 2000
-critical_value = qnorm(p = 0.975)
-
-# Each repetition returns TRUE if the interval of that sample contains lambda.
-covered = replicate(
-  n = n_studies,
-  expr = {
-    # Simulate one sample and calculate its estimate and standard error.
-    counts = rpois(n = n_quadrats, lambda = true_lambda)
-    estimate = mean(counts)
-    se = sqrt(estimate / n_quadrats)
-    # Calculate the endpoints and check whether lambda lies between them.
-    lower = estimate - critical_value * se
-    upper = estimate + critical_value * se
-    lower <= true_lambda && true_lambda <= upper
-  }
+# Plot relative log-likelihood and mark the fitted mean.
+plot(
+  x = lambda_grid, y = log_likelihood - max(log_likelihood),
+  type = "l", lwd = 2, xlab = "Mean seedlings per quadrat",
+  ylab = "Relative log-likelihood"
 )
-
-# The mean of TRUE and FALSE values is the fraction of TRUE values.
-mean(covered)
+abline(v = mean(seedling_counts), lty = 2, lwd = 2)
 ```
 
-The simulated coverage is 0.944, close to the intended 0.95. This result is specific to a
-mean of 4 and 30 quadrats. When the expected total count $n\lambda$ is small, the sampling
-distribution of $\hat\lambda$ is far from Normal and the coverage of the Wald interval can
-be noticeably lower than 95%. The lower endpoint can even be negative, which is not a
-possible value for the mean of a Poisson distribution. The practical includes an exercise
-on the coverage of an interval when the data are skewed.
+The vertical distance from the peak shows how much worse another
+candidate fits these observations on the log-likelihood scale. It is
+not a probability assigned to the parameter. The relative
+log-likelihood has a maximum of zero because we subtract the highest
+log-likelihood.
 
-:::: {.callout-important title="Practice: interpret an interval"}
+## Let `optim()` find the maximum
 
-A study reports a 95% confidence interval of 2.8 to 5.2 seedlings per quadrat. What does
-the 95% refer to? Which assumptions would you check before using this interval?
-
-::: {.callout-tip title="Solution" collapse="true"}
-
-The 95% refers to the coverage of the procedure across repeated samples: about 95% of the
-intervals calculated in this way would contain the parameter. For a Wald interval based on
-a Poisson model, we would check whether the counts can be treated as i.i.d. Poisson
-(e.g., whether they are overdispersed) and whether the sample is large enough for the
-Normal approximation.
-
-:::
-::::
-
-# Estimation of two parameters {#sec-two_parameters}
-
-The concepts above apply in the same way to continuous measurements and to models with more
-than one parameter. We return to the Normal model of tree height from
-[Chapter 2](../Chapter_2/Theory.qmd#sec-continuous_four_faces). Let $X_i$ be the height
-in metres of tree $i$ and assume that the heights are i.i.d. with
+R's `optim()` minimises a function by default. We therefore give it
+the **negative log-likelihood**. A Poisson mean cannot be negative.
+We optimise its logarithm and transform back with `exp()`:
 
 $$
-X_i \sim \operatorname{Normal}(\mu,\sigma^2),
+\eta=\log\lambda,\qquad \lambda=e^\eta.
 $$
 
-where $\mu$ is the mean of the model (in m) and $\sigma^2$ its variance (in m²). Remember
-that the argument `sd` of `rnorm()` and related functions takes the standard deviation
-$\sigma$.
+This transformation keeps every value considered by the optimiser
+positive. It cannot represent the boundary value $\lambda=0$, so a
+sample containing only zeros needs separate treatment.
 
-## Method of moments for the mean and the variance
-
-The model has two parameters, so the method of moments needs two equations. The first
-moment is $E[X]=\mu$, which gives $\hat\mu=\overline X$ as before. The second moment is
-$E[X^2]=\mu^2+\sigma^2$. Equating it to the mean of the squared heights in the sample and
-replacing $\mu$ by $\overline X$ gives
-
-$$
-\widehat{\sigma^2}_{\mathrm{MM}}
-= \frac{1}{n}\sum_{i=1}^{n}X_i^2 - \overline X^2
-= \frac{1}{n}\sum_{i=1}^{n}(X_i-\overline X)^2.
-$$
-
-That is, the method-of-moments estimators of $\mu$ and $\sigma^2$ are the mean and the
-variance of the empirical distribution (@sec-samples). We can calculate them for a
-simulated sample of 25 trees and compare the variance with the result of `var()`:
-
-```{r}
-# Simulate the heights (in m) of 25 trees from the Normal model.
-set.seed(seed = 403)
-tree_heights = rnorm(n = 25, mean = 22, sd = 4)
-
-# Mean of the sample and the two estimates of the variance.
-height_mean = mean(tree_heights)
-variance_mm = mean((tree_heights - height_mean)^2)
-variance_with_var = var(tree_heights)
-
-c(
-  mean_m = height_mean,
-  variance_mm_m2 = variance_mm,
-  variance_with_var_m2 = variance_with_var
-)
-```
-
-The estimate of the mean is approximately 22.0 m. The two estimates of the variance differ:
-18.3 m² with the method of moments and 19.1 m² with `var()`. We already found this
-difference in @sec-samples and can now explain it. The method-of-moments estimator divides
-the sum of squared deviations by $n$, whereas `var()` divides it by $n-1$. For i.i.d.
-observations, the expectations of the two estimators are
-
-$$
-E[\widehat{\sigma^2}_{\mathrm{MM}}]
-= \frac{n-1}{n}\sigma^2,
-\qquad
-E[s^2]=\sigma^2,
-$$
-
-where $s^2$ denotes the estimator calculated by `var()`. So the method-of-moments estimator
-of the variance is biased: on average it underestimates $\sigma^2$ by $\sigma^2/n$. This
-happens because the deviations are calculated with respect to $\overline X$, which is
-estimated from the same sample and is therefore closer to the observations than $\mu$.
-Dividing by $n-1$ removes the bias, and that is the estimator that most people call the
-sample variance. The bias of the method-of-moments estimator decreases as sample size
-grows ($16/25 = 0.64$ m² in this example, but only $0.16$ m² with 100 trees). Note that
-being unbiased does not imply having the smallest MSE; in the practical you will compare
-the MSE of the two estimators with a simulation.
-
-## Confidence interval for the mean
-
-The standard error of the mean of $n$ i.i.d. observations is $\sigma/\sqrt n$. As before,
-we replace the unknown parameter with an estimate, $s/\sqrt n$, where $s$ is the square
-root of $s^2$ (i.e., `sd(tree_heights)`). For a Normal model there is a procedure that
-takes into account that $\sigma$ was estimated from the same sample. The 95% confidence
-interval for $\mu$ is
-
-$$
-\overline X \pm t_{n-1,\,0.975}\frac{s}{\sqrt n},
-$$
-
-where $t_{n-1,\,0.975}$ is the $0.975$ quantile of a Student's $t$ distribution with $n-1$
-degrees of freedom (`qt()` in R). This distribution resembles a standard Normal
-distribution with heavier tails, so the interval is somewhat wider than a Wald interval,
-and it approaches the standard Normal distribution as $n$ grows. For i.i.d. Normal
-observations the coverage of this interval is exactly 95%. In R:
-
-```{r}
-# Sample size and estimated standard error of the mean height.
-n_trees = length(tree_heights)
-height_se = sd(tree_heights) / sqrt(n_trees)
-# 0.975 quantile of the t distribution with n - 1 degrees of freedom.
-t_critical = qt(p = 0.975, df = n_trees - 1)
-# Lower and upper endpoints of the interval.
-height_interval = height_mean + c(-1, 1) * t_critical * height_se
-height_interval
-```
-
-The estimated standard error is approximately 0.87 m, the quantile is 2.06 (instead of
-1.96) and the interval goes from approximately 20.2 to 23.8 m. This is an interval for the
-mean height $\mu$. The range that contains 95% of the individual trees is a different
-quantity, which depends on $\sigma$ and not on the standard error (for this model, from
-`qnorm(p = 0.025, mean = 22, sd = 4)` to `qnorm(p = 0.975, mean = 22, sd = 4)`, i.e.,
-approximately 14.2 to 29.8 m). When the measurements are skewed, as is common for body
-mass, the coverage of the $t$ interval is only approximate. You will investigate this in
-the practical.
-
-:::: {.callout-important title="Practice: two kinds of spread"}
-
-Which R expression estimates the variation among the 25 tree heights, and which one
-estimates the standard error of their mean? Why does the confidence interval for the mean
-use the second one?
-
-::: {.callout-tip title="Solution" collapse="true"}
-
-`sd(tree_heights)` estimates the variation among trees and
-`sd(tree_heights) / sqrt(length(tree_heights))` estimates the standard error of the mean.
-The interval describes the uncertainty in the estimate of the mean height, so it uses the
-variation of the mean across repeated samples.
-
-:::
-::::
-
-# Consistency and asymptotic normality {#sec-large_samples}
-
-In @sec-samples we saw that the mean, variance and quantiles of the empirical distribution
-converge to those of the model as sample size grows. Method-of-moments estimators are
-calculated from the moments of the empirical distribution, so they inherit this behaviour.
-An estimator $\hat\theta_n$ calculated from a sample of size $n$ is **consistent** if it
-converges in probability to the parameter. That is, for any positive margin $\varepsilon$,
-
-$$
-\lim_{n \to \infty}
-P\left(\left|\hat\theta_n - \theta\right| \ge \varepsilon\right)=0.
-$$
-
-This is the same statement that we made for relative frequencies, now applied to an
-estimator, and it should be read in the same way: it describes the probability of large
-errors and not the ordering of the estimates of two particular samples. The mean of i.i.d.
-Poisson counts is a consistent estimator of $\lambda$. The method-of-moments estimator of
-the variance of the Normal model is also consistent, although it is biased for any finite
-sample.
-
-The standard error tells us how fast an estimator approaches the parameter. For the mean
-of Poisson counts it is $\sqrt{\lambda/n}$, so we need a sample four times larger to halve
-the standard error.
-
-Large samples have a second consequence. The mean of $n$ i.i.d. observations from a
-distribution with finite variance has a sampling distribution that approaches a Normal
-distribution as $n$ grows, regardless of the distribution of the individual observations.
-This result is the **central limit theorem**, and an estimator with this behaviour is said
-to be **asymptotically normal**. For the mean of Poisson counts:
-
-$$
-\hat\lambda \overset{\mathrm{approx}}{\sim}
-\operatorname{Normal}\left(\lambda,\frac{\lambda}{n}\right)
-\quad\text{for sufficiently large }n.
-$$
-
-This is the justification for the Wald interval in @sec-confidence_intervals. How large
-$n$ needs to be depends on the model. In @fig-asymptotic_normality the sampling
-distribution of $\hat\lambda$ for samples of 5 quadrats is discrete (the mean of five
-counts can only change in steps of $0.2$, so each bar is one possible value) and slightly
-asymmetric, with a longer tail to the right, whereas for 100 quadrats the Normal
-approximation is close. Note that the counts in individual
-quadrats still follow a Poisson distribution in both cases; it is the distribution of their
-mean that approaches a Normal distribution.
-
-```{r}
-#| echo: false
-#| label: fig-asymptotic_normality
-#| fig-width: 9
-#| fig-height: 4
-#| fig-cap: "Sampling distributions of the mean seedling count for samples of 5 and 100 quadrats (2,000 simulated samples each) under a Poisson model with a mean of 4. The curves are the Normal approximations."
-# Simulate the sampling distribution of the mean for two sample sizes.
-set.seed(seed = 404)
-true_lambda = 4
-sample_sizes = c(5, 100)
-
-# Draw the simulated sampling distribution with its Normal approximation.
-plot_sampling_distribution = function(sample_size, bin_width) {
-  # One estimate of lambda per simulated sample.
-  estimates = replicate(
-    n = 2000,
-    expr = mean(rpois(n = sample_size, lambda = true_lambda))
-  )
-  # Normal approximation with the standard error derived from the model.
-  model_se = sqrt(true_lambda / sample_size)
-  estimate_grid = seq(
-    from = true_lambda - 4 * model_se,
-    to = true_lambda + 4 * model_se,
-    length.out = 200
-  )
-  approximation = data.frame(
-    estimate = estimate_grid,
-    density = dnorm(x = estimate_grid, mean = true_lambda, sd = model_se)
-  )
-  ggplot(data.frame(estimate = estimates), aes(x = estimate)) +
-    geom_histogram(
-      aes(y = after_stat(density)),
-      binwidth = bin_width,
-      center = true_lambda,
-      fill = "grey90",
-      colour = "grey40"
-    ) +
-    geom_line(
-      data = approximation,
-      aes(x = estimate, y = density),
-      colour = "#D55E00",
-      linewidth = 0.8
-    ) +
-    labs(
-      title = paste(sample_size, "quadrats"),
-      x = "Estimated seedlings per quadrat",
-      y = "Density"
-    ) +
-    theme_classic()
+```r
+# Define the negative log-likelihood on a scale that keeps the mean positive.
+poisson_nll = function(log_lambda, counts) {
+  lambda = exp(log_lambda)
+  -sum(dpois(x = counts, lambda = lambda, log = TRUE))
 }
 
-plot_sampling_distribution(sample_size = 5, bin_width = 0.2) |
-  plot_sampling_distribution(sample_size = 100, bin_width = 0.05)
+# Fit the model from a valid starting value and return the mean on its original scale.
+fit = optim(
+  par = log(2), fn = poisson_nll, counts = seedling_counts,
+  method = "BFGS"
+)
+fit$convergence
+lambda_hat = exp(fit$par)
+c(maximum_likelihood = lambda_hat, sample_mean = mean(seedling_counts))
 ```
 
-Consistency, coverage and asymptotic normality are all derived under the assumed model, in
-our case i.i.d. Poisson counts. In a real restoration site the expected count may change
-with habitat, seedlings may be clustered, or some seedlings may be missed. A larger sample
-does not correct for this. Instead, we need a model that describes those sources of
-variation, such as the distributions for overdispersed counts in
-[Chapter 2](../Chapter_2/Theory.qmd#sec-discrete_distributions) or the models for grouped
-observations in [Chapter 8](../Chapter_8/Theory.qmd).
+`log(2)` is a starting value, not an estimate. A convergence code of
+zero reports that the algorithm terminated successfully. We still
+compare the answer with the sample mean and inspect the fitted model.
+The estimate is reported on the original scale: seedlings per quadrat.
 
-:::: {.callout-important title="Practice: two studies of different size"}
+::: {.callout-note title="A practical fitting sequence"}
+State the model and its assumptions, write the contribution from one
+observation, sum log contributions, choose a valid parameter scale and
+starting value, optimise, and check the returned fit. An optimiser
+returning a number does not establish that the ecological model is
+appropriate.
+:::
 
-A study of 20 quadrats estimates 3.9 seedlings per quadrat and another study of 100
-quadrats estimates 4.2. The mean of the model is 4. Does this contradict the consistency
-of the estimator?
+:::: {.callout-important title="Practice: read an optimiser result"}
+
+If `optim()` returns `par = log(3.1)` when fitting a Poisson model on
+the log scale, what mean count would you report? Why is the returned
+`par` value itself not in seedlings per quadrat?
 
 ::: {.callout-tip title="Solution" collapse="true"}
 
-No. Consistency states that the probability of an error larger than any given margin
-decreases towards zero as sample size grows. It does not state that every larger sample is
-closer to the parameter than every smaller one, so the smaller study can produce the
-closer estimate by chance.
+The fitted mean is $\exp[\log(3.1)]=3.1$ seedlings per quadrat.
+The optimiser worked with $\eta=\log\lambda$, which is a transformed
+parameter.
+
+:::
+::::
+
+# What an estimate can and cannot guarantee
+
+An MLE changes between repeated samples. The
+[sampling-distribution discussion in Chapter 3](../Chapter_3/Theory.qmd)
+explains bias, variance, standard error, and confidence interval
+coverage. Maximum likelihood does not guarantee zero bias in a
+small sample. For example, the normal-model variance MLE divides
+the sum of squared deviations by $n$; the related `var()` calculation
+divides by $n-1$. Chapter 3 explains the resulting finite-sample bias.
+Under the independent Poisson model, $\hat\lambda=\bar X$ is
+unbiased and has variance $\lambda/n$. Its mean squared error
+therefore also equals $\lambda/n$. This illustrates how an
+estimator's bias and spread, rather than the method's name alone,
+describe its finite-sample performance.
+
+**Invariance** means that if $\hat\theta$ is an MLE of $\theta$, then
+$g(\hat\theta)$ is the MLE of $g(\theta)$ for a parameter quantity
+defined by $g$. Thus an estimate of $\log\lambda$ is
+$\log\hat\lambda$. We use the same idea when converting an estimate
+from the optimiser's log scale back to an ecological scale.
+
+Under suitable model and sampling conditions, MLEs are **consistent**: as
+sample size grows, they tend to concentrate near the parameter that generated
+the data. Their sampling distributions are often approximately normal in large
+samples (**asymptotic normality**). Under additional technical conditions, an
+MLE can be **asymptotically efficient**, meaning its large-sample variance
+reaches the smallest available value among a suitable class of estimators.
+These are long-run properties, not promises that every larger realised sample
+gives a closer estimate.
+
+::: {.callout-warning title="A maximum is conditional on the model"}
+If quadrat counts have different expected means or are dependent,
+a Poisson fit based on a common independent mean may describe them
+poorly. A high likelihood within that model cannot repair its
+assumptions. Small samples, boundaries, and weakly identified
+parameters can also make normal approximations unreliable.
+:::
+
+# When there are two parameters {#sec-likelihood-surface}
+
+Many ecological probability models have more than one unknown parameter. The
+likelihood then compares combinations of parameter values while holding the
+observations fixed. To apply this idea, suppose we measure tree heights $H_i$
+in metres. As in [Chapter 2](../Chapter_2/Theory.qmd#sec-continuous_four_faces),
+a normal model has mean $\mu$ metres and standard deviation $\sigma$ metres:
+
+$$
+H_i\sim\operatorname{Normal}(\mu,\sigma^2).
+$$
+
+For independent heights, multiply their densities. The
+log-likelihood is easier to calculate:
+
+$$
+\ell(\mu,\sigma)
+=\sum_{i=1}^{n}
+\left[
+-\log(\sigma\sqrt{2\pi})
+-\frac{(h_i-\mu)^2}{2\sigma^2}
+\right].
+$$
+
+Here the normal model is parameterised with variance $\sigma^2$,
+while R's `dnorm()` takes the standard deviation in its `sd` argument.
+
+## Calculate a density likelihood by hand
+
+Take two illustrative heights, 20 m and 24 m. Candidate A has
+$(\mu,\sigma)=(22,2)$ m; candidate B has $(22,4)$ m. Their
+log-likelihoods are
+
+$$
+\begin{aligned}
+\ell_A
+&=-2\log(2\sqrt{2\pi})
+  -\frac{(20-22)^2+(24-22)^2}{2(2)^2}
+ \approx -4.224,\\
+\ell_B
+&=-2\log(4\sqrt{2\pi})
+  -\frac{(20-22)^2+(24-22)^2}{2(4)^2}
+ \approx -4.860.
+\end{aligned}
+$$
+
+The two density contributions for candidate A are
+$f(20\mid22,2)$ and $f(24\mid22,2)$; their product is
+$L_A=e^{\ell_A}$. Candidate A has the higher likelihood for
+these two heights. A wider model does not automatically fit every
+short sample better.
+
+:::: {.callout-important title="Practice: two candidate tree-height models"}
+
+Without R, calculate the log-likelihood of heights 20 m and 24 m
+under $(\mu,\sigma)=(20,4)$ m. Compare it with candidate B above.
+Which has greater likelihood? Write the two individual density
+contributions before combining their logs.
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The contributions are
+$f(20\mid20,4)=1/(4\sqrt{2\pi})$ and
+$f(24\mid20,4)=e^{-1/2}/(4\sqrt{2\pi})$.
+Their log-likelihood is
+$-2\log(4\sqrt{2\pi})-1/2\approx-5.110$.
+Candidate B, with log-likelihood approximately $-4.860$, fits
+these fixed heights better.
+
+:::
+::::
+
+## Surface, slice, and profile
+
+With two parameters, the likelihood has a value for every
+$(\mu,\sigma)$ pair. A contour plot joins pairs with the same
+log-likelihood. To illustrate this general idea, simulate 25 independent
+heights from a known normal model. We know the generating parameters only
+because this is a simulation.
+
+```{r}
+#| echo: false
+#| eval: true
+#| fig-cap: "Relative log-likelihood for 25 simulated tree heights. The filled point is the fitted mean and standard deviation; the cross marks the generating values."
+# Simulate tree heights and calculate their normal-model estimates.
+set.seed(seed = 505)
+tree_heights = rnorm(n = 25, mean = 22, sd = 4)
+height_mu_hat = mean(tree_heights)
+height_sigma_hat = sqrt(mean((tree_heights - height_mu_hat)^2))
+# Evaluate the log-likelihood across a grid of mean and standard-deviation values.
+mu_grid = seq(from = 17, to = 27, length.out = 80)
+sigma_grid = seq(from = 1.5, to = 7, length.out = 80)
+surface = outer(
+  X = mu_grid, Y = sigma_grid,
+  FUN = Vectorize(function(mu, sigma) {
+    sum(dnorm(x = tree_heights, mean = mu, sd = sigma, log = TRUE))
+  })
+)
+# Draw likelihood contours and mark the fitted and generating values.
+contour(
+  x = mu_grid, y = sigma_grid, z = surface - max(surface),
+  xlab = "Mean height (m)", ylab = "Height SD (m)",
+  levels = c(-10, -5, -2, -1, -0.5, -0.1)
+)
+points(x = height_mu_hat, y = height_sigma_hat, pch = 19)
+points(x = 22, y = 4, pch = 4, lwd = 2)
+legend(
+  "topright", legend = c("MLE", "Generating values"),
+  pch = c(19, 4), bty = "n"
+)
+```
+
+The peak gives the joint MLE. The generating values need not sit at
+the peak of one finite sample. Contours show *relative fit* across
+parameter pairs, not probability regions for the parameters.
+
+A **likelihood slice** varies one parameter while holding the other
+fixed. For example, $\ell(\mu,\hat\sigma)$ holds the standard
+deviation at its joint estimate. A **profile likelihood** for
+$\mu$ instead finds the best $\sigma$ separately for every
+candidate $\mu$:
+
+$$
+\ell_p(\mu)=\max_{\sigma>0}\ell(\mu,\sigma).
+$$
+
+Thus a profile re-estimates the nuisance parameter $\sigma$.
+It is at least as high as a slice at every $\mu$, since the slice
+offers just one possible value of $\sigma$. A slice should not be
+labelled a profile.
+
+```{r}
+#| echo: false
+#| eval: true
+#| fig-cap: "Likelihood slice and profile for mean tree height in the same simulated sample. The profile re-estimates the standard deviation for every candidate mean."
+# Simulate the tree-height sample and calculate its joint normal-model estimates.
+set.seed(seed = 505)
+tree_heights = rnorm(n = 25, mean = 22, sd = 4)
+mu_hat = mean(tree_heights)
+sigma_hat = sqrt(mean((tree_heights - mu_hat)^2))
+candidate_means = seq(from = 17, to = 27, length.out = 120)
+# Define the normal-model log-likelihood for the fixed simulated heights.
+normal_loglik = function(mu, sigma) {
+  sum(dnorm(x = tree_heights, mean = mu, sd = sigma, log = TRUE))
+}
+maximum_loglik = normal_loglik(mu = mu_hat, sigma = sigma_hat)
+# Calculate a slice with fixed standard deviation and a profile that refits it.
+slice = vapply(
+  X = candidate_means,
+  FUN = function(mu) normal_loglik(mu = mu, sigma = sigma_hat),
+  FUN.VALUE = numeric(1)
+)
+profile = vapply(
+  X = candidate_means,
+  FUN = function(mu) {
+    sigma_at_mu = sqrt(mean((tree_heights - mu)^2))
+    normal_loglik(mu = mu, sigma = sigma_at_mu)
+  },
+  FUN.VALUE = numeric(1)
+)
+# Plot both relative log-likelihood curves.
+plot(
+  x = candidate_means, y = slice - maximum_loglik,
+  type = "l", lwd = 2, lty = 2,
+  xlab = "Candidate mean height (m)",
+  ylab = "Relative log-likelihood"
+)
+lines(
+  x = candidate_means, y = profile - maximum_loglik,
+  lwd = 2
+)
+legend(
+  "bottomright", legend = c("Slice", "Profile"),
+  lty = c(2, 1), lwd = 2, bty = "n"
+)
+```
+
+Both curves meet at the joint estimate. Away from it, re-estimating
+$\sigma$ can keep the profile higher than the slice.
+
+::: {.callout-note title="Explore a likelihood surface"}
+On [Kristoffer Magnusson's interactive likelihood page](https://rpsychologist.com/likelihood/),
+change the mean and variance sliders in **Likelihood Calculation**.
+Watch how the contributions and their sum change. In **Finding the
+Maximum Likelihood Estimates**, locate the highest region of the
+two-parameter contour plot and try the optimiser controls. The page
+uses variance $\sigma^2$ on a slider; our contour above uses standard
+deviation $\sigma$. The later hypothesis-test displays are outside
+this chapter's learning goals.
+:::
+
+:::: {.callout-important title="Practice: slice or profile?"}
+
+For each proposed mean tree height, you refit the standard deviation
+and record the highest log-likelihood. Is this a slice or a profile?
+What would you do differently to make the other kind of curve?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+It is a profile because the standard deviation is re-estimated for
+each proposed mean. For a slice, hold the standard deviation at
+one chosen value while varying the mean.
+
+:::
+::::
+
+# Uncertainty from the likelihood {#sec-likelihood-uncertainty}
+
+A peak shows an estimate. Its width helps describe uncertainty:
+a sharply curved log-likelihood changes quickly when we move away
+from the estimate; a flatter one changes slowly. Chapter 3 introduced
+confidence intervals and their repeated-sampling interpretation.
+Here we use two approximations based on the likelihood.
+
+## A quadratic interval from the Hessian
+
+Near a regular maximum, the log-likelihood can often be approximated
+by a downward-opening quadratic curve. The **Hessian** describes its
+curvature. For several parameters, it is a matrix of second
+derivatives of the *negative* log-likelihood. Under suitable
+conditions, the inverse Hessian approximates the covariance matrix
+of the estimates. The square roots of its diagonal entries are
+approximate standard errors, on the scale that was optimised.
+
+We can fit the tree-height model on the $(\mu,\log\sigma)$ scale.
+`optim()` returns its Hessian when `hessian = TRUE`.
+
+```r
+# Simulate the heights used to illustrate likelihood-based intervals.
+set.seed(seed = 505)
+tree_heights = rnorm(n = 25, mean = 22, sd = 4)
+
+# Define and fit the negative log-likelihood on the mean and log-SD scales.
+normal_nll = function(par, heights) {
+  mu = par[1]
+  sigma = exp(par[2])
+  -sum(dnorm(x = heights, mean = mu, sd = sigma, log = TRUE))
+}
+
+normal_fit = optim(
+  par = c(mu = mean(tree_heights), log_sigma = log(sd(tree_heights))),
+  fn = normal_nll, heights = tree_heights,
+  method = "BFGS", hessian = TRUE
+)
+normal_fit$convergence
+# Use the inverse Hessian to obtain approximate standard errors and interval endpoints.
+se_on_fit_scale = sqrt(diag(solve(normal_fit$hessian)))
+critical_value = qnorm(p = 0.975)
+
+mu_interval = normal_fit$par[1] +
+  c(-1, 1) * critical_value * se_on_fit_scale[1]
+sigma_interval = exp(
+  normal_fit$par[2] +
+    c(-1, 1) * critical_value * se_on_fit_scale[2]
+)
+mu_interval
+sigma_interval
+```
+
+These are approximate 95% **quadratic**, or Wald, confidence
+intervals. The mean interval is in metres. The second interval is
+calculated for $\log\sigma$ and then transformed back to metres,
+so it cannot include a negative standard deviation. Its endpoints
+need not be symmetric around the estimate on the metre scale.
+The Hessian should be invertible and indicate a local minimum of
+the negative log-likelihood; otherwise this calculation may fail
+or be misleading.
+
+::: {.callout-warning title="Curvature is a local approximation"}
+A Hessian describes the likelihood close to the fitted point. A
+skewed, flat, or boundary-shaped likelihood can make quadratic
+intervals inaccurate. Transforming the endpoints keeps them in
+the parameter's support but does not guarantee good coverage.
+:::
+
+## A profile likelihood interval
+
+For a candidate $\mu$, refit $\sigma$ and compare the resulting
+profile log-likelihood with the overall maximum. The
+**likelihood-ratio distance** is
+
+$$
+D(\mu)=2[\ell(\hat\mu,\hat\sigma)-\ell_p(\mu)].
+$$
+
+Under regular, large-sample conditions, $D(\mu)$ is approximately
+distributed as $\chi^2_1$ when evaluated at the generating value.
+An approximate 95% profile interval includes candidate means for
+which $D(\mu)\leq\chi^2_{1,0.95}$. On a relative profile
+log-likelihood plot, this is the region above
+$-\chi^2_{1,0.95}/2$. The interval can be asymmetric because it
+follows the profile's shape.
+
+For a normal sample, the best $\sigma$ at a fixed $\mu$ is the root
+mean squared deviation from that candidate mean. The following
+function uses this result to evaluate the profile. `uniroot()`
+finds the two cutoff crossings.
+
+```r
+# Calculate the profile log-likelihood after refitting the standard deviation.
+profile_mu = function(mu, heights) {
+  sigma_at_mu = sqrt(mean((heights - mu)^2))
+  sum(dnorm(
+    x = heights, mean = mu, sd = sigma_at_mu, log = TRUE
+  ))
+}
+
+# Define the profile cutoff and its difference from the maximum log-likelihood.
+mu_hat = normal_fit$par[1]
+max_log_likelihood = -normal_fit$value
+cutoff = qchisq(p = 0.95, df = 1) / 2
+crossing = function(mu) {
+  profile_mu(mu = mu, heights = tree_heights) -
+    max_log_likelihood + cutoff
+}
+
+# Locate the two candidate means where the profile reaches its cutoff.
+profile_interval = c(
+  lower = uniroot(
+    f = crossing,
+    interval = c(mu_hat - 10 * sd(tree_heights), mu_hat)
+  )$root,
+  upper = uniroot(
+    f = crossing,
+    interval = c(mu_hat, mu_hat + 10 * sd(tree_heights))
+  )$root
+)
+profile_interval
+```
+
+The code brackets each crossing before calling `uniroot()`.
+For another dataset, check that each proposed bracket actually
+straddles the cutoff. A general model would re-optimise its
+nuisance parameters for each candidate value instead of using
+the normal-model shortcut above.
+
+| Interval | What it uses | Main limitation |
+|---|---|---|
+| Quadratic | Curvature near the maximum | May miss asymmetry or a boundary |
+| Profile | Best fit at each candidate parameter value | Requires repeated fitting and an approximate cutoff |
+
+Neither interval is automatically exact. Both rely on the model,
+sampling assumptions, and large-sample approximations. As in
+Chapter 3, a calculated 95% confidence interval does not give a
+95% probability that a fixed parameter lies inside it.
+
+:::: {.callout-important title="Practice: read a profile interval"}
+
+A relative profile log-likelihood reaches zero at the estimate.
+At a candidate mean, it equals $-2.5$. The approximate 95% cutoff
+is $-qchisq(0.95,1)/2\approx-1.92$. Does this candidate belong
+to the profile interval? What is being refitted as $\mu$ varies?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+No. $-2.5$ is below the cutoff of approximately $-1.92$.
+For each candidate $\mu$, the nuisance parameter $\sigma$ is
+re-estimated to give the highest log-likelihood.
+
+:::
+::::
+
+# Fitting overdispersed seedling counts {#sec-negative-binomial-fit}
+
+The [Negative Binomial model](../Supplements/distributions.qmd#sec-negative_binomial)
+allows counts to vary more than expected under a Poisson model with
+the same mean. Write its mean as $\mu$ seedlings per quadrat and its
+shape parameter as $k>0$:
+
+$$
+E[X]=\mu,\qquad
+\operatorname{Var}(X)=\mu+\frac{\mu^2}{k}.
+$$
+
+We will simulate 80 independent, equal-area quadrats under this
+model. The generating values are known because the data are
+simulated, not because an ecologist could know them in a field study.
+In R, `size` corresponds to $k$ and `mu` to $\mu$.
+
+```r
+# Simulate overdispersed seedling counts from a negative binomial model.
+set.seed(seed = 530)
+seedling_counts_nb = rnbinom(
+  n = 80, size = 1.5, mu = 4
+)
+mean(seedling_counts_nb)
+var(seedling_counts_nb)
+```
+
+The variance-to-mean comparison is exploratory. It does not
+identify why counts vary. To fit the model, use each count's
+negative binomial probability mass as its likelihood contribution.
+Both parameters must stay positive, so we optimise on their log scales:
+
+```r
+# Define the negative binomial negative log-likelihood on two log parameter scales.
+negative_binomial_nll = function(par, counts) {
+  mu = exp(par[1])
+  k = exp(par[2])
+  -sum(dnbinom(
+    x = counts, size = k, mu = mu, log = TRUE
+  ))
+}
+
+# Use sample summaries to supply valid starting values for both parameters.
+start_mu = max(mean(seedling_counts_nb), 0.1)
+sample_variance = var(seedling_counts_nb)
+start_k = start_mu^2 /
+  max(sample_variance - start_mu, 0.1)
+
+nb_fit = optim(
+  par = log(c(mu = start_mu, k = start_k)),
+  fn = negative_binomial_nll, counts = seedling_counts_nb,
+  method = "BFGS", hessian = TRUE
+)
+nb_fit$convergence
+# Transform the fitted parameters back to the mean and shape scales.
+nb_estimates = exp(nb_fit$par)
+nb_estimates
+```
+
+The starting value for $k$ comes from rearranging the model
+mean–variance relation, as in Chapter 3's method of moments. The
+small lower bound here only supplies a valid starting value if the
+sample variance is close to or below its mean. It is not a final
+estimate or evidence of overdispersion.
+
+Check the convergence code, whether estimates are ecologically
+plausible, and whether the fitted frequencies describe the sample.
+Different starting values can reveal a sensitive optimisation,
+although agreement does not prove that a global maximum was found.
+For uncertainty, we can use the inverse Hessian on
+$(\log\mu,\log k)$ or profile one parameter while refitting the
+other. Those intervals inherit the approximation limits described
+above.
+
+The comparison below places observed **relative frequencies**
+and fitted **probabilities** on the same scale:
+
+```r
+# List possible counts and calculate observed relative frequencies and fitted masses.
+count_values = 0:max(seedling_counts_nb)
+observed_frequency = as.numeric(
+  table(factor(seedling_counts_nb, levels = count_values))
+) / length(seedling_counts_nb)
+fitted_probability = dnbinom(
+  x = count_values, size = nb_estimates["k"],
+  mu = nb_estimates["mu"]
+)
+# Plot the sample frequencies against the fitted negative binomial probabilities.
+plot(
+  x = count_values, y = observed_frequency,
+  type = "h", lwd = 5, col = "grey60",
+  xlab = "Seedlings per quadrat",
+  ylab = "Relative frequency or probability",
+  ylim = c(0, max(observed_frequency, fitted_probability))
+)
+lines(
+  x = count_values, y = fitted_probability,
+  type = "b", pch = 19, lwd = 2
+)
+legend(
+  "topright",
+  legend = c("Observed relative frequency", "Fitted probability"),
+  col = c("grey60", "black"), lty = 1, lwd = c(5, 2),
+  pch = c(NA, 19), bty = "n"
+)
+```
+
+Look for systematic differences, especially in the zeros and
+largest counts, rather than expecting every bar to touch the line.
+
+::: {.callout-warning title="A fitted model still needs checking"}
+The optimiser chooses the best parameter values *within the
+specified model*. Compare fitted and observed counts, especially
+zeros and the upper tail. A mismatch may indicate that the
+distribution or independence assumptions need reconsideration.
+:::
+
+:::: {.callout-important title="Practice: mean and shape"}
+
+Under the negative binomial model, what happens to count variance
+when $k$ becomes smaller while $\mu$ stays fixed? If a fit returns
+`par = c(log(4), log(2))`, what are the estimates on the original
+scale?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+Because $\operatorname{Var}(X)=\mu+\mu^2/k$, a smaller $k$ gives
+larger variance for the same mean. The fitted values are
+$\hat\mu=4$ seedlings per quadrat and $\hat k=2$.
 
 :::
 ::::
 
 # Summary
 
-A sample is treated as a collection of random draws from a model distribution. The relative
-frequencies of a sample of counts, or the density-scaled histogram of a sample of
-continuous measurements, are compared with the probability mass or density of the model.
-The empirical distribution assigns each observation its relative frequency, and its mean,
-variance, quantiles and cumulative distribution converge to those of the model as sample
-size grows.
+A likelihood uses the probability model to compare parameter values
+for **observed** data. For independent observations, multiply their
+probability masses or densities; for a log-likelihood, add their
+logs. Maximum likelihood chooses the parameter values at the
+peak. In R, `optim()` can find the peak by minimising the negative
+log-likelihood.
 
-An estimator is a rule that calculates a value for a parameter from a sample, and an
-estimate is its result for one sample. The method of moments constructs estimators by
-equating moments of the model to moments of the empirical distribution. The sampling
-distribution of an estimator describes how its estimates vary across repeated samples. Its
-mean determines the bias, its standard deviation is the standard error, and the mean
-squared error combines both.
-
-A confidence interval is calculated with a procedure that contains the parameter in a
-given fraction of repeated samples (its coverage). Wald intervals rely on the asymptotic
-normality of the estimator, and for the mean of a Normal model the $t$ interval has exact
-coverage. Simulation allows us to check bias, standard errors and coverage, because we
-know the parameters that generated the samples. All these properties are derived under the
-assumed model.
-
-In [Chapter 5](../Chapter_5/Theory.qmd) we introduce maximum likelihood, a general method
-of estimation that we will use in the rest of the course. The estimators will change, but
-we will describe their uncertainty with the same concepts.
+For several parameters, a surface shows their joint fit. A slice
+holds other parameters fixed; a profile refits them. Curvature
+near the peak gives a quadratic uncertainty approximation, while
+a profile interval follows the refitted likelihood. Neither
+fitting nor interval calculation removes the need to check the
+model's ecological assumptions.
 
 # Chapter quiz
 
-The questions below follow the order of the chapter. Try each question before opening its
-solution.
+:::: {.callout-important title="Question 1: data or parameter?"}
 
-:::: {.callout-important title="Question 1: moth emergence"}
-
-In a sample of 30 host plants, moths emerged from 9. Calculate the relative frequency
-of emergence. How does this relate to the probability of emergence for all relevant host
-plants?
+After observing quadrat counts, what varies along a Poisson
+likelihood curve? Does the curve assign probabilities to values
+of $\lambda$?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-The relative frequency is $9/30=0.3$. It is a sample-based estimate of the probability,
-not necessarily the exact model probability. Another sample could produce a
-different relative frequency.
+The candidate mean $\lambda$ varies while the observed counts
+stay fixed. The curve compares their fit; it is not a probability
+distribution for $\lambda$.
 
 :::
 ::::
 
-:::: {.callout-important title="Question 2: caddisfly larvae"}
+:::: {.callout-important title="Question 2: calculate a likelihood"}
 
-You sample the number of caddisfly larvae in many equal-sized stream sections. As the
-number of sections grows, what do you generally expect to happen to the empirical
-distribution relative to the distribution that generated the data? Is exact agreement
-expected for a finite sample?
+Two independent quadrats contain 0 and 1 seedlings. Under a
+Poisson model with $\lambda=1$, write the two contributions,
+their product, and the log-likelihood without R.
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-With more independent observations from the same distribution, the empirical distribution
-generally becomes closer to the generating distribution. Exact agreement is not expected
-in a finite sample, and individual simulations can vary.
+The contributions are $P(X=0)=e^{-1}$ and $P(X=1)=e^{-1}$.
+Their product is $e^{-2}$, so the log-likelihood is $-2$.
 
 :::
 ::::
 
-:::: {.callout-important title="Question 3: a sample and its model"}
+:::: {.callout-important title="Question 3: what does `optim()` minimise?"}
 
-Why might a density-scaled histogram of 100 simulated tree heights differ from the density
-of the model used to generate them?
+Why did we put a minus sign before the sum of log probabilities?
+Why did we exponentiate the fitted Poisson parameter?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-The relative frequency of each bin varies from sample to sample around the probability
-that the model assigns to that bin, and the shape of the histogram also depends on the bin
-width that we choose.
+`optim()` minimises by default, so minimising the negative
+log-likelihood maximises the log-likelihood. We optimised
+$\log\lambda$ to keep $\lambda$ positive and exponentiated it to
+report the mean on the count scale.
 
 :::
 ::::
 
-:::: {.callout-important title="Question 4: an estimate"}
+:::: {.callout-important title="Question 4: slice and profile"}
 
-The mean of the counts from 20 quadrats is 5.1 seedlings per quadrat. Under a Poisson
-model, name the parameter, the estimator, and the estimate.
+For each proposed normal-model mean, a researcher re-estimates
+the standard deviation. Which likelihood curve results?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-The parameter is the mean $\lambda$ of the model. The estimator is
-$\hat\lambda=\overline X$. Its estimate for these counts is 5.1 seedlings per quadrat.
+A profile likelihood for the mean.
 
 :::
 ::::
 
-:::: {.callout-important title="Question 5: a histogram of means"}
+:::: {.callout-important title="Question 5: interval meaning"}
 
-A histogram contains the mean of each of 1,000 simulated samples. Does it describe the
-empirical distribution of individual observations or the sampling distribution of an
-estimator?
-
-::: {.callout-tip title="Answer" collapse="true"}
-
-It approximates the sampling distribution of the mean. Each value in the histogram is one
-estimate calculated from a whole sample.
-
-:::
-::::
-
-:::: {.callout-important title="Question 6: bias and variance"}
-
-The mean of the sampling distribution of an estimator equals the parameter, but individual
-estimates vary considerably. Is the estimator biased? Is its variance zero?
+Can a quadratic interval and a profile interval have different
+endpoints for the same data? Does either interval give the
+probability that the fixed parameter lies inside it?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-It is unbiased, because the mean of its sampling distribution equals the parameter. Its
-variance is larger than zero, because its estimates vary across samples.
-
-:::
-::::
-
-:::: {.callout-important title="Question 7: standard error"}
-
-For 100 i.i.d. quadrats under a Poisson model with $\lambda=4$, what is the standard error
-of the estimated mean count? What is the standard deviation of the count in one quadrat?
-
-::: {.callout-tip title="Answer" collapse="true"}
-
-The standard error is $\sqrt{4/100}=0.2$ seedlings per quadrat. The standard deviation of
-one count is $\sqrt{4}=2$ seedlings per quadrat.
-
-:::
-::::
-
-:::: {.callout-important title="Question 8: meaning of a confidence interval"}
-
-Does a calculated 95% confidence interval assign a probability of 95% to the parameter
-lying inside it? Explain what the 95% describes.
-
-::: {.callout-tip title="Answer" collapse="true"}
-
-No. The 95% describes the procedure: across repeated samples, about 95% of the intervals
-calculated in this way contain the parameter (if the coverage of the procedure equals its
-confidence level). The parameter is fixed, so one calculated interval either contains it or
-it does not.
-
-:::
-::::
-
-:::: {.callout-important title="Question 9: estimating a variance"}
-
-Which divisor does the method-of-moments estimator of the variance use, and which one does
-`var()` use? What happens to the bias of the former as sample size grows?
-
-::: {.callout-tip title="Answer" collapse="true"}
-
-The method-of-moments estimator divides by $n$ and `var()` divides by $n-1$. For i.i.d.
-observations, the bias of the method-of-moments estimator is $-\sigma^2/n$, which
-approaches zero as $n$ grows.
+Yes. They use different approximations to the likelihood's
+shape. Neither assigns a probability to the fixed parameter.
+Their confidence levels describe repeated use of the interval
+procedures under their assumptions.
 
 :::
 ::::

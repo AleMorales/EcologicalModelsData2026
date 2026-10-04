@@ -1,335 +1,166 @@
 ---
-title: "Chapter 7: Fitting ecological response curves"
+title: "Chapter 7: Grouped ecological response curves"
 date: today
 ---
 
 # Introduction
 
-These six files are simulated ecological datasets supplied as CSV files. You
-can download them from the
-[`Data` folder](https://github.com/AleMorales/EcologicalModelsData2026/tree/main/Data)
-in the course GitHub repository. Treat their generating models and parameters
-as unknown while analysing them. In this Quarto website, this practical runs
-from its own folder, so use `read.csv("../../Data/shapes2.csv")`. The
-[theory](../Theory.qmd) develops the methods, and the
-[function reference](../../Supplements/deterministic-functions.qmd)
-summarises candidate curves.
+These exercises use `datasets::Loblolly`, a dataset built into R. It contains
+84 tree-height observations: `height` is in feet, `age` is in years, and
+`Seed` identifies a tree. There are 14 trees, each measured at six ages. The
+[Chapter 7 theory](../Theory.qmd) introduces the grouped-model ideas used here.
 
-Complete **Exercises 1â€“3** before moving to Chapter 8. **Exercises 4â€“6
-are further practice**: they give you more time with repeated
-measurements, a time series, and a dataset whose context is withheld.
-Each exercise asks for maximum likelihood estimates and at least one
-confidence interval. Run the code yourself, inspect the output, and
-explain what the estimates mean. You will need the DHARMa package for
-the scaled residual checks; install it in your R environment before
-working through those steps. The core exercises also use RTMB: install
-it in your R environment before starting. Begin with an ordinary R
-likelihood in Exercise 1, then use RTMB for the remaining core fits.
+Work through the exercises in order. RTMB performs the marginalisation after
+you mark effects as random; you do not need to implement Laplace approximation
+yourself.
 
-# Exercise 1: Predator intake and model comparison
+We will use the saturating growth curve
 
-The file `shapes2.csv` contains prey density `x` and a predator's measured
-intake rate `y`. Begin with the Holling type II mean curve
-$m(x)=ax/(b+x)$ and independent normal observation errors with standard
-deviation $\sigma$.
+$$
+m(t;A,R_0,k)=A-(A-R_0)e^{-kt}, \qquad A>0,\quad k>0.
+$$
 
-1. Load the file and plot intake against prey density. State the
-   observational unit and what $a$, $b$, and $\sigma$ describe.
-2. Write a negative log-likelihood and fit it with `optim()`. Express
-   the same model in RTMB, fit with its gradient, compare the two
-   negative log-likelihood values, check convergence, and draw the curve.
-3. Calculate an approximate 95% quadratic confidence interval for $a$
-   on its log scale, then express the endpoints in intake-rate units.
-4. Use RTMB to fit a saturating exponential mean curve
-   $m_E(x)=A(1-e^{-kx})$ with the same normal observation model.
-   Calculate AIC and BIC for both fits. Which has the lower scores?
-   Count the error standard deviation as a fitted parameter.
-5. Use five-fold cross-validation to compare their *held-out* normal
-   log densities. Refit each model inside each fold and explain any
-   agreement or disagreement with the information criteria.
-6. Simulate observations from the chosen fitted model, make scaled
-   quantile residual plots with DHARMa, and describe any pattern.
+Here $t$ is age, $R_0$ is the extrapolated height at age zero, $A$ is the
+asymptotic height, and $k$ controls the approach to that asymptote. The first
+observed age is greater than zero, so interpret $R_0$ as an extrapolation rather
+than a directly observed height.
+
+# Exercise 1: Grouping and complete pooling
+
+1. Load `datasets::Loblolly`, make an integer `tree_index` suitable for RTMB,
+   and count trees and observations per tree. Identify the observational and
+   grouping units.
+2. Plot height against age for each tree. Use both line type or symbol and colour
+   to distinguish trees.
+3. Fit a complete-pooling normal model with the growth curve above. Check the
+   convergence code, report $A$, $R_0$, $k$, and
+   $\sigma^2_{\mathrm{obs}}$ with their units, and overlay the fitted common
+   curve.
+4. Describe one systematic feature of the tree trajectories that this common
+   curve misses.
 
 ## Solution
 
-The response is one measured intake rate at an offered prey density.
-The model treats the rows as conditionally independent. The parameter
-$a$ is the limiting rate, $b$ is the half-saturation prey density, and
-$\sigma$ describes observation-level spread around the curve. This
-plot and fit use the same rows for every comparison.
+`Loblolly` is supplied with R, so we can copy it to an object for this analysis.
+An observation is one recorded height at one age for one tree. A tree is the
+grouping unit. `as.integer()` changes the factor levels to consecutive indices
+that can index a parameter vector.
 
 ```r
 library(RTMB)
-intake = read.csv("../../Data/shapes2.csv")
-plot(intake$x, intake$y,
-     xlab = "Prey density", ylab = "Predator intake rate")
 
-type_ii = function(x, a, b) a * x / (b + x)
-sat_exp = function(x, A, k) A * (1 - exp(-k * x))
+trees = datasets::Loblolly
+trees$tree_index = as.integer(trees$Seed)
+table(trees$tree_index)
+c(number_trees = length(unique(trees$tree_index)),
+  number_observations = nrow(trees))
 
-nll_ii = function(par, data) {
-  a = exp(par[1])
-  b = exp(par[2])
-  sigma = exp(par[3])
-  mu = type_ii(x = data$x, a = a, b = b)
-  -sum(dnorm(x = data$y, mean = mu, sd = sigma, log = TRUE))
+tree_colours = rep(c("black", "#0072B2", "#D55E00", "#009E73"),
+                    length.out = 14)
+tree_symbols = rep(c(16, 17, 15, 18), length.out = 14)
+plot(trees$age, trees$height, type = "n",
+     xlab = "Age (years)", ylab = "Height (feet)")
+for (j in 1:14) {
+  tree_data = trees[trees$tree_index == j, ]
+  lines(tree_data$age, tree_data$height, lty = (j - 1) %% 4 + 1,
+        col = tree_colours[j])
+  points(tree_data$age, tree_data$height, pch = tree_symbols[j],
+         col = tree_colours[j])
 }
-
-start_ii = function(data) {
-  c(log_a = log(max(data$y)),
-    log_b = log(median(data$x)),
-    log_sigma = log(sd(data$y)))
-}
-manual_ii = optim(par = start_ii(intake), fn = nll_ii,
-                  data = intake, method = "BFGS")
-
-# The same normal likelihood can be used with either smooth mean curve.
-fit_intake = function(data, curve, initial_scale) {
-  x = data$x
-  y = data$y
-  objective = function(par) {
-    mu = curve(x, exp(par$log_a), exp(par$log_scale))
-    y %~% dnorm(mean = mu, sd = exp(par$log_sigma))
-  }
-  parameters = list(
-    log_a = log(max(y)), log_scale = log(initial_scale),
-    log_sigma = log(sd(y))
-  )
-  obj = MakeADFun(objective, parameters, silent = TRUE)
-  fit = optim(par = obj$par, fn = obj$fn, gr = obj$gr,
-              method = "BFGS")
-  list(obj = obj, fit = fit)
-}
-
-ii_result = fit_intake(intake, type_ii, median(intake$x))
-exp_result = fit_intake(intake, sat_exp, 1 / median(intake$x))
-fit_ii = ii_result$fit
-fit_exp = exp_result$fit
-c(manual = manual_ii$convergence,
-  type_ii = fit_ii$convergence, exponential = fit_exp$convergence)
-c(manual = manual_ii$value, RTMB = fit_ii$value)
-exp(fit_ii$par)
-exp(fit_exp$par)
-
-x_grid = seq(min(intake$x), max(intake$x), length.out = 200)
-lines(x_grid, type_ii(x_grid, exp(fit_ii$par[1]),
-                      exp(fit_ii$par[2])), lty = 1)
-lines(x_grid, sat_exp(x_grid, exp(fit_exp$par[1]),
-                      exp(fit_exp$par[2])), lty = 2)
-legend("bottomright", c("Holling type II", "Saturating exponential"),
-       lty = c(1, 2), bty = "n")
 ```
 
-The optimiser works on log parameters to keep them positive. The
-displayed estimates are back on the ecological scale. In the RTMB
-helper, `log_scale` represents $b$ for Holling type II and $k$ for the
-exponential. `%~%` adds the complete normal negative log-likelihood;
-`obj$gr` supplies derivatives to `optim()`. The manual and RTMB
-objective values should agree closely. Check convergence before using
-Hessians or scores. For $a$, calculate the interval on the log scale:
+The normal model describes heights conditional on age as independent around the
+common curve. Its `sd` argument is a standard deviation, so we estimate
+`sigma_obs` on a log scale and square it to report
+$\sigma^2_{\mathrm{obs}}$ in squared feet.
 
 ```r
-hessian_ii = ii_result$obj$he(fit_ii$par)
-dimnames(hessian_ii) = list(names(fit_ii$par), names(fit_ii$par))
-se_log_ii = sqrt(diag(solve(hessian_ii)))
-a_interval = exp(fit_ii$par["log_a"] +
-                   c(-1, 1) * qnorm(p = 0.975) * se_log_ii["log_a"])
-a_interval
+tree_mean = function(age, A, R0, k) {
+  A - (A - R0) * exp(-k * age)
+}
 
-k_ii = length(fit_ii$par)
-k_exp = length(fit_exp$par)
-scores = data.frame(
-  model = c("Holling type II", "Saturating exponential"),
-  AIC = c(2 * fit_ii$value + 2 * k_ii,
-          2 * fit_exp$value + 2 * k_exp),
-  BIC = c(2 * fit_ii$value + log(nrow(intake)) * k_ii,
-          2 * fit_exp$value + log(nrow(intake)) * k_exp)
+complete_model = function(par) {
+  A = exp(par$log_A)
+  k = exp(par$log_k)
+  sigma_obs = exp(par$log_sigma_obs)
+  mu = tree_mean(trees$age, A = A, R0 = par$R0, k = k)
+  trees$height %~% dnorm(mean = mu, sd = sigma_obs)
+}
+
+complete_start = list(
+  log_A = log(max(trees$height) + 5),
+  R0 = min(trees$height),
+  log_k = log(0.05),
+  log_sigma_obs = log(sd(trees$height))
 )
-scores
-```
+complete_obj = MakeADFun(complete_model, complete_start, silent = TRUE)
+complete_fit = optim(par = complete_obj$par, fn = complete_obj$fn,
+                     gr = complete_obj$gr, method = "BFGS")
+complete_fit$convergence
 
-Both models estimate two curve parameters and one error parameter, so
-their penalty terms are equal. Here a score difference comes from how
-closely the fitted normal distributions describe the same 50 rates.
-The Holling type II fit has the lower AIC and BIC (approximately 169.3
-and 175.0, compared with 181.0 and 186.8). The scores compare only
-these candidates; they do not establish that either is adequate.
-
-For cross-validation, each fold is held out once. The start values,
-curve parameters, and error standard deviation come only from its
-training rows. Sum log densities over all held-out rows:
-
-```r
-set.seed(seed = 702)
-fold = sample(rep(1:5, length.out = nrow(intake)))
-held_out_log = matrix(NA_real_, nrow = 5, ncol = 2,
-                      dimnames = list(NULL, c("type_ii", "exponential")))
-
-for (j in 1:5) {
-  train = intake[fold != j, ]
-  test = intake[fold == j, ]
-  train_ii = fit_intake(train, type_ii, median(train$x))$fit
-  train_exp = fit_intake(train, sat_exp, 1 / median(train$x))$fit
-  stopifnot(train_ii$convergence == 0, train_exp$convergence == 0)
-
-  mu_ii = type_ii(test$x, exp(train_ii$par[1]),
-                  exp(train_ii$par[2]))
-  mu_exp = sat_exp(test$x, exp(train_exp$par[1]),
-                   exp(train_exp$par[2]))
-  held_out_log[j, "type_ii"] = sum(dnorm(
-    x = test$y, mean = mu_ii, sd = exp(train_ii$par[3]), log = TRUE
-  ))
-  held_out_log[j, "exponential"] = sum(dnorm(
-    x = test$y, mean = mu_exp, sd = exp(train_exp$par[3]), log = TRUE
-  ))
-}
-colSums(held_out_log)
-```
-
-The Holling type II model also has the **larger** held-out log score
-for these folds (approximately $-91.1$ versus $-108.9$). AIC and BIC
-use the full-data fit; the
-cross-validation score uses repeated training fits. Small differences
-can change with a different fold assignment.
-
-The following simulates full intake observations from the fitted
-Holling model. Use the same construction with `sat_exp()` if that is
-the model you choose to inspect. The matrix has 50 rows, one per
-observed rate, and 500 simulated datasets in its columns.
-
-```r
-set.seed(seed = 703)
-mu_ii = type_ii(intake$x, exp(fit_ii$par[1]), exp(fit_ii$par[2]))
-sim_ii = replicate(500, rnorm(n = nrow(intake), mean = mu_ii,
-                               sd = exp(fit_ii$par[3])))
-scaled_ii = DHARMa::createDHARMa(
-  simulatedResponse = sim_ii,
-  observedResponse = intake$y,
-  fittedPredictedResponse = mu_ii,
-  integerResponse = FALSE
+complete_estimates = c(
+  A_feet = exp(complete_fit$par["log_A"]),
+  R0_feet = complete_fit$par["R0"],
+  k_per_year = exp(complete_fit$par["log_k"]),
+  sigma2_obs_squared_feet = exp(complete_fit$par["log_sigma_obs"])^2
 )
-plot(scaled_ii)
-DHARMa::plotResiduals(scaled_ii, predictor = intake$x)
+complete_estimates
+
+age_grid = seq(min(trees$age), max(trees$age), length.out = 200)
+lines(age_grid,
+      tree_mean(age_grid, A = complete_estimates["A_feet"],
+                R0 = complete_estimates["R0_feet"],
+                k = complete_estimates["k_per_year"]),
+      lwd = 3)
 ```
 
-Describe whether residuals fill the 0â€“1 range roughly evenly and
-whether their location changes with prey density. A pattern calls
-for a model check; it does not identify the biological cause.
+You should inspect the code returned by `complete_fit$convergence`; zero is
+reassuring but does not verify the model. The common curve misses systematic
+between-tree differences: some trajectories lie mainly above it while others
+lie below it.
 
 
-# Exercise 2: Diameter and pine-cone counts
 
-The file `shapes3.csv` records tree diameter `x` and pine-cone count `y`.
-Some entries are missing. Begin with an allometric mean
-$\mu(x)=a x^p$ for $x>0$, where $a>0$, and independent Poisson counts.
+# Exercise 2: No pooling
 
-1. Load the file. Count missing `x` and `y` values and the rows with
-   both values present. Explain why a missing count is not a count of zero.
-   Use complete predictorâ€“response pairs for **both** candidate models.
-2. Plot count against diameter. Write and fit the Poisson
-   likelihood in RTMB for $a$ and $p$. What does $p$ say about a doubling
-   of diameter?
-3. Fit a negative binomial model with the same mean curve and an
-   additional positive shape parameter $k$, for which
-   $\operatorname{Var}(Y_i\mid x_i)=\mu_i+\mu_i^2/k$. Calculate and compare AIC
-   and BIC, counting every estimated parameter.
-4. Calculate a 95% quadratic confidence interval for $p$ from the
-   negative binomial fit. Explain what could make this interval
-   unreliable.
-5. Simulate counts from the fitted negative binomial model and inspect
-   DHARMa scaled residuals against diameter. Explain what the
-   diagnostics can and cannot tell you about the missing values.
+Keep $R_0$, $k$, and $\sigma^2_{\mathrm{obs}}$ shared, but give every tree a
+separate asymptote $A_j$ on the log scale.
 
-# Exercise 3: Species presence and interval coverage
-
-The file `shapes6.csv` contains one predictor `x` and a binary
-presence/absence response `y`. To allow presence to be most likely
-at an intermediate predictor value, use the bounded, hump-shaped curve
-$p(x)=\operatorname{logit}^{-1}[h-q(x-c)^2]$, where $q>0$.
-Here $\operatorname{logit}^{-1}(z)=1/(1+e^{-z})$.
-Each response is an independent Bernoulli observation with probability
-$p(x)$.
-
-1. Load and plot the data. What are the possible response values?
-   Explain the ecological meaning of $c$, $h$, and $q$.
-2. Fit $c$, $h$, and $q$ by maximum likelihood with RTMB and `optim()`.
-   Plot the fitted probability curve, checking that it remains between
-   0 and 1.
-3. Calculate a 95% quadratic confidence interval for $c$. Compare
-   AIC with an intercept-only Bernoulli model whose constant
-   presence probability is estimated from the data.
-4. Simulate binary observations from the fitted curve and inspect
-   DHARMa residuals. Why is randomisation needed for a binary response?
-5. Conduct a simulation study at the observed `x` values. Choose
-   generating $c$, $h$, and $q$, simulate and refit at least 300 datasets,
-   and calculate bias, interval coverage, and the number of failed fits.
-   What part of the result is specific to your chosen simulation setting?
+1. Fit this model with RTMB and check convergence.
+2. Plot the fitted curve for every tree and identify the large differences from
+   the complete-pooling curve.
+3. State which parameters and data remain shared. Are the 14 log asymptotes
+   random effects?
 
 
-# Exercise 4: Five leaves along a light gradient
+# Exercise 3: Partial pooling and shrinkage
 
-The file `shapes1.csv` contains photosynthesis measurements at 11 light
-intensities for **five leaves on different plants**. Each leaf contributes
-measurements along a curve, but the file has no leaf identifier linking
-its rows across intensities. Fit a pooled *working model* for the mean
-response,
+Use a log-asymptote random effect so every tree asymptote remains positive:
 
 $$
-m(x)=r+a(1-e^{-kx}), \qquad a,k>0,
+\log A_j=\log A+u_j,\qquad
+u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{tree}}).
 $$
 
-with normal observation errors of standard deviation $\sigma$.
-
-1. Load and plot the data, including the five responses at each light
-   intensity. Why might $r$ be below zero for net photosynthesis?
-2. Fit $r$, $a$, $k$, and $\sigma$ by maximum likelihood under the
-   working assumption that rows are independent. Plot the fitted
-   curve and interpret its baseline and upper limit.
-3. Calculate a 95% quadratic confidence interval for $a$. State
-   precisely which assumption makes this interval provisional.
-4. Simulate from the fitted pooled model and inspect scaled residuals
-   against light intensity. Explain why these plots cannot check
-   within-leaf dependence without leaf identifiers.
+1. Fit this model in RTMB, using `random = "u"`, and inspect convergence.
+2. Report $A$, $R_0$, $k$, $\sigma^2_{\mathrm{tree}}$, and
+   $\sigma^2_{\mathrm{obs}}$. State that the tree variance is on the
+   log-asymptote scale and that the observation variance is in squared feet.
+3. Draw conditional tree curves and compare their asymptotes with the no-pooling
+   curves. Identify the shrinkage pattern.
+4. Explain what RTMB did when `u` was declared random.
 
 
-# Exercise 5: Population size through time
 
-The file `shapes4.csv` records population `size` at `time`. Treat the
-recorded size as a count and begin with a logistic expected size
-$m(t)=K/[1+e^{-r(t-t_0)}]$, where $K,r>0$. As a working model,
-assume each count is Poisson with that mean.
+# Exercise 4: Interpretation and checking
 
-1. Plot size against time. Identify the upper limit $K$, the
-   midpoint time $t_0$, and the role of $r$ in the mean curve.
-2. Fit all three parameters by maximum likelihood and calculate
-   a 95% quadratic confidence interval for $K$.
-3. Fit a Gompertz mean curve
-   $g(t)=K\exp[-\exp\{-r(t-t_0)\}]$ with the same Poisson
-   observation model. Compare AIC and BIC on the same 25 counts.
-4. Hold out the observations after time 62, fit both models to
-   earlier observations, and score the later counts with their
-   Poisson log probabilities. What does this check that a random
-   fold split would not check?
-5. Inspect scaled residuals in time order. Which assumptions are
-   especially uncertain when repeated sizes of one population are
-   treated as independent counts?
-
-# Exercise 6: A mystery response curve
-
-The ecological context of `shapes5.csv` is deliberately withheld.
-Use `x` as the single predictor and `y` as the response. The `no`
-column is a row index; leave `group` out of this chapter's models.
-Do not infer a biological meaning for either field from its name.
-
-1. Load the file, examine missing values and the response's possible
-   values, and plot `y` against `x`. Propose a suitable observation
-   distribution and two plausible mean curves from the plotted shape.
-2. As one defensible comparison, fit independent Poisson counts with
-   either $m_E(x)=a e^{-bx}$ or $m_H(x)=a/(1+bx)$, where $a,b>0$.
-   Estimate each model by maximum likelihood and plot both curves.
-3. Compare AIC and BIC, then calculate a 95% quadratic interval for
-   $b$ in the lower-AIC model. Interpret $b$ for that curve without
-   assigning an ecological meaning to the response.
-4. Simulate from that fitted model and inspect scaled residuals
-   against `x`. Explain what a poor residual pattern would mean for
-   your conclusion and why ignoring `group` limits this analysis.
+1. Use the Hessian from the partial-pooling fit to calculate an approximate 95%
+   interval for the common asymptote $A$ on the feet scale. State the relevant
+   assumptions.
+2. Explain the difference between a fitted curve for an observed tree and a
+   prediction for a new tree.
+3. Simulate complete hierarchical data from the partial-pooling fit: simulate
+   one tree effect per tree and then one observation per recorded age. Plot the
+   simulated and observed trajectories for comparison.
+4. Give at least two limitations of this analysis, including the 14 groups and
+   the decision to vary only one curve component.

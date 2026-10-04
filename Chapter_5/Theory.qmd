@@ -1,5 +1,5 @@
 ---
-title: "Maximum likelihood and likelihood-based inference"
+title: "Deterministic functions in ecology"
 format:
   html:
     toc: true
@@ -11,924 +11,579 @@ execute:
   eval: false
 ---
 
+TODO: Remove Taylor expansion
+
 # Introduction
 
-In this chapter, we learn how to use maximum likelihood to estimate unknown
-parameters in ecological probability models and describe uncertainty from the
-likelihood. In [Chapter 4](../Chapter_4/Theory.qmd#sec-estimates), we
-estimated the mean number of seedlings per quadrat by matching a sample mean
-to the mean of a Poisson model. But the model tells us more than its mean: it
-assigns a probability to every possible count. Can we use that information to
-estimate the unknown mean?
+In this chapter, we learn how to use deterministic functions to describe how an
+expected ecological response changes with a predictor. A **deterministic
+function** gives the same output whenever its inputs and parameter values are
+held fixed. It lets us study the shape and interpretation of an expected response
+before deciding how observations might vary around that response.
 
-We will answer this question using **maximum likelihood estimation** (MLE).
-We will first calculate likelihoods for a few counts by hand. Then we will
-use R to fit the same model to a larger sample. Tree heights will show what
-changes when a model has two parameters, and negative binomial counts will
-bring the steps together. All data in this chapter are illustrative or
-simulated; they are not field observations.
+In [Chapter 4](../Chapter_4/Theory.qmd), we used probability models and
+likelihood to estimate parameters from observations. Here we first study the
+shapes of functions that could describe an ecological response. We will calculate
+their slopes, limits, peaks, and other landmarks before deciding how observations
+might vary around a curve. This gives us a way to interpret a fitted curve later,
+rather than treating it as a line drawn by software.
+
+For example, how does the number of prey eaten by one predator change as prey
+become more abundant? At low prey density, encounters may limit consumption. At
+high density, handling each prey item may limit it instead. A deterministic
+function can describe this expected response.
+
+The functions and numerical values in this chapter are illustrative. A curve
+that looks plausible does not, by itself, establish an ecological mechanism.
+A compact [reference to common functions](../Supplements/deterministic-functions.qmd)
+is available alongside this chapter.
 
 # Learning goals
 
 After studying this chapter, you should be able to:
 
-- distinguish probability from likelihood and calculate a likelihood and
-  log-likelihood for a small sample by hand;
-- construct a log-likelihood from independent probability masses or densities;
-- find a maximum likelihood estimate from a likelihood curve or with
-  `optim()`, including a transformation for a constrained parameter;
-- describe finite-sample behaviour, consistency, asymptotic normality,
-  asymptotic efficiency, and invariance of maximum likelihood estimators;
-- interpret a two-parameter likelihood surface, a slice, and a profile;
-- calculate and interpret approximate quadratic confidence intervals
-  using a Hessian and profile likelihood confidence intervals;
-- compare these intervals and check whether a fitted ecological model
-  describes the data reasonably.
+- define the input, output, domain, parameters, and units of an ecological
+  response function;
+- calculate and plot a function in R, and explain how changing a parameter
+  changes its curve;
+- use limits and derivatives to find intercepts, asymptotes, initial slopes,
+  maxima, and inflection points;
+- calculate half-lives and half-saturation points and interpret them in
+  ecological units;
+- shift, scale, and reparameterise a function without changing its intended
+  meaning;
+- use a transformation or a local approximation to understand a curve while
+  recognising the range over which it is useful.
 
-# From a probability model to a likelihood {#sec-likelihood}
+# From an ecological question to a function {#sec-deterministic-functions}
 
-Likelihood uses a probability model for a different question from probability
-itself. After observing data, we hold those observations fixed and compare how
-well different candidate parameter values describe them. We now apply that
-idea to seedling counts.
-
-Suppose $X_i$ is the number of seedlings in equal-area quadrat $i$. We assume
-the quadrat counts are independent and have a common Poisson mean $\lambda$,
-measured in seedlings per quadrat:
+Let $N$ be prey density, measured in prey per square metre, and let $F(N)$ be
+the expected number of prey eaten by one predator per hour. A possible response
+is
 
 $$
-X_i \sim \operatorname{Poisson}(\lambda).
+F(N)=\frac{aN}{b+N}, \qquad N\geq 0,\quad a>0,\quad b>0.
 $$
 
-The [Poisson model](../Supplements/distributions.qmd#sec-poisson)
-assigns probability
+Here $a$ has units of prey per hour for one predator, and $b$ has the same units as
+$N$: prey per square metre. We will soon see that $a$ is the upper limit of
+the response and $b$ is the density at which the response reaches half that
+limit. This curve is called a **Holling type II functional response**; the
+same mathematical shape appears in other ecological and biochemical settings.
 
-$$
-P(X_i=x_i\mid\lambda)
-=\frac{e^{-\lambda}\lambda^{x_i}}{x_i!}
-$$
+For fixed $a$, $b$, and $N$, the equation returns one number. It contains no
+random variable and gives no probability to a possible observation. A useful
+general notation is $m(x;\boldsymbol\theta)$, where $x$ is a predictor and
+$\boldsymbol\theta$ is a set of parameters. Whether the output represents a
+mean count, a rate, a probability, or something else must be stated separately.
 
-to one possible count $x_i$. If $\lambda$ is fixed, we can ask how probable
-different counts are. Once the counts have been observed, we can hold
-those counts fixed and compare candidate values of $\lambda$.
-
-::: {.callout-note title="Likelihood"}
-The **likelihood** $L(\lambda\mid x_1,\ldots,x_n)$ is the joint
-probability of the observed discrete data, viewed as a function of
-$\lambda$. For continuous data, it uses joint density instead.
-The data are fixed while the parameter varies.
+::: {.callout-note title="Domain and units"}
+A mathematical formula may be defined for inputs that make no ecological
+sense. Prey density cannot be negative, so our domain is $N\geq0$. The
+denominator is positive on that domain when $b>0$. Stating the domain and
+parameter restrictions is part of specifying the model.
 :::
 
-For independent quadrats, multiply the contribution from each count:
+## Calculate and plot curves in R
 
-$$
-L(\lambda\mid x_1,\ldots,x_n)
-=\prod_{i=1}^{n}P(X_i=x_i\mid\lambda).
-$$
-
-Independence is an assumption that permits this product. Separate
-quadrats can still share conditions that make their counts dependent.
-
-## Calculate a likelihood by hand
-
-Consider the illustrative counts $x_1=1$, $x_2=2$, and $x_3=3$. For a
-candidate mean of one seedling per quadrat,
-
-$$
-\begin{aligned}
-L(1\mid 1,2,3)
-&=P(X_1=1\mid1)P(X_2=2\mid1)P(X_3=3\mid1)\\
-&=\frac{e^{-1}1^1}{1!}
-  \frac{e^{-1}1^2}{2!}
-  \frac{e^{-1}1^3}{3!}\\
-&=\frac{e^{-3}}{12}\approx 0.00415.
-\end{aligned}
-$$
-
-For a candidate mean of two seedlings per quadrat, the same *observed*
-counts give
-
-$$
-L(2\mid1,2,3)
-=\frac{e^{-6}2^{1+2+3}}{1!\,2!\,3!}
-=\frac{64e^{-6}}{12}
-\approx 0.01322.
-$$
-
-The counts are more likely under $\lambda=2$ than under $\lambda=1$.
-This comparison does not give the probability that either value of
-$\lambda$ is true.
-
-::: {.callout-warning title="Likelihood is not probability for the parameter"}
-Likelihood compares parameter values using fixed data. It need not
-integrate to one over parameter values, and $L(2\mid1,2,3)$ is not the
-probability that $\lambda=2$.
-:::
-
-## Add logs rather than multiply
-
-Products of many small contributions can become too small for a computer
-to represent. The **log-likelihood** turns the product into a sum:
-
-$$
-\ell(\lambda)
-=\log L(\lambda)
-=\sum_{i=1}^{n}\log P(X_i=x_i\mid\lambda).
-$$
-
-For our three counts, substitute into the Poisson formula:
-
-$$
-\begin{aligned}
-\ell(\lambda\mid1,2,3)
-&=\sum_{i=1}^{3}
-  [-\lambda+x_i\log\lambda-\log(x_i!)]\\
-&=-3\lambda+6\log\lambda-\log(12).
-\end{aligned}
-$$
-
-Hence $\ell(1)=-3-\log(12)\approx-5.485$ and
-$\ell(2)=-6+6\log(2)-\log(12)\approx-4.326$.
-The larger log-likelihood again belongs to $\lambda=2$. Logarithms
-preserve the ordering, so likelihood and log-likelihood have the same
-maximum. A negative log-likelihood is ordinary: it is the logarithm
-of a joint probability smaller than one.
-
-In R, `log = TRUE` asks `dpois()` for each log probability. Sum these
-values directly rather than taking the logarithm of a product:
+We can translate the formula directly into an R function. The input comes
+first, followed by the parameters:
 
 ```r
-# Store the observed counts and calculate their log-likelihoods.
-counts = c(1, 2, 3)
-sum(dpois(x = counts, lambda = 1, log = TRUE))
-sum(dpois(x = counts, lambda = 2, log = TRUE))
-```
-
-:::: {.callout-important title="Practice: a likelihood on paper"}
-
-Three other quadrats contain 0, 1, and 2 seedlings. Without R, write
-the three Poisson probability contributions, their product, and the
-log-likelihood. Evaluate both at $\lambda=1$ and $\lambda=2$ with a
-calculator. Which candidate has greater likelihood?
-
-::: {.callout-tip title="Solution" collapse="true"}
-
-For these counts,
-$L(\lambda)=e^{-3\lambda}\lambda^{0+1+2}/(0!\,1!\,2!)
-=e^{-3\lambda}\lambda^3/2$ and
-$\ell(\lambda)=-3\lambda+3\log\lambda-\log2$.
-At $\lambda=1$, the likelihood is $e^{-3}/2\approx0.02489$ and
-the log-likelihood is approximately $-3.693$.
-At $\lambda=2$, they are $4e^{-6}\approx0.009915$ and
-$-6+2\log2\approx-4.614$. Among these candidates, $\lambda=1$ fits
-the fixed counts better.
-
-:::
-::::
-
-For a continuous model, the same multiplication and log-sum steps use
-**density** values. As [Chapter 3](../Chapter_3/Theory.qmd#sec-continuous_measurements)
-explains, a density at an exact height is not a probability of that
-exact height.
-
-# Find the maximum {#sec-maximum-likelihood}
-
-The **maximum likelihood estimator** is a rule that chooses the
-parameter value with the highest likelihood. Applying it to one sample
-produces a **maximum likelihood estimate**. For the Poisson mean,
-
-$$
-\hat\lambda_{\mathrm{ML}}
-=\operatorname*{arg\,max}_{\lambda\geq0}\ell(\lambda).
-$$
-
-For independent Poisson counts, the maximum occurs at the sample mean
-$\bar x$. We also reached $\bar x$ by the
-[method of moments in Chapter 4](../Chapter_4/Theory.qmd#sec-estimates).
-The two methods happen to agree for this model; they answer the
-estimation problem in different ways. If all counts are zero, the
-maximum is at the boundary $\lambda=0$.
-
-Consider a larger illustrative sample from 12 equal-area quadrats:
-
-```r
-# Store the illustrative counts and calculate their maximum likelihood estimate.
-seedling_counts = c(1, 2, 3, 2, 4, 1, 3, 2, 2, 3, 1, 2)
-mean(seedling_counts)
-```
-
-The mean is approximately 2.17 seedlings per quadrat. We can evaluate
-the log-likelihood at many candidate values and plot it. The highest
-point lies at the estimate.
-
-```{r}
-#| echo: false
-#| eval: true
-#| fig-cap: "Relative log-likelihood for illustrative seedling counts in 12 quadrats. The vertical line marks the maximum likelihood estimate."
-# Store the counts and choose candidate Poisson means.
-seedling_counts = c(1, 2, 3, 2, 4, 1, 3, 2, 2, 3, 1, 2)
-lambda_grid = seq(from = 0.2, to = 5, length.out = 200)
-# Calculate the log-likelihood at each candidate mean.
-log_likelihood = vapply(
-  X = lambda_grid,
-  FUN = function(lambda) {
-    sum(dpois(x = seedling_counts, lambda = lambda, log = TRUE))
-  },
-  FUN.VALUE = numeric(1)
-)
-# Plot relative log-likelihood and mark the fitted mean.
-plot(
-  x = lambda_grid, y = log_likelihood - max(log_likelihood),
-  type = "l", lwd = 2, xlab = "Mean seedlings per quadrat",
-  ylab = "Relative log-likelihood"
-)
-abline(v = mean(seedling_counts), lty = 2, lwd = 2)
-```
-
-The vertical distance from the peak shows how much worse another
-candidate fits these observations on the log-likelihood scale. It is
-not a probability assigned to the parameter. The relative
-log-likelihood has a maximum of zero because we subtract the highest
-log-likelihood.
-
-## Let `optim()` find the maximum
-
-R's `optim()` minimises a function by default. We therefore give it
-the **negative log-likelihood**. A Poisson mean cannot be negative.
-We optimise its logarithm and transform back with `exp()`:
-
-$$
-\eta=\log\lambda,\qquad \lambda=e^\eta.
-$$
-
-This transformation keeps every value considered by the optimiser
-positive. It cannot represent the boundary value $\lambda=0$, so a
-sample containing only zeros needs separate treatment.
-
-```r
-# Define the negative log-likelihood on a scale that keeps the mean positive.
-poisson_nll = function(log_lambda, counts) {
-  lambda = exp(log_lambda)
-  -sum(dpois(x = counts, lambda = lambda, log = TRUE))
+# Define the response for prey density N and two ecological parameters.
+holling_type_ii = function(N, a, b) {
+  a * N / (b + N)
 }
 
-# Fit the model from a valid starting value and return the mean on its original scale.
-fit = optim(
-  par = log(2), fn = poisson_nll, counts = seedling_counts,
-  method = "BFGS"
-)
-fit$convergence
-lambda_hat = exp(fit$par)
-c(maximum_likelihood = lambda_hat, sample_mean = mean(seedling_counts))
+# Evaluate the response at several prey densities.
+holling_type_ii(N = c(0, 3, 6, 12), a = 12, b = 6)
 ```
 
-`log(2)` is a starting value, not an estimate. A convergence code of
-zero reports that the algorithm terminated successfully. We still
-compare the answer with the sample mean and inspect the fitted model.
-The estimate is reported on the original scale: seedlings per quadrat.
+Base R works on a vector of input values here because multiplication and
+division are vectorised. To see the whole shape, use `curve()`:
 
-::: {.callout-note title="A practical fitting sequence"}
-State the model and its assumptions, write the contribution from one
-observation, sum log contributions, choose a valid parameter scale and
-starting value, optimise, and check the returned fit. An optimiser
-returning a number does not establish that the ecological model is
-appropriate.
-:::
+```r
+# Plot the response across a useful range of prey densities.
+curve(
+  holling_type_ii(N = x, a = 12, b = 6),
+  from = 0, to = 30,
+  xlab = "Prey density (prey per square metre)",
+  ylab = "Prey eaten by one predator per hour"
+)
+```
 
-:::: {.callout-important title="Practice: read an optimiser result"}
-
-If `optim()` returns `par = log(3.1)` when fitting a Poisson model on
-the log scale, what mean count would you report? Why is the returned
-`par` value itself not in seedlings per quadrat?
-
-::: {.callout-tip title="Solution" collapse="true"}
-
-The fitted mean is $\exp[\log(3.1)]=3.1$ seedlings per quadrat.
-The optimiser worked with $\eta=\log\lambda$, which is a transformed
-parameter.
-
-:::
-::::
-
-# What an estimate can and cannot guarantee
-
-An MLE changes between repeated samples. The
-[sampling-distribution discussion in Chapter 4](../Chapter_4/Theory.qmd)
-explains bias, variance, standard error, and confidence interval
-coverage. Maximum likelihood does not guarantee zero bias in a
-small sample. For example, the normal-model variance MLE divides
-the sum of squared deviations by $n$; the related `var()` calculation
-divides by $n-1$. Chapter 4 explains the resulting finite-sample bias.
-Under the independent Poisson model, $\hat\lambda=\bar X$ is
-unbiased and has variance $\lambda/n$. Its mean squared error
-therefore also equals $\lambda/n$. This illustrates how an
-estimator's bias and spread, rather than the method's name alone,
-describe its finite-sample performance.
-
-**Invariance** means that if $\hat\theta$ is an MLE of $\theta$, then
-$g(\hat\theta)$ is the MLE of $g(\theta)$ for a parameter quantity
-defined by $g$. Thus an estimate of $\log\lambda$ is
-$\log\hat\lambda$. We use the same idea when converting an estimate
-from the optimiser's log scale back to an ecological scale.
-
-Under suitable model and sampling conditions, MLEs are **consistent**: as
-sample size grows, they tend to concentrate near the parameter that generated
-the data. Their sampling distributions are often approximately normal in large
-samples (**asymptotic normality**). Under additional technical conditions, an
-MLE can be **asymptotically efficient**, meaning its large-sample variance
-reaches the smallest available value among a suitable class of estimators.
-These are long-run properties, not promises that every larger realised sample
-gives a closer estimate.
-
-::: {.callout-warning title="A maximum is conditional on the model"}
-If quadrat counts have different expected means or are dependent,
-a Poisson fit based on a common independent mean may describe them
-poorly. A high likelihood within that model cannot repair its
-assumptions. Small samples, boundaries, and weakly identified
-parameters can also make normal approximations unreliable.
-:::
-
-# When there are two parameters {#sec-likelihood-surface}
-
-Many ecological probability models have more than one unknown parameter. The
-likelihood then compares combinations of parameter values while holding the
-observations fixed. To apply this idea, suppose we measure tree heights $H_i$
-in metres. As in [Chapter 3](../Chapter_3/Theory.qmd#sec-continuous_four_faces),
-a normal model has mean $\mu$ metres and standard deviation $\sigma$ metres:
-
-$$
-H_i\sim\operatorname{Normal}(\mu,\sigma^2).
-$$
-
-For independent heights, multiply their densities. The
-log-likelihood is easier to calculate:
-
-$$
-\ell(\mu,\sigma)
-=\sum_{i=1}^{n}
-\left[
--\log(\sigma\sqrt{2\pi})
--\frac{(h_i-\mu)^2}{2\sigma^2}
-\right].
-$$
-
-Here the normal model is parameterised with variance $\sigma^2$,
-while R's `dnorm()` takes the standard deviation in its `sd` argument.
-
-## Calculate a density likelihood by hand
-
-Take two illustrative heights, 20 m and 24 m. Candidate A has
-$(\mu,\sigma)=(22,2)$ m; candidate B has $(22,4)$ m. Their
-log-likelihoods are
-
-$$
-\begin{aligned}
-\ell_A
-&=-2\log(2\sqrt{2\pi})
-  -\frac{(20-22)^2+(24-22)^2}{2(2)^2}
- \approx -4.224,\\
-\ell_B
-&=-2\log(4\sqrt{2\pi})
-  -\frac{(20-22)^2+(24-22)^2}{2(4)^2}
- \approx -4.860.
-\end{aligned}
-$$
-
-The two density contributions for candidate A are
-$f(20\mid22,2)$ and $f(24\mid22,2)$; their product is
-$L_A=e^{\ell_A}$. Candidate A has the higher likelihood for
-these two heights. A wider model does not automatically fit every
-short sample better.
-
-:::: {.callout-important title="Practice: two candidate tree-height models"}
-
-Without R, calculate the log-likelihood of heights 20 m and 24 m
-under $(\mu,\sigma)=(20,4)$ m. Compare it with candidate B above.
-Which has greater likelihood? Write the two individual density
-contributions before combining their logs.
-
-::: {.callout-tip title="Solution" collapse="true"}
-
-The contributions are
-$f(20\mid20,4)=1/(4\sqrt{2\pi})$ and
-$f(24\mid20,4)=e^{-1/2}/(4\sqrt{2\pi})$.
-Their log-likelihood is
-$-2\log(4\sqrt{2\pi})-1/2\approx-5.110$.
-Candidate B, with log-likelihood approximately $-4.860$, fits
-these fixed heights better.
-
-:::
-::::
-
-## Surface, slice, and profile
-
-With two parameters, the likelihood has a value for every
-$(\mu,\sigma)$ pair. A contour plot joins pairs with the same
-log-likelihood. To illustrate this general idea, simulate 25 independent
-heights from a known normal model. We know the generating parameters only
-because this is a simulation.
+The formal input to `curve()` is called `x`; inside the call we pass it to
+the argument named `N`. Comparing curves while changing only $b$ helps us
+see its effect:
 
 ```{r}
 #| echo: false
 #| eval: true
-#| fig-cap: "Relative log-likelihood for 25 simulated tree heights. The filled point is the fitted mean and standard deviation; the cross marks the generating values."
-# Simulate tree heights and calculate their normal-model estimates.
-set.seed(seed = 505)
-tree_heights = rnorm(n = 25, mean = 22, sd = 4)
-height_mu_hat = mean(tree_heights)
-height_sigma_hat = sqrt(mean((tree_heights - height_mu_hat)^2))
-# Evaluate the log-likelihood across a grid of mean and standard-deviation values.
-mu_grid = seq(from = 17, to = 27, length.out = 80)
-sigma_grid = seq(from = 1.5, to = 7, length.out = 80)
-surface = outer(
-  X = mu_grid, Y = sigma_grid,
-  FUN = Vectorize(function(mu, sigma) {
-    sum(dnorm(x = tree_heights, mean = mu, sd = sigma, log = TRUE))
-  })
+#| fig-cap: "Holling type II responses with the same upper limit and different half-saturation densities."
+# Define the response before drawing curves with two half-saturation densities.
+holling_type_ii = function(N, a, b) {
+  a * N / (b + N)
+}
+# Draw the first response, then add the second with a different line type.
+curve(
+  holling_type_ii(N = x, a = 12, b = 3),
+  from = 0, to = 30, ylim = c(0, 12),
+  xlab = "Prey density (prey per square metre)",
+  ylab = "Prey eaten by one predator per hour",
+  lty = 1
 )
-# Draw likelihood contours and mark the fitted and generating values.
+curve(
+  holling_type_ii(N = x, a = 12, b = 9),
+  from = 0, to = 30, add = TRUE, lty = 2
+)
+legend(
+  "bottomright", legend = c("b = 3", "b = 9"),
+  lty = c(1, 2), bty = "n"
+)
+```
+
+Both curves approach 12 prey per hour for one predator. The curve with larger
+$b$ rises more slowly across the densities shown. We can make that statement
+precise by calculating the half-saturation point below.
+
+If a function depends on two varying quantities, we can evaluate it on a
+grid. For example, we might ask how the predicted response varies with both
+prey density $N$ and handling time $H$. Here $H$ is a parameter that we vary
+to explore the model, not a measured predictor in a fitted analysis:
+
+```r
+# Define the response for each prey-density and handling-time combination.
+response = function(N, H, alpha = 0.6) {
+  alpha * N / (1 + alpha * H * N)
+}
+
+# Choose values for the two quantities that we vary across the grid.
+density_values = seq(from = 0, to = 30, length.out = 60)
+handling_values = seq(from = 0.15, to = 0.5, length.out = 60)
+# Calculate the response for every density and handling-time combination.
+response_grid = outer(
+  X = density_values, Y = handling_values,
+  FUN = response
+)
+# Show the predicted response as contours over the two inputs.
 contour(
-  x = mu_grid, y = sigma_grid, z = surface - max(surface),
-  xlab = "Mean height (m)", ylab = "Height SD (m)",
-  levels = c(-10, -5, -2, -1, -0.5, -0.1)
-)
-points(x = height_mu_hat, y = height_sigma_hat, pch = 19)
-points(x = 22, y = 4, pch = 4, lwd = 2)
-legend(
-  "topright", legend = c("MLE", "Generating values"),
-  pch = c(19, 4), bty = "n"
+  x = density_values, y = handling_values, z = response_grid,
+  xlab = "Prey density (prey per square metre)",
+  ylab = "Handling time (hours per prey)"
 )
 ```
 
-The peak gives the joint MLE. The generating values need not sit at
-the peak of one finite sample. Contours show *relative fit* across
-parameter pairs, not probability regions for the parameters.
+The grid and contour plot show how the same equation responds to combinations
+of inputs. They do not tell us which parameter values describe any observed
+data.
 
-A **likelihood slice** varies one parameter while holding the other
-fixed. For example, $\ell(\mu,\hat\sigma)$ holds the standard
-deviation at its joint estimate. A **profile likelihood** for
-$\mu$ instead finds the best $\sigma$ separately for every
-candidate $\mu$:
+# Read the ends of a curve {#sec-function-limits}
+
+Before taking a derivative, check where a function starts and what happens
+as its input grows. A **limit** describes a value approached by a function,
+whether or not the function reaches it at a finite input. A finite limiting
+value as $x\to\infty$ is a horizontal **asymptote**.
+
+Suppose $D(t)=Ae^{-kt}$ describes a quantity that declines with time, where
+$A>0$, $k>0$, and $t\geq0$. At $t=0$, $D(0)=A$. As $t\to\infty$,
+$e^{-kt}\to0$, so $D(t)\to0$. If the input instead represents canopy depth,
+the rate parameter has units of inverse depth. Always attach its units
+to the particular input.
+
+For the Holling response, divide numerator and denominator by $N$ when
+$N>0$:
 
 $$
-\ell_p(\mu)=\max_{\sigma>0}\ell(\mu,\sigma).
+F(N)=\frac{a}{b/N+1}
+\longrightarrow a
+\quad\text{as }N\to\infty.
 $$
 
-Thus a profile re-estimates the nuisance parameter $\sigma$.
-It is at least as high as a slice at every $\mu$, since the slice
-offers just one possible value of $\sigma$. A slice should not be
-labelled a profile.
+Thus $a$ is the upper asymptote. At $N=0$, $F(0)=0$. For densities that are
+small compared with $b$, $b+N\approx b$, giving
+$F(N)\approx(a/b)N$. This is a *local* straight-line approximation: it
+should not be extrapolated to arbitrarily high prey density.
+
+The **Ricker function** provides a different shape. If $N$ is adult density
+and $R(N)$ is recruit density, one form is
+
+$$
+R(N)=rNe^{-qN}, \qquad N\geq0,\quad r>0,\quad q>0.
+$$
+
+It begins at zero. As $N$ grows very large, exponential decline eventually
+overcomes the factor $N$, so $R(N)\to0$. We will use a derivative to find
+the peak between those two ends.
+
+:::: {.callout-important title="Try it on paper"}
+
+For $G(N)=8N/(4+N)$:
+
+1. Calculate $G(0)$ and $\lim_{N\to\infty}G(N)$.
+2. Write the straight-line approximation when $N$ is small compared with 4.
+3. Explain what the limiting value and approximation say about the curve's
+   behaviour. Keep R closed until you have completed each task.
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+$G(0)=0$. Dividing top and bottom by $N$ gives
+$G(N)=8/(4/N+1)\to8$. For $N\ll4$, the denominator is
+approximately 4, so $G(N)\approx2N$. The horizontal asymptote is 8.
+Thus the response starts at zero, initially rises by about two output units per
+input unit, and later flattens towards 8.
+
+:::
+::::
+
+# Slopes and derivatives {#sec-function-derivatives}
+
+The **derivative** $f'(x)=df/dx$ is the slope of a curve at $x$. It
+describes the change in the output per unit change in the input near that
+point. Its units are output units divided by input units.
+
+You will use four rules repeatedly. If $u(x)$ and $v(x)$ are functions,
+
+| Rule | Derivative |
+|---|---|
+| Power | $(x^p)'=px^{p-1}$ |
+| Chain | $(e^{u})'=e^u u'$ |
+| Product | $(uv)'=u'v+uv'$ |
+| Quotient | $(u/v)'=(u'v-uv')/v^2$, where $v\ne0$ |
+
+For example, the chain rule gives the slope of exponential decay:
+
+$$
+\frac{d}{dt}\left(Ae^{-kt}\right)
+=Ae^{-kt}(-k)
+=-Ak e^{-kt}.
+$$
+
+The initial slope is $D'(0)=-Ak$, not $Ak$. The negative sign says the
+quantity decreases as time increases. Since $D'(t)$ approaches zero from
+below, the decline flattens towards its asymptote.
+
+The Holling response uses the quotient rule. With $u(N)=aN$ and
+$v(N)=b+N$, we have $u'(N)=a$ and $v'(N)=1$, so
+
+$$
+\begin{aligned}
+F'(N)
+&=\frac{a(b+N)-aN}{(b+N)^2}\\
+&=\frac{ab}{(b+N)^2}.
+\end{aligned}
+$$
+
+For $a,b>0$ and $N\geq0$, this slope is positive. It starts at
+$F'(0)=a/b$ and approaches zero as $N$ grows. The response increases
+and flattens; it never exceeds $a$ on its domain. Taking one more
+derivative gives
+
+$$
+F''(N)=-\frac{2ab}{(b+N)^3}<0,
+$$
+
+so the curve bends down throughout its domain.
+
+::: {.callout-warning title="Derivative and asymptote"}
+Calculate the derivative's limit when you need its limiting slope.
+A function approaching a finite value does not, by that fact alone, prove
+that its derivative approaches zero.
+:::
+
+# Scale, half-saturation, and half-life {#sec-function-scales}
+
+The position where a curve reaches half its asymptote is often easier to
+read from a graph than the asymptote itself. For the Holling response,
+set $F(N_{1/2})=a/2$:
+
+$$
+\begin{aligned}
+\frac{aN_{1/2}}{b+N_{1/2}}&=\frac a2,\\
+2N_{1/2}&=b+N_{1/2},\\
+N_{1/2}&=b.
+\end{aligned}
+$$
+
+$b$ is therefore the **half-saturation density**, not half the response
+value. If $a=12$ prey per hour for one predator and $b=6$ prey per square
+metre, then $F(6)=6$ prey per hour for one predator.
+
+For exponential decay, a **half-life** $t_{1/2}$ solves
+$D(t_{1/2})=A/2$:
+
+$$
+e^{-kt_{1/2}}=\frac12,
+\qquad
+t_{1/2}=\frac{\log 2}{k}.
+$$
+
+The characteristic input scale $1/k$ makes the quantity fall to $A/e$.
+It has the same units as $t$. When a parameter multiplies an input, as
+$k$ does in $kt$, its units must cancel the input units in the exponent.
+
+# Peaks and changes in curvature {#sec-function-peaks}
+
+A derivative of zero can mark a maximum, minimum, or a point where the
+curve briefly flattens. A derivative may also fail to exist at a sharp
+corner. Check the derivative's sign on either side, and check domain
+boundaries, before calling a point a maximum or minimum.
+
+For the Ricker function, use the product and chain rules:
+
+$$
+\begin{aligned}
+R'(N)
+&=r e^{-qN}+rN(-q)e^{-qN}\\
+&=r e^{-qN}(1-qN).
+\end{aligned}
+$$
+
+Because $r e^{-qN}>0$, the slope changes from positive to negative
+when $1-qN=0$. The peak is at
+
+$$
+N_{\mathrm{peak}}=\frac1q,
+\qquad
+R(N_{\mathrm{peak}})=\frac{r}{qe}.
+$$
+
+The peak location has the units of adult density. Since $R(0)=0$ and
+$R(N)\to0$ as $N\to\infty$, this is the global maximum for $N\geq0$.
+This mathematical pattern alone does not tell us which ecological process
+causes recruitment to decline at high density.
+
+The sign of the **second derivative** describes curvature. A change from
+$f''>0$ to $f''<0$ is an **inflection point**. Consider the logistic curve
+
+$$
+p(x)=\frac{1}{1+e^{-k(x-c)}}, \qquad k>0.
+$$
+
+It rises from 0 to 1, crosses $1/2$ at $x=c$, and has
+$p'(x)=kp(x)[1-p(x)]$. Its slope is greatest at $p=1/2$, where
+$p'(c)=k/4$. Differentiating again gives
+$p''(x)=k^2p(x)[1-p(x)][1-2p(x)]$, which changes from positive to
+negative at $x=c$. The midpoint is therefore an inflection point.
+
+# What the parameters mean {#sec-function-parameters}
+
+The same curve can be written with parameters that answer different
+ecological questions. The Holling type II response is also often written
+
+$$
+F(N)=\frac{\alpha N}{1+\alpha HN},
+$$
+
+where $\alpha>0$ is an encounter or attack coefficient and $H>0$ is
+handling time per prey. With $N$ in prey per square metre and $F$ in
+prey per hour for one predator, $\alpha$ has units of square metres per hour
+and $H$ has units of hours per prey. The denominator is dimensionless.
+
+Divide the numerator and denominator by $\alpha H$:
+
+$$
+\frac{\alpha N}{1+\alpha HN}
+=\frac{(1/H)N}{1/(\alpha H)+N}.
+$$
+
+Comparison with $aN/(b+N)$ gives
+
+$$
+a=\frac1H,\qquad b=\frac1{\alpha H},
+\qquad \alpha=\frac ab,\qquad H=\frac1a.
+$$
+
+Both forms describe exactly the same curve. The $(a,b)$ form makes
+the asymptote and half-saturation easy to read; the $(\alpha,H)$ form
+emphasises an interpretation in terms of encounters and handling.
+Such an interpretation depends on whether the assumptions about those
+processes are appropriate for the ecological system.
+
+For a Ricker curve, the form $rNe^{-qN}$ makes the initial slope $r$
+clear. Writing $q=1/p$ instead gives $rNe^{-N/p}$, where $p$ directly
+names the adult density at the peak. Reparameterising changes the labels
+and numerical values of parameters, but not the predicted curve.
+
+# Shift and scale a curve {#sec-function-shifts}
+
+Suppose we know the shape of a basic function $g(z)$. We can construct
+
+$$
+f(x)=d+A\,g\left(\frac{x-c}{s}\right),
+\qquad s>0.
+$$
+
+$c$ shifts the curve right by $c$ input units, $s$ stretches it
+horizontally, $A$ scales its output, and $d$ shifts it vertically.
+The order matters: we transform the input *inside* $g$ and the output
+*outside* it.
+
+For $g(z)=z/(1+z)$ on $z\geq0$, the transformed curve is
+
+$$
+f(x)=d+\frac{A(x-c)}{s+x-c},
+\qquad x\geq c,\quad A>0.
+$$
+
+It begins at $f(c)=d$, approaches $d+A$, and reaches halfway
+between those values when $x=c+s$. Its initial slope at $c$ is
+$A/s$. Restricting the domain to $x\geq c$ prevents the shifted
+formula from being used at ecologically unintended inputs.
 
 ```{r}
 #| echo: false
 #| eval: true
-#| fig-cap: "Likelihood slice and profile for mean tree height in the same simulated sample. The profile re-estimates the standard deviation for every candidate mean."
-# Simulate the tree-height sample and calculate its joint normal-model estimates.
-set.seed(seed = 505)
-tree_heights = rnorm(n = 25, mean = 22, sd = 4)
-mu_hat = mean(tree_heights)
-sigma_hat = sqrt(mean((tree_heights - mu_hat)^2))
-candidate_means = seq(from = 17, to = 27, length.out = 120)
-# Define the normal-model log-likelihood for the fixed simulated heights.
-normal_loglik = function(mu, sigma) {
-  sum(dnorm(x = tree_heights, mean = mu, sd = sigma, log = TRUE))
+#| fig-cap: "A saturating response shifted right by three input units and up by two output units."
+# Define a shifted and scaled saturating response.
+shifted_response = function(x, A = 10, s = 4, c = 3, d = 2) {
+  d + A * (x - c) / (s + x - c)
 }
-maximum_loglik = normal_loglik(mu = mu_hat, sigma = sigma_hat)
-# Calculate a slice with fixed standard deviation and a profile that refits it.
-slice = vapply(
-  X = candidate_means,
-  FUN = function(mu) normal_loglik(mu = mu, sigma = sigma_hat),
-  FUN.VALUE = numeric(1)
+# Draw the curve and mark its start and halfway point.
+curve(
+  shifted_response(x),
+  from = 3, to = 27, ylim = c(0, 12),
+  xlab = "Input x", ylab = "Response f(x)"
 )
-profile = vapply(
-  X = candidate_means,
-  FUN = function(mu) {
-    sigma_at_mu = sqrt(mean((tree_heights - mu)^2))
-    normal_loglik(mu = mu, sigma = sigma_at_mu)
-  },
-  FUN.VALUE = numeric(1)
-)
-# Plot both relative log-likelihood curves.
-plot(
-  x = candidate_means, y = slice - maximum_loglik,
-  type = "l", lwd = 2, lty = 2,
-  xlab = "Candidate mean height (m)",
-  ylab = "Relative log-likelihood"
-)
-lines(
-  x = candidate_means, y = profile - maximum_loglik,
-  lwd = 2
-)
-legend(
-  "bottomright", legend = c("Slice", "Profile"),
-  lty = c(2, 1), lwd = 2, bty = "n"
-)
+abline(h = c(2, 12), lty = 2)
+points(x = c(3, 7), y = c(2, 7), pch = 19)
 ```
 
-Both curves meet at the joint estimate. Away from it, re-estimating
-$\sigma$ can keep the profile higher than the slice.
+# Transform and approximate {#sec-function-approximations}
 
-::: {.callout-note title="Explore a likelihood surface"}
-On [Kristoffer Magnusson's interactive likelihood page](https://rpsychologist.com/likelihood/),
-change the mean and variance sliders in **Likelihood Calculation**.
-Watch how the contributions and their sum change. In **Finding the
-Maximum Likelihood Estimates**, locate the highest region of the
-two-parameter contour plot and try the optimiser controls. The page
-uses variance $\sigma^2$ on a slider; our contour above uses standard
-deviation $\sigma$. The later hypothesis-test displays are outside
-this chapter's learning goals.
-:::
-
-:::: {.callout-important title="Practice: slice or profile?"}
-
-For each proposed mean tree height, you refit the standard deviation
-and record the highest log-likelihood. Is this a slice or a profile?
-What would you do differently to make the other kind of curve?
-
-::: {.callout-tip title="Solution" collapse="true"}
-
-It is a profile because the standard deviation is re-estimated for
-each proposed mean. For a slice, hold the standard deviation at
-one chosen value while varying the mean.
-
-:::
-::::
-
-# Uncertainty from the likelihood {#sec-likelihood-uncertainty}
-
-A peak shows an estimate. Its width helps describe uncertainty:
-a sharply curved log-likelihood changes quickly when we move away
-from the estimate; a flatter one changes slowly. Chapter 4 introduced
-confidence intervals and their repeated-sampling interpretation.
-Here we use two approximations based on the likelihood.
-
-## A quadratic interval from the Hessian
-
-Near a regular maximum, the log-likelihood can often be approximated
-by a downward-opening quadratic curve. The **Hessian** describes its
-curvature. For several parameters, it is a matrix of second
-derivatives of the *negative* log-likelihood. Under suitable
-conditions, the inverse Hessian approximates the covariance matrix
-of the estimates. The square roots of its diagonal entries are
-approximate standard errors, on the scale that was optimised.
-
-We can fit the tree-height model on the $(\mu,\log\sigma)$ scale.
-`optim()` returns its Hessian when `hessian = TRUE`.
-
-```r
-# Simulate the heights used to illustrate likelihood-based intervals.
-set.seed(seed = 505)
-tree_heights = rnorm(n = 25, mean = 22, sd = 4)
-
-# Define and fit the negative log-likelihood on the mean and log-SD scales.
-normal_nll = function(par, heights) {
-  mu = par[1]
-  sigma = exp(par[2])
-  -sum(dnorm(x = heights, mean = mu, sd = sigma, log = TRUE))
-}
-
-normal_fit = optim(
-  par = c(mu = mean(tree_heights), log_sigma = log(sd(tree_heights))),
-  fn = normal_nll, heights = tree_heights,
-  method = "BFGS", hessian = TRUE
-)
-normal_fit$convergence
-# Use the inverse Hessian to obtain approximate standard errors and interval endpoints.
-se_on_fit_scale = sqrt(diag(solve(normal_fit$hessian)))
-critical_value = qnorm(p = 0.975)
-
-mu_interval = normal_fit$par[1] +
-  c(-1, 1) * critical_value * se_on_fit_scale[1]
-sigma_interval = exp(
-  normal_fit$par[2] +
-    c(-1, 1) * critical_value * se_on_fit_scale[2]
-)
-mu_interval
-sigma_interval
-```
-
-These are approximate 95% **quadratic**, or Wald, confidence
-intervals. The mean interval is in metres. The second interval is
-calculated for $\log\sigma$ and then transformed back to metres,
-so it cannot include a negative standard deviation. Its endpoints
-need not be symmetric around the estimate on the metre scale.
-The Hessian should be invertible and indicate a local minimum of
-the negative log-likelihood; otherwise this calculation may fail
-or be misleading.
-
-::: {.callout-warning title="Curvature is a local approximation"}
-A Hessian describes the likelihood close to the fitted point. A
-skewed, flat, or boundary-shaped likelihood can make quadratic
-intervals inaccurate. Transforming the endpoints keeps them in
-the parameter's support but does not guarantee good coverage.
-:::
-
-## A profile likelihood interval
-
-For a candidate $\mu$, refit $\sigma$ and compare the resulting
-profile log-likelihood with the overall maximum. The
-**likelihood-ratio distance** is
+Transformations can expose a relationship hidden in a curved plot. For
+$D(t)=Ae^{-kt}$, with $D(t)>0$, taking logarithms gives
 
 $$
-D(\mu)=2[\ell(\hat\mu,\hat\sigma)-\ell_p(\mu)].
+\log D(t)=\log A-kt.
 $$
 
-Under regular, large-sample conditions, $D(\mu)$ is approximately
-distributed as $\chi^2_1$ when evaluated at the generating value.
-An approximate 95% profile interval includes candidate means for
-which $D(\mu)\leq\chi^2_{1,0.95}$. On a relative profile
-log-likelihood plot, this is the region above
-$-\chi^2_{1,0.95}/2$. The interval can be asymmetric because it
-follows the profile's shape.
+A graph of $\log D$ against $t$ is a line with intercept $\log A$ and
+slope $-k$. Similarly, if $Y=ax^p$ with $x,Y>0$, then
+$\log Y=\log a+p\log x$. These identities help us understand
+parameters and find rough starting values. They do not automatically
+justify fitting a straight line to transformed observations: doing so
+changes the scale of the residual variation and can imply a different
+statistical model.
 
-For a normal sample, the best $\sigma$ at a fixed $\mu$ is the root
-mean squared deviation from that candidate mean. The following
-function uses this result to evaluate the profile. `uniroot()`
-finds the two cutoff crossings.
-
-```r
-# Calculate the profile log-likelihood after refitting the standard deviation.
-profile_mu = function(mu, heights) {
-  sigma_at_mu = sqrt(mean((heights - mu)^2))
-  sum(dnorm(
-    x = heights, mean = mu, sd = sigma_at_mu, log = TRUE
-  ))
-}
-
-# Define the profile cutoff and its difference from the maximum log-likelihood.
-mu_hat = normal_fit$par[1]
-max_log_likelihood = -normal_fit$value
-cutoff = qchisq(p = 0.95, df = 1) / 2
-crossing = function(mu) {
-  profile_mu(mu = mu, heights = tree_heights) -
-    max_log_likelihood + cutoff
-}
-
-# Locate the two candidate means where the profile reaches its cutoff.
-profile_interval = c(
-  lower = uniroot(
-    f = crossing,
-    interval = c(mu_hat - 10 * sd(tree_heights), mu_hat)
-  )$root,
-  upper = uniroot(
-    f = crossing,
-    interval = c(mu_hat, mu_hat + 10 * sd(tree_heights))
-  )$root
-)
-profile_interval
-```
-
-The code brackets each crossing before calling `uniroot()`.
-For another dataset, check that each proposed bracket actually
-straddles the cutoff. A general model would re-optimise its
-nuisance parameters for each candidate value instead of using
-the normal-model shortcut above.
-
-| Interval | What it uses | Main limitation |
-|---|---|---|
-| Quadratic | Curvature near the maximum | May miss asymmetry or a boundary |
-| Profile | Best fit at each candidate parameter value | Requires repeated fitting and an approximate cutoff |
-
-Neither interval is automatically exact. Both rely on the model,
-sampling assumptions, and large-sample approximations. As in
-Chapter 4, a calculated 95% confidence interval does not give a
-95% probability that a fixed parameter lies inside it.
-
-:::: {.callout-important title="Practice: read a profile interval"}
-
-A relative profile log-likelihood reaches zero at the estimate.
-At a candidate mean, it equals $-2.5$. The approximate 95% cutoff
-is $-qchisq(0.95,1)/2\approx-1.92$. Does this candidate belong
-to the profile interval? What is being refitted as $\mu$ varies?
-
-::: {.callout-tip title="Solution" collapse="true"}
-
-No. $-2.5$ is below the cutoff of approximately $-1.92$.
-For each candidate $\mu$, the nuisance parameter $\sigma$ is
-re-estimated to give the highest log-likelihood.
-
-:::
-::::
-
-# Fitting overdispersed seedling counts {#sec-negative-binomial-fit}
-
-The [Negative Binomial model](../Supplements/distributions.qmd#sec-negative_binomial)
-allows counts to vary more than expected under a Poisson model with
-the same mean. Write its mean as $\mu$ seedlings per quadrat and its
-shape parameter as $k>0$:
+For a logistic response $p(x)$ between zero and one, the
+**logit** is $\log[p/(1-p)]$. If
+$p(x)=1/(1+e^{-(u+vx)})$, then
 
 $$
-E[X]=\mu,\qquad
-\operatorname{Var}(X)=\mu+\frac{\mu^2}{k}.
+\log\left(\frac{p(x)}{1-p(x)}\right)=u+vx.
 $$
 
-We will simulate 80 independent, equal-area quadrats under this
-model. The generating values are known because the data are
-simulated, not because an ecologist could know them in a field study.
-In R, `size` corresponds to $k$ and `mu` to $\mu$.
+This equation describes the deterministic curve. An observed binary
+outcome is either zero or one; its logit is not defined at either endpoint.
 
-```r
-# Simulate overdispersed seedling counts from a negative binomial model.
-set.seed(seed = 530)
-seedling_counts_nb = rnbinom(
-  n = 80, size = 1.5, mu = 4
-)
-mean(seedling_counts_nb)
-var(seedling_counts_nb)
-```
+A **Taylor approximation** replaces a smooth curve near $x_0$ by a
+short polynomial:
 
-The variance-to-mean comparison is exploratory. It does not
-identify why counts vary. To fit the model, use each count's
-negative binomial probability mass as its likelihood contribution.
-Both parameters must stay positive, so we optimise on their log scales:
+$$
+f(x)\approx
+f(x_0)+f'(x_0)(x-x_0)
++\frac{f''(x_0)}{2}(x-x_0)^2.
+$$
 
-```r
-# Define the negative binomial negative log-likelihood on two log parameter scales.
-negative_binomial_nll = function(par, counts) {
-  mu = exp(par[1])
-  k = exp(par[2])
-  -sum(dnbinom(
-    x = counts, size = k, mu = mu, log = TRUE
-  ))
-}
+The first two terms give the tangent line. The quadratic term adds
+local curvature. For the Holling response near $N=0$,
+$F(0)=0$, $F'(0)=a/b$, and $F''(0)=-2a/b^2$, so
 
-# Use sample summaries to supply valid starting values for both parameters.
-start_mu = max(mean(seedling_counts_nb), 0.1)
-sample_variance = var(seedling_counts_nb)
-start_k = start_mu^2 /
-  max(sample_variance - start_mu, 0.1)
+$$
+F(N)\approx\frac abN-\frac{a}{b^2}N^2.
+$$
 
-nb_fit = optim(
-  par = log(c(mu = start_mu, k = start_k)),
-  fn = negative_binomial_nll, counts = seedling_counts_nb,
-  method = "BFGS", hessian = TRUE
-)
-nb_fit$convergence
-# Transform the fitted parameters back to the mean and shape scales.
-nb_estimates = exp(nb_fit$par)
-nb_estimates
-```
-
-The starting value for $k$ comes from rearranging the model
-mean–variance relation, as in Chapter 4's method of moments. The
-small lower bound here only supplies a valid starting value if the
-sample variance is close to or below its mean. It is not a final
-estimate or evidence of overdispersion.
-
-Check the convergence code, whether estimates are ecologically
-plausible, and whether the fitted frequencies describe the sample.
-Different starting values can reveal a sensitive optimisation,
-although agreement does not prove that a global maximum was found.
-For uncertainty, we can use the inverse Hessian on
-$(\log\mu,\log k)$ or profile one parameter while refitting the
-other. Those intervals inherit the approximation limits described
-above.
-
-The comparison below places observed **relative frequencies**
-and fitted **probabilities** on the same scale:
-
-```r
-# List possible counts and calculate observed relative frequencies and fitted masses.
-count_values = 0:max(seedling_counts_nb)
-observed_frequency = as.numeric(
-  table(factor(seedling_counts_nb, levels = count_values))
-) / length(seedling_counts_nb)
-fitted_probability = dnbinom(
-  x = count_values, size = nb_estimates["k"],
-  mu = nb_estimates["mu"]
-)
-# Plot the sample frequencies against the fitted negative binomial probabilities.
-plot(
-  x = count_values, y = observed_frequency,
-  type = "h", lwd = 5, col = "grey60",
-  xlab = "Seedlings per quadrat",
-  ylab = "Relative frequency or probability",
-  ylim = c(0, max(observed_frequency, fitted_probability))
-)
-lines(
-  x = count_values, y = fitted_probability,
-  type = "b", pch = 19, lwd = 2
-)
-legend(
-  "topright",
-  legend = c("Observed relative frequency", "Fitted probability"),
-  col = c("grey60", "black"), lty = 1, lwd = c(5, 2),
-  pch = c(NA, 19), bty = "n"
-)
-```
-
-Look for systematic differences, especially in the zeros and
-largest counts, rather than expecting every bar to touch the line.
-
-::: {.callout-warning title="A fitted model still needs checking"}
-The optimiser chooses the best parameter values *within the
-specified model*. Compare fitted and observed counts, especially
-zeros and the upper tail. A mismatch may indicate that the
-distribution or independence assumptions need reconsideration.
-:::
-
-:::: {.callout-important title="Practice: mean and shape"}
-
-Under the negative binomial model, what happens to count variance
-when $k$ becomes smaller while $\mu$ stays fixed? If a fit returns
-`par = c(log(4), log(2))`, what are the estimates on the original
-scale?
-
-::: {.callout-tip title="Solution" collapse="true"}
-
-Because $\operatorname{Var}(X)=\mu+\mu^2/k$, a smaller $k$ gives
-larger variance for the same mean. The fitted values are
-$\hat\mu=4$ seedlings per quadrat and $\hat k=2$.
-
-:::
-::::
+This is useful only for $N$ small relative to $b$. A polynomial
+approximation can behave implausibly far from the point where it was
+constructed. The same local-curvature idea helps explain why
+[Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood-uncertainty)
+used a quadratic approximation near a likelihood maximum.
 
 # Summary
 
-A likelihood uses the probability model to compare parameter values
-for **observed** data. For independent observations, multiply their
-probability masses or densities; for a log-likelihood, add their
-logs. Maximum likelihood chooses the parameter values at the
-peak. In R, `optim()` can find the peak by minimising the negative
-log-likelihood.
+For a new ecological function, first state what its input and output
+represent, their units, and the domain. Then calculate values at useful
+points, limits, slopes, and any peaks or inflection points. Translate
+those mathematical features into ecological claims only under the
+assumptions that give the function that meaning. R plots can check and
+communicate the shape, while the algebra explains it.
 
-For several parameters, a surface shows their joint fit. A slice
-holds other parameters fixed; a profile refits them. Curvature
-near the peak gives a quadratic uncertainty approximation, while
-a profile interval follows the refitted likelihood. Neither
-fitting nor interval calculation removes the need to check the
-model's ecological assumptions.
+In a later analysis, a deterministic response such as $F(N)$ can describe
+how a model's expected value changes with $N$. A probability distribution
+would then describe variation among observations at a given $N$. The
+function alone does not supply that variation.
+
+The approach to exploring curve shapes in this chapter draws on
+Benjamin Bolker's *Deterministic functions for ecological modeling*
+(supplied 2007 PDF, especially sections 3 and 4).
 
 # Chapter quiz
 
-:::: {.callout-important title="Question 1: data or parameter?"}
+:::: {.callout-important title="Question 1: read a saturating curve"}
 
-After observing quadrat counts, what varies along a Poisson
-likelihood curve? Does the curve assign probabilities to values
-of $\lambda$?
+For $f(x)=9x/(3+x)$ on $x\geq0$, what are $f(0)$, its upper
+asymptote, its half-saturation input, and its initial slope?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-The candidate mean $\lambda$ varies while the observed counts
-stay fixed. The curve compares their fit; it is not a probability
-distribution for $\lambda$.
+$f(0)=0$, the upper asymptote is 9, the half-saturation input
+is $x=3$, and $f'(0)=9/3=3$ output units per input unit.
 
 :::
 ::::
 
-:::: {.callout-important title="Question 2: calculate a likelihood"}
+:::: {.callout-important title="Question 2: check a stationary point"}
 
-Two independent quadrats contain 0 and 1 seedlings. Under a
-Poisson model with $\lambda=1$, write the two contributions,
-their product, and the log-likelihood without R.
+Why does a derivative of zero require an additional check before
+you call a point a maximum?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-The contributions are $P(X=0)=e^{-1}$ and $P(X=1)=e^{-1}$.
-Their product is $e^{-2}$, so the log-likelihood is $-2$.
+The point could be a minimum or a flat point. Check the
+derivative's sign on either side and compare any domain
+boundaries. A change from positive to negative indicates
+a local maximum.
 
 :::
 ::::
 
-:::: {.callout-important title="Question 3: what does `optim()` minimise?"}
+:::: {.callout-important title="Question 3: locate a Ricker peak"}
 
-Why did we put a minus sign before the sum of log probabilities?
-Why did we exponentiate the fitted Poisson parameter?
+A Ricker curve is $R(N)=rNe^{-qN}$. Which parameter controls
+its peak location, and what is that location?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-`optim()` minimises by default, so minimising the negative
-log-likelihood maximises the log-likelihood. We optimised
-$\log\lambda$ to keep $\lambda$ positive and exponentiated it to
-report the mean on the count scale.
+$q$ controls the peak location, $N=1/q$. The value of
+$r$ scales the height without moving the peak.
 
 :::
 ::::
 
-:::: {.callout-important title="Question 4: slice and profile"}
+:::: {.callout-important title="Question 4: shift a curve"}
 
-For each proposed normal-model mean, a researcher re-estimates
-the standard deviation. Which likelihood curve results?
+If a function is shifted from $g(x)$ to $g(x-4)+2$, where
+does its original point $(0,g(0))$ move?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-A profile likelihood for the mean.
+It moves to $(4,g(0)+2)$: four input units right and
+two output units up.
 
 :::
 ::::
 
-:::: {.callout-important title="Question 5: interval meaning"}
+:::: {.callout-important title="Question 5: add variation"}
 
-Can a quadratic interval and a profile interval have different
-endpoints for the same data? Does either interval give the
-probability that the fixed parameter lies inside it?
+What additional component would be needed before a deterministic
+curve could assign a likelihood to observations?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-Yes. They use different approximations to the likelihood's
-shape. Neither assigns a probability to the fixed parameter.
-Their confidence levels describe repeated use of the interval
-procedures under their assumptions.
+We need a probability distribution for observations
+conditional on the predictor and the curve's parameters,
+together with its assumptions. The deterministic curve
+alone supplies only a predicted value.
 
 :::
 ::::
