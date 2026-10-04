@@ -27,7 +27,7 @@ effect of covariates on the mean.
 
 # Discrete distributions
 
-Five distributions for count data that cover the most common scenarios in ecology. Some
+Six distributions for count data that cover the most common scenarios in ecology. Some
 guidance on how to choose (but also remember model selection as a general tool):
 
 **Bernoulli** - Binary outcomes such as presence/absence or success/failure.
@@ -35,6 +35,9 @@ guidance on how to choose (but also remember model selection as a general tool):
 **Binomial** - Fixed number of binary outcomes.
 
 **Poisson** - Counts of events in a fixed area, time, or sampling effort. Variance equal to mean.
+
+**Conway-Maxwell-Poisson** - Count data with either underdispersion or overdispersion relative
+to the Poisson distribution.
 
 **Negative binomial** - Overdispersed count data (variance > mean).
 
@@ -58,7 +61,7 @@ $$
 \end{aligned}
 $$
 
-```r
+```{r}
 mean = 0.3
 prob = mean
 x = 0:1
@@ -82,7 +85,7 @@ p\;(\texttt{prob}) = \text{success probability} \\
 \end{aligned}
 $$
 
-```r
+```{r}
 mean = 5
 size = 20
 prob = mean / size
@@ -105,11 +108,58 @@ $$
 \end{aligned}
 $$
 
-```r
+```{r}
 mean = 4
 lambda = mean
 x = 0:qpois(0.999, lambda = lambda)
 plot(x, dpois(x, lambda = lambda), type = "h",
+     xlab = "Count", ylab = "Probability")
+```
+
+## Conway-Maxwell-Poisson distribution
+
+The Conway-Maxwell-Poisson distribution, often abbreviated COM-Poisson or CMP,
+extends the Poisson distribution by adding a dispersion parameter. It is useful when
+counts are more regular than a Poisson model allows (**underdispersion**) as well as
+when they are more variable (**overdispersion**). When $\nu = 1$, it is exactly the
+Poisson distribution. Values of $\nu > 1$ produce underdispersion, whereas values of
+$0 < \nu < 1$ produce overdispersion.
+
+Unlike the Poisson distribution, `lambda` is not generally the mean. The normalizing
+constant $Z(\lambda, \nu)$ and therefore the mean have no simple closed form. The
+`COMPoissonReg` package calculates these quantities numerically; use `ecmp()` and
+`vcmp()` when you need the mean or variance for particular parameter values.
+
+$$
+\begin{aligned}
+\text{R}: &\quad \texttt{COMPoissonReg::dcmp, pcmp, qcmp, rcmp} \\
+\text{Type}: &\quad \text{Discrete} \\
+\text{Range}: &\quad x = 0, 1, 2, \ldots \\
+\text{Probability}: &\quad
+\frac{\lambda^x}{(x!)^\nu Z(\lambda, \nu)} \\
+\text{Normalizing constant}: &\quad
+Z(\lambda, \nu) = \sum_{j = 0}^{\infty}\frac{\lambda^j}{(j!)^\nu} \\
+\text{Parameters}: &\quad \lambda\;(\texttt{lambda}) > 0 = \text{rate parameter};\quad
+\nu\;(\texttt{nu}) > 0 = \text{dispersion parameter} \\
+\text{Mean}: &\quad
+E[X] = \lambda\frac{\partial}{\partial\lambda}\log Z(\lambda, \nu) \\
+\text{Variance}: &\quad
+\operatorname{Var}(X) = \lambda\frac{\partial}{\partial\lambda}E[X] \\
+\text{Inverse}: &\quad
+\lambda \text{ must be found numerically for a chosen } \mu \text{ and } \nu
+\end{aligned}
+$$
+
+```{r}
+# Requires the COMPoissonReg package.
+library(COMPoissonReg)
+
+# nu > 1 gives a distribution that is less variable than a Poisson distribution.
+lambda = 8
+nu = 2
+x = 0:qcmp(q = 0.999, lambda = lambda, nu = nu)
+
+plot(x, dcmp(x = x, lambda = lambda, nu = nu), type = "h",
      xlab = "Count", ylab = "Probability")
 ```
 
@@ -130,7 +180,7 @@ p\;(\texttt{prob}) = \text{prob success} \\
 \end{aligned}
 $$
 
-```r
+```{r}
 mean = 8
 size = 2
 prob = size / (size + mean)
@@ -166,7 +216,7 @@ Var(X) = \frac{n\alpha\beta(\alpha+\beta+n)}
 \end{aligned}
 $$
 
-```r
+```{r}
 # Requires the VGAM package
 library(VGAM)
 mean = 5
@@ -245,7 +295,7 @@ b\;(\texttt{max}) = \text{upper bound} \\
 \end{aligned}
 $$
 
-```r
+```{r}
 min = 1
 max = 3
 curve(dunif(x, min = min, max = max), min, max)
@@ -268,7 +318,7 @@ $$
 \end{aligned}
 $$
 
-```r
+```{r}
 mean = 2
 sd = 0.5
 curve(dnorm(x, mean = mean, sd = sd), mean - 4 * sd, mean + 4 * sd)
@@ -301,7 +351,7 @@ s=\sigma\sqrt{\frac{\nu-2}{\nu}}
 \end{aligned}
 $$
 
-```r
+```{r}
 mean = 2
 df = 5
 sd = 0.5
@@ -326,7 +376,7 @@ $$
 $$
 
 
-```r
+```{r}
 mean = 2
 rate = 1/mean
 curve(dexp(x, rate = rate), 0, 5)
@@ -354,7 +404,7 @@ r\;(\texttt{rate}) = \text{rate} \\
 \end{aligned}
 $$
 
-```r
+```{r}
 mean = 2
 shape = 3
 rate = shape / mean
@@ -382,7 +432,7 @@ m = \log(\mu)-s^2/2
 $$
 
 
-```r
+```{r}
 mean = 2
 sdlog = 0.4
 meanlog = log(mean) - sdlog^2 / 2
@@ -411,7 +461,7 @@ Var(X) = \frac{\alpha\beta}{(\alpha+\beta)^2(\alpha+\beta+1)} \\
 \end{aligned}
 $$
 
-```r
+```{r}
 mean = 0.4
 concentration = 10
 shape1 = mean * concentration
@@ -441,7 +491,7 @@ Var(X) = \lambda^2\left[\Gamma(1+2/k)-\Gamma(1+1/k)^2\right] \\
 \end{aligned}
 $$
 
-```r
+```{r}
 mean = 2
 shape = 1.5
 scale = mean / gamma(1 + 1 / shape)
@@ -494,7 +544,7 @@ p_i\;(\texttt{prob}) = \text{probability of category }i,\quad \sum_i p_i=1 \\
 \end{aligned}
 $$
 
-```r
+```{r}
 means = c(5, 8, 7)
 size = sum(means)
 prob = means / size
@@ -537,7 +587,7 @@ $$
 \end{aligned}
 $$
 
-```r
+```{r}
 library(MASS) # Install it first
 means = c(2, 5)
 sds = c(0.5, 1)
@@ -574,7 +624,7 @@ $$
 \end{aligned}
 $$
 
-```r
+```{r}
 library(gtools) # Install it first!
 means = c(0.2, 0.3, 0.5)
 concentration = 12
@@ -620,7 +670,7 @@ There might be packages in R that implement some zero-inflated distributions but
 easily implement our own. Below is an example of how to define the `dpqr` functions for a
 zero-inflated negative binomial.
 
-```r
+```{r}
 # The mass/density function you will use for the likelihood, including log
 dzinbinom = function(x, size, ..., pzero, log = FALSE) {
   baseline = dnbinom(x, size = size, ..., log = FALSE)

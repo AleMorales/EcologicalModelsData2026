@@ -1,6 +1,5 @@
 ---
-title: "Introduction to Probability (Count data) - Solutions"
-date: today
+title: "Introduction to Probability (Discrete) - Solutions"
 ---
 
 The fully worked first exercise is on the
@@ -8,6 +7,31 @@ The fully worked first exercise is on the
 assumed models, tasks, and seeds as Exercises 2–4 on that page.
 
 # Exercise 2: Checking for overdispersion
+
+We are going to use a built-in dataset in R on counts of tobacco hornworm, in agricultural
+experimental units treated with six different insecticides. We can load the data as follows:
+
+```{r}
+#| eval: false
+data(InsectSprays, package = "datasets")
+```
+
+1. Calculate the mean and variance for `count`. Is there evidence of overdispersion?
+
+2. Repeat the same calculations but not do it separately for each `spray` treatment (tip: use
+the tools for data transformation we learnt in Chapter 1). Is there still evidence of overdispersion?
+
+3. Which model would you use `count` when ignoring the `spray` treatment and which model would
+you try when doing it separately for each `spray` treatment?
+
+4. Estimate the parameters of the negative binomial using the mean and the variance of the
+sample (tip: check the formulae in the theory chapter). Compare the probability mass of the
+empirical distribution and the negative binomial with the parameters that you just calculated.
+How well does the model capture the variation in the data?
+
+## Solution
+
+### Question 1
 
 Load the data and compare the sample variance with the mean. For a Poisson distribution, the
 mean and variance are equal, so a variance much larger than the mean suggests overdispersion.
@@ -28,6 +52,8 @@ c(
 The mean is about 9.5, the variance is 51.9, and the variance-to-mean ratio is 5.5. This is
 substantial overdispersion when the treatments are pooled.
 
+### Question 2
+
 Now calculate the summaries separately for each spray treatment:
 
 ```{r}
@@ -47,9 +73,18 @@ spray_summary = summarise(
 spray_summary
 ```
 
-Five of the six treatments have a variance-to-mean ratio greater than one, though the amount of overdispersion varies. These summaries are exploratory: each treatment has only 12 observations.
+Five of the six treatments have a variance-to-mean ratio greater than one, though the amount
+of overdispersion is much smaller than when pool. Notice how a big part of the overdispersion
+could be explain by the fact that we were looking at different treatments pooled together.
 
-Ignoring spray, a **negative binomial model** is a reasonable choice because the pooled counts are strongly overdispersed. When accounting for spray, a Poisson model with spray as a predictor is a useful starting point. The within-treatment summaries suggest checking whether a negative binomial model is needed to account for any remaining overdispersion.
+### Question 3
+
+Ignoring spray, a **negative binomial model** is a reasonable choice because the pooled
+counts are strongly overdispersed. When accounting for spray, a Poisson model with spray as
+a predictor is a useful starting point, though we might still end up using a Negative Binomial
+(we will cover formal methods of model comparison later in the book).
+
+### Question 4
 
 For the negative binomial parameterization used in R,
 
@@ -63,7 +98,10 @@ $$
 k=\frac{\mu^2}{\operatorname{Var}(X)-\mu}.
 $$
 
-To match the empirical distribution’s variance, calculate variance using the divisor \(n\). This differs slightly from `var()`, which uses the divisor \(n-1\).
+To match the empirical distribution’s variance, calculate variance of the sample. To emphasize
+this I avoid using `var()` which is actually an statistical estimator and not the variance
+of the sample (but in practice it is not a critical issue unless $n$ is very small, so do
+not worry too much about it):
 
 ```{r}
 counts = InsectSprays$count
@@ -79,9 +117,9 @@ c(
 )
 ```
 
-The empirical variance is about **47.97**, giving an estimated shape parameter of about **2.44**.
+The empirical variance is about **51.2**, giving an estimated shape parameter of about **2.2**.
 
-Compare the empirical probability mass with that of the fitted negative binomial:
+Compare the empirical probability mass with that of the estimated negative binomial:
 
 ```{r}
 support = 0:max(counts)
@@ -125,11 +163,29 @@ legend(
 )
 ```
 
-The fitted negative binomial matches the empirical mean and variance by construction, and allows more variation than a Poisson model. However, pooling treatments combines groups with very different count levels. A single negative binomial distribution may therefore not capture all the patterns in the empirical distribution.
+The estimated negative binomial matches the empirical mean and variance by construction, and
+allows more variation than a Poisson model. However, pooling treatments combines groups with
+very different count levels. A single negative binomial distribution may therefore not capture
+all the patterns in the empirical distribution and it would be better to account for the
+structure of the data explictly (we will do that in Chapter 8).
 
 # Exercise 3: Overdispersed quadrat counts
 
-For a negative binomial distribution with \(\mu=6\) and \(k=0.8\),
+Let's assume a negative binomial distribution with a mean ($\mu = 6$) and shape parameters
+($k = 0.8$).
+
+1. Calculate the theoretical mean and variance using the formulas. Then verify them
+using dnbinom() and weighted sums.
+2. Generate a sample of size 500.
+3. Calculate the mean and variance of this sample in R.
+4. Compare the negative binomial distribution with a Poisson distribution having the same mean.
+How do they differ? What is the variance/mean ratio of the sample? Plot their probability mass functions.
+
+## Solution
+
+### Question 1
+
+For a negative binomial distribution with $\mu=6$ and $k=0.8$,
 
 $$
 E[X]=\mu=6
@@ -147,7 +203,9 @@ $$
 51.
 $$
 
-We can verify these values using the probability mass function and weighted sums. The distribution’s support is infinite; using values from 0 to 1,000 makes the omitted tail negligible.
+We can verify these values using the probability mass function and weighted sums. The
+distribution’s support is infinite; using values from 0 to 1,000 makes the omitted tail
+negligible.
 
 ```{r}
 mu = 6
@@ -163,7 +221,9 @@ c(
 )
 ```
 
-Generate a sample of size 500, then calculate its mean and empirical variance. The empirical variance uses the divisor \(n\), as in the empirical distribution.
+### Question 2
+
+Generate a sample of size 500, then calculate its mean and empirical variance. The empirical variance uses the divisor $n$, as in the empirical distribution.
 
 ```{r}
 set.seed(123)
@@ -185,7 +245,11 @@ c(
 )
 ```
 
-The sample summaries vary between simulations, but should be broadly consistent with a mean of 6 and a variance of 51. The theoretical variance-to-mean ratio is \(51/6=8.5\); the sample ratio will not necessarily equal it.
+### Question 3
+
+The sample summaries vary between simulations, but should be broadly consistent with a mean of 6 and a variance of 51. The theoretical variance-to-mean ratio is $51/6=8.5$; the sample ratio will not necessarily equal it.
+
+### Question 4
 
 A Poisson distribution with the same mean has variance 6, while the negative binomial has variance 51. The negative binomial therefore has more probability near zero and in the upper tail.
 
@@ -220,9 +284,23 @@ legend(
 
 # Exercise 4: Asymptotic convergence
 
-For a Poisson distribution with \(\lambda=3\), the population mean and variance are both 3, and the population median is also 3.
+Simulate Poisson observations with $\lambda=3$ for two sample sizes: 10 and 1,000.
 
-First simulate one sample of each size. Calculate the empirical variance using the divisor \(n\), rather than using `var()`.
+1. Calculate the mean, median and variance for each sample (use the actual variance of the
+sample, not `var()`).
+2. Repeat point 1 four times using different random seeds (tip: use a foor loop). How much
+do the sample properties vary?
+3. Compare these sample properties to the model values at the two sample sizes. How does
+the median and mean differ in their behavior? What is happening to the variation across
+repeated samples as sample size increases?
+
+## Solution
+
+### Question 1
+
+For a Poisson distribution with $\lambda=3$, the model mean and variance are both 3, and the model median is also 3.
+
+First simulate one sample of each size. Calculate the empirical variance using the divisor $n$, rather than using `var()`.
 
 ```{r}
 lambda = 3
@@ -254,6 +332,8 @@ for (sample_size in sample_sizes) {
 
 initial_results
 ```
+
+### Question 2
 
 Repeat the simulations four times, using a different seed for each repetition:
 
@@ -291,17 +371,19 @@ for (seed in seeds) {
 repeated_results
 ```
 
-Compare the results with the population values, then summarize the variation in the sample statistics across repetitions:
+### Question 2
+
+Compare the results with the model values, then summarize the variation in the sample statistics across repetitions:
 
 ```{r}
-population_values = data.frame(
+model_values = data.frame(
   n = sample_sizes,
   mean = lambda,
   median = qpois(0.5, lambda = lambda),
   variance = lambda
 )
 
-population_values
+model_values
 
 aggregate(
   cbind(mean, median, variance) ~ n,
@@ -310,6 +392,6 @@ aggregate(
 )
 ```
 
-The population values are the same for both sample sizes. With \(n=10\), the sample mean, median, and variance can differ noticeably from their population values. With \(n=1{,}000\), they will generally be closer to 3 and vary less across repetitions.
+The model values are the same for both sample sizes. With $n=10$, the sample mean, median, and variance can differ noticeably from their model values. With $n=1{,}000$, they will generally be closer to 3 and vary less across repetitions.
 
-The mean changes smoothly between samples, while the median is a quantile and changes in discrete steps. For even sample sizes, R’s median can also be halfway between two integer counts. Because the empirical variance uses divisor \(n\), it tends to be slightly below the population variance for finite samples; this difference becomes negligible as sample size increases. The four repetitions illustrate the general pattern, though more repetitions would provide a clearer picture of the variation.
+The mean changes smoothly between samples, while the median is a quantile and changes in discrete steps. For even sample sizes, R’s median can also be halfway between two integer counts. Because the empirical variance uses divisor $n$, it tends to be slightly below the model variance for finite samples; this difference becomes negligible as sample size increases. The four repetitions illustrate the general pattern, though more repetitions would provide a clearer picture of the variation.
