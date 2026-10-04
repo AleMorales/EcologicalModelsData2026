@@ -288,7 +288,11 @@ Chapter 2 order: probability mass or density, cumulative probability, quantiles,
 and sampling. Explain useful parameter conversions rather than merely listing
 formulas. Put optional detail in a short footnote or a linked supplement.
 
-The distribution sections of Chapter 2 give the order to follow: when the
+Detailed descriptions of distributions belong in `Supplements/distributions.qmd`,
+not in the theory chapters. Chapters 2 and 3 use one distribution as the running
+example (Binomial and Normal) and link to the supplement entries through their
+`sec-` IDs (for example `distributions.qmd#sec-negative_binomial`). The
+author's entries there (Binomial, Poisson, Negative Binomial) give the order to follow: when the
 distribution is useful and what it assumes; its probability mass or density
 function with the symbols explained; its mean and variance as displayed
 equations; an `### Example:` subsection that calculates a probability by hand

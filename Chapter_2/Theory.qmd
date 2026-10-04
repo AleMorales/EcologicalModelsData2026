@@ -29,8 +29,9 @@ In this chapter, we will cover:
 - how to simulate possible observations from a model;
 - the concept of overdispersion.
 
-We will learn more about the Binomial, Poisson and Negative Binomial distributions and
-practice with them. Additional distributions are available in the [Supplement](../Supplements/distributions.qmd).
+We will use the Binomial distribution as the example throughout the chapter. The Poisson,
+Negative Binomial and other distributions for count data are described in the
+[Supplement](../Supplements/distributions.qmd), which you will need for the practical.
 
 # Random variables and probability distributions
 
@@ -1311,8 +1312,12 @@ summary, and the empirical distribution need not exactly match the model.
 In all the examples above we have used the Binomial distribution, and I made sure that the
 examples were adequate for such a distribution. However, there are many different distributions
 for counts and other discrete data, each with their own properties (e.g. how means and
-variances are related). Below I go over three important examples, though more can be found
-in the [distribution supplement](../Supplements/distributions.qmd).
+variances are related). These distributions are described in the
+[distribution supplement](../Supplements/distributions.qmd), with the formulae, a worked example and a
+practice exercise for each of them. You should read at least the entries for the
+[Binomial](../Supplements/distributions.qmd#sec-binomial), [Poisson](../Supplements/distributions.qmd#sec-poisson) and
+[Negative Binomial](../Supplements/distributions.qmd#sec-negative_binomial) distributions, as these are the ones
+we will use most often in the rest of the book.
 
 Remember that there is no *correct* distribution for a given sample of data. The range of
 possible values and the ecological processes that are relevant give us plausible candidates,
@@ -1327,231 +1332,20 @@ interpretation is useful, but a distribution is not restricted to only the proce
 which it was originally derived.
 :::
 
-## The binomial distribution
-
-The binomial distribution is useful when every sampling unit contains a fixed number of binary
-events or outcomes. It models the number of times a particular outcome occurs (e.g., survival,
-germination, success, etc.). Each event is assumed to be independent of the others and has the same
-probability of obtaining the outcome of interest.
-
-As seen before, the probability mass function of the Binomial distribution is:
-
-$$
-P(X=x)=\binom{n}{x}p^x(1-p)^{n-x}
-=\frac{n!}{x!(n-x)!}p^x(1-p)^{n-x},
-$$
-
-where $\binom{n}{x}$ counts the ways to choose $x$ outcomes of interest (each with probability
-$p$ of occurring) from $n$ events and $n!$ is a factorial.
-
-Applying the relevant formulae, we can derive the mean and variance of a binomial distribution as:
-
-$$
-\mu=E[X]=np
-$$
-
-and
-
-$$
-\operatorname{Var}(X)=np(1-p).
-$$
-
-
-### Example: seedling survival
-
-Suppose 20 seedlings are planted in each plot and each survives independently with probability
-$0.7$. Let $X$ be the number surviving in one plot. The probability that exactly 14 survive
-is:
-
-$$
-P(X=14)
-=
-\binom{20}{14}(0.7)^{14}(1-0.7)^{20-14}
-=
-\frac{20!}{14! (20 - 14)!}(0.7)^{14}(0.3)^6
-\approx 0.1916.
-$$
-
-We can verify our math with R:
-
-```{r}
-# Set the binomial model parameters and the count we want to check.
-seedling_count = 20
-seedling_survival_probability = 0.7
-survivors_to_check = 14
-
-dbinom(
-  x = survivors_to_check,
-  size = seedling_count,
-  prob = seedling_survival_probability
-)
-```
-
-The model gives an expected count of $20(0.7)=14$ seedlings per plot and
-a variance of $20(0.7)(0.3)=4.2$ seedlings squared:
-
-```{r}
-# Calculate the expected count and variance from the binomial formulas.
-expected_survivors = seedling_count * seedling_survival_probability
-variance_survivors = seedling_count *
-  seedling_survival_probability *
-  (1 - seedling_survival_probability)
-```
-
-If a binomial mean and variance are known, we can invert their formulas.
-Writing $m=E[X]$ and $v=\operatorname{Var}(X)$ gives
-
-$$
-\begin{aligned}
-p &= 1-\frac{v}{m}, \\
-n &= \frac{m}{p}.
-\end{aligned}
-$$
-
-This conversion requires $m>0$, a probability $0<p\leq 1$, and a positive
-integer result for $n$. For the model above, it recovers $p=0.7$ and $n=20$:
-
-```{r}
-# Recover the binomial parameters from the model mean and variance.
-mean_survivors = expected_survivors
-success_probability = 1 - variance_survivors / mean_survivors
-estimated_trial_count = mean_survivors / success_probability
-```
-
-
-## The Poisson distribution
-
-The Poisson distribution is a common starting point when we count events in a fixed unit of time,
-area, or sampling effort: insects caught per trap-night, seedlings per quadrat, or camera detections
-per night. It is often the default distribution for count data when we do not have a fixed
-upper limit to the number of observations. Its most important property is to always have the
-same variance and mean, such that when this is not appropriate, we need to switch to other
-distributions for count data.
-The Poisson distribution has one parameter:
-
-$$
-\lambda=\text{expected count per sampling unit}, \qquad \lambda\geq 0.
-$$
-
-Its probability mass function is
-
-$$
-P(X=x)=\frac{e^{-\lambda}\lambda^x}{x!},
-$$
-
-The mean and variance are both equal to $\lambda$:
-
-$$
-\mu = E[X]=\lambda
-$$
-
-and
-
-$$
-\operatorname{Var}(X)=\lambda.
-$$
-
-
-### Example: wildlife detections
-
-Suppose a camera records an average of $0.8$ detections per night. If the expected detection
-count scales with observation time, three nights have expected count
-
-$$
-\lambda = 3(0.8) = 2.4.
-$$
-
-Under an assumed Poisson model, the probability of exactly two detections
-over those three nights is
-
-$$
-P(X=2)
-=
-\frac{e^{-2.4}(2.4)^2}{2!}
-\approx 0.2613.
-$$
-
-We can calculate it in R:
-
-```{r}
-# Calculate the Poisson mean for three nights and one exact probability.
-rate_per_night = 0.8
-n_nights = 3
-expected_detections = rate_per_night * n_nights
-detections_to_check = 2
-
-dpois(x = detections_to_check, lambda = expected_detections)
-```
-
-We can also ask the probability of at least five detections in three nights. We can compute
-this from the cumulative probability (note that we calculate the cumulative probability for
-four and then take the complement):
-
-```{r}
-# Calculate the probability of at least the requested number of detections.
-minimum_detections = 5
-1 - ppois(
-  q = minimum_detections - 1,
-  lambda = expected_detections
-)
-```
-
-Unlike a binomial count, a Poisson count has no fixed upper limit. A count of 100 detections is
-possible under this model, although extremely unlikely when $\lambda=2.4$.
-
-```{r}
-#| echo: false
-#| fig-cap: "Poisson probability mass for detections during three camera nights."
-# Calculate and plot the Poisson probability mass over a useful range of counts.
-expected_detections = 2.4
-maximum_detections_to_plot = 15
-detection_values = seq.int(from = 0, to = maximum_detections_to_plot)
-detection_mass = dpois(x = detection_values, lambda = expected_detections)
-
-detection_mass_data = data.frame(
-  detections = detection_values,
-  probability = detection_mass
-)
-
-# Plot each possible detection count as a vertical probability line.
-plot(
-  detection_mass_data$detections,
-  detection_mass_data$probability,
-  type = "h",
-  xaxt = "n",
-  xlab = "Number of detections",
-  ylab = "Probability"
-)
-```
-
-:::: {.callout-important title="Practice: flowering stems per orchid plot"}
-
-A survey covers two square metres of a restoration site. Assume flowering stems occur
-at an average rate of 1.2 per square metre. Calculate the probability of finding exactly
-three stems in the surveyed area. Why does this model allow counts greater than three,
-even though three is the count in the question?
-
-::: {.callout-tip title="Solution" collapse="true"}
-
-The expected count across two square metres is $\lambda=2(1.2)=2.4$. The probability is:
-
-```{r}
-# Convert the observation effort into the Poisson mean before calculating a probability.
-rate_per_square_metre = 1.2
-survey_area = 2
-expected_stems = rate_per_square_metre * survey_area
-
-dpois(x = 3, lambda = expected_stems)
-```
-
-:::
-::::
-
 ## Overdispersion
 
-The Poisson model is characterised by having its mean and variance equal. When the variance
-is higher than the mean, we say that such data has *overdispersion* relative to the Poisson
-distribution^[The "relative to the Poisson distribution" bit is often omitted; it is generally
+The [Poisson distribution](../Supplements/distributions.qmd#sec-poisson) is the common starting point when we
+count events in a fixed unit of time, area, or sampling effort (e.g., insects caught per
+trap-night or seedlings per quadrat), so that there is no fixed upper limit to the count. It
+has a single parameter $\lambda$, the expected count per sampling unit, and its mean and
+variance are both equal to that parameter:
+
+$$
+E[X]=\operatorname{Var}(X)=\lambda.
+$$
+
+When the variance is higher than the mean, we say that such data has *overdispersion*
+relative to the Poisson distribution^[The "relative to the Poisson distribution" bit is often omitted; it is generally
 implied that this is the reference].
 
 For example, seedling counts may differ strongly among quadrats because some have better
@@ -1580,11 +1374,12 @@ $$
 \frac{\text{sample variance}}{\text{sample mean}}.
 $$
 
-Here we simulate quadrat counts from a negative binomial model to see what
-the ratio can look like when variation exceeds a Poisson model's prediction:
+Here we simulate quadrat counts from a Negative Binomial model (described at the end of this
+section) to see what the ratio can look like when variation exceeds a Poisson model's
+prediction:
 
 ```{r}
-# Simulate overdispersed quadrat counts from a negative binomial model.
+# Simulate overdispersed quadrat counts from a Negative Binomial model.
 set.seed(seed = 123)
 
 n_quadrats = 100
@@ -1606,9 +1401,7 @@ c(sample_mean, sample_variance, dispersion_ratio)
 A ratio close to one is consistent with the Poisson mean–variance relationship;
 a substantially larger ratio suggests overdispersion relative to that model.
 It is possible to obtain a ratio substantially lower than one, although it is rare. This
-is called *underdispersion*. The Conway-Maxwell-Poisson distribution described in the
-[Supplement](../Supplements/distributions.qmd) can handle underdispersion.
-
+is called *underdispersion*.
 
 :::: {.callout-important title="Practice: variation in orchid stem counts"}
 
@@ -1625,164 +1418,23 @@ the cause; for example, plots may differ in habitat, or counts may be clustered.
 :::
 ::::
 
-## The negative binomial distribution
+### Distributions for overdispersed counts
 
-When overdispersion occurs, the negative binomial distribution is a useful starting model.
-It has support $\{0, 1, 2, \ldots\}$ and can accommodate more variation
-than a Poisson model with the same mean. The negative binomial model has two parameters:
+When a sample shows overdispersion, we need a distribution with an additional parameter that
+controls the extra variation. The
+[Negative Binomial distribution](../Supplements/distributions.qmd#sec-negative_binomial) is the usual starting
+model for counts without an upper limit. It has a mean $\mu$ and a shape parameter $k$, and
+its variance is $\mu+\mu^2/k$. That is, the smaller $k$ the larger the variance, and the
+distribution approaches the Poisson distribution as $k$ becomes large. This is the model we
+used in the simulation above (R calls the shape parameter `size`).
 
-- $\mu>0$: the mean count per sampling unit;
-- $k>0$: a shape or dispersion parameter that controls the additional variation
-
-The probability mass function is
-
-$$
-P(X=x)
-=
-\frac{\Gamma(x+k)}{\Gamma(k)x!}
-\left(\frac{k}{k+\mu}\right)^k
-\left(\frac{\mu}{k+\mu}\right)^x,
-$$
-
-where $\Gamma$ is the gamma function, which extends the factorial to real values.
-
-The mean and variance are:
-
-$$
-E[X]=\mu
-$$
-
-and
-
-$$
-\operatorname{Var}(X)=\mu+\frac{\mu^2}{k}.
-$$
-
-For $\mu>0$ and finite $k$, the variance exceeds the mean. At a fixed $\mu$, smaller $k$ gives
-greater variance. As $k$ increases, the extra variation fades and the variance approaches the mean:
-
-$$
-\mu+\frac{\mu^2}{k}\longrightarrow\mu.
-$$
-
-Thus, the negative binomial distribution approaches the Poisson distribution as $k$ becomes
-large.
-
-In R, `dnbinom()` and related functions, the argument `size` corresponds to $k$. This naming
-can be confusing because `size` does not mean the sample size here; it is the negative
-binomial shape parameter. The *Details* section of the documentation page for `dnbinom`
-explains why it has that name.
-
-### Example: seedlings in quadrats
-
-Suppose the mean number of seedlings per quadrat is $\mu=4$, and the shape parameter is $k=1.5$.
-The expected number of seedlings is
-
-$$
-E[X]=4.
-$$
-
-The variance is
-
-$$
-\operatorname{Var}(X)
-=
-4+\frac{4^2}{1.5}
-\approx 14.67.
-$$
-
-Across comparable quadrats, the model predicts four seedlings on average and a variance of
-approximately $14.67$ seedlings squared. That is much more variation than the Poisson model would
-allow at the same mean.
-
-We can verify these calculations in R:
-
-```{r}
-# Calculate the negative binomial mean and variance from its parameters.
-mean_seedlings = 4
-negative_binomial_size = 1.5
-
-expected_seedlings = mean_seedlings
-variance_seedlings = mean_seedlings +
-  mean_seedlings^2 / negative_binomial_size
-
-c(mean = expected_seedlings, variance = variance_seedlings)
-```
-
-The probability of observing exactly 10 seedlings is:
-
-```{r}
-# Calculate the probability of one particular seedling count.
-seedlings_to_check = 10
-
-dnbinom(
-  x = seedlings_to_check,
-  size = negative_binomial_size,
-  mu = mean_seedlings
-)
-```
-
-The probability of observing at least 10 seedlings is:
-
-```{r}
-# Calculate the probability of at least the requested number of seedlings.
-minimum_seedlings = 10
-
-1 - pnbinom(
-  q = minimum_seedlings - 1,
-  size = negative_binomial_size,
-  mu = mean_seedlings
-)
-```
-
-Like the Poisson distribution, the negative binomial distribution has no fixed
-upper limit. A count of 100 is mathematically possible, although very unlikely if your mean
-is 4.
-
-```{r}
-#| echo: false
-#| fig-cap: "Negative binomial probability mass for seedlings in a quadrat."
-# Calculate and plot the negative binomial probability mass over a useful range.
-mean_seedlings = 4
-negative_binomial_size = 1.5
-maximum_seedlings_to_plot = 20
-seedling_values = seq.int(from = 0, to = maximum_seedlings_to_plot)
-negative_binomial_mass = dnbinom(
-  x = seedling_values,
-  size = negative_binomial_size,
-  mu = mean_seedlings
-)
-
-negative_binomial_mass_data = data.frame(
-  seedlings = seedling_values,
-  probability = negative_binomial_mass
-)
-
-# Vertical lines make the separate possible count probabilities visible.
-plot(
-  negative_binomial_mass_data$seedlings,
-  negative_binomial_mass_data$probability,
-  type = "h",
-  xaxt = "n",
-  xlab = "Number of seedlings",
-  ylab = "Probability"
-)
-```
-
-:::: {.callout-important title="Practice: orchid stem counts with different dispersion"}
-
-Suppose the mean number of flowering stems per plot is $\mu=3$. Calculate the negative
-binomial variance for $k=1.5$ and $k=6$. Which value gives greater overdispersion? How
-does increasing $k$ relate to the Poisson model?
-
-::: {.callout-tip title="Solution" collapse="true"}
-
-Using $\operatorname{Var}(X)=\mu+\mu^2/k$, the variances are 9 and 4.5, respectively.
-The smaller value of $k$ gives greater overdispersion. As $k$ increases, the variance
-approaches the mean, which is the Poisson mean–variance relationship.
-
-:::
-::::
+When the count has a fixed upper limit (e.g., the number of survivors out of a known number
+of seedlings), overdispersion is defined relative to the Binomial distribution, and the
+[Beta-Binomial distribution](../Supplements/distributions.qmd#sec-beta_binomial) plays the same role
+as the Negative Binomial did for the Poisson. Finally,
+the [Conway-Maxwell-Poisson distribution](../Supplements/distributions.qmd#sec-com_poisson) can describe both
+overdispersion and underdispersion relative to the Poisson distribution. The formulae,
+R functions and worked examples for these three distributions are in the supplement.
 
 # Chapter quiz
 
@@ -1905,29 +1557,7 @@ in a finite sample, and individual simulations can vary.
 :::
 ::::
 
-:::: {.callout-important title="Question 9: choose a count model"}
-
-Choose a plausible starting model for each scenario and briefly explain your choice:
-
-1. The number of eggs hatching out of 15 eggs, with the same hatch probability for each.
-2. The number of mayfly larvae in a standard sample, when the count is unbounded and
-   its mean and variance are approximately equal.
-3. The number of burrowing crabs per beach section, when counts are unbounded and the
-   sample variance is substantially greater than the mean.
-
-::: {.callout-tip title="Answer" collapse="true"}
-
-1. A binomial model is plausible if the egg outcomes are independent, because
-   there is a fixed number of trials and a common hatch probability.
-2. A Poisson model is a plausible starting point because the support is non-negative
-   integer counts and the mean and variance are approximately equal.
-3. A negative binomial model is a plausible starting point because it allows an
-   unbounded count with variance greater than the mean.
-
-:::
-::::
-
-:::: {.callout-important title="Question 10: bumblebee nests"}
+:::: {.callout-important title="Question 9: bumblebee nests"}
 
 Across meadow plots, the sample mean number of bumblebee nests is 2 and the sample
 variance is 6. Calculate the dispersion ratio and explain what it suggests relative to
