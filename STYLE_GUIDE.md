@@ -3,12 +3,17 @@
 ## Basis and scope
 
 This guide is derived from the material the author has written or rewritten by
-hand: `Chapter_1/Theory.qmd`, `Chapter_2/Theory.qmd`, the Chapter 1 practical,
-and the Chapter 2 practical. These are the only references for voice. The theory
-pages of Chapters 3 to 9 were generated from learning goals and have not been
-rewritten by the author, apart from the introduction, learning goals, and a few
-cuts in Chapter 3. Use them for topic coverage and continuity, never as a model
-of how to write. The guide governs new and revised material, without requiring a
+hand: `Chapter_1/Theory.qmd`, the Chapter 1 practical, and the author's chapter
+on discrete probability with its practical. That chapter has since been merged
+with the generated chapter on continuous probability, and its sections on
+samples moved to the estimation chapter, so the author's text is now spread
+over the author's sections of `Chapter_2/Theory.qmd`, the opening section of
+`Chapter_3/Theory.qmd` (`# Samples and distributions`), and the author's
+exercises in the Chapter 2 and Chapter 3 practicals. `AGENTS.md` lists which
+sections and exercises these are. They are the only references for voice. The
+rest of Chapters 2 and 3 and the theory pages of Chapters 4 to 8 were generated
+from learning goals and have not been rewritten by the author. Use them for
+topic coverage and continuity, never as a model of how to write. The guide governs new and revised material, without requiring a
 wholesale rewrite of existing pages.
 
 Explicit conventions, such as `=` for R assignment, are retained. Where existing
@@ -21,15 +26,18 @@ are not part of the voice and should not be imitated.
 ## PRIORITY: the author's voice and how generated text differs from it
 
 **This section takes priority over the other prose preferences in this guide.**
-It comes from comparing the author's Chapters 1 and 2 with the generated
-Chapters 3 to 9, and from the edits the author made when rewriting generated
-text (the rewrite of Chapter 2 and the first edits to Chapter 3). Scientific
-accuracy and the course scope stay mandatory.
+It comes from comparing the author's text (Chapter 1 and the chapter on
+discrete probability) with the generated chapters, and from the edits the
+author made when rewriting generated text (the rewrite of the discrete
+probability chapter and the first edits to the former chapter on continuous
+probability, now part of Chapter 2). Scientific accuracy and the course scope
+stay mandatory.
 
 An earlier attempt to describe this voice asked for an "ecologist speaking
 candidly", openings built on "a recognisable ecological tension", and "lightly
-provocative" wording. Applied to Chapters 3 and 4, it produced quips and
-slogans that the author then deleted. Do not write to that brief. The author's
+provocative" wording. Applied to the former continuous-probability chapter and
+the estimation chapter (now Chapter 3), it produced quips and slogans that the
+author then deleted. Do not write to that brief. The author's
 voice is plainer than that: a teacher who defines a concept, shows it on one
 example, says what it is for in this book, and adds an honest aside when one is
 useful.
@@ -44,7 +52,7 @@ useful.
 - **A guide through the book.** The author keeps telling the reader what a
   concept is for and where it returns: "We will use quantiles to describe a
   distribution numerically [...] We will also use quantiles to quantify
-  parameter uncertainty as confidence intervals (see Chapter 4)." The author
+  parameter uncertainty as confidence intervals (see Chapter 3)." The author
   also says what the course will not use: "We will not use it much in this
   course", with a footnote explaining that cumulative probabilities are the
   basis of p-values. Write these signposts; they replace generic motivation.
@@ -90,7 +98,7 @@ useful.
   history, rhetorical questions ("So what is the issue?"), and opinion on
   p-values. From Chapter 2 onward the chapters describe mathematics and
   statistics and take a more formal tone: the same person, but mostly
-  definitions, equations, examples, and signposts. Chapter 2 is the register
+  definitions, equations, examples, and signposts. The author's text in Chapter 2 is the register
   to match. Do not carry Chapter 1's candour or level of opinion into the
   technical chapters.
 
@@ -115,11 +123,11 @@ when revising and do not produce them in new text.
   how precisely the field measurement was made." State what is true. Keep a
   contrast only where students really do confuse the two things (density and
   probability, standard deviation and standard error), and then explain the
-  difference instead of asserting it. The author kept a handful of these in all
-  of Chapter 2; treat that as the ceiling.
+  difference instead of asserting it. The author kept a handful of these in a
+  whole chapter of their own text; treat that as the ceiling.
 - **A caveat after every statement.** "does not establish", "does not
   guarantee", "does not, by itself", "is not proof that" appear in almost every
-  paragraph of Chapters 5 to 9. One caveat, placed where the risk is, teaches
+  paragraph of Chapters 4 to 8. One caveat, placed where the risk is, teaches
   more than twenty. Put a recurring misconception in a single warning callout
   and stop repeating it in the prose and again in the quiz.
 - **Repeated provenance disclaimers.** "These are simulated observations, not
@@ -135,7 +143,7 @@ when revising and do not produce them in new text.
   describe uncertainty." "Independence is an assumption that permits this
   product." Each sentence is correct, but nothing links them and nobody is
   speaking. Rewrite as reasoning with connectives, and say why the step matters.
-- **Lists and tables in place of explanation.** Chapter 8 defines fixed effects,
+- **Lists and tables in place of explanation.** Chapter 7 defines fixed effects,
   random effects, mixed-effects, hierarchical, and multilevel models as five
   bullets. The author explains one idea at a time in prose and keeps lists for
   things that are really parallel (the four faces, sources of process error).
@@ -218,7 +226,7 @@ added a joint-probability table with numbers, which the generated text lacked.
   summarise, generalise, randomisation, optimisation. This is an author
   decision. The author's own chapters mix British and American spellings, and
   the author has asked for spelling to be corrected, so change American
-  spellings to British when editing any page, including Chapters 1 and 2.
+  spellings to British when editing any page, including the author's own text.
   Preserve R identifiers, quoted text, official titles, and dataset names
   exactly, including `summarize()` if that is the function being discussed.
 - Capitalise the names of distributions everywhere, in prose, headings,
@@ -246,7 +254,7 @@ we will cover:”, then a list of short topic phrases ending in semicolons
 (“discrete random variables and probability;”, “the assumption of
 independence;”), in the same order as the ideas appear in the chapter. Do not
 use “After studying this chapter, you should be able to:” with a list of
-assessment verbs; the author replaced that format in Chapters 2 and 3. A closing
+assessment verbs; the author replaced that format in the probability chapters. A closing
 sentence may name the distributions or tools the chapter practises with and
 point to a supplement. The goals should cover the chapter's actual content
 rather than promising material introduced later. Avoid imposing a fixed length
@@ -289,8 +297,9 @@ and sampling. Explain useful parameter conversions rather than merely listing
 formulas. Put optional detail in a short footnote or a linked supplement.
 
 Detailed descriptions of distributions belong in `Supplements/distributions.qmd`,
-not in the theory chapters. Chapters 2 and 3 use one distribution as the running
-example (Binomial and Normal) and link to the supplement entries through their
+not in the theory chapters. Chapter 2 uses one distribution as the running
+example for each type of data (the Binomial for discrete data and the Normal for
+continuous data) and links to the supplement entries through their
 `sec-` IDs (for example `distributions.qmd#sec-negative_binomial`). The
 author's entries there (Binomial, Poisson, Negative Binomial) give the order to follow: when the
 distribution is useful and what it assumes; its probability mass or density
@@ -303,11 +312,10 @@ definition in one or two sentences for later reference. The callout does not
 replace the explanation.
 
 End every theory chapter with a `# Summary` section, placed before
-`# Chapter quiz`. This is an author decision; Chapter 2 currently lacks one and
-needs it added. A summary consolidates the main ideas in a few short paragraphs
+`# Chapter quiz`. This is an author decision; Chapters 6 and 7 currently lack
+one and need it added. A summary consolidates the main ideas in a few short paragraphs
 and does not repeat the entire chapter or introduce new material. Keep cross-chapter promises specific and check the destination. For example,
-method of moments currently belongs to Chapter 4, despite a Chapter 3 reference
-in the Chapter 5 draft.
+method of moments belongs to Chapter 3 and model comparison to Chapter 6.
 
 ## Statistical language and notation
 
@@ -372,11 +380,11 @@ title: "Descriptive chapter title"
 ```
 
 The table of contents and section numbering are set once in `_quarto.yml`. The
-author removed the per-page `format` and `execute` blocks from Chapters 2 and 3;
-Chapters 4 to 9 still carry them, including a global `eval: false`. Do not add
+per-page `format` and `execute` blocks have been removed from Chapters 2 and 3;
+Chapters 4 to 8 still carry them, including a global `eval: false`. Do not add
 those blocks to new pages. When removing them from an existing page, check every
 chunk first: without the global setting, chunks are evaluated unless they carry
-`#| eval: false`. Chapters 4 to 9 also still contain display-only ```` ```r ````
+`#| eval: false`. Chapters 4 to 8 also still contain display-only ```` ```r ````
 fences, which the rule below replaces.
 
 Preserve the target page's other settings rather than changing them in passing.
@@ -457,8 +465,9 @@ one group.
 Keep fence lengths matched and nesting intact. Collapsing a solution alone does
 not hide it from the student version; retain the conditional div. In Chapter 2's
 separate files, retain `# Exercise N: Topic` and `## Solution` as appropriate.
-The first exercise on its student page currently includes a worked solution. Do not
-assume every `no_solution.qmd` must contain no explanatory answers at all.
+The first two exercises on its student page are worked solutions, by author
+decision. Do not assume every `no_solution.qmd` must contain no explanatory
+answers at all.
 
 ## R coding patterns
 
@@ -488,8 +497,8 @@ assume every `no_solution.qmd` must contain no explanatory answers at all.
   object, then pass that object to `summarise()`.
 - Set a seed before each reproducible simulation example or batch of repetitions.
   Do not reset the same seed inside every repetition when independent simulated
-  samples are intended. Explicitly varied seeds are appropriate for the Chapter 2
-  exercise about variation across samples.
+  samples are intended. Explicitly varied seeds are appropriate for the Chapter 3
+  exercise about variation across samples (Exercise 2, asymptotic convergence).
 - Define objects in teaching order and pass data explicitly to functions. Examples
   must work without objects left in the author's interactive workspace.
 - Use project or document-relative data paths consistent with execution context.
