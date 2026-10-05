@@ -35,6 +35,20 @@ Chapter 2 and the later chapters moved down by one, so older notes and git
 history may use numbers that are one higher. Generation does not imply human
 review; record later review decisions here when the author confirms them.
 
+On 5 October 2026 the author stated that Chapters 1 to 3, theory and practicals,
+are reviewed and approved. The entries below that describe parts of those chapters
+as "awaiting review" are out of date; all of Chapters 1 to 3 can be used as
+reference, with Chapter 1 as the exception in register.
+
+A rewrite of Chapter 4 is planned in
+[plan_chapter4_rewrite.md](plan_chapter4_rewrite.md), which records the author's
+decisions for that chapter (examples, notation, optimiser, intervals, datasets,
+AIC moving from Chapter 6 into Chapter 4). For work on Chapter 4, that plan takes
+precedence over this file where they differ. Until it is implemented, the current
+Chapter 4 remains a generated draft and the statements below still describe the
+existing pages. The plan lists the updates to make to this file and to
+`STYLE_GUIDE.md` when the rewrite is done.
+
 | Material | Status and use |
 |---|---|
 | `Chapter_1/Practicals/material.qmd` and its wrappers | Completed practical; primary reference for teaching voice, introductory R, and conditional solutions |
