@@ -118,6 +118,20 @@ remain mandatory.
   introductory promises about model comparison there, rather than to Chapter 4.
 - Use simulation to connect known model parameters to samples, estimates, and
   repeated-sampling behaviour. Introduce unfamiliar R tools when they are needed.
+- The course is about non-linear models with non-Normal distributions, so teach
+  results that hold in general and present special cases as special cases. For
+  finite samples, estimators are in general biased and the shape of their sampling
+  distribution is unknown; exact results (for example the $t$ interval for the mean
+  of Normal observations, or $\operatorname{Var}(\bar X)=\sigma^2/n$) exist only
+  for a few estimators and models. Confident statements about bias, variance,
+  standard errors and confidence intervals hold for large samples (asymptotically);
+  for small samples present them as approximations and use simulation to check
+  them. Do not teach a Normal-only result as if it were general. This is an
+  author decision.
+- Describe the sampling distribution as the distribution of an estimate across
+  repeated hypothetical experiments: an imaginary process that is never observed.
+  Keep it distinct from the replicates (for example quadrats) within one
+  experiment. This is an author decision.
 - Retain method of moments as a bridge to estimation. Do not replace the course's
   likelihood focus with hypothesis testing, p-values, Bayesian inference, or a
   survey of modelling packages unless the author requests that change.

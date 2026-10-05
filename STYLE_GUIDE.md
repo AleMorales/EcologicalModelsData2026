@@ -326,7 +326,9 @@ method of moments belongs to Chapter 3 and model comparison to Chapter 6.
 | Mass and density | Discrete values have probability mass. Continuous densities give probabilities through integration over intervals; a density value is not a point probability and may exceed one. |
 | Probability and likelihood | Probability varies possible data for fixed parameters. Likelihood varies parameters for the observed data and is not a probability distribution over parameters. |
 | Empirical variance and `var()` | `mean((x - mean(x))^2)` uses divisor $n$. `var(x)` uses $n-1$. State which quantity an exercise requests. |
-| Standard deviation and standard error | The first describes variation in observations; the second describes variation in an estimator across samples. |
+| Sampling distribution | The distribution of an estimate across repeated hypothetical experiments with the same design and sample size. It is imaginary and never observed. Keep it distinct from the replicates within one experiment. |
+| Exact results and approximations | In finite samples estimators are in general biased and their sampling distribution is unknown. Label exact results (such as the $t$ interval for Normal observations) as special cases, and describe other bias, variance, standard error and interval statements for small samples as approximations that rely on large-sample results or simulation. |
+| Standard deviation and standard error | The first describes variation in observations; the second describes variation in an estimator across hypothetical experiments. |
 | Overdispersion | Variation exceeds that expected under a specified reference model. A variance-to-mean ratio is exploratory and does not identify the ecological cause. |
 | Confidence interval | Explain repeated-sampling coverage. Do not assign a frequentist probability to a fixed parameter lying in an already calculated interval. |
 | Independence | State it as a model assumption. Separate locations or observations do not by themselves establish independence. |
