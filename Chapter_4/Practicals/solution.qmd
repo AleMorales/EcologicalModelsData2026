@@ -9,11 +9,48 @@ date: today
 library(ggplot2)
 ```
 
-<!-- PHASE 5: opening paragraph, as on the solutions page of Chapter 3 (Exercise 1 is solved on the student page) -->
+The fully worked first exercise is on the
+[student practical page](no_solution.qmd). These solutions use the
+same data, tasks and seeds as Exercises 2–5 on that page.
 
 # Exercise 2: Glacier lily seedlings in quadrats
 
-<!-- PHASE 5: exercise statement -->
+The data set `Lily_sum` in the package `emdbook` contains counts of the glacier lily
+*Erythronium grandiflorum* in a grid of 16 × 16 quadrats of 2 m × 2 m in Washington Gulch,
+sampled in 1992 (Thomson et al. 1996). We use the column `seedlings`, the number of
+seedlings in each of the 256 quadrats. Load the data with
+`data(Lily_sum, package = "emdbook")`.
+
+Let $X_i$ be the number of seedlings in quadrat $i$. We use a
+[Negative Binomial](../../Supplements/distributions.qmd#sec-negative_binomial) model with
+mean $\mu$ and shape $k$,
+
+$$
+X_i \sim \operatorname{NegBin}(\mu, k), \qquad \operatorname{Var}(X_i)=\mu+\frac{\mu^2}{k},
+$$
+
+and assume that the quadrats are i.i.d. Neighbouring quadrats of a grid are likely to
+resemble each other, so this is a simplification, as it was for the visits to owl nests in
+the Chapter 3 practical (models for observations that are not independent start in
+[Chapter 7](../../Chapter_7/Theory.qmd)).
+
+1. Estimate $\mu$ and $k$ with the method of moments, as in the Chapter 3 practical. Also
+   calculate the fraction of quadrats without seedlings and the largest count.
+2. Write the NLL of the model with $\log\mu$ and $\log k$ as parameters and minimise it
+   with `optim()`, using the method-of-moments estimates as starting values and
+   `hessian = TRUE`. Report the estimates on the original scale. Compare the log-likelihood
+   at the maximum likelihood estimates with the log-likelihood at the method-of-moments
+   estimates.
+3. Calculate the log-likelihood on a grid of values of $\mu$ and $k$ with two nested `for`
+   loops and draw the contours of the relative log-likelihood with `contour()`. Add both
+   pairs of estimates and the contour of the approximate joint 95% confidence region. Is
+   the method-of-moments estimate inside the region?
+4. Calculate a 95% Wald interval for $k$ (on the log scale, with the endpoints transformed
+   back) and a 95% profile likelihood interval for $k$ with `uniroot()`. Compare them.
+5. Plot the relative frequencies of the counts together with the probabilities of the
+   fitted Negative Binomial model and of a Poisson model. Compare the fraction of empty
+   quadrats under each model with the observed fraction, and compare the two models with
+   AIC.
 
 ```{r}
 # Load the glacier lily data from the emdbook package without attaching the package.
@@ -27,6 +64,11 @@ n_lily = length(lily_counts)
 ## Solution
 
 ### Question 1
+
+The observational unit is one quadrat. As in the Chapter 3 practical, the method of moments
+equates the mean and the variance of the model with those of the sample, which gives
+$\hat\mu=\overline x$ and $\hat k_{\mathrm{MM}}=\hat\mu^2/(\hat\sigma^2-\hat\mu)$, where
+$\hat\sigma^2$ is the variance of the sample with divisor $n$:
 
 ```{r}
 # Method-of-moments estimates, as in the practical of Chapter 3: the mean, the variance
@@ -45,9 +87,16 @@ c(
 )
 ```
 
-<!-- VALUES: n_quadrats = 256; mean 3.96 seedlings per quadrat; variance 54.35 seedlings^2; k_mom = 0.311; fraction of empty quadrats 0.496; maximum count 72 -->
+There are 256 quadrats, with a mean of 3.96 seedlings per quadrat and a variance of 54.3,
+almost 14 times the mean. The method-of-moments estimate of the shape is therefore small,
+$\hat k_{\mathrm{MM}}\approx 0.31$. Half of the quadrats have no seedlings (127 of 256, a
+fraction of 0.496), while the largest count is 72 seedlings.
 
 ### Question 2
+
+The NLL is the one of the theory. `optim()` passes both parameters to the function in one
+vector, and inside the function `par[1]` is $\log\mu$ and `par[2]` is $\log k$, so that
+both parameters stay positive. We start the search at the method-of-moments estimates:
 
 ```{r}
 # Negative log-likelihood of the Negative Binomial model with mean mu and shape k.
@@ -82,9 +131,21 @@ loglik_mom_lily = -nb_nll(par = start_lily, counts = lily_counts)
 c(mle = loglik_mle_lily, mom = loglik_mom_lily)
 ```
 
-<!-- VALUES: convergence code 0; mu_mle = 3.957 seedlings per quadrat; k_mle = 0.2615; log-likelihood at the MLE -564.23 (NLL 564.2); log-likelihood at the method-of-moments estimates -565.34 (difference 1.1) -->
+The convergence code is 0. The maximum likelihood estimates are $\hat\mu\approx 3.96$
+seedlings per quadrat, which is the mean of the sample (as for any Negative Binomial
+model), and $\hat k\approx 0.26$, somewhat smaller than the method-of-moments estimate of
+0.31. The log-likelihood is $-564.2$ at the maximum likelihood estimates and $-565.3$ at
+the method-of-moments estimates. The difference of 1.1 units means that the observed counts
+are about three times more probable ($e^{1.1}$) under the former. The two methods disagree
+much less here than for the owls of the theory, where the difference was 7.1 units.
 
 ### Question 3
+
+We choose grids that contain both pairs of estimates with some margin, and fill a matrix
+that has one row per value of $\mu$ and one column per value of $k$. The cutoff for a
+joint region of two parameters is half the 0.95 quantile of a chi-squared distribution
+with two degrees of freedom (see
+[Uncertainty from the likelihood](../Theory.qmd#sec-likelihood-uncertainty)):
 
 ```{r}
 # Grids of candidate values for the mean (seedlings per quadrat) and the shape.
@@ -109,6 +170,10 @@ relative_surface_lily = loglik_surface_lily - loglik_mle_lily
 joint_cutoff = qchisq(p = 0.95, df = 2) / 2
 joint_cutoff
 ```
+
+The function `contour()` draws the matrix, as in the Chapter 1 practical. A second call
+with `add = TRUE` draws the contour of the joint region on top of the first plot, and
+`points()` adds the two pairs of estimates:
 
 ```{r}
 #| label: fig-lily_surface
@@ -138,9 +203,21 @@ points(x = mu_mle_lily, y = k_mle_lily, pch = 16, col = "#D55E00")
 points(x = mu_mom_lily, y = k_mom_lily, pch = 17)
 ```
 
-<!-- VALUES: joint cutoff 2.996 (qchisq(0.95, 2) = 5.991); the method-of-moments estimate (mu 3.957, k 0.311) lies inside the joint region, near its upper edge in k (the region reaches k of about 0.35); the grids are wide enough to contain the region -->
+The cutoff is 3.00. The thick contour in @fig-lily_surface joins the combinations of $\mu$
+and $k$ whose log-likelihood is 3.00 units below the maximum, and the area inside it is the
+approximate joint 95% confidence region. It extends from about 2.9 to 5.5 seedlings per
+quadrat in $\mu$ and from about 0.20 to 0.35 in $k$. As for the owls in the theory, the
+contours are not tilted: with the mean as a parameter, the estimates of $\mu$ and $k$
+hardly depend on each other. The method-of-moments estimate lies inside the region, near
+its upper edge in $k$ (its relative log-likelihood is $-1.1$, as we saw in question 2). So
+for these data the method-of-moments estimates are among the combinations of parameter
+values that the likelihood supports.
 
 ### Question 4
+
+For the Wald interval we invert the Hessian with `solve()` and take the square roots of its
+diagonal, which are the standard errors of the estimates of $\log\mu$ and $\log k$. We
+calculate the interval for $\log k$ and transform its endpoints with `exp()`:
 
 ```{r}
 # 0.975 quantile of the standard Normal distribution and the cutoff for one parameter.
@@ -154,6 +231,16 @@ lily_se
 wald_k_lily = exp(lily_fit$par["log_k"] + c(-1, 1) * critical_value * lily_se["log_k"])
 wald_k_lily
 ```
+
+The standard errors are 0.126 for the estimate of $\log\mu$ and 0.117 for the estimate of
+$\log k$, and the Wald interval for $k$ goes from 0.208 to 0.329.
+
+For the profile likelihood interval we write a function that returns the relative profile
+log-likelihood for a given value of $k$. Inside it, `optim()` re-estimates $\log\mu$ with
+$k$ held fixed, starting from the joint estimate. Then `uniroot()` finds the two values of
+$k$ at which this function equals $-1.92$. We search between 0.05 and the estimate and
+between the estimate and 1, which are values far outside the region of high likelihood in
+@fig-lily_surface:
 
 ```{r}
 # Profile log-likelihood of k relative to the maximum: for each k the mean is
@@ -195,9 +282,18 @@ rbind(
 )
 ```
 
-<!-- VALUES: standard errors on the log scales 0.126 (mu) and 0.117 (k); Wald interval for k 0.208 to 0.329; profile interval for k 0.207 to 0.328 (no unit): the two agree to two decimals; the profile at the estimate is zero up to optimiser tolerance (3.6e-9) -->
+The profile is zero at the joint estimate (up to the precision of the optimiser), as it
+should be. The profile likelihood interval for $k$ goes from 0.207 to 0.328 and the Wald
+interval from 0.208 to 0.329, so they agree to two decimals. With 256 quadrats the profile
+log-likelihood is close to a parabola on the log scale of $k$, and the fast approximation
+gives the same answer as the reference method.
 
 ### Question 5
+
+We calculate the probability of every count, from zero to the largest one in the sample,
+under both models. For the Poisson model the MLE of $\lambda$ is the mean of the sample, so
+no optimisation is needed. The AIC is $2K-2\ell(\hat\theta)$, with $K=1$ for the Poisson
+model and $K=2$ for the Negative Binomial model:
 
 ```{r}
 # Fitted probabilities of every count under the Negative Binomial and Poisson models,
@@ -265,15 +361,69 @@ ggplot() +
   theme(legend.position = "top")
 ```
 
-<!-- VALUES: fraction of empty quadrats: observed 0.496, Negative Binomial 0.483, Poisson 0.019; log-likelihood of the Poisson model -1364.9; AIC Poisson 2731.8, Negative Binomial 1132.4 -->
+The observed fraction of empty quadrats is 0.496. The fitted Negative Binomial model gives
+a probability of 0.483 to an empty quadrat and the Poisson model only 0.019.
+@fig-lily_fits shows the same for the other counts (the horizontal axis ends at 40
+seedlings, which leaves out the quadrat with 72). The Poisson distribution concentrates its
+probability around its mean of 4 seedlings, whereas the Negative Binomial distribution
+follows both the many empty quadrats and the long tail of large counts.
+
+The AIC is 2731.8 for the Poisson model and 1132.5 for the Negative Binomial model. The
+difference of 1,599 units is very large compared with the two units that the additional
+parameter costs, so the Negative Binomial model is strongly preferred. AIC ranks the
+candidates that we give it. Whether there is a better description of the empty quadrats
+than the Negative Binomial model is the question of Exercise 3.
 
 # Exercise 3: Empty quadrats and zero inflation
 
-<!-- PHASE 5: exercise statement -->
+About half of the quadrats of Exercise 2 have no seedlings. The Negative Binomial model
+describes this with a small shape $k$. A different explanation is that a fraction of the
+quadrats cannot have seedlings at all (for example, because no seeds arrive there), while
+the counts in the rest follow a Poisson distribution. This is a zero-inflated Poisson
+model (see
+[How to make zero-inflated distributions](../../Supplements/distributions.qmd#sec-zero_inflated)
+in the supplement). Its probability mass function is
+
+$$
+P(X=x\mid\lambda,p_0)=
+\begin{cases}
+p_0+(1-p_0)\,e^{-\lambda}, & x=0,\\[4pt]
+(1-p_0)\,\dfrac{e^{-\lambda}\lambda^{x}}{x!}, & x>0,
+\end{cases}
+$$
+
+where $p_0$ (`pzero` in the code of the supplement) is the probability that a quadrat
+cannot have seedlings and $\lambda$ is the mean number of seedlings in the quadrats that
+can have them. Use the same counts as in Exercise 2 and the same assumption of i.i.d.
+quadrats.
+
+1. Write a function `dzipois(x, lambda, pzero, log = FALSE)` that returns the probability
+   mass of the zero-inflated Poisson distribution, or its logarithm when `log = TRUE`.
+   Check that the probabilities add up to one over a wide range of counts, for two
+   combinations of parameter values.
+2. Write the NLL with $\log\lambda$ and $\operatorname{logit}p_0$ as parameters. Choose
+   starting values from the data (think of the fraction of empty quadrats and of the mean
+   of the quadrats that are not empty) and fit the model with `optim()`. Interpret both
+   estimates.
+3. Compare the zero-inflated Poisson model with the Negative Binomial model of Exercise 2
+   using AIC. What does the comparison come down to when both models have the same number
+   of parameters?
+4. Plot the probabilities of both fitted models over the relative frequencies of the
+   counts. Under each model, calculate the probability of an empty quadrat and the
+   probability of 20 or more seedlings, and compare them with the observed fractions. What
+   does each model say about how the counts arise? Can the comparison identify the
+   ecological cause of the empty quadrats?
 
 ## Solution
 
 ### Question 1
+
+The function follows the two cases of the mass function. It first calculates the Poisson
+probability of every count multiplied by $1-p_0$, and then adds $p_0$ where the count is
+zero. `ifelse()` applies its test to every element of `x` and returns the second argument
+where the test is `TRUE` and the third where it is `FALSE`, so the function accepts a
+vector of counts, like the `d*` functions of R. With `log = TRUE` it returns the logarithm
+of the result:
 
 ```{r}
 # Mass function of a zero-inflated Poisson distribution: with probability pzero a quadrat
@@ -291,9 +441,16 @@ sum(dzipois(x = 0:200, lambda = 7.9, pzero = 0.5))
 sum(dzipois(x = 0:200, lambda = 2, pzero = 0.1))
 ```
 
-<!-- VALUES: both sums equal 1 -->
+Both sums are 1, as they should be for a probability mass function. We used two different
+pairs of parameter values, the first of which is close to the estimates of question 2.
 
 ### Question 2
+
+Both parameters are constrained. The mean $\lambda$ is positive, so we search over
+$\log\lambda$, and $p_0$ is a probability, so we search over $\operatorname{logit}p_0$ and
+transform it with `plogis()`. For the starting values, suppose that every empty quadrat is
+one that cannot have seedlings. Then $p_0$ is the fraction of empty quadrats and $\lambda$
+is the mean of the quadrats that have seedlings:
 
 ```{r}
 # Negative log-likelihood of the zero-inflated Poisson model.
@@ -323,11 +480,24 @@ zip_fit$convergence
 lambda_zip = unname(exp(zip_fit$par["log_lambda"]))
 pzero_zip = unname(plogis(zip_fit$par["logit_pzero"]))
 c(lambda = lambda_zip, pzero = pzero_zip, loglik = -zip_fit$value)
+
+# Starting values on the original scale, and the probability of a count of zero under
+# a Poisson distribution with the estimated lambda.
+c(lambda_start = exp(start_zip[["log_lambda"]]), pzero_start = plogis(start_zip[["logit_pzero"]]))
+dpois(x = 0, lambda = lambda_zip)
 ```
 
-<!-- VALUES: convergence code 0; lambda = 7.85 seedlings per quadrat; pzero = 0.496; NLL 848.0 (log-likelihood -848.0) -->
+The convergence code is 0. The estimates are $\hat\lambda\approx 7.85$ seedlings per
+quadrat and $\hat p_0\approx 0.496$, and the maximum log-likelihood is $-848.0$. According
+to this model, about half of the quadrats cannot have seedlings and the other half have
+7.85 seedlings on average. The estimates are almost identical to the starting values (7.85
+and 0.496). The reason is that a Poisson distribution with a mean of 7.85 gives a
+probability of only 0.0004 to a count of zero, so the model attributes practically all the
+empty quadrats to the zero inflation.
 
 ### Question 3
+
+The zero-inflated Poisson model has two parameters, like the Negative Binomial model:
 
 ```{r}
 # AIC of the zero-inflated Poisson model (K = 2) next to the Negative Binomial model of
@@ -336,9 +506,19 @@ aic_zip = 2 * 2 - 2 * (-zip_fit$value)
 c(zero_inflated_poisson = aic_zip, negative_binomial = aic_lily[["negative_binomial"]])
 ```
 
-<!-- VALUES: AIC zero-inflated Poisson 1700.0, Negative Binomial 1132.4 (difference 567.6) -->
+The AIC is 1700.1 for the zero-inflated Poisson model and 1132.5 for the Negative Binomial
+model. Both models have $K=2$, so the term $2K$ cancels in the difference and the
+comparison comes down to the maximum log-likelihoods: the difference of 567.6 units of AIC
+is twice the difference of 283.8 units of log-likelihood ($-564.2$ against $-848.0$). The
+Negative Binomial model is strongly preferred. The Poisson model without zero inflation had
+an AIC of 2731.8 in Exercise 2, so allowing for quadrats that cannot have seedlings
+improves the Poisson model a great deal, but not enough.
 
 ### Question 4
+
+We calculate the two probabilities under each model, together with the corresponding
+fractions of the sample. For the Negative Binomial model, `pnbinom()` with
+`lower.tail = FALSE` gives the probability of more than 19 seedlings:
 
 ```{r}
 # Probability of zero and of 20 or more seedlings: observed, zero-inflated Poisson and
@@ -396,15 +576,87 @@ ggplot() +
   theme(legend.position = "top")
 ```
 
-<!-- VALUES: P(X = 0): observed 0.496, zero-inflated Poisson 0.496, Negative Binomial 0.483; P(X >= 20): observed 0.039, zero-inflated Poisson 0.0001, Negative Binomial 0.049 -->
+The zero-inflated Poisson model reproduces the fraction of empty quadrats exactly (0.496)
+and the Negative Binomial model almost (0.483). The models differ at the other end of the
+distribution (@fig-lily_zip). Ten of the 256 quadrats (3.9%) have 20 or more seedlings. The
+Negative Binomial model gives a probability of 0.049 to such counts and the zero-inflated
+Poisson model 0.0001. In the latter, the quadrats that are not empty follow a Poisson
+distribution, whose variance equals its mean of 7.85, and that makes counts of 20 or more
+almost impossible. Each of those ten quadrats then contributes a very low probability to
+the likelihood, which is where the zero-inflated Poisson model loses most of its
+log-likelihood.
+
+The two models describe the origin of the counts differently. In the zero-inflated Poisson
+model there are two kinds of quadrats: those that cannot have seedlings, and those in which
+seedlings occur with one common mean and little variation around it. In the Negative
+Binomial model there is one kind of quadrat, and the counts vary strongly around a common
+mean, which produces both the many empty quadrats and the few crowded ones. AIC tells us
+that the second description fits these counts much better. It does not tell us why the
+seedlings are distributed in this way. As
+[Chapter 2](../../Chapter_2/Theory.qmd#sec-discrete_distributions) explains, a distribution
+does not identify the source of the overdispersion, and different processes (for example,
+the dispersal of seeds around the parent plants, or differences in how suitable the
+quadrats are for germination) can produce the same distribution of counts. The two
+mechanisms could also act together, as in the zero-inflated Negative Binomial distribution
+of the supplement, which we do not fit here. To learn about the cause we would need other
+measurements on the quadrats in addition to the counts.
 
 # Exercise 4: Timber volume and body mass
 
-<!-- PHASE 5: exercise statement -->
+This exercise fits models to continuous measurements, so the contributions to the
+likelihood are densities. We use a [Gamma](../../Supplements/distributions.qmd#sec-gamma)
+model with shape $k$ and rate $r$ (`shape` and `rate` in R), for which
+
+$$
+X_i \sim \operatorname{Gamma}(k, r), \qquad E[X_i]=\frac{k}{r},
+\qquad \operatorname{Var}(X_i)=\frac{k}{r^2}.
+$$
+
+The first three questions use the data set `trees` of the Chapter 3 practical, with the
+measurements of 31 felled black cherry trees. That practical used their heights. Here $X_i$
+is the volume of timber of tree $i$ in cubic feet (ft³), the column `Volume`. The last two
+questions use the data set `penguins`, which is part of the `datasets` package in R 4.5.0
+and later.^[With an older version of R, install the package `palmerpenguins` and load the
+data with `data(penguins, package = "palmerpenguins")`. It contains the same measurements,
+but the column with the body mass is called `body_mass_g`.] It contains measurements of
+adult penguins of three species near Palmer Station, Antarctica (Gorman, Williams and
+Fraser 2014). There $X_i$ is the body mass of Adelie penguin $i$, the column `body_mass`,
+in grams. In both cases we assume that the observations are i.i.d.
+
+1. Load the trees with `data(trees, package = "datasets")`. Write the NLL of the Gamma
+   model with `dgamma(..., log = TRUE)` and with $\log k$ and $\log r$ as parameters.
+   Calculate method-of-moments estimates from the formulas of the mean and the variance,
+   use them as starting values and fit the model with `optim()` and `hessian = TRUE`.
+   Report the estimates of $k$ and $r$ with their units and the maximum likelihood estimate
+   of the mean volume.
+2. Calculate the correlation between the estimates of $\log k$ and $\log r$ from the
+   Hessian. Calculate the log-likelihood on a grid of values of $k$ and $r$ and draw the
+   contours of the relative log-likelihood. What does the tilt of the contours mean?
+3. Calculate a slice and a profile of the log-likelihood for the shape $k$ and plot both as
+   relative log-likelihoods. Find the range of values of $k$ for which each curve is within
+   1.92 units of the maximum. Which of the two ranges is a confidence interval, and why is
+   the slice narrower?
+4. Load the penguins with `data(penguins, package = "datasets")` and keep the body masses
+   of the Adelie penguins. One of them is missing: remove it explicitly. Fit the Gamma
+   model to the masses in grams and again to the same masses in kilograms. With the masses
+   in grams the NLL is a large number, and the default stopping rule of `optim()` can end
+   the search too early, so add the argument `control = list(reltol = 1e-12)` to both fits.
+   Compare the estimates and the maximum log-likelihoods of the two fits. Explain the
+   differences with the units of a density.
+5. Fit a [LogNormal](../../Supplements/distributions.qmd#sec-lognormal) model to the body
+   masses with `dlnorm()` and `optim()`, in grams and in kilograms, and compare it with the
+   Gamma model using AIC. Does the comparison depend on the units?
 
 ## Solution
 
 ### Question 1
+
+The observational unit is one tree, and the data are the 31 volumes in cubic feet.
+`dgamma()` returns a density, so the NLL is minus the sum of the log densities. Both
+parameters are positive and we search over their logarithms. For the starting values we
+solve $E[X]=k/r$ and $\operatorname{Var}(X)=k/r^2$ for the parameters, which gives
+$k=E[X]^2/\operatorname{Var}(X)$ and $r=E[X]/\operatorname{Var}(X)$, and we insert the mean
+and the variance of the sample (with divisor $n$):
 
 ```{r}
 # Load the black cherry data from the datasets package and keep the timber volume (cubic feet).
@@ -455,9 +707,19 @@ c(
 exp(start_volume["log_shape"])
 ```
 
-<!-- VALUES: convergence code 0; shape 3.886; rate 0.1288 per cubic foot; mean 30.17 cubic feet (equal to the sample mean); NLL 125.73; method-of-moments shape 3.48; the names in start_volume: check that they are log_shape and log_rate -->
+The convergence code is 0. The estimates are $\hat k\approx 3.89$, which has no units, and
+$\hat r\approx 0.129$ per cubic foot. The rate has the units of one over the measurement,
+so that $k/r$ is a volume. By invariance, the MLE of the mean volume is
+$\hat k/\hat r\approx 30.2$ ft³. It equals the mean of the sample: as for the Negative
+Binomial model, the MLE of the mean of a Gamma model is the sample mean. The
+method-of-moments estimate of the shape is 3.48, so again the two methods agree on the
+mean and disagree on the parameter that controls the variance. The minimum of the NLL is
+125.7, that is, a maximum log-likelihood of $-125.7$.
 
 ### Question 2
+
+`cov2cor()` converts the inverse of the Hessian into correlations. For the surface we use
+the same nested loops as in Exercise 2, now with `dgamma()`:
 
 ```{r}
 # Correlation between the estimates of log(k) and log(r), from the inverse Hessian.
@@ -494,9 +756,21 @@ contour(
 points(x = shape_volume, y = rate_volume, pch = 16, col = "#D55E00")
 ```
 
-<!-- VALUES: correlation between the estimates of log(k) and log(r): 0.937 (0.94); the contours are tilted: a larger shape goes with a larger rate; the outer contours are cut by the edges of the grids (shape 1.5 to 8, rate 0.04 to 0.30) -->
+The correlation between the estimates of $\log k$ and $\log r$ is 0.94, and the contours of
+@fig-volume_surface are strongly tilted: a larger shape goes with a larger rate (the outer
+contours are cut by the edges of the grid). The reason is the same as for the parameters
+`size` and `prob` of the Negative Binomial distribution in the theory. The data determine
+the mean volume $k/r$ well, so a higher value of $k$ can be compensated by a higher value
+of $r$ that keeps the mean close to 30 ft³, with little loss of likelihood. The tilt means
+that the estimates of the two parameters depend on each other: a hypothetical experiment
+that overestimates the shape would tend to overestimate the rate too.
 
 ### Question 3
+
+The slice fixes the rate at its estimate and varies the shape. The profile re-estimates the
+rate for every value of the shape, with an NLL in which the shape is given and only
+$\log r$ is searched. Each of these inner searches starts at the joint estimate. We
+evaluate both curves on a grid of 261 values of the shape:
 
 ```{r}
 # Cutoff for a 95% interval of one parameter: half the 95% quantile of a chi-squared
@@ -551,9 +825,22 @@ ggplot(curve_volume, aes(x = shape, y = relative, linetype = curve)) +
   theme(legend.position = "top")
 ```
 
-<!-- VALUES: shape within the cutoff of the maximum: slice 3.26 to 4.56, profile 2.32 to 6.06 (grid of 261 values: the endpoints are accurate to about 0.025) -->
+The slice is within 1.92 units of the maximum for shapes between 3.28 and 4.55, and the
+profile for shapes between 2.33 and 6.05 (the grid has a step of 0.025, so the endpoints
+are accurate to about that amount). The range of the profile is the approximate 95%
+confidence interval for the shape. The slice is about a third as wide
+(@fig-volume_profile). It describes what the data would say about the shape if we knew that
+the rate is exactly 0.129 per cubic foot. The rate is estimated from the same 31 trees, and
+because the two estimates are strongly correlated, fixing one of them removes most of the
+uncertainty about the other. The profile follows the ridge of the surface in
+@fig-volume_surface and takes that uncertainty into account.
 
 ### Question 4
+
+We select the Adelie penguins and count the missing body masses with `is.na()`. A missing
+mass cannot contribute to the likelihood, so we remove it explicitly and report it. The
+NLL is the function `gamma_nll()` of question 1, and a small function calculates the
+method-of-moments starting values for each unit:
 
 ```{r}
 # Load the penguin data (in R 4.5.0 and later) and keep the Adelie penguins.
@@ -609,6 +896,9 @@ c(
   rate_per_kg = rate_penguin_kg
 )
 
+# Mean of the fitted model, k / r, in grams and in kilograms.
+c(mean_g = shape_penguin / rate_penguin_g, mean_kg = shape_penguin / rate_penguin_kg)
+
 # Maximum log-likelihood in each unit and the change when the unit changes. A density is
 # per unit of the measurement, so the data in kilograms have densities 1,000 times larger.
 loglik_g = -penguin_fit_g$value
@@ -617,9 +907,35 @@ c(loglik_g = loglik_g, loglik_kg = loglik_kg, difference = loglik_kg - loglik_g)
 n_penguins * log(1000)
 ```
 
-<!-- VALUES: 1 missing body mass removed; 151 Adelie penguins; convergence codes 0; shape 66.09 in both units; rate 0.01786 per gram and 17.86 per kilogram; log-likelihood -1137.72 in grams and -94.65 in kilograms; difference 1043.07 = 151 * log(1000) -->
+One body mass is missing, which leaves 151 Adelie penguins. Both fits have convergence code
+0. The estimate of the shape is 66.09 in both units. The estimate of the rate is 0.01786
+per gram and 17.86 per kilogram, a factor of 1,000, and the estimated mean $\hat k/\hat r$
+is the same mass in both cases (3,701 g, or 3.70 kg). So the fitted model is the same and
+only the units of the rate change.
+
+The maximum log-likelihood does change. It is $-1137.72$ in grams and $-94.65$ in
+kilograms, a difference of 1043.07. A density is a probability per unit of the
+measurement. The probability that a penguin weighs between 3,700 and 3,701 g is the same
+in any units, but in kilograms that interval has a width of 0.001, so the density must be
+1,000 times larger. Every penguin therefore adds $\log(1000)\approx 6.91$ to the
+log-likelihood, and $151\times\log(1000)=1043.07$ is the difference that we found. For this
+reason the value of a log-likelihood means nothing by itself, and log-likelihoods
+calculated from data in different units cannot be compared.
+
+The argument `reltol` deserves a remark. `optim()` stops when a step reduces the function
+by less than a small fraction of its value. With the masses in grams and the default
+setting, the search stops after a single step at a shape of 65.56, practically at the
+starting values, although the NLL can still decrease by 0.0025, and it reports a
+convergence code of zero. A smaller `reltol` makes the search continue to the minimum. How
+optimisers decide when to stop is a topic of [Chapter 8](../../Chapter_8/Theory.qmd).
 
 ### Question 5
+
+The LogNormal model has the parameters $\mu$ and $\sigma$ (`meanlog` and `sdlog` in R),
+which are the mean and the standard deviation of the logarithm of the mass. The first can
+take any real value and the second is positive, so we search over $\mu$ and $\log\sigma$.
+As starting values we use the mean and the standard deviation of the logarithms of the
+masses:
 
 ```{r}
 # Negative log-likelihood of the LogNormal model; par[1] is meanlog and par[2] is log(sdlog).
@@ -658,15 +974,65 @@ aic_penguin$difference = aic_penguin$gamma - aic_penguin$lognormal
 aic_penguin
 ```
 
-<!-- VALUES: convergence codes 0; NLL in grams: Gamma 1137.72, LogNormal 1137.48; in kilograms: Gamma 94.65, LogNormal 94.41; difference in AIC (Gamma minus LogNormal) about 0.5 in both units -->
+All four fits have convergence code 0. In grams the AIC is 2279.4 for the Gamma model and
+2279.0 for the LogNormal model, and in kilograms it is 193.3 and 192.8. The values depend
+on the units, for the reason given in question 4. The difference between the two models is
+0.49 in both units, because the change of units adds the same constant to the
+log-likelihood of every model. So a comparison with AIC does not depend on the units,
+provided that all the models are fitted to the same observations in the same units.
+
+A difference of half a unit of AIC is very small. Both models have two parameters, so it
+corresponds to a difference of 0.25 between their maximum log-likelihoods. These data
+hardly distinguish a Gamma model from a LogNormal model for the body mass of Adelie
+penguins.
 
 # Exercise 5: Estimators and intervals across hypothetical experiments
 
-<!-- PHASE 5: exercise statement -->
+With a single sample we cannot tell how far an estimate is from the parameter, or whether
+a confidence interval contains it, because the parameter is unknown. As in Exercise 3 of
+the Chapter 3 practical, we can study the behaviour of an estimator by simulating
+hypothetical experiments from a model whose parameters we know. Here we use the maximum
+likelihood estimates of Exercise 4 as the parameters of that model. The simulation then
+shows how the estimators and the intervals would behave if the fitted Gamma model had
+generated the data (see
+[Properties of maximum likelihood estimators](../Theory.qmd#sec-mle_properties) and
+[Uncertainty from the likelihood](../Theory.qmd#sec-likelihood-uncertainty)). This
+exercise continues with the objects of Exercise 4.
+
+1. For the shape $k$ of the Gamma model fitted to the tree volumes, calculate a 95% Wald
+   interval (on the log scale, with the endpoints transformed back) and a 95% profile
+   likelihood interval with `uniroot()`. Compare them.
+2. Set seed 801 and simulate 2,000 hypothetical experiments, each with 31 trees from a
+   Gamma model whose shape and rate are the maximum likelihood estimates of Exercise 4. For
+   each experiment, estimate the shape by the method of moments and by maximum likelihood
+   (start `optim()` at the method-of-moments estimates and use
+   `control = list(reltol = 1e-12)`, as in Exercise 4). Compare the mean, the standard
+   deviation and the mean squared error of the two estimators with the shape that you used
+   to simulate. Tip: write the simulation as a function of the sample size, the shape and
+   the rate, because you will need it again in question 4.
+3. In the same simulation, record for each experiment whether the Wald interval and the
+   profile likelihood interval for the shape contain the shape that you used to simulate,
+   and calculate the coverage of both intervals. Hint: you do not need `uniroot()` inside
+   the simulation. A profile likelihood interval contains a value whenever the profile
+   log-likelihood at that value is within `qchisq(p = 0.95, df = 1) / 2` of the maximum
+   log-likelihood, so one extra fit with the shape fixed at that value is enough.
+4. Set seed 802 and repeat questions 2 and 3 with experiments of 151 penguins from the
+   Gamma model fitted to the body masses in grams. How do the bias and the coverage change?
+   The two simulations differ in the sample size and in the model. How can you check which
+   of the two explains the change? Do it, without resetting the seed.
+5. Why do these results only approximate the behaviour of the estimators and the intervals
+   for the real trees and penguins?
 
 ## Solution
 
 ### Question 1
+
+The Wald interval uses the standard error of the estimate of $\log k$, which is the square
+root of the first diagonal element of the inverse Hessian. For the profile likelihood
+interval we write the relative profile log-likelihood of the shape as a function, which
+uses `gamma_nll_given_shape()` of Exercise 4, and find with `uniroot()` where it equals
+$-1.92$. The profile plotted in Exercise 4 is below the cutoff at both ends of its grid
+(1.5 and 8), so we search between 1 and the estimate and between the estimate and 15:
 
 ```{r}
 # Wald interval for the shape of the tree volumes: calculate on the log scale with the
@@ -707,9 +1073,21 @@ rbind(
 )
 ```
 
-<!-- VALUES: Wald interval for the shape 2.41 to 6.27; profile interval 2.32 to 6.06 (no unit) -->
+The Wald interval goes from 2.41 to 6.27 and the profile likelihood interval from 2.32 to
+6.06, which agrees with the range that we found on the grid in Exercise 4. The two
+intervals differ in the first decimal, unlike those for the lily seedlings in Exercise 2:
+with 31 trees the profile log-likelihood is further from a parabola. From a single sample
+we cannot tell which of the two intervals behaves better, which is what the simulation is
+for.
 
 ### Question 2
+
+We write one function that simulates the hypothetical experiments for a given sample size,
+shape and rate, and a second one that summarises the results. For each experiment the
+first function simulates the measurements with `rgamma()`, calculates the method-of-moments
+estimates and uses them to start the maximum likelihood fit. It also records what question
+3 asks for and whether the fits stopped normally. The results are stored in a data frame
+with one row per experiment:
 
 ```{r}
 # One simulation of hypothetical experiments from a Gamma model whose parameters we know.
@@ -794,23 +1172,52 @@ trees_31 = simulate_gamma_experiments(
   n_experiments = n_experiments
 )
 summarise_experiments(results = trees_31, shape = shape_volume)
+
+# Relative bias of both estimators, and the median of the maximum likelihood estimates.
+c(ml = mean(trees_31$shape_ml), mom = mean(trees_31$shape_mom)) / shape_volume - 1
+median(trees_31$shape_ml)
 ```
 
-<!-- VALUES (2,000 experiments, seed 801; time about 3 s): shape used in the simulation 3.886; ML mean 4.33, SD 1.20, MSE 1.63; method of moments mean 4.43, SD 1.30, MSE 1.99; no failed fits. The SD of both estimators changes with the seed because the sampling distribution is skewed: with 1,000 experiments and four other seeds the ML SD ranged from 1.09 to 1.22 (Appendix A: 4.26 and 1.09 for ML, 4.37 and 1.22 for the method of moments) -->
+The shape used to simulate is 3.89. Across the 2,000 hypothetical experiments, the maximum
+likelihood estimates have a mean of 4.33, a standard deviation of 1.20 and a mean squared
+error (MSE) of 1.63. The method-of-moments estimates have a mean of 4.43, a standard
+deviation of 1.30 and an MSE of 1.99. No fit failed. So with 31 trees both estimators are
+biased upwards, by 11% and 14%, and the MLE is the better of the two: it has the smaller
+bias, the smaller standard deviation and the smaller MSE. The median of the maximum
+likelihood estimates is 4.13, below their mean, because their sampling distribution is
+skewed to the right. These summaries are themselves estimates from 2,000 experiments and
+they change somewhat with the seed, in particular the standard deviations, which are
+sensitive to a few very large estimates.
 
 ### Question 3
 
-The coverage columns of the table in question 2 answer this question. The hint is already
-used in the code of question 2: no `uniroot()` call is needed inside the simulation.
+The simulation of question 2 already recorded what we need. For the Wald interval we do
+not have to calculate the endpoints: the interval on the log scale contains $\log k$
+exactly when the estimate of $\log k$ is within $z_{0.975}$ standard errors of it. For the
+profile likelihood interval we followed the hint. One inner fit with the shape fixed at the
+value used to simulate gives the profile log-likelihood at that value, and the interval
+contains it when the difference from the maximum log-likelihood is above $-1.92$. The
+coverage is the fraction of experiments in which each check is `TRUE`:
 
 ```{r}
 # Coverage of the two intervals, from the experiments of question 2.
 c(wald = mean(trees_31$wald_covered), profile = mean(trees_31$profile_covered))
 ```
 
-<!-- VALUES: coverage about 0.93 for the Wald interval and 0.94 for the profile interval; simulation error of a coverage near 0.94 with 1,000 experiments: about 0.0075 -->
+The coverage is 0.931 for the Wald interval and 0.939 for the profile likelihood interval.
+A coverage simulated with 2,000 experiments has a standard error of about 0.005
+($\sqrt{0.94\times 0.06/2000}$), so both are below the nominal 0.95 by two standard errors
+or more. With 31 trees both intervals are approximations, and they contain the shape
+slightly less often than their confidence level states. The profile likelihood interval is
+the closer of the two.
 
 ### Question 4
+
+We call the same function with the sample size of the penguins and the estimates of the
+Gamma model fitted to their masses in grams. To separate the effect of the sample size
+from the effect of the model, we add a third simulation with the model of the trees and
+the sample size of the penguins. If the sample size explains the change, 151 trees should
+behave like 151 penguins and unlike 31 trees:
 
 ```{r}
 # 2,000 hypothetical experiments of 151 penguins from the Gamma model fitted in Exercise 4
@@ -845,8 +1252,35 @@ c(
 )
 ```
 
-<!-- VALUES (2,000 experiments each, seed 802; the chunk takes about 19 s): 151 penguins (shape 66.09): ML mean 67.17 (relative bias 1.6%), SD 7.91, MSE 63.7; method of moments mean 67.22, SD 7.97, MSE 64.8; coverage 0.947 for Wald and 0.946 for profile. 151 trees (shape 3.886): ML mean 3.945 (relative bias 1.5%), SD 0.442, MSE 0.199; method of moments mean 3.960, SD 0.507, MSE 0.263; coverage 0.951 and 0.956. 31 trees: relative bias 11.5%. No failed fits -->
+No fit failed. With 151 penguins the relative bias of the MLE of the shape is 1.6% (a mean
+of 67.2 against the 66.1 used to simulate), and the coverage is 0.947 for the Wald interval
+and 0.946 for the profile likelihood interval, both within the simulation error of 0.95.
+With 151 trees the relative bias is 1.5% and the coverages are 0.951 and 0.956. With 31
+trees the bias was 11.5% and the coverages were 0.931 and 0.939. So the sample size
+explains the change: the model of the tree volumes, which gave biased estimates and
+intervals with a coverage below 0.95 for 31 trees, behaves as the large-sample results of
+the theory predict when the sample has 151 trees.
+
+How the two estimators compare does depend on the model. For the tree model with 151 trees
+the MLE remains more precise than the method-of-moments estimator (a standard deviation of
+0.44 against 0.51 and an MSE of 0.20 against 0.26), in agreement with its asymptotic
+efficiency. For the penguin model the two estimators are almost equally precise (standard
+deviations of 7.91 and 7.97).
 
 ### Question 5
 
-<!-- NO CODE: reasoning only -->
+The simulations describe the estimators and the intervals for models whose parameters we
+chose: Gamma models with the estimates of Exercise 4 as parameters. The parameters of the
+data generating processes of the real trees and penguins are unknown, and the estimates
+differ from them. For the trees the difference can be considerable, since the confidence
+interval for the shape goes from 2.3 to 6.1 and question 2 shows that the estimate tends to
+be too large. The bias and the coverage would be somewhat different for another shape.
+
+The simulated observations are also exactly i.i.d. from a Gamma distribution, whereas for
+the real measurements the Gamma model is an approximation (in Exercise 4 a LogNormal model
+described the body masses equally well), and the trees or the penguins need not be
+independent of each other. With a misspecified model the properties of the estimators and
+of the intervals change (see [Misspecified models](../Theory.qmd#sec-misspecified)), which
+these simulations do not explore. So the results approximate the behaviour of the
+estimators for the real data, and the approximation is better the closer the fitted model
+is to the data generating process.
