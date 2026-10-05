@@ -1,209 +1,171 @@
 ---
-title: "Chapter 4: Maximum likelihood"
+title: "Chapter 4: Maximum likelihood estimation"
 date: today
 ---
 
-These exercises use illustrative or simulated ecological data, not field
-observations. First calculate the small-sample likelihoods **on paper,
-without R**. A calculator is fine for exponentials and logarithms.
-Then use R for larger samples and numerical optimisation. The
-[Chapter 4 theory](../Theory.qmd) introduces each method.
+<!-- PHASE 5: opening paragraph (which exercises use which data; Exercises 1 to 3 need the package emdbook; work through Exercise 1 first; link to the theory) -->
 
-# Exercise 1: Seedlings in quadrats
+# Exercise 1: Survival of reed frog tadpoles
 
-Suppose the count $X_i$ in each equal-area quadrat follows an independent
-Poisson model with an unknown common mean $\lambda$ seedlings per
-quadrat. Four illustrative quadrats contain 0, 1, 2, and 3 seedlings.
+<!-- PHASE 5: exercise statement and the description of the data -->
 
-1. Write the Poisson probability mass for one count. By hand, write
-   each of the four likelihood contributions and multiply them to
-   obtain $L(\lambda\mid0,1,2,3)$.
-2. By hand, take the logarithm of the product and simplify
-   $\ell(\lambda\mid0,1,2,3)$ into a sum. Calculate the likelihood
-   and log-likelihood at $\lambda=1$ and $\lambda=2$. Which of these
-   two candidate means gives the observations greater likelihood?
-3. Calculate the sample mean. Use it to give the maximum likelihood
-   estimate and its ecological units.
-4. Check the hand calculations with `dpois()`. Write a negative
-   log-likelihood using `log = TRUE`, fit $\lambda$ with `optim()`
-   on the log scale, check convergence, and compare its answer with
-   the sample mean.
+```{r}
+# Load the reed frog data from the emdbook package without attaching the package.
+data(ReedfrogPred, package = "emdbook")
+
+# Keep the 24 tanks with predators.
+predator_tanks = ReedfrogPred[ReedfrogPred$pred == "pred", ]
+
+# Initial number of tadpoles in each tank and number of survivors, and the number of tanks.
+tadpoles = predator_tanks$density
+survivors = predator_tanks$surv
+n_tanks = length(survivors)
+```
 
 ## Solution
 
-The observational unit is one quadrat. Under the assumed model,
-
-$$
-P(X_i=x_i\mid\lambda)
-=\frac{e^{-\lambda}\lambda^{x_i}}{x_i!}.
-$$
-
-Independence lets us multiply the four contributions. For the
-observed counts, these are
-$e^{-\lambda}\lambda^0/0!$,
-$e^{-\lambda}\lambda^1/1!$,
-$e^{-\lambda}\lambda^2/2!$, and
-$e^{-\lambda}\lambda^3/3!$. Therefore,
-
-$$
-\begin{aligned}
-L(\lambda\mid0,1,2,3)
-&=\prod_{x\in\{0,1,2,3\}}
-  \frac{e^{-\lambda}\lambda^x}{x!}\\
-&=\frac{e^{-4\lambda}\lambda^{0+1+2+3}}
-        {0!\,1!\,2!\,3!}
-=\frac{e^{-4\lambda}\lambda^6}{12}.
-\end{aligned}
-$$
-
-Taking logs changes the product into a sum:
-
-$$
-\begin{aligned}
-\ell(\lambda\mid0,1,2,3)
-&=\sum_{x\in\{0,1,2,3\}}
-  [-\lambda+x\log\lambda-\log(x!)]\\
-&=-4\lambda+6\log\lambda-\log(12).
-\end{aligned}
-$$
-
-Substitute the two candidates:
-
-| Candidate mean | Likelihood | Log-likelihood |
-|---|---:|---:|
-| $\lambda=1$ | $e^{-4}/12\approx0.001526$ | $-4-\log12\approx-6.485$ |
-| $\lambda=2$ | $64e^{-8}/12\approx0.001789$ | $-8+6\log2-\log12\approx-6.326$ |
-
-The likelihood is greater at $\lambda=2$ than at $\lambda=1$.
-This comparison says nothing about the probability that either
-parameter value is true. The MLE is the sample mean,
-$(0+1+2+3)/4=1.5$ seedlings per quadrat. It can lie between the two
-candidates we compared.
-
-In R, sum the log probabilities directly. The negative sign gives
-`optim()` a function to minimise. Exponentiating `log_lambda` keeps
-the candidate Poisson mean positive.
+### Question 1
 
 ```{r}
-counts = c(0, 1, 2, 3)
-candidate_values = c(1, 2)
-likelihood = vapply(
-  X = candidate_values,
-  FUN = function(lambda) {
-    prod(dpois(x = counts, lambda = lambda))
-  },
-  FUN.VALUE = numeric(1)
-)
-log_likelihood = vapply(
-  X = candidate_values,
-  FUN = function(lambda) {
-    sum(dpois(x = counts, lambda = lambda, log = TRUE))
-  },
-  FUN.VALUE = numeric(1)
-)
-data.frame(lambda = candidate_values, likelihood, log_likelihood)
+# The first three tanks: survivors and initial number of tadpoles.
+first_survivors = survivors[1:3]
+first_tadpoles = tadpoles[1:3]
+first_survivors
+first_tadpoles
 
-poisson_nll = function(log_lambda, counts) {
-  lambda = exp(log_lambda)
-  -sum(dpois(x = counts, lambda = lambda, log = TRUE))
+# Likelihood contribution of each tank at p = 0.5 and at p = 2/3, and the likelihood of the
+# three tanks, which is the product of the contributions.
+dbinom(x = first_survivors, size = first_tadpoles, prob = 0.5)
+dbinom(x = first_survivors, size = first_tadpoles, prob = 2 / 3)
+prod(dbinom(x = first_survivors, size = first_tadpoles, prob = 0.5))
+prod(dbinom(x = first_survivors, size = first_tadpoles, prob = 2 / 3))
+
+# Log-likelihood at the same two values: the sum of the log probabilities.
+sum(dbinom(x = first_survivors, size = first_tadpoles, prob = 0.5, log = TRUE))
+sum(dbinom(x = first_survivors, size = first_tadpoles, prob = 2 / 3, log = TRUE))
+```
+
+<!-- VALUES: survivors 4, 9, 7 out of 10 tadpoles in each of the first three tanks; likelihood at p = 0.5: 2.35e-4 and at p = 2/3: 1.28e-3; log-likelihood at p = 0.5: -8.357 and at p = 2/3: -6.658 -->
+
+### Question 2
+
+```{r}
+# Total number of survivors and of tadpoles, and the maximum likelihood estimate from
+# the derivation: p_hat = sum(x_i) / sum(n_i).
+total_survivors = sum(survivors)
+total_tadpoles = sum(tadpoles)
+p_hat = total_survivors / total_tadpoles
+c(survivors = total_survivors, tadpoles = total_tadpoles, p_hat = p_hat)
+
+# The derivative of the log-likelihood, sum(x) / p - (sum(n) - sum(x)) / (1 - p),
+# is zero at that value.
+total_survivors / p_hat - (total_tadpoles - total_survivors) / (1 - p_hat)
+```
+
+<!-- VALUES: 264 survivors out of 560 tadpoles; p_hat = 0.4714 (no unit); derivative at p_hat: 0 -->
+
+### Question 3
+
+```{r}
+# Negative log-likelihood of the Binomial model with one survival probability p for all tanks.
+# logit_p can take any real value and plogis() turns it into a probability.
+# The tanks differ in the number of tadpoles n_i, so size is a vector.
+binomial_nll = function(logit_p, survivors, tadpoles) {
+  p = plogis(logit_p)
+  -sum(dbinom(x = survivors, size = tadpoles, prob = p, log = TRUE))
 }
-fit = optim(
-  par = log(1), fn = poisson_nll, counts = counts,
-  method = "BFGS"
+
+# Fit starting from p = 0.5 (logit 0); hessian = TRUE is used for the standard error.
+frog_fit = optim(
+  par = 0,
+  fn = binomial_nll,
+  survivors = survivors,
+  tadpoles = tadpoles,
+  method = "BFGS",
+  hessian = TRUE
 )
-fit$convergence
-c(optim_estimate = exp(fit$par), sample_mean = mean(counts))
+frog_fit$convergence
+
+# Estimate on the probability scale, and the minimum of the negative log-likelihood.
+plogis(frog_fit$par)
+frog_fit$value
+
+# Standard error on the logit scale (the Hessian is 1 by 1) and Wald interval on that scale,
+# back-transformed to survival probabilities.
+critical_value = qnorm(p = 0.975)
+se_logit_p = sqrt(1 / frog_fit$hessian[1, 1])
+wald_p = plogis(frog_fit$par + c(-1, 1) * critical_value * se_logit_p)
+c(se_logit_p = se_logit_p)
+wald_p
 ```
 
-The optimiser should return a convergence code of zero and an
-estimate close to 1.5 seedlings per quadrat. The likelihood
-comparison used only two candidates; optimisation searched beyond
-them. With more counts, computing a product directly can underflow,
-which is why the fitting function sums log probabilities.
+<!-- VALUES: convergence code 0; estimate 0.4714; NLL 98.94 (log-likelihood -98.94); standard error on the logit scale 0.085 (0.0211 on the probability scale, by the formula sqrt(p(1-p)/sum(n)), not by the delta method); Wald interval 0.430 to 0.513 -->
 
-# Exercise 2: Tree heights and two parameters
-
-Assume independent tree heights follow
-$H_i\sim\operatorname{Normal}(\mu,\sigma^2)$, where both $\mu$ and
-$\sigma>0$ are measured in metres. For a first hand calculation,
-consider the illustrative heights 21 m and 23 m.
-
-1. Without R, write the normal **density** contribution for each
-   height under candidate A, $(\mu,\sigma)=(22,1)$ m, and candidate B,
-   $(22,3)$ m. Multiply each pair to obtain its likelihood. Calculate
-   each log-likelihood as a sum. Which pair fits these two heights
-   better? Explain why a density contribution is not the probability
-   of an exact height.
-2. Set seed 522 and simulate 30 independent heights with generating
-   values $\mu=22$ m and $\sigma=4$ m. Write a negative log-likelihood
-   for $\mu$ and $\log\sigma$. Fit both parameters with `optim()`,
-   check convergence, and report the estimates in metres.
-3. Draw a contour plot of the relative log-likelihood over a sensible
-   grid of $\mu$ and $\sigma$. Mark the estimate and generating values.
-   Explain why they need not coincide.
-4. Describe how you would form a slice for $\mu$ and a profile for
-   $\mu$. Which one re-estimates $\sigma$?
-
-Hint: use `dnorm(x = heights, mean = mu, sd = sigma, log = TRUE)`
-inside the fitting function. The generating values are known only
-because you simulated the sample.
-
-# Exercise 3: Overdispersed seedling counts
-
-The [Negative Binomial model](../../Supplements/distributions.qmd#sec-negative_binomial)
-has mean $\mu>0$ seedlings per quadrat and shape $k>0$.
-Its variance is $\mu+\mu^2/k$. When $k=1$, the probability mass
-simplifies to
-
-$$
-P(X=x\mid\mu,k=1)
-=\frac{1}{1+\mu}
- \left(\frac{\mu}{1+\mu}\right)^x.
-$$
-
-1. Two illustrative quadrats contain 0 and 1 seedlings. **By hand**,
-   write both likelihood contributions and their product with $k=1$.
-   Evaluate the likelihood and log-likelihood at $\mu=1$ and $\mu=2$.
-   Which candidate mean has greater likelihood for these counts?
-2. Set seed 533. Simulate 80 independent quadrat counts with
-   $\mu=4$ and $k=1.5$. Compare their sample mean and variance with
-   the model mean and variance. Explain why this comparison alone
-   cannot identify an ecological cause of overdispersion.
-3. Write a negative log-likelihood using `dnbinom(..., log = TRUE)`.
-   Fit $\mu$ and $k$ with `optim()` on log scales. Use sensible
-   starting values, check convergence, and report both estimates
-   on their original scales.
-4. Compare observed relative frequencies with fitted negative
-   binomial probabilities in a plot. What would make you question
-   the fit, especially at zero and in the upper tail?
-
-# Exercise 4: Uncertainty in mean tree height
-
-Suppose 30 independent tree heights follow a normal model with
-unknown mean $\mu$ and standard deviation $\sigma$. Generate an
-illustrative sample with:
+### Question 4
 
 ```{r}
-set.seed(seed = 544)
-heights = rnorm(n = 30, mean = 22, sd = 4)
+# Cutoff for a 95% interval: half the 95% quantile of a chi-squared distribution
+# with one degree of freedom.
+cutoff = qchisq(p = 0.95, df = 1) / 2
+
+# Log-likelihood of the Binomial model as a function of p, relative to the maximum.
+binomial_relative = function(p) {
+  sum(dbinom(x = survivors, size = tadpoles, prob = p, log = TRUE)) +
+    frog_fit$value
+}
+
+# uniroot() finds where the relative log-likelihood equals -cutoff, below and above the
+# estimate. The ends of the search intervals are 0.2 and 0.8, where it is clearly below.
+p_lower = uniroot(
+  f = function(p) binomial_relative(p) + cutoff,
+  interval = c(0.2, p_hat),
+  tol = 1e-8
+)$root
+p_upper = uniroot(
+  f = function(p) binomial_relative(p) + cutoff,
+  interval = c(p_hat, 0.8),
+  tol = 1e-8
+)$root
+c(lower = p_lower, upper = p_upper)
 ```
 
-1. Fit $\mu$ and $\log\sigma$ by maximum likelihood using
-   `optim(..., hessian = TRUE)`. Check convergence and report both
-   estimates in metres.
-2. Invert the Hessian and obtain approximate standard errors on
-   the fitted scale. Construct a 95% quadratic interval for $\mu$.
-   Construct one for $\log\sigma$ and back-transform its endpoints.
-   Explain why these intervals are approximate.
-3. For each candidate $\mu$, maximise the normal log-likelihood over
-   $\sigma$. Use the profile log-likelihood and the cutoff
-   $-qchisq(0.95,1)/2$ relative to its maximum to find a 95% profile
-   interval for $\mu$. A plot can help locate the two crossings.
-4. Compare the intervals for $\mu$ and interpret them in ecological
-   units. State one assumption that matters for their coverage.
-   Would either interval give a 95% probability that the fixed
-   population mean lies between its realised endpoints?
+<!-- VALUES: likelihood interval 0.430 to 0.513, the same as the Wald interval to three decimals; why: 560 tadpoles is a large sample -->
 
-Hint: for a fixed candidate $\mu$ in a normal model, the value of
-$\sigma$ that maximises likelihood is
-$\sqrt{\operatorname{mean}[(h_i-\mu)^2]}$.
+### Question 5
+
+```{r}
+# Variance of the number of survivors among tanks of the same initial density, and the
+# variance that the Binomial model gives, n * p * (1 - p), with the estimated p.
+densities = sort(unique(tadpoles))
+variance_comparison = data.frame(
+  density = densities,
+  n_tanks = NA,
+  observed_variance = NA,
+  binomial_variance = NA
+)
+for (i in seq_along(densities)) {
+  in_group = tadpoles == densities[i]
+  variance_comparison$n_tanks[i] = sum(in_group)
+  variance_comparison$observed_variance[i] = var(survivors[in_group])
+  variance_comparison$binomial_variance[i] = densities[i] * p_hat * (1 - p_hat)
+}
+variance_comparison
+```
+
+<!-- VALUES: 8 tanks at each density (10, 25, 35); observed variance against Binomial variance: 3.71 against 2.49; 24.84 against 6.23; 64.27 against 8.72; the counts are overdispersed relative to the Binomial distribution, so the interval is too narrow (Beta-Binomial entry of the supplement, Chapter 7; tadpole size is a candidate predictor); no other model is fitted -->
+
+# Exercise 2: Glacier lily seedlings in quadrats
+
+<!-- PHASE 5: exercise statement -->
+
+# Exercise 3: Empty quadrats and zero inflation
+
+<!-- PHASE 5: exercise statement -->
+
+# Exercise 4: Timber volume and body mass
+
+<!-- PHASE 5: exercise statement -->
+
+# Exercise 5: Estimators and intervals across hypothetical experiments
+
+<!-- PHASE 5: exercise statement -->
