@@ -3,125 +3,169 @@ title: "Chapter 3: From samples to estimates"
 date: today
 ---
 
-These exercises use illustrative counts and simulated ecological
-measurements, not field observations. Work through the first example
-before trying the remaining exercises. The ideas and notation are
-introduced in the [Chapter 3 theory](../Theory.qmd).
+Exercise 1 uses field data on barn owl nests and the remaining exercises use
+simulated ecological measurements. Work through the first example before trying
+the remaining exercises. The ideas and notation are introduced in the
+[Chapter 3 theory](../Theory.qmd).
 
-# Exercise 1: Seedlings in quadrats
+# Exercise 1: Calls of barn owl nestlings
 
-Suppose the count $X_i$ in quadrat $i$ follows a Poisson model with an
-unknown mean $\lambda$ seedlings per quadrat. Assume equal-area,
-independent quadrats with the same expected count. These illustrative
-counts come from 12 quadrats:
+The data set `Owls` in the package `glmmTMB` contains observations of barn owl
+nests (Roulin and Bersier 2007). For each visit of a parent to a nest, the variable
+`SiblingNegotiation` is the number of calls made by the nestlings. We keep the visits
+of the female parent to nests where the nestlings had been fed (`Satiated`), so that
+all counts can reasonably share one mean:
 
 ```{r}
-seedling_counts = c(2, 4, 3, 5, 1, 6, 4, 2, 3, 5, 4, 3)
+# Load the Owls data from the glmmTMB package without attaching the package.
+data(Owls, package = "glmmTMB")
+
+# Keep the visits of the female parent to nests with satiated nestlings.
+satiated_female = Owls[Owls$FoodTreatment == "Satiated" & Owls$SexParent == "Female", ]
+
+# Number of calls at each of these visits.
+call_counts = satiated_female$SiblingNegotiation
 ```
 
-1. Name the parameter, a method-of-moments estimator, and its estimate
-   from these counts. State the estimate in ecological units.
-2. Calculate the estimated standard error of the mean under the Poisson
-   model. Explain how it differs from the standard deviation of the
-   individual counts.
-3. Construct an approximate 95% Wald confidence interval for
-   $\lambda$ using `qnorm()`. Interpret the interval and its confidence
-   level. Name one model assumption that matters for this interpretation.
+Let $X_i$ be the number of calls at visit $i$. The counts are much more variable than a
+Poisson distribution allows, so we use a
+[Negative Binomial](../../Supplements/distributions.qmd#sec-negative_binomial) model with
+mean $\mu$ and shape $k$,
+
+$$
+X_i \sim \operatorname{NegBin}(\mu, k), \qquad \operatorname{Var}(X_i)=\mu+\frac{\mu^2}{k},
+$$
+
+and assume that the visits are i.i.d.
+
+1. Estimate the parameters of the Negative Binomial using the method of moments.
+2. Calculate the estimated standard error of the mean. Explain how it differs from the
+   standard deviation of the individual counts.
+3. Construct an approximate 95% Wald confidence interval for $\mu$ using `qnorm()`.
+   Interpret the interval and its confidence level. Name one model assumption that matters
+   for this interpretation.
 
 ## Solution
 
-The observational unit is one quadrat. The unknown parameter
-$\lambda=E[X_i]$ is the expected number of seedlings per quadrat.
-The method of moments matches the mean of the Poisson model with
-the mean of the sampled counts, giving the estimator
-$\hat\lambda=\overline X$.
+### Question 1
+
+The observational unit is one visit of the female parent to a nest. The model has two
+parameters. The mean $\mu=E[X_i]$ is the expected number of calls per visit, and the shape
+$k$ controls the overdispersion: the smaller $k$ is, the larger the variance is relative to
+the mean. The method of moments needs two equations, so we equate the mean and the variance
+of the model with those of the empirical distribution. The first gives $\hat\mu=\overline X$.
+The second is $\hat\sigma^2=\hat\mu+\hat\mu^2/\hat k$, which we solve for the shape:
+
+$$
+\hat k = \frac{\hat\mu^2}{\hat\sigma^2-\hat\mu},
+$$
+
+where $\hat\sigma^2=\frac{1}{n}\sum_{i=1}^{n}(X_i-\overline X)^2$ is the variance of the
+empirical distribution. The estimate of $k$ exists only if the variance of the sample is
+larger than its mean as it cannot be negative.
 
 ```{r}
-n_quadrats = length(seedling_counts)
-lambda_hat = mean(seedling_counts)
-c(n_quadrats = n_quadrats, estimate_per_quadrat = lambda_hat)
+# Number of visits and the mean of the sample.
+n_visits = length(call_counts)
+mu_hat = mean(call_counts)
+
+# Variance of the empirical distribution (divisor n), as in the method of moments.
+variance_hat = mean((call_counts - mu_hat)^2)
+
+# Solve variance = mu + mu^2 / k for the shape k.
+k_hat = mu_hat^2 / (variance_hat - mu_hat)
+
+c(n_visits = n_visits, mu_hat = mu_hat, variance_hat = variance_hat, k_hat = k_hat)
 ```
 
-The 12 counts sum to 42, so the estimate is $42/12=3.5$ seedlings
-per quadrat. The parameter is fixed but unknown; the estimator is a
-rule that could give another value for a different sample.
+The 122 counts sum to 580, so the estimate of the mean is $580/122\approx 4.75$ calls per
+visit. The variance of the sample is approximately 42.3, almost nine times the mean, which
+gives $\hat k\approx 0.60$.
 
-Under the independent Poisson model,
-$\operatorname{SE}(\hat\lambda)=\sqrt{\lambda/n}$. We do not know
-$\lambda$, so we insert $\hat\lambda$:
+### Question 2
+
+For i.i.d. observations, $\operatorname{Var}(\overline X)=\operatorname{Var}(X_i)/n$. Under
+the Negative Binomial model $\operatorname{Var}(X_i)=\mu+\mu^2/k$, and we do not know either
+parameter, so we insert the estimates:
+
+$$
+\widehat{\operatorname{SE}}(\hat\mu)
+= \sqrt{\frac{\hat\mu+\hat\mu^2/\hat k}{n}}.
+$$
 
 ```{r}
-estimated_se = sqrt(lambda_hat / n_quadrats)
-count_sd = sd(seedling_counts)
-c(estimated_se = estimated_se, count_sd = count_sd)
+# Plug the estimates of the mean and the shape into the standard error.
+estimated_se = sqrt((mu_hat + mu_hat^2 / k_hat) / n_visits)
+
+# Standard deviation of the individual counts.
+count_sd = sd(call_counts)
+
+# Standard error that a Poisson model would give, for comparison.
+poisson_se = sqrt(mu_hat / n_visits)
+
+c(estimated_se = estimated_se, count_sd = count_sd, poisson_se = poisson_se)
 ```
 
-The estimated standard error is approximately 0.54 seedlings per
-quadrat. It describes variation in estimated **mean counts** across
-studies of 12 quadrats. The sample standard deviation describes
-variation among the **individual quadrat counts**.
+The estimated standard error is approximately 0.59 calls per visit. Because $\hat k$ comes
+from the method of moments, $\hat\mu+\hat\mu^2/\hat k$ is the variance of the sample, so
+this value is the same as $\sqrt{\hat\sigma^2/n}$. It describes the variation of the
+estimated **mean count** across hypothetical experiments with 122 visits each. The standard
+deviation of the counts, approximately 6.5 calls, describes the variation among the
+**individual visits**; it does not decrease when we observe more visits, whereas the
+standard error does. The Poisson formula would give 0.20 calls per visit, about a third of
+the value above, because it assumes that the variance equals the mean and ignores the
+overdispersion.
 
-For a Wald interval, use the 97.5th percentile of a standard normal
-distribution on each side of the estimate:
+### Question 3
+
+For a Wald interval, use the 97.5th percentile of a standard Normal distribution on each
+side of the estimate:
 
 ```{r}
+# 0.975 quantile of the standard Normal distribution.
 critical_value = qnorm(p = 0.975)
-lambda_interval = c(
-  lower = lambda_hat - critical_value * estimated_se,
-  upper = lambda_hat + critical_value * estimated_se
+
+# Lower and upper endpoints of the interval for the mean number of calls.
+mu_interval = c(
+  lower = mu_hat - critical_value * estimated_se,
+  upper = mu_hat + critical_value * estimated_se
 )
-lambda_interval
+mu_interval
 ```
 
-The endpoints are approximately 2.44 and 4.56 seedlings per quadrat.
-This is a range for the population **mean count**, not a range
-containing 95% of individual counts. If we repeatedly sampled
-quadrats and used this procedure, roughly 95% of the intervals
-would contain the fixed $\lambda$ if the model and normal
-approximation gave the procedure 95% coverage in this setting.
-Independence and a common mean across equal-area quadrats are
-important assumptions. Wald intervals can have poor coverage when
-expected counts are small.
+The endpoints are approximately 3.60 and 5.91 calls per visit. This is a range for the
+**mean count** per visit, and most individual visits fall outside it. The 95% refers to
+the procedure: if we repeated the study many times and calculated an interval from each
+sample in this way, about 95% of the intervals would contain the fixed $\mu$, provided that
+the model and the Normal approximation are adequate. The Normal approximation is less
+accurate when the counts are as skewed as these.
 
-# Exercise 2: Asymptotic convergence
+The assumption that matters most here is independence. The 122 visits come from only 24
+nests, and visits to the same nest are likely to resemble each other. Treating the
+visits as i.i.d. is a simplification that we accept in this chapter; the models for
+observations nested in groups are the subject of [Chapter 7](../../Chapter_7/Theory.qmd).
 
-Simulate Poisson observations with $\lambda=3$ for two sample sizes: 10 and 1,000. The
-mean, variance and R functions are in the
-[Poisson entry](../../Supplements/distributions.qmd#sec-poisson) of the supplement.
+# Exercise 2: Asymptotic convergence under a Beta model
 
-1. Calculate the mean, median and variance for each sample (use the actual variance of the
-sample, not `var()`).
-2. Repeat point 1 four times using different random seeds (tip: use a for loop). How much
-do the sample properties vary?
-3. Compare these sample properties to the model values at the two sample sizes. How does
-the median and mean differ in their behaviour? What is happening to the variation across
-repeated samples as sample size increases?
+Let $X_i$ be the fraction of the area of leaf $i$ that has been eaten by herbivores, a
+continuous variable between 0 and 1. Assume that the leaves are i.i.d. and that
+$X_i \sim \operatorname{Beta}(a, b)$ with $a=2$ and $b=6$ (`shape1` and `shape2` in R). You
+will simulate samples from this model with two sample sizes, 10 and 1,000 leaves, to see how
+the properties of a sample behave as the sample size grows (see
+[Samples and distributions](../Theory.qmd#sec-samples)). The mean, variance and R functions
+of the Beta distribution are in the
+[Beta entry](../../Supplements/distributions.qmd#sec-beta) of the supplement.
 
-# Exercise 3: Breeding success at bird nests
+1. Set seed 123 and simulate one sample of 10 leaves and one sample of 1,000 leaves.
+   Calculate the mean, median and variance of each sample.
+2. Repeat question 1 four times, using the seeds 11, 22, 33 and 44.
+   How much do the sample properties vary between repetitions?
+3. Calculate the mean, median and variance of the model. Compare the sample properties with these model
+   values at the two sample sizes. Do the sample mean and the sample median approach the
+   same value? What happens to the variation across repeated samples as the sample size
+   increases?
 
-Suppose each independently monitored nest either produces at least one
-fledgling or none, with the same success probability $p=0.6$. The number of
-successful nests in a study of $n$ nests follows a binomial model
-$X\sim\operatorname{Binomial}(n,p)$. The true $p$ is known here because
-you will simulate the studies.
-
-1. Set seed 422. Simulate one study of 40 nests and estimate $p$ by
-   matching the observed and model success proportions. Interpret the
-   estimate.
-2. Set seed 423. Simulate 2,000 studies of 20 nests and 2,000 studies
-   of 100 nests. Calculate $\hat p=X/n$ for every study. Plot and
-   compare the two sampling distributions.
-3. For each study size, calculate the average estimate, simulated
-   bias, variance, standard error, and mean squared error. Compare
-   the simulated variance with $p(1-p)/n$. Explain what changes with
-   sample size and why one study cannot establish bias.
-4. Give one ecological reason why outcomes at different nests might
-   fail to be independent.
-
-Hint: one call to `rbinom()` can generate the success counts for all
-2,000 studies at a given sample size.
-
-# Exercise 4: Variation in tree heights
+# Exercise 3: Variation in tree heights
 
 Suppose heights of independently sampled trees follow a normal model
 with mean $\mu=22$ m and standard deviation $\sigma=4$ m. These are
@@ -141,7 +185,7 @@ the simulation parameters; in a field study they would be unknown.
 
 Hint: `replicate()` can return two named estimates for each study.
 
-# Exercise 5: Mean body mass and interval coverage
+# Exercise 4: Mean body mass and interval coverage
 
 Suppose independent small-mammal body masses in grams follow a
 lognormal model with `meanlog = log(30)` and `sdlog = 0.8`.

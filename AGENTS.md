@@ -43,7 +43,7 @@ review; record later review decisions here when the author confirms them.
 | `Chapter_2/Practicals/no_solution.qmd` and `solution.qmd` | Exercises 1 (seedlings), 3 (`InsectSprays`) and 4 (Negative Binomial) are the author's completed work and the primary reference for exercises, worked reasoning, and interpretation. Exercises 2 (Normal), 5 (LogNormal) and 6 (Beta) are generated drafts awaiting review |
 | `Chapter_3/Theory.qmd` | Opens with author text, `# Samples and distributions` up to and including "Asymptotic convergence of the empirical distribution" (moved from Chapter 2), which is a reference for voice. "Samples of continuous measurements" and everything from "Parameters, estimators and estimates" onward are generated drafts awaiting review |
 | `Supplements/distributions.qmd` | Reference entry per distribution: summary table, description, `### Example:` verified in R, figure, and a `Practice` callout with a collapsed solution. The Binomial, Poisson, and Negative Binomial text is the author's (moved from Chapter 2); the other entries are generated drafts awaiting review. Tables and prose use the chapter symbols ($k$ for Negative Binomial, $\mu$ and $\sigma$ for LogNormal, $a$ and $b$ for Beta and Beta-Binomial). The author decided that detailed distribution descriptions live only here: Chapter 2 keeps two running examples (the Binomial for discrete data and the Normal for continuous data) and the Overdispersion section, and theory pages, practicals, and later chapters link to the entries by their `sec-` IDs. The Chapter 2 practical tells students to read the relevant entries first |
-| `Chapter_3/Practicals` and `Chapter_4` through `Chapter_8` | Generated course material; not rewritten by the author (Exercise 2 of the Chapter 3 practical is the author's, moved from Chapter 2). Use for topic coverage, never as a model of voice |
+| `Chapter_3/Practicals` and `Chapter_4` through `Chapter_8` | Generated course material; not rewritten by the author. Use for topic coverage, never as a model of voice. Exercise 2 of the Chapter 3 practical (asymptotic convergence) was the author's Poisson exercise moved from Chapter 2; by author decision it was replaced with a generated draft awaiting review that uses a Beta model for the fraction of leaf area eaten (a = 2, b = 6), the same three questions and fixed seeds (123; 11, 22, 33, 44). Exercise 1 of the Chapter 3 practical is a generated draft awaiting review: by author decision it uses the `Owls` data from `glmmTMB` (loaded with `data(Owls, package = "glmmTMB")`, not a copied CSV), restricted to satiated nestlings and female parents, with a Negative Binomial model and method-of-moments estimates; the unit of `SiblingNegotiation` still has to be confirmed by the author |
 
 The author requires `=` for all R assignment throughout the course, including
 function definitions. Apply this rule to existing and new code. The references contain occasional
@@ -116,6 +116,11 @@ remain mandatory.
   Chapter 1 practical, so later chapters can use them without introduction.
 - Chapter 6 introduces model comparison for fitted candidate models. Point
   introductory promises about model comparison there, rather than to Chapter 4.
+- Exercises may use real data sets shipped with R packages (for example `InsectSprays`
+  and `Owls`), loaded with `data(name, package = "pkg")`; add the package to the
+  dependency list in `.github/workflows/publish.yml`. Before Chapter 7 the course treats
+  grouped or nested observations (visits to the same nest) as i.i.d.; the exercise says
+  that this is a simplification and points to Chapter 7. This is an author decision.
 - Use simulation to connect known model parameters to samples, estimates, and
   repeated-sampling behaviour. Introduce unfamiliar R tools when they are needed.
 - The course is about non-linear models with non-Normal distributions, so teach

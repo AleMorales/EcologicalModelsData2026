@@ -5,82 +5,92 @@ date: today
 
 The fully worked first exercise is on the
 [student practical page](no_solution.qmd). These solutions use the
-same models, tasks, and seeds as Exercises 2–5 on that page.
+same models, tasks, and seeds as Exercises 2–4 on that page.
 
-# Exercise 2: Asymptotic convergence
+# Exercise 2: Asymptotic convergence under a Beta model
 
-Simulate Poisson observations with $\lambda=3$ for two sample sizes: 10 and 1,000. The
-mean, variance and R functions are in the
-[Poisson entry](../../Supplements/distributions.qmd#sec-poisson) of the supplement.
+Let $X_i$ be the fraction of the area of leaf $i$ that has been eaten by herbivores, a
+continuous variable between 0 and 1. Assume that the leaves are i.i.d. and that
+$X_i \sim \operatorname{Beta}(a, b)$ with $a=2$ and $b=6$ (`shape1` and `shape2` in R). You
+will simulate samples from this model with two sample sizes, 10 and 1,000 leaves, to see how
+the properties of a sample behave as the sample size grows (see
+[Samples and distributions](../Theory.qmd#sec-samples)). The mean, variance and R functions
+of the Beta distribution are in the
+[Beta entry](../../Supplements/distributions.qmd#sec-beta) of the supplement.
 
-1. Calculate the mean, median and variance for each sample (use the actual variance of the
-sample, not `var()`).
-2. Repeat point 1 four times using different random seeds (tip: use a for loop). How much
-do the sample properties vary?
-3. Compare these sample properties to the model values at the two sample sizes. How does
-the median and mean differ in their behaviour? What is happening to the variation across
-repeated samples as sample size increases?
+1. Set seed 123 and simulate one sample of 10 leaves and one sample of 1,000 leaves.
+   Calculate the mean, median and variance of each sample (use the variance of the
+   empirical distribution, with divisor $n$, not `var()`).
+2. Repeat question 1 four times, using the seeds 11, 22, 33 and 44 (tip: use a for loop).
+   How much do the sample properties vary between repetitions?
+3. Calculate the mean, median and variance of the model (the median is the 0.5 quantile,
+   which you can obtain with `qbeta()`). Compare the sample properties with these model
+   values at the two sample sizes. Do the sample mean and the sample median approach the
+   same value? What happens to the variation across repeated samples as the sample size
+   increases?
 
 ## Solution
 
 ### Question 1
 
-For a Poisson distribution with $\lambda=3$, the model mean and variance are both 3, and the model median is also 3.
-
-First simulate one sample of each size. Calculate the empirical variance using the divisor $n$, rather than using `var()`.
+The observational unit is one leaf. We simulate the fraction of eaten area of each leaf with
+`rbeta()` and summarise the sample through its empirical distribution: the mean, the median
+(the 0.5 quantile of the sample) and the variance with divisor $n$,
+$\frac{1}{n}\sum_{i=1}^{n}(x_i-\bar x)^2$. The function `var()` would use $n-1$ instead.
 
 ```{r}
-lambda = 3
+# Shape parameters of the Beta model and the two sample sizes.
+shape_a = 2
+shape_b = 6
 sample_sizes = c(10, 1000)
 
-initial_results = data.frame(
-  n = integer(),
-  mean = numeric(),
-  median = numeric(),
-  variance = numeric()
-)
+# Table that will store one row of summaries per sample.
+first_results = data.frame()
 
-set.seed(123)
+set.seed(seed = 123)
 
+# Simulate one sample per sample size and store its mean, median and variance.
 for (sample_size in sample_sizes) {
-  observations = rpois(sample_size, lambda = lambda)
-  sample_mean = mean(observations)
+  leaf_damage = rbeta(n = sample_size, shape1 = shape_a, shape2 = shape_b)
+  sample_mean = mean(leaf_damage)
 
-  initial_results = rbind(
-    initial_results,
+  first_results = rbind(
+    first_results,
     data.frame(
       n = sample_size,
       mean = sample_mean,
-      median = median(observations),
-      variance = mean((observations - sample_mean)^2)
+      median = median(leaf_damage),
+      variance = mean((leaf_damage - sample_mean)^2)
     )
   )
 }
 
-initial_results
+first_results
 ```
+
+The sample of 10 leaves has a mean of approximately 0.263, a median of 0.237 and a variance
+of 0.0224. The sample of 1,000 leaves has a mean of approximately 0.253, a median of 0.233
+and a variance of 0.0210. Both variances are fractions squared, so they have no units.
 
 ### Question 2
 
-Repeat the simulations four times, using a different seed for each repetition:
+Repeat the simulation with each of the four seeds. Setting the seed before each repetition
+makes the result reproducible, and a different seed gives a different (but equally valid)
+sample:
 
 ```{r}
 seeds = c(11, 22, 33, 44)
 
-repeated_results = data.frame(
-  seed = integer(),
-  n = integer(),
-  mean = numeric(),
-  median = numeric(),
-  variance = numeric()
-)
+# Table that will store one row per seed and sample size.
+repeated_results = data.frame()
 
+# The outer loop repeats the whole exercise; the inner loop covers the two sample sizes.
 for (seed in seeds) {
-  set.seed(seed)
+  set.seed(seed = seed)
 
   for (sample_size in sample_sizes) {
-    observations = rpois(sample_size, lambda = lambda)
-    sample_mean = mean(observations)
+    leaf_damage = rbeta(n = sample_size, shape1 = shape_a, shape2 = shape_b)
+    sample_mean = mean(leaf_damage)
 
     repeated_results = rbind(
       repeated_results,
@@ -88,8 +98,8 @@ for (seed in seeds) {
         seed = seed,
         n = sample_size,
         mean = sample_mean,
-        median = median(observations),
-        variance = mean((observations - sample_mean)^2)
+        median = median(leaf_damage),
+        variance = mean((leaf_damage - sample_mean)^2)
       )
     )
   }
@@ -98,20 +108,35 @@ for (seed in seeds) {
 repeated_results
 ```
 
+With 10 leaves the sample properties change considerably between repetitions: the mean
+ranges from approximately 0.19 to 0.26, the median from 0.17 to 0.23 and the variance from
+0.0085 to 0.0209. With 1,000 leaves they are almost the same in every repetition: the mean
+ranges from 0.246 to 0.251, the median from 0.223 to 0.233 and the variance from 0.0197 to
+0.0206.
+
 ### Question 3
 
-Compare the results with the model values, then summarise the variation in the sample statistics across repetitions:
+The mean and the variance of the Beta model are $E[X]=a/(a+b)$ and
+$\operatorname{Var}(X)=ab/((a+b)^2(a+b+1))$. The median has no simple formula, so we
+calculate it as the 0.5 quantile. We summarise the variation across the four repetitions
+with the standard deviation of each sample property:
 
 ```{r}
+# Model values, which do not depend on the sample size.
+model_mean = shape_a / (shape_a + shape_b)
+model_median = qbeta(p = 0.5, shape1 = shape_a, shape2 = shape_b)
+model_variance = shape_a * shape_b /
+  ((shape_a + shape_b)^2 * (shape_a + shape_b + 1))
+
 model_values = data.frame(
   n = sample_sizes,
-  mean = lambda,
-  median = qpois(0.5, lambda = lambda),
-  variance = lambda
+  mean = model_mean,
+  median = model_median,
+  variance = model_variance
 )
-
 model_values
 
+# Standard deviation across the four repetitions for each sample size.
 aggregate(
   cbind(mean, median, variance) ~ n,
   data = repeated_results,
@@ -119,113 +144,25 @@ aggregate(
 )
 ```
 
-The model values are the same for both sample sizes. With $n=10$, the sample mean, median, and variance can differ noticeably from their model values. With $n=1{,}000$, they will generally be closer to 3 and vary less across repetitions.
+The model values are the same for both sample sizes: a mean of 0.25, a median of
+approximately 0.228 and a variance of approximately 0.0208 (a standard deviation of 0.144).
+The Beta model with $a<b$ is skewed to the right, so its mean is larger than its median.
+Because of that, the sample mean and the sample median do not approach the same value. As
+the sample size grows, the sample mean converges to 0.25 and the sample median to 0.228,
+which is why every median in the previous question, even for 1,000 leaves, is clearly below
+0.25. Both statistics converge, but to different features of the model.
 
-The mean changes smoothly between samples, while the median is a quantile and changes in discrete steps. For even sample sizes, R’s median can also be halfway between two integer counts. Because the empirical variance uses divisor $n$, it tends to be slightly below the model variance for finite samples; this difference becomes negligible as sample size increases. The four repetitions illustrate the general pattern, though more repetitions would provide a clearer picture of the variation.
+The variation across repetitions decreases with the sample size for all three properties.
+The standard deviation of the sample mean across the four repetitions falls from
+approximately 0.032 for 10 leaves to 0.002 for 1,000 leaves, that of the median from 0.034
+to 0.005 and that of the variance from 0.0055 to 0.0004. In these repetitions the median
+varies more than the mean at 1,000 leaves, but four repetitions are too few to conclude
+that this holds in general. Finally, the variance with divisor $n$ has an expected value of
+$\frac{n-1}{n}\operatorname{Var}(X)$, which is approximately 0.0188 for $n=10$ and 0.0208
+for $n=1{,}000$. This explains why the variances of the small samples tend to fall slightly
+below the model value, a difference that becomes negligible as the sample size increases.
 
-# Exercise 3: Breeding success at bird nests
-
-One observational unit is a monitored nest. Under the assumed
-binomial model, the expected proportion of successes is $p$, so
-matching it to the observed proportion gives the method-of-moments
-estimator $\hat p=X/n$.
-
-```{r}
-set.seed(seed = 422)
-p_true = 0.6
-n_nests = 40
-successful_nests = rbinom(n = 1, size = n_nests, prob = p_true)
-p_hat = successful_nests / n_nests
-c(successful_nests = successful_nests, estimate = p_hat)
-```
-
-In this simulated study, 25 of 40 nests succeed, giving an estimated
-success probability of 0.625. It need not equal the model probability of 0.6.
-We know the latter only because we generated the data.
-
-For the sampling distributions, each call to `rbinom()` generates
-2,000 possible study totals. Dividing by the number of nests in
-that study produces one estimated success probability per study.
-
-```{r}
-set.seed(seed = 423)
-n_studies = 2000
-n_small = 20
-n_large = 100
-
-p_estimates_small = rbinom(
-  n = n_studies, size = n_small, prob = p_true
-) / n_small
-p_estimates_large = rbinom(
-  n = n_studies, size = n_large, prob = p_true
-) / n_large
-
-old_par = par(no.readonly = TRUE)
-par(mfrow = c(1, 2))
-hist(
-  x = p_estimates_small, breaks = 20, probability = TRUE,
-  xlim = c(0, 1), col = "grey85", border = "white",
-  xlab = "Estimated nest success probability", ylab = "Density",
-  main = "20 nests"
-)
-abline(v = p_true, lty = 2, lwd = 2)
-hist(
-  x = p_estimates_large, breaks = 20, probability = TRUE,
-  xlim = c(0, 1), col = "grey85", border = "white",
-  xlab = "Estimated nest success probability", ylab = "Density",
-  main = "100 nests"
-)
-abline(v = p_true, lty = 2, lwd = 2)
-par(old_par)
-```
-
-The distribution for 100 nests is more concentrated around 0.6.
-The estimates are still variable and discrete because the number
-of successful nests is an integer.
-
-For independent nests with the same $p$, the estimator is unbiased
-and has variance $p(1-p)/n$. These exact results are available for this
-estimator, whereas for most estimators we have to rely on large-sample
-approximations or simulation. Simulated bias is the average estimate
-minus the known model value. Mean squared error (MSE) is the average
-squared distance from that value.
-
-```{r}
-nest_summary = data.frame(
-  n_nests = c(n_small, n_large),
-  average_estimate = c(
-    mean(p_estimates_small), mean(p_estimates_large)
-  ),
-  simulated_bias = c(
-    mean(p_estimates_small) - p_true,
-    mean(p_estimates_large) - p_true
-  ),
-  simulated_variance = c(
-    var(p_estimates_small), var(p_estimates_large)
-  ),
-  simulated_se = c(
-    sd(p_estimates_small), sd(p_estimates_large)
-  ),
-  simulated_mse = c(
-    mean((p_estimates_small - p_true)^2),
-    mean((p_estimates_large - p_true)^2)
-  ),
-  model_variance = p_true * (1 - p_true) /
-    c(n_small, n_large)
-)
-round(nest_summary, digits = 4)
-```
-
-The average estimates are approximately 0.602 and 0.601, close to
-the true 0.6. Simulated variance falls from about 0.0121 for 20
-nests to 0.0023 for 100 nests; standard error and MSE fall too.
-Their simulated values do not exactly equal the model values.
-Bias concerns the estimator's average across possible studies; a
-single estimate cannot reveal it.
-Neighbouring nests could share weather, food supply, or predation
-conditions, making their outcomes dependent.
-
-# Exercise 4: Variation in tree heights
+# Exercise 3: Variation in tree heights
 
 The method of moments matches the mean of the model, $E[X]=\mu$, to the
 sample mean, and the variance of the model, $\operatorname{Var}(X)=\sigma^2$,
@@ -306,7 +243,7 @@ $19.84\ \mathrm{m}^4$, compared with about $20.77\ \mathrm{m}^4$
 for `var()`. Knowing that one estimator is unbiased does not,
 by itself, settle which has smaller MSE.
 
-# Exercise 5: Mean body mass and interval coverage
+# Exercise 4: Mean body mass and interval coverage
 
 The lognormal parameters describe **log mass**. On the original
 gram scale, the median is $e^\mu$ and the mean is
