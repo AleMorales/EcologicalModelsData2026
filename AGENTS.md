@@ -118,7 +118,9 @@ remain mandatory.
   introductory promises about model comparison there, rather than to Chapter 4.
 - Exercises may use real data sets shipped with R packages (for example `InsectSprays`
   and `Owls`), loaded with `data(name, package = "pkg")`; add the package to the
-  dependency list in `.github/workflows/publish.yml`. Before Chapter 7 the course treats
+  dependency list in `.github/workflows/publish.yml`. The same applies to any package
+  loaded in a rendered page (including `Supplements/distributions.qmd`, which needs
+  `VGAM` and `gtools`), because the production build fails if one is missing. Before Chapter 7 the course treats
   grouped or nested observations (visits to the same nest) as i.i.d.; the exercise says
   that this is a simplification and points to Chapter 7. This is an author decision.
 - Use simulation to connect known model parameters to samples, estimates, and
