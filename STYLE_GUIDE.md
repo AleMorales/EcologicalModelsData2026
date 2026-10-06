@@ -14,8 +14,8 @@ sections and exercises these are. They are the only references for voice. The
 rest of Chapters 2 and 3 was generated from learning goals. The author approved
 Chapters 1 to 3 in full on 5 October 2026, so use that generated text as reference
 for content, depth, notation and format, never as a model of how to write.
-Chapter 4 was rewritten to this guide and awaits the author's review. The theory
-pages of Chapters 5 to 8 were generated from learning goals and have not been
+Chapters 4 and 5 were rewritten to this guide and await the author's review. The theory
+pages of Chapters 6 to 8 were generated from learning goals and have not been
 rewritten by the author: use them for topic coverage and continuity, never as a
 model of how to write. The guide governs new and revised material, without requiring a
 wholesale rewrite of existing pages.
@@ -131,7 +131,7 @@ when revising and do not produce them in new text.
   whole chapter of their own text; treat that as the ceiling.
 - **A caveat after every statement.** "does not establish", "does not
   guarantee", "does not, by itself", "is not proof that" appear in almost every
-  paragraph of Chapters 5 to 8. One caveat, placed where the risk is, teaches
+  paragraph of the generated chapters. One caveat, placed where the risk is, teaches
   more than twenty. Put a recurring misconception in a single warning callout
   and stop repeating it in the prose and again in the quiz.
 - **Repeated provenance disclaimers.** "These are simulated observations, not
@@ -311,6 +311,21 @@ function with the symbols explained; its mean and variance as displayed
 equations; an `### Example:` subsection that calculates a probability by hand
 and then verifies it in R; a figure; and a practice exercise.
 
+Detailed descriptions of deterministic functions belong in
+`Supplements/deterministic-functions.qmd`, with one full entry per function and `sec-fn-`
+IDs, parallel to the distribution entries. The theory of Chapter 5 analyses two
+functions (Michaelis–Menten and Ricker) and links to the rest, and the rules of calculus live in
+`Supplements/calculus.qmd`. An entry has: a summary block in `aligned` display
+mathematics (R, shape, domain, range, parameters, value at zero, value at infinity,
+special points, alternative forms); one or two paragraphs on uses, with author–year
+citations and a sentence on whether a mechanistic derivation exists; the formula with a
+"where" clause and its landmarks derived; an `### Example:` subsection calculated by hand
+and verified in R, with the R function written with the same letters as the formula; a
+figure; and a `Practice` callout with a collapsed solution. Use `\verb|...|` and not
+`\texttt{...}` for R code that contains `^` or `_` inside display mathematics, because
+MathJax refuses those characters in `\texttt{}` (a render without warnings does not show
+this; look at the page in a browser).
+
 After the prose has explained a concept, a short note callout may restate the
 definition in one or two sentences for later reference. The callout does not
 replace the explanation.
@@ -333,6 +348,9 @@ cross-validation to Chapter 6.
 | Likelihood notation | Keep the bar in $P(X=x\mid\theta)$ and $L(\theta\mid x_1,\ldots,x_n)$, and say at first use that it reads "for a given value of" (conditional distributions come in Chapter 7). Write $\ell$ for the log-likelihood and, once the data are fixed, $L(\theta)$ and $\ell(\theta)$. The negative log-likelihood (NLL) is $-\ell$, which `optim()` minimises. Draw likelihood figures on the relative log-likelihood scale, $\ell(\theta)-\ell(\hat\theta)$, because only differences between log-likelihoods are meaningful. |
 | Wald and profile likelihood intervals | The profile likelihood interval (cutoff 1.92 for one parameter and 3.00 for a joint region of two) is the reference method. The Wald interval is the fast approximation: explain it as a quadratic approximation of the log-likelihood, calculate it on the scale that was optimised (the log scale for a positive parameter) and transform the endpoints back. Transforming a standard error needs the delta method (Chapter 6). |
 | Number of parameters in AIC | Use $K$, because $k$ is the shape of the Negative Binomial distribution: $\mathrm{AIC}=2K-2\ell(\hat\theta)$. Only differences between models fitted to the same observations, in the same units, are meaningful, and AIC ranks the candidates without showing that the best one describes the data well. |
+| Deterministic functions | Use the generic parameters $a,b,c,d$ for every function, as positions in a formula, and say what each controls (an asymptote or a value at zero, a rate or a half-maximum, a location, a vertical shift). Ecological symbols ($\alpha$ and $H$; $K$, $r$, $n_0$) appear only when a specific parameterisation is discussed. Write $f'(x)$ and $f''(x)$ in running text, $df/dx$ where the variable matters, and $\partial f/\partial a$ for a partial derivative. $\log$ is the natural logarithm. Derive the units of every parameter from the formula: the argument of an exponential or a logarithm has no units, a parameter that multiplies $x$ has the inverse units of $x$, and one that divides $x$ has the units of $x$. |
+| Names of functions | Michaelis–Menten (with an en dash) is the primary name of $ax/(b+x)$. Holling type II is its predator–prey parameterisation, and Monod and Beverton–Holt are named in a footnote. The entry for the saturating exponential has the ID `sec-fn-monomolecular`. |
+| Half-maximum and reparameterisation | The half-maximum is a value of $x$ (units of $x$), at which a saturating function reaches half of its asymptote; half of the asymptote is a value of $y$. A reparameterisation changes the parameters and not the curve: check it by evaluating both forms at the same values of $x$. |
 | Empirical variance and `var()` | `mean((x - mean(x))^2)` uses divisor $n$. `var(x)` uses $n-1$. State which quantity an exercise requests. |
 | Sampling distribution | The distribution of an estimate across repeated hypothetical experiments with the same design and sample size. It is imaginary and never observed. Keep it distinct from the replicates within one experiment. |
 | Exact results and approximations | In finite samples estimators are in general biased and their sampling distribution is unknown. Label exact results (such as the $t$ interval for Normal observations) as special cases, and describe other bias, variance, standard error and interval statements for small samples as approximations that rely on large-sample results or simulation. |
@@ -381,7 +399,7 @@ conditions behind general claims about estimator performance.
 - Save text as UTF-8. Aim for readable source lines of roughly 80–100 characters;
   do not break links or code just to meet a line-width target.
 
-Theory metadata follows Chapters 1 to 4, which contain only a title:
+Theory metadata follows Chapters 1 to 5, which contain only a title:
 
 ```yaml
 ---
@@ -390,11 +408,11 @@ title: "Descriptive chapter title"
 ```
 
 The table of contents and section numbering are set once in `_quarto.yml`. The
-per-page `format` and `execute` blocks have been removed from Chapters 2 to 4;
-Chapters 5 to 8 still carry them, including a global `eval: false`. Do not add
+per-page `format` and `execute` blocks have been removed from Chapters 2 to 5;
+Chapters 6 to 8 still carry them, including a global `eval: false`. Do not add
 those blocks to new pages. When removing them from an existing page, check every
 chunk first: without the global setting, chunks are evaluated unless they carry
-`#| eval: false`. Chapters 5 to 8 also still contain display-only ```` ```r ````
+`#| eval: false`. Chapters 6 to 8 also still contain display-only ```` ```r ````
 fences, which the rule below replaces.
 
 Preserve the target page's other settings rather than changing them in passing.
@@ -433,6 +451,25 @@ Use notes for definitions and warnings for specific misconceptions:
 The probability mass function assigns a probability to each possible count.
 :::
 ```
+
+Formal statements that a student can skip go in a collapsed box of the caution
+type, which is used for nothing else in the book:
+
+```markdown
+::: {.callout-caution collapse="true" icon=false title="Statistical detail: the Cramér–Rao bound"}
+No unbiased estimator has a variance smaller than the inverse of the Fisher
+information.
+:::
+```
+
+The title always starts with "Statistical detail: " followed by a noun phrase.
+The main text must be complete without the box: nothing outside a box may rely
+on a symbol or result that appears only inside one. Inside the box the full
+rigour stays (the statement, a "where" clause and an "In plain English"
+sentence). Chapter 4 also opens with a roadmap table after the learning goals
+(step, question, R tool, example) and closes with a "recipe" callout before the
+summary. Later theory chapters may copy both when the chapter is a sequence of
+steps that students carry out.
 
 ## Exercises and solution patterns
 

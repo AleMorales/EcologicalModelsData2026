@@ -50,7 +50,8 @@ the Chapter 3 practical (models for observations that are not independent start 
 5. Plot the relative frequencies of the counts together with the probabilities of the
    fitted Negative Binomial model and of a Poisson model. Compare the fraction of empty
    quadrats under each model with the observed fraction, and compare the two models with
-   AIC.
+   AIC and with its small-sample correction AICc (see
+   [Model comparison with AIC](../Theory.qmd#sec-aic)).
 
 ```{r}
 # Load the glacier lily data from the emdbook package without attaching the package.
@@ -137,7 +138,8 @@ model), and $\hat k\approx 0.26$, somewhat smaller than the method-of-moments es
 0.31. The log-likelihood is $-564.2$ at the maximum likelihood estimates and $-565.3$ at
 the method-of-moments estimates. The difference of 1.1 units means that the observed counts
 are about three times more probable ($e^{1.1}$) under the former. The two methods disagree
-much less here than for the owls of the theory, where the difference was 7.1 units.
+much less here than for the owls of the theory, where the maximum likelihood estimate of
+the shape was 0.33 and the method-of-moments estimate was 0.60.
 
 ### Question 3
 
@@ -318,6 +320,11 @@ aic_lily = c(
   negative_binomial = 2 * 2 - 2 * loglik_mle_lily
 )
 aic_lily
+
+# AICc adds 2K(K + 1) / (n - K - 1) to the AIC, with n the number of quadrats.
+k_lily = c(poisson = 1, negative_binomial = 2)
+aicc_lily = aic_lily + 2 * k_lily * (k_lily + 1) / (n_lily - k_lily - 1)
+aicc_lily
 ```
 
 ```{r}
@@ -374,6 +381,12 @@ parameter costs, so the Negative Binomial model is strongly preferred. AIC ranks
 candidates that we give it. Whether there is a better description of the empty quadrats
 than the Negative Binomial model is the question of Exercise 3.
 
+The AICc adds 0.016 units to the AIC of the Poisson model and 0.047 units to that of the
+Negative Binomial model, so it is 2731.8 and 1132.5 (to one decimal) and the comparison is
+the same. The correction is negligible because 256 quadrats are many more than one or two
+parameters (the ratio $n/K$ is far above the value of about 40 below which AICc is
+usually recommended).
+
 # Exercise 3: Empty quadrats and zero inflation
 
 About half of the quadrats of Exercise 2 have no seedlings. The Negative Binomial model
@@ -406,8 +419,8 @@ quadrats.
    of the quadrats that are not empty) and fit the model with `optim()`. Interpret both
    estimates.
 3. Compare the zero-inflated Poisson model with the Negative Binomial model of Exercise 2
-   using AIC. What does the comparison come down to when both models have the same number
-   of parameters?
+   using AIC and AICc. What does the comparison come down to when both models have the
+   same number of parameters?
 4. Plot the probabilities of both fitted models over the relative frequencies of the
    counts. Under each model, calculate the probability of an empty quadrat and the
    probability of 20 or more seedlings, and compare them with the observed fractions. What
@@ -504,6 +517,10 @@ The zero-inflated Poisson model has two parameters, like the Negative Binomial m
 # Exercise 2 (K = 2): with the same K, the comparison is a comparison of log-likelihoods.
 aic_zip = 2 * 2 - 2 * (-zip_fit$value)
 c(zero_inflated_poisson = aic_zip, negative_binomial = aic_lily[["negative_binomial"]])
+
+# AICc of both models: the correction 2K(K + 1) / (n - K - 1) is the same for both.
+aicc_zip = aic_zip + 2 * 2 * (2 + 1) / (n_lily - 2 - 1)
+c(zero_inflated_poisson = aicc_zip, negative_binomial = aicc_lily[["negative_binomial"]])
 ```
 
 The AIC is 1700.1 for the zero-inflated Poisson model and 1132.5 for the Negative Binomial
@@ -512,7 +529,9 @@ comparison comes down to the maximum log-likelihoods: the difference of 567.6 un
 is twice the difference of 283.8 units of log-likelihood ($-564.2$ against $-848.0$). The
 Negative Binomial model is strongly preferred. The Poisson model without zero inflation had
 an AIC of 2731.8 in Exercise 2, so allowing for quadrats that cannot have seedlings
-improves the Poisson model a great deal, but not enough.
+improves the Poisson model a great deal, but not enough. The AICc is 1700.1 and 1132.5.
+The correction of 0.047 units is the same for both models, because they have the same $K$
+and the same $n$, so the difference does not change either.
 
 ### Question 4
 
@@ -645,7 +664,7 @@ in grams. In both cases we assume that the observations are i.i.d.
    differences with the units of a density.
 5. Fit a [LogNormal](../../Supplements/distributions.qmd#sec-lognormal) model to the body
    masses with `dlnorm()` and `optim()`, in grams and in kilograms, and compare it with the
-   Gamma model using AIC. Does the comparison depend on the units?
+   Gamma model using AIC and AICc. Does the comparison depend on the units?
 
 ## Solution
 
@@ -972,6 +991,14 @@ aic_penguin = data.frame(
 )
 aic_penguin$difference = aic_penguin$gamma - aic_penguin$lognormal
 aic_penguin
+
+# AICc adds 2K(K + 1) / (n - K - 1) with K = 2 and n the number of penguins; the
+# correction is the same constant for both models, so the difference does not change.
+aicc_penguin = aic_penguin
+aicc_penguin$gamma = aic_penguin$gamma + 2 * 2 * (2 + 1) / (n_penguins - 2 - 1)
+aicc_penguin$lognormal = aic_penguin$lognormal + 2 * 2 * (2 + 1) / (n_penguins - 2 - 1)
+aicc_penguin$difference = aicc_penguin$gamma - aicc_penguin$lognormal
+aicc_penguin
 ```
 
 All four fits have convergence code 0. In grams the AIC is 2279.4 for the Gamma model and
@@ -980,6 +1007,11 @@ on the units, for the reason given in question 4. The difference between the two
 0.49 in both units, because the change of units adds the same constant to the
 log-likelihood of every model. So a comparison with AIC does not depend on the units,
 provided that all the models are fitted to the same observations in the same units.
+
+The AICc adds 0.081 units to both models (two parameters and 151 penguins), which gives
+2279.5 and 2279.0 in grams and 193.4 and 192.9 in kilograms. The difference of 0.49 is
+unchanged, so AICc leads to the same conclusion as AIC, and the units do not matter for
+it either.
 
 A difference of half a unit of AIC is very small. Both models have two parameters, so it
 corresponds to a difference of 0.25 between their maximum log-likelihoods. These data
