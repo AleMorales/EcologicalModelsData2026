@@ -11,9 +11,13 @@ over the author's sections of `Chapter_2/Theory.qmd`, the opening section of
 `Chapter_3/Theory.qmd` (`# Samples and distributions`), and the author's
 exercises in the Chapter 2 and Chapter 3 practicals. `AGENTS.md` lists which
 sections and exercises these are. They are the only references for voice. The
-rest of Chapters 2 and 3 and the theory pages of Chapters 4 to 8 were generated
-from learning goals and have not been rewritten by the author. Use them for
-topic coverage and continuity, never as a model of how to write. The guide governs new and revised material, without requiring a
+rest of Chapters 2 and 3 was generated from learning goals. The author approved
+Chapters 1 to 3 in full on 5 October 2026, so use that generated text as reference
+for content, depth, notation and format, never as a model of how to write.
+Chapter 4 was rewritten to this guide and awaits the author's review. The theory
+pages of Chapters 5 to 8 were generated from learning goals and have not been
+rewritten by the author: use them for topic coverage and continuity, never as a
+model of how to write. The guide governs new and revised material, without requiring a
 wholesale rewrite of existing pages.
 
 Explicit conventions, such as `=` for R assignment, are retained. Where existing
@@ -127,7 +131,7 @@ when revising and do not produce them in new text.
   whole chapter of their own text; treat that as the ceiling.
 - **A caveat after every statement.** "does not establish", "does not
   guarantee", "does not, by itself", "is not proof that" appear in almost every
-  paragraph of Chapters 4 to 8. One caveat, placed where the risk is, teaches
+  paragraph of Chapters 5 to 8. One caveat, placed where the risk is, teaches
   more than twenty. Put a recurring misconception in a single warning callout
   and stop repeating it in the prose and again in the quiz.
 - **Repeated provenance disclaimers.** "These are simulated observations, not
@@ -315,7 +319,8 @@ End every theory chapter with a `# Summary` section, placed before
 `# Chapter quiz`. This is an author decision; Chapters 6 and 7 currently lack
 one and need it added. A summary consolidates the main ideas in a few short paragraphs
 and does not repeat the entire chapter or introduce new material. Keep cross-chapter promises specific and check the destination. For example,
-method of moments belongs to Chapter 3 and model comparison to Chapter 6.
+method of moments belongs to Chapter 3, AIC to Chapter 4, and BIC and
+cross-validation to Chapter 6.
 
 ## Statistical language and notation
 
@@ -325,6 +330,9 @@ method of moments belongs to Chapter 3 and model comparison to Chapter 6.
 | Parameter, estimator, estimate | A parameter describes the model; an estimator is a rule applied to random data; an estimate is its value for observed data. Define hats such as $\hat\lambda$. |
 | Mass and density | Discrete values have probability mass. Continuous densities give probabilities through integration over intervals; a density value is not a point probability and may exceed one. |
 | Probability and likelihood | Probability varies possible data for fixed parameters. Likelihood varies parameters for the observed data and is not a probability distribution over parameters. |
+| Likelihood notation | Keep the bar in $P(X=x\mid\theta)$ and $L(\theta\mid x_1,\ldots,x_n)$, and say at first use that it reads "for a given value of" (conditional distributions come in Chapter 7). Write $\ell$ for the log-likelihood and, once the data are fixed, $L(\theta)$ and $\ell(\theta)$. The negative log-likelihood (NLL) is $-\ell$, which `optim()` minimises. Draw likelihood figures on the relative log-likelihood scale, $\ell(\theta)-\ell(\hat\theta)$, because only differences between log-likelihoods are meaningful. |
+| Wald and profile likelihood intervals | The profile likelihood interval (cutoff 1.92 for one parameter and 3.00 for a joint region of two) is the reference method. The Wald interval is the fast approximation: explain it as a quadratic approximation of the log-likelihood, calculate it on the scale that was optimised (the log scale for a positive parameter) and transform the endpoints back. Transforming a standard error needs the delta method (Chapter 6). |
+| Number of parameters in AIC | Use $K$, because $k$ is the shape of the Negative Binomial distribution: $\mathrm{AIC}=2K-2\ell(\hat\theta)$. Only differences between models fitted to the same observations, in the same units, are meaningful, and AIC ranks the candidates without showing that the best one describes the data well. |
 | Empirical variance and `var()` | `mean((x - mean(x))^2)` uses divisor $n$. `var(x)` uses $n-1$. State which quantity an exercise requests. |
 | Sampling distribution | The distribution of an estimate across repeated hypothetical experiments with the same design and sample size. It is imaginary and never observed. Keep it distinct from the replicates within one experiment. |
 | Exact results and approximations | In finite samples estimators are in general biased and their sampling distribution is unknown. Label exact results (such as the $t$ interval for Normal observations) as special cases, and describe other bias, variance, standard error and interval statements for small samples as approximations that rely on large-sample results or simulation. |
@@ -373,7 +381,7 @@ conditions behind general claims about estimator performance.
 - Save text as UTF-8. Aim for readable source lines of roughly 80–100 characters;
   do not break links or code just to meet a line-width target.
 
-Theory metadata follows Chapters 1 to 3, which contain only a title:
+Theory metadata follows Chapters 1 to 4, which contain only a title:
 
 ```yaml
 ---
@@ -382,11 +390,11 @@ title: "Descriptive chapter title"
 ```
 
 The table of contents and section numbering are set once in `_quarto.yml`. The
-per-page `format` and `execute` blocks have been removed from Chapters 2 and 3;
-Chapters 4 to 8 still carry them, including a global `eval: false`. Do not add
+per-page `format` and `execute` blocks have been removed from Chapters 2 to 4;
+Chapters 5 to 8 still carry them, including a global `eval: false`. Do not add
 those blocks to new pages. When removing them from an existing page, check every
 chunk first: without the global setting, chunks are evaluated unless they carry
-`#| eval: false`. Chapters 4 to 8 also still contain display-only ```` ```r ````
+`#| eval: false`. Chapters 5 to 8 also still contain display-only ```` ```r ````
 fences, which the rule below replaces.
 
 Preserve the target page's other settings rather than changing them in passing.
@@ -533,6 +541,23 @@ teaching a complete fit. An optimiser returning a number does not establish mode
 adequacy. Distinguish a likelihood slice from a profile that refits nuisance
 parameters. Introduce these details as their concepts arise, without inserting
 advanced optimisation machinery into early probability lessons.
+
+Use `optim()` with `method = "BFGS"` throughout, including one-parameter fits and
+the inner fits of a profile, and say once that Chapter 8 explains the method.
+Pass the data to the NLL as a named extra argument of `optim()`, name the
+elements of `par`, and index them by position inside the function. Handle
+constraints by transformation only (the logarithm for positive parameters,
+`qlogis()` and `plogis()` for probabilities). Bounds, box-constrained methods,
+`optimize()`, sensitivity to starting values, local maxima, and Hessian problems
+belong to Chapter 8. Evaluate a likelihood on a grid with `for` loops (one loop
+filling a vector for a curve, two nested loops filling a matrix for a surface),
+not with `sapply()`, `vapply()`, `Vectorize()`, or `outer()`. Take the Hessian of
+a one-parameter fit as `fit$hessian[1, 1]`, start each inner fit of a profile at
+the joint estimate, and find the endpoints of a profile likelihood interval with
+`uniroot()`, choosing the ends of its search interval from the plotted curve so
+that the function has opposite signs there. When the NLL is large (for example
+for measurements in grams), the default `reltol` of `optim()` can stop the
+search early; set `control = list(reltol = 1e-12)` and point to Chapter 8.
 
 ## Figures and numerical interpretation
 

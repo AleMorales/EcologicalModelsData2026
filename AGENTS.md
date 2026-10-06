@@ -36,28 +36,22 @@ history may use numbers that are one higher. Generation does not imply human
 review; record later review decisions here when the author confirms them.
 
 On 5 October 2026 the author stated that Chapters 1 to 3, theory and practicals,
-are reviewed and approved. The entries below that describe parts of those chapters
-as "awaiting review" are out of date; all of Chapters 1 to 3 can be used as
-reference, with Chapter 1 as the exception in register.
-
-A rewrite of Chapter 4 is planned in
-[plan_chapter4_rewrite.md](plan_chapter4_rewrite.md), which records the author's
-decisions for that chapter (examples, notation, optimiser, intervals, datasets,
-AIC moving from Chapter 6 into Chapter 4). For work on Chapter 4, that plan takes
-precedence over this file where they differ. Until it is implemented, the current
-Chapter 4 remains a generated draft and the statements below still describe the
-existing pages. The plan lists the updates to make to this file and to
-`STYLE_GUIDE.md` when the rewrite is done.
+are reviewed and approved. Use all of them as reference for content, depth,
+notation and format. For voice, the author's own text remains the reference, as
+the table lists; Chapter 1 is the exception in register. Chapter 4 was rewritten
+from scratch after that review and awaits the author's review (last row but one).
 
 | Material | Status and use |
 |---|---|
-| `Chapter_1/Practicals/material.qmd` and its wrappers | Completed practical; primary reference for teaching voice, introductory R, and conditional solutions |
-| `Chapter_1/Theory.qmd` | Finalised by the author; reference for the author's voice in its essay register (motivation, opinion). Do not carry that level of opinion into technical chapters |
-| `Chapter_2/Theory.qmd` | Author text plus generated drafts awaiting review. The author's sections are the primary reference for voice in technical chapters, conceptual explanations, ecological examples, notation, and figures: "Discrete probability distributions", the discrete part of "Joint distributions" with the i.i.d. subsection, the discrete part of "Expectations and central moments", and "Choosing a distribution" with "Overdispersion". Generated drafts, not a model of voice: the introduction and learning goals, "Continuous probability distributions", "Joint distributions of continuous variables", the continuous forms and `integrate()` passage in the expectations section, the paragraph on continuous data in "Choosing a distribution", the summary, and quiz questions 4, 5, 6, 8 and 9 |
-| `Chapter_2/Practicals/no_solution.qmd` and `solution.qmd` | Exercises 1 (seedlings), 3 (`InsectSprays`) and 4 (Negative Binomial) are the author's completed work and the primary reference for exercises, worked reasoning, and interpretation. Exercises 2 (Normal), 5 (LogNormal) and 6 (Beta) are generated drafts awaiting review |
-| `Chapter_3/Theory.qmd` | Opens with author text, `# Samples and distributions` up to and including "Asymptotic convergence of the empirical distribution" (moved from Chapter 2), which is a reference for voice. "Samples of continuous measurements" and everything from "Parameters, estimators and estimates" onward are generated drafts awaiting review |
+| `Chapter_1/Practicals/material.qmd` and its wrappers | Reviewed and approved. Completed practical; primary reference for teaching voice, introductory R, and conditional solutions |
+| `Chapter_1/Theory.qmd` | Reviewed and approved. Finalised by the author; reference for the author's voice in its essay register (motivation, opinion). Do not carry that level of opinion into technical chapters |
+| `Chapter_2/Theory.qmd` | Reviewed and approved. The author's own sections are the primary reference for voice in technical chapters, conceptual explanations, ecological examples, notation, and figures: "Discrete probability distributions", the discrete part of "Joint distributions" with the i.i.d. subsection, the discrete part of "Expectations and central moments", and "Choosing a distribution" with "Overdispersion". The other sections were generated and then approved (the introduction and learning goals, "Continuous probability distributions", "Joint distributions of continuous variables", the continuous forms and `integrate()` passage in the expectations section, the paragraph on continuous data in "Choosing a distribution", the summary, and quiz questions 4, 5, 6, 8 and 9): use them for content, depth, notation and format, not as a model of voice |
+| `Chapter_2/Practicals/no_solution.qmd` and `solution.qmd` | Reviewed and approved. Exercises 1 (seedlings), 3 (`InsectSprays`) and 4 (Negative Binomial) are the author's completed work and the primary reference for exercises, worked reasoning, and interpretation. Exercises 2 (Normal), 5 (LogNormal) and 6 (Beta) were generated and then approved |
+| `Chapter_3/Theory.qmd` | Reviewed and approved. Opens with author text, `# Samples and distributions` up to and including "Asymptotic convergence of the empirical distribution" (moved from Chapter 2), which is a reference for voice. "Samples of continuous measurements" and everything from "Parameters, estimators and estimates" onward were generated and then approved: use them for content, depth, notation and format |
+| `Chapter_3/Practicals` | Reviewed and approved. Decisions that stand: Exercise 1 uses the `Owls` data from `glmmTMB` (loaded with `data(Owls, package = "glmmTMB")`, not a copied CSV), restricted to satiated nestlings and female parents, with a Negative Binomial model and method-of-moments estimates. Exercise 2 (asymptotic convergence) uses a Beta model for the fraction of leaf area eaten (a = 2, b = 6) with the fixed seeds 123 and 11, 22, 33, 44; it replaced the author's Poisson exercise, which was moved from Chapter 2. Exercise 3 (variation in tree heights) uses the `Height` column (ft) of the `trees` data set from base R's `datasets` package (31 trees, Normal model): students estimate the mean and variance by method of moments and then simulate 2,000 hypothetical experiments of 31 trees from a Normal model with those estimates as parameters (a plug-in simulation, without introducing the term parametric bootstrap). No package needs adding to `publish.yml` for it. Exercise 4 (mean body mass and interval coverage, LogNormal model) uses Wald intervals only: the $t$ interval does not appear in the practical, because the data are not Normal and the course teaches the general approximation (it remains only in a footnote of the theory page) |
 | `Supplements/distributions.qmd` | Reference entry per distribution: summary table, description, `### Example:` verified in R, figure, and a `Practice` callout with a collapsed solution. The Binomial, Poisson, and Negative Binomial text is the author's (moved from Chapter 2); the other entries are generated drafts awaiting review. Tables and prose use the chapter symbols ($k$ for Negative Binomial, $\mu$ and $\sigma$ for LogNormal, $a$ and $b$ for Beta and Beta-Binomial). The author decided that detailed distribution descriptions live only here: Chapter 2 keeps two running examples (the Binomial for discrete data and the Normal for continuous data) and the Overdispersion section, and theory pages, practicals, and later chapters link to the entries by their `sec-` IDs. The Chapter 2 practical tells students to read the relevant entries first |
-| `Chapter_3/Practicals` and `Chapter_4` through `Chapter_8` | Generated course material; not rewritten by the author. Use for topic coverage, never as a model of voice. Exercise 2 of the Chapter 3 practical (asymptotic convergence) was the author's Poisson exercise moved from Chapter 2; by author decision it was replaced with a generated draft awaiting review that uses a Beta model for the fraction of leaf area eaten (a = 2, b = 6), the same three questions and fixed seeds (123; 11, 22, 33, 44). Exercise 1 of the Chapter 3 practical is a generated draft awaiting review: by author decision it uses the `Owls` data from `glmmTMB` (loaded with `data(Owls, package = "glmmTMB")`, not a copied CSV), restricted to satiated nestlings and female parents, with a Negative Binomial model and method-of-moments estimates; the unit of `SiblingNegotiation` still has to be confirmed by the author. Exercise 3 (variation in tree heights) was rewritten by author decision to use the `Height` column (ft) of the `trees` data set from base R's `datasets` package (31 trees, Normal model). Students estimate the mean and variance by method of moments and then simulate 2,000 hypothetical experiments of 31 trees from a Normal model with those estimates as parameters (a plug-in simulation, without introducing the term parametric bootstrap); it is a generated draft awaiting review. No package needs adding to `publish.yml` for it. Exercise 4 (mean body mass and interval coverage, LogNormal model) uses Wald intervals only, by author decision: the $t$ interval does not appear in the practical, because the data are not Normal and the course teaches the general approximation (it remains only in a footnote of the theory page). Its numbers were recomputed in R, and it is a generated draft awaiting review |
+| `Chapter_4/Theory.qmd` and `Chapter_4/Practicals` | Rewritten from scratch after the review of Chapters 1 to 3: a generated draft awaiting the author's review. Four `<!-- AUTHOR: ... -->` comments in the theory mark places for the author's own view; do not fill them with first-person opinion. Decisions that stand. **Examples**: the theory uses the ten seedling counts of Chapter 3 (Poisson model) and the owl data of the Chapter 3 practical (Negative Binomial model); the Normal model appears only in footnotes and in the callout about the interactive likelihood page. The practical uses reed frog tadpole survival (`emdbook::ReedfrogPred`), glacier lily seedlings (`emdbook::Lily_sum`), the volume of black cherry trees (`trees`) and Adelie penguin body mass (`penguins`, which needs R 4.5.0 or later); Exercise 1 is worked on the student page and Exercises 2 to 5 are for students to solve. **Notation**: keep the bar in $P(X=x\mid\theta)$ and $L(\theta\mid x_1,\ldots,x_n)$; $\ell$ is the log-likelihood and NLL the negative log-likelihood. **Fitting**: `optim()` with `method = "BFGS"` throughout; constraints only by transformation (logarithm, logit); likelihood curves and surfaces on grids filled with `for` loops. **Uncertainty**: the profile likelihood interval is the reference method and the Wald interval is the fast approximation, calculated on the optimised scale with the endpoints transformed back; the delta method is deferred to Chapter 6. **Model comparison**: AIC (with $K$ for the number of parameters) is introduced here |
+| `Chapter_5` through `Chapter_8` | Generated course material; not rewritten by the author. Use for topic coverage, never as a model of voice. They predate the rewrite of Chapter 4, apart from the sentences that were corrected to match it (the "Information criteria" section of Chapter 6 recalls AIC from Chapter 4 and uses $K$). Where their terms differ from Chapter 4 (for example "quadratic interval" for the Wald interval, or `vapply()` for grids), follow Chapter 4 in new work |
 
 The author requires `=` for all R assignment throughout the course, including
 function definitions. Apply this rule to existing and new code. The references contain occasional
@@ -125,16 +119,23 @@ remain mandatory.
 - Chapter 2 covers joint and marginal distributions and independence, for
   discrete and continuous variables. Conditional distributions are not
   introduced there; the author assigned them to the grouped-curves chapter
-  (Chapter 7), which has not yet received them.
+  (Chapter 7), which has not yet received them. Chapter 4 also points to Chapter 7 for
+  restricted maximum likelihood (REML), which Chapter 7 does not cover yet.
 - Contour plots with `outer()` and `contour()` are taught in base R in the
   Chapter 1 practical, so later chapters can use them without introduction.
-- Chapter 6 introduces model comparison for fitted candidate models. Point
-  introductory promises about model comparison there, rather than to Chapter 4.
+- Chapter 4 introduces model comparison with AIC (`#sec-aic`). Chapter 6 recalls
+  it and adds BIC, cross-validation, and goodness of fit. Point promises about formal
+  model comparison to Chapter 4 and Chapter 6 accordingly. The delta method belongs
+  to Chapter 6. Bounds on parameters, `optimize()`, scaling, starting values, local
+  maxima, Hessian problems, and the effect of parameterisation on optimisation belong
+  to Chapter 8; Chapter 4 only uses transformations and points forward.
 - Exercises may use real data sets shipped with R packages (for example `InsectSprays`
   and `Owls`), loaded with `data(name, package = "pkg")`; add the package to the
   dependency list in `.github/workflows/publish.yml`. The same applies to any package
   loaded in a rendered page (including `Supplements/distributions.qmd`, which needs
-  `VGAM` and `gtools`), because the production build fails if one is missing. Before Chapter 7 the course treats
+  `VGAM` and `gtools`), because the production build fails if one is missing.
+  `emdbook` is in `publish.yml` because the Chapter 4 practical loads its data.
+  Before Chapter 7 the course treats
   grouped or nested observations (visits to the same nest) as i.i.d.; the exercise says
   that this is a simplification and points to Chapter 7. This is an author decision.
 - Use simulation to connect known model parameters to samples, estimates, and
@@ -184,8 +185,9 @@ remain mandatory.
    goals. A deliberately worked example may appear on the student page: by
    author decision the Chapter 2 practical starts with two worked exercises
    (seedlings under a Binomial model, tree heights under a Normal model),
-   followed by four exercises for students to solve. Do not remove the worked
-   exercises automatically.
+   followed by four exercises for students to solve. The Chapter 4 practical
+   follows the same pattern: Exercise 1 is worked on the student page, followed by
+   four exercises. Do not remove the worked exercises automatically.
 5. Check new or changed mathematics and code against the accompanying explanation.
    For computational changes, run focused R checks when available. For changes to
    includes, metadata, or solution visibility, render the affected wrappers when
