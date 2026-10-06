@@ -1,0 +1,336 @@
+---
+title: "Chapter 6: Fitting ecological response curves"
+date: today
+---
+
+# Introduction
+
+These six files are simulated ecological datasets supplied as CSV files. You
+can download them from the
+[`Data` folder](https://github.com/AleMorales/EcologicalModelsData2026/tree/main/Data)
+in the course GitHub repository. Treat their generating models and parameters
+as unknown while analysing them. In this Quarto website, this practical runs
+from its own folder, so use `read.csv("../../Data/shapes2.csv")`. The
+[theory](../Theory.qmd) develops the methods, and the
+[function reference](../../Supplements/deterministic-functions.qmd)
+summarises candidate curves.
+
+Complete **Exercises 1â€“3** before moving to Chapter 7. **Exercises 4â€“6
+are further practice**: they give you more time with repeated
+measurements, a time series, and a dataset whose context is withheld.
+Each exercise asks for maximum likelihood estimates and at least one
+confidence interval. Run the code yourself, inspect the output, and
+explain what the estimates mean. You will need the DHARMa package for
+the scaled residual checks; install it in your R environment before
+working through those steps. The core exercises also use RTMB: install
+it in your R environment before starting. Begin with an ordinary R
+likelihood in Exercise 1, then use RTMB for the remaining core fits.
+
+# Exercise 1: Predator intake and model comparison
+
+The file `shapes2.csv` contains prey density `x` and a predator's measured
+intake rate `y`. Begin with the [Holling type II](../../Supplements/deterministic-functions.qmd#sec-fn-michaelis-menten) mean curve
+$m(x)=ax/(b+x)$ and independent normal observation errors with standard
+deviation $\sigma$.
+
+1. Load the file and plot intake against prey density. State the
+   observational unit and what $a$, $b$, and $\sigma$ describe.
+2. Write a negative log-likelihood and fit it with `optim()`. Express
+   the same model in RTMB, fit with its gradient, compare the two
+   negative log-likelihood values, check convergence, and draw the curve.
+3. Calculate an approximate 95% quadratic confidence interval for $a$
+   on its log scale, then express the endpoints in intake-rate units.
+4. Use RTMB to fit a [saturating exponential](../../Supplements/deterministic-functions.qmd#sec-fn-monomolecular) mean curve
+   $m_E(x)=A(1-e^{-kx})$ with the same normal observation model.
+   Calculate AIC and BIC for both fits. Which has the lower scores?
+   Count the error standard deviation as a fitted parameter.
+5. Use five-fold cross-validation to compare their *held-out* normal
+   log densities. Refit each model inside each fold and explain any
+   agreement or disagreement with the information criteria.
+6. Simulate observations from the chosen fitted model, make scaled
+   quantile residual plots with DHARMa, and describe any pattern.
+
+## Solution
+
+The response is one measured intake rate at an offered prey density.
+The model treats the rows as conditionally independent. The parameter
+$a$ is the limiting rate, $b$ is the half-saturation prey density, and
+$\sigma$ describes observation-level spread around the curve. This
+plot and fit use the same rows for every comparison.
+
+```r
+library(RTMB)
+intake = read.csv("../../Data/shapes2.csv")
+plot(intake$x, intake$y,
+     xlab = "Prey density", ylab = "Predator intake rate")
+
+type_ii = function(x, a, b) a * x / (b + x)
+sat_exp = function(x, A, k) A * (1 - exp(-k * x))
+
+nll_ii = function(par, data) {
+  a = exp(par[1])
+  b = exp(par[2])
+  sigma = exp(par[3])
+  mu = type_ii(x = data$x, a = a, b = b)
+  -sum(dnorm(x = data$y, mean = mu, sd = sigma, log = TRUE))
+}
+
+start_ii = function(data) {
+  c(log_a = log(max(data$y)),
+    log_b = log(median(data$x)),
+    log_sigma = log(sd(data$y)))
+}
+manual_ii = optim(par = start_ii(intake), fn = nll_ii,
+                  data = intake, method = "BFGS")
+
+# The same normal likelihood can be used with either smooth mean curve.
+fit_intake = function(data, curve, initial_scale) {
+  x = data$x
+  y = data$y
+  objective = function(par) {
+    mu = curve(x, exp(par$log_a), exp(par$log_scale))
+    y %~% dnorm(mean = mu, sd = exp(par$log_sigma))
+  }
+  parameters = list(
+    log_a = log(max(y)), log_scale = log(initial_scale),
+    log_sigma = log(sd(y))
+  )
+  obj = MakeADFun(objective, parameters, silent = TRUE)
+  fit = optim(par = obj$par, fn = obj$fn, gr = obj$gr,
+              method = "BFGS")
+  list(obj = obj, fit = fit)
+}
+
+ii_result = fit_intake(intake, type_ii, median(intake$x))
+exp_result = fit_intake(intake, sat_exp, 1 / median(intake$x))
+fit_ii = ii_result$fit
+fit_exp = exp_result$fit
+c(manual = manual_ii$convergence,
+  type_ii = fit_ii$convergence, exponential = fit_exp$convergence)
+c(manual = manual_ii$value, RTMB = fit_ii$value)
+exp(fit_ii$par)
+exp(fit_exp$par)
+
+x_grid = seq(min(intake$x), max(intake$x), length.out = 200)
+lines(x_grid, type_ii(x_grid, exp(fit_ii$par[1]),
+                      exp(fit_ii$par[2])), lty = 1)
+lines(x_grid, sat_exp(x_grid, exp(fit_exp$par[1]),
+                      exp(fit_exp$par[2])), lty = 2)
+legend("bottomright", c("Holling type II", "Saturating exponential"),
+       lty = c(1, 2), bty = "n")
+```
+
+The optimiser works on log parameters to keep them positive. The
+displayed estimates are back on the ecological scale. In the RTMB
+helper, `log_scale` represents $b$ for Holling type II and $k$ for the
+exponential. `%~%` adds the complete normal negative log-likelihood;
+`obj$gr` supplies derivatives to `optim()`. The manual and RTMB
+objective values should agree closely. Check convergence before using
+Hessians or scores. For $a$, calculate the interval on the log scale:
+
+```r
+hessian_ii = ii_result$obj$he(fit_ii$par)
+dimnames(hessian_ii) = list(names(fit_ii$par), names(fit_ii$par))
+se_log_ii = sqrt(diag(solve(hessian_ii)))
+a_interval = exp(fit_ii$par["log_a"] +
+                   c(-1, 1) * qnorm(p = 0.975) * se_log_ii["log_a"])
+a_interval
+
+k_ii = length(fit_ii$par)
+k_exp = length(fit_exp$par)
+scores = data.frame(
+  model = c("Holling type II", "Saturating exponential"),
+  AIC = c(2 * fit_ii$value + 2 * k_ii,
+          2 * fit_exp$value + 2 * k_exp),
+  BIC = c(2 * fit_ii$value + log(nrow(intake)) * k_ii,
+          2 * fit_exp$value + log(nrow(intake)) * k_exp)
+)
+scores
+```
+
+Both models estimate two curve parameters and one error parameter, so
+their penalty terms are equal. Here a score difference comes from how
+closely the fitted normal distributions describe the same 50 rates.
+The Holling type II fit has the lower AIC and BIC (approximately 169.3
+and 175.0, compared with 181.0 and 186.8). The scores compare only
+these candidates; they do not establish that either is adequate.
+
+For cross-validation, each fold is held out once. The start values,
+curve parameters, and error standard deviation come only from its
+training rows. Sum log densities over all held-out rows:
+
+```r
+set.seed(seed = 702)
+fold = sample(rep(1:5, length.out = nrow(intake)))
+held_out_log = matrix(NA_real_, nrow = 5, ncol = 2,
+                      dimnames = list(NULL, c("type_ii", "exponential")))
+
+for (j in 1:5) {
+  train = intake[fold != j, ]
+  test = intake[fold == j, ]
+  train_ii = fit_intake(train, type_ii, median(train$x))$fit
+  train_exp = fit_intake(train, sat_exp, 1 / median(train$x))$fit
+  stopifnot(train_ii$convergence == 0, train_exp$convergence == 0)
+
+  mu_ii = type_ii(test$x, exp(train_ii$par[1]),
+                  exp(train_ii$par[2]))
+  mu_exp = sat_exp(test$x, exp(train_exp$par[1]),
+                   exp(train_exp$par[2]))
+  held_out_log[j, "type_ii"] = sum(dnorm(
+    x = test$y, mean = mu_ii, sd = exp(train_ii$par[3]), log = TRUE
+  ))
+  held_out_log[j, "exponential"] = sum(dnorm(
+    x = test$y, mean = mu_exp, sd = exp(train_exp$par[3]), log = TRUE
+  ))
+}
+colSums(held_out_log)
+```
+
+The Holling type II model also has the **larger** held-out log score
+for these folds (approximately $-91.1$ versus $-108.9$). AIC and BIC
+use the full-data fit; the
+cross-validation score uses repeated training fits. Small differences
+can change with a different fold assignment.
+
+The following simulates full intake observations from the fitted
+Holling model. Use the same construction with `sat_exp()` if that is
+the model you choose to inspect. The matrix has 50 rows, one per
+observed rate, and 500 simulated datasets in its columns.
+
+```r
+set.seed(seed = 703)
+mu_ii = type_ii(intake$x, exp(fit_ii$par[1]), exp(fit_ii$par[2]))
+sim_ii = replicate(500, rnorm(n = nrow(intake), mean = mu_ii,
+                               sd = exp(fit_ii$par[3])))
+scaled_ii = DHARMa::createDHARMa(
+  simulatedResponse = sim_ii,
+  observedResponse = intake$y,
+  fittedPredictedResponse = mu_ii,
+  integerResponse = FALSE
+)
+plot(scaled_ii)
+DHARMa::plotResiduals(scaled_ii, predictor = intake$x)
+```
+
+Describe whether residuals fill the 0â€“1 range roughly evenly and
+whether their location changes with prey density. A pattern calls
+for a model check; it does not identify the biological cause.
+
+
+# Exercise 2: Diameter and pine-cone counts
+
+The file `shapes3.csv` records tree diameter `x` and pine-cone count `y`.
+Some entries are missing. Begin with an [allometric](../../Supplements/deterministic-functions.qmd#sec-fn-power) mean
+$\mu(x)=a x^p$ for $x>0$, where $a>0$, and independent Poisson counts.
+
+1. Load the file. Count missing `x` and `y` values and the rows with
+   both values present. Explain why a missing count is not a count of zero.
+   Use complete predictorâ€“response pairs for **both** candidate models.
+2. Plot count against diameter. Write and fit the Poisson
+   likelihood in RTMB for $a$ and $p$. What does $p$ say about a doubling
+   of diameter?
+3. Fit a negative binomial model with the same mean curve and an
+   additional positive shape parameter $k$, for which
+   $\operatorname{Var}(Y_i\mid x_i)=\mu_i+\mu_i^2/k$. Calculate and compare AIC
+   and BIC, counting every estimated parameter.
+4. Calculate a 95% quadratic confidence interval for $p$ from the
+   negative binomial fit. Explain what could make this interval
+   unreliable.
+5. Simulate counts from the fitted negative binomial model and inspect
+   DHARMa scaled residuals against diameter. Explain what the
+   diagnostics can and cannot tell you about the missing values.
+
+# Exercise 3: Species presence and interval coverage
+
+The file `shapes6.csv` contains one predictor `x` and a binary
+presence/absence response `y`. To allow presence to be most likely
+at an intermediate predictor value, use the [bounded, hump-shaped curve](../../Chapter_5/Theory.qmd#sec-function-composition)
+$p(x)=\operatorname{logit}^{-1}[h-q(x-c)^2]$, where $q>0$.
+Here $\operatorname{logit}^{-1}(z)=1/(1+e^{-z})$.
+Each response is an independent Bernoulli observation with probability
+$p(x)$.
+
+1. Load and plot the data. What are the possible response values?
+   Explain the ecological meaning of $c$, $h$, and $q$.
+2. Fit $c$, $h$, and $q$ by maximum likelihood with RTMB and `optim()`.
+   Plot the fitted probability curve, checking that it remains between
+   0 and 1.
+3. Calculate a 95% quadratic confidence interval for $c$. Compare
+   AIC with an intercept-only Bernoulli model whose constant
+   presence probability is estimated from the data.
+4. Simulate binary observations from the fitted curve and inspect
+   DHARMa residuals. Why is randomisation needed for a binary response?
+5. Conduct a simulation study at the observed `x` values. Choose
+   generating $c$, $h$, and $q$, simulate and refit at least 300 datasets,
+   and calculate bias, interval coverage, and the number of failed fits.
+   What part of the result is specific to your chosen simulation setting?
+
+
+# Exercise 4: Five leaves along a light gradient
+
+The file `shapes1.csv` contains photosynthesis measurements at 11 light
+intensities for **five leaves on different plants**. Each leaf contributes
+measurements along a curve, but the file has no leaf identifier linking
+its rows across intensities. Fit a pooled *working model* for the mean
+response,
+
+$$
+m(x)=r+a(1-e^{-kx}), \qquad a,k>0,
+$$
+
+with normal observation errors of standard deviation $\sigma$.
+
+1. Load and plot the data, including the five responses at each light
+   intensity. Why might $r$ be below zero for net photosynthesis?
+2. Fit $r$, $a$, $k$, and $\sigma$ by maximum likelihood under the
+   working assumption that rows are independent. Plot the fitted
+   curve and interpret its baseline and upper limit.
+3. Calculate a 95% quadratic confidence interval for $a$. State
+   precisely which assumption makes this interval provisional.
+4. Simulate from the fitted pooled model and inspect scaled residuals
+   against light intensity. Explain why these plots cannot check
+   within-leaf dependence without leaf identifiers.
+
+
+# Exercise 5: Population size through time
+
+The file `shapes4.csv` records population `size` at `time`. Treat the
+recorded size as a count and begin with a [logistic](../../Supplements/deterministic-functions.qmd#sec-fn-logistic) expected size
+$m(t)=K/[1+e^{-r(t-t_0)}]$, where $K,r>0$. As a working model,
+assume each count is Poisson with that mean.
+
+1. Plot size against time. Identify the upper limit $K$, the
+   midpoint time $t_0$, and the role of $r$ in the mean curve.
+2. Fit all three parameters by maximum likelihood and calculate
+   a 95% quadratic confidence interval for $K$.
+3. Fit a [Gompertz](../../Supplements/deterministic-functions.qmd#sec-fn-gompertz) mean curve
+   $g(t)=K\exp[-\exp\{-r(t-t_0)\}]$ with the same Poisson
+   observation model. Compare AIC and BIC on the same 25 counts.
+4. Hold out the observations after time 62, fit both models to
+   earlier observations, and score the later counts with their
+   Poisson log probabilities. What does this check that a random
+   fold split would not check?
+5. Inspect scaled residuals in time order. Which assumptions are
+   especially uncertain when repeated sizes of one population are
+   treated as independent counts?
+
+# Exercise 6: A mystery response curve
+
+The ecological context of `shapes5.csv` is deliberately withheld.
+Use `x` as the single predictor and `y` as the response. The `no`
+column is a row index; leave `group` out of this chapter's models.
+Do not infer a biological meaning for either field from its name.
+
+1. Load the file, examine missing values and the response's possible
+   values, and plot `y` against `x`. Propose a suitable observation
+   distribution and two plausible mean curves from the plotted shape.
+2. As one defensible comparison, fit independent Poisson counts with
+   either an [exponential](../../Supplements/deterministic-functions.qmd#sec-fn-exponential) $m_E(x)=a e^{-bx}$ or a
+   [hyperbolic](../../Supplements/deterministic-functions.qmd#sec-fn-hyperbolic) $m_H(x)=a/(1+bx)$, where $a,b>0$.
+   Estimate each model by maximum likelihood and plot both curves.
+3. Compare AIC and BIC, then calculate a 95% quadratic interval for
+   $b$ in the lower-AIC model. Interpret $b$ for that curve without
+   assigning an ecological meaning to the response.
+4. Simulate from that fitted model and inspect scaled residuals
+   against `x`. Explain what a poor residual pattern would mean for
+   your conclusion and why ignoring `group` limits this analysis.
