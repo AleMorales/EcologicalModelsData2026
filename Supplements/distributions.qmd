@@ -17,12 +17,18 @@ html-math-method:
   url: https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js
 ---
 
+```{r}
+#| include: false
+# Load ggplot2 for the consistently formatted rendered figures in this supplement.
+library(ggplot2)
+```
+
 In this document I provide reference material for several distributions, including their
 mathematical formulae, examples of code and tips on when they might be relevant. There is
 also a section on how to construct zero-inflated distributions.
 
-For each distribution I provide the default parameterization in R, but I also provide a
-*inverse* parameterization where we use the mean ($\mu$) as input, as we normally model the
+For each distribution I provide the default parameterisation in R, but I also provide an
+*inverse* parameterisation where we use the mean ($\mu$) as input, as we normally model the
 effect of covariates on the mean.
 
 # Discrete distributions
@@ -39,10 +45,11 @@ guidance on how to choose (but also remember model selection as a general tool):
 **Conway-Maxwell-Poisson** - Count data with either underdispersion or overdispersion relative
 to the Poisson distribution.
 
-**Negative binomial** - Overdispersed count data (variance > mean).
+**Negative Binomial** - Overdispersed count data (variance > mean).
 
-**Beta binomial** -  Overdispersed count data (variance > mean). Also for repeated Binomial process
-where the probaility of success varies randomly across trials.
+**Beta-Binomial** - Counts with a fixed upper limit that are overdispersed relative to the
+Binomial distribution. The probability varies among sampling units (e.g. tanks) and is
+shared by the trials within a unit.
 
 ## Bernoulli distribution
 
@@ -55,8 +62,8 @@ $$
 \text{Range}: &\quad x \in \{0,1\} \\
 \text{Probability}: &\quad p^x(1-p)^{1-x} \\
 \text{Parameters}: &\quad p\;(\texttt{prob}) = \text{probability of success} \\
-\text{Mean}: &\quad E[x] = p \\
-\text{Variance}: &\quad Var(X) = p(1-p) \\
+\text{Mean}: &\quad E[X] = p \\
+\text{Variance}: &\quad \operatorname{Var}(X) = p(1-p) \\
 \text{Inverse}: &\quad p = \mu
 \end{aligned}
 $$
@@ -129,16 +136,17 @@ rbinom(n = 10, size = 1, prob = occupancy_probability)
 #| fig-cap: "Bernoulli probability mass for the occupancy of a pond."
 # Plot the probability of each of the two possible outcomes.
 occupancy_values = 0:1
-plot(
-  occupancy_values,
-  dbinom(x = occupancy_values, size = 1, prob = 0.3),
-  type = "h",
-  xaxt = "n",
-  ylim = c(0, 1),
-  xlab = "Pond occupied (0 = no, 1 = yes)",
-  ylab = "Probability"
+occupancy_mass_data = data.frame(
+  occupied = occupancy_values,
+  probability = dbinom(x = occupancy_values, size = 1, prob = 0.3)
 )
-axis(side = 1, at = occupancy_values)
+
+ggplot(occupancy_mass_data, aes(x = occupied, ymin = 0, ymax = probability)) +
+  geom_linerange(colour = "#D55E00", linewidth = 0.8) +
+  scale_x_continuous(breaks = occupancy_values) +
+  coord_cartesian(xlim = c(-0.5, 1.5), ylim = c(0, 1)) +
+  labs(x = "Pond occupied (0 = no, 1 = yes)", y = "Probability") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: nest survival"}
@@ -166,8 +174,8 @@ $$
 \text{Probability}: &\quad \binom{n}{x}p^x(1-p)^{n-x} \\
 \text{Parameters}: &\quad n\;(\texttt{size}) = \text{number of trials};\quad
 p\;(\texttt{prob}) = \text{success probability} \\
-\text{Mean}: &\quad E[x] = np \\
-\text{Variance}: &\quad Var(X) = np(1-p) \\
+\text{Mean}: &\quad E[X] = np \\
+\text{Variance}: &\quad \operatorname{Var}(X) = np(1-p) \\
 \text{Inverse}: &\quad p = \mu/n \quad (\text{with } n \text{ fixed})
 \end{aligned}
 $$
@@ -187,7 +195,7 @@ $$
 where $\binom{n}{x}$ counts the ways to choose $x$ outcomes of interest (each with probability
 $p$ of occurring) from $n$ events and $n!$ is a factorial.
 
-Applying the relevant formulae, we can derive the mean and variance of a binomial distribution as:
+Applying the relevant formulae, we can derive the mean and variance of a Binomial distribution as:
 
 $$
 \mu=E[X]=np
@@ -218,7 +226,7 @@ $$
 We can verify our math with R:
 
 ```{r}
-# Set the binomial model parameters and the count we want to check.
+# Set the Binomial model parameters and the count we want to check.
 seedling_count = 20
 seedling_survival_probability = 0.7
 survivors_to_check = 14
@@ -234,14 +242,14 @@ The model gives an expected count of $20(0.7)=14$ seedlings per plot and
 a variance of $20(0.7)(0.3)=4.2$ seedlings squared:
 
 ```{r}
-# Calculate the expected count and variance from the binomial formulas.
+# Calculate the expected count and variance from the Binomial formulas.
 expected_survivors = seedling_count * seedling_survival_probability
 variance_survivors = seedling_count *
   seedling_survival_probability *
   (1 - seedling_survival_probability)
 ```
 
-If a binomial mean and variance are known, we can invert their formulas.
+If a Binomial mean and variance are known, we can invert their formulas.
 Writing $m=E[X]$ and $v=\operatorname{Var}(X)$ gives
 
 $$
@@ -255,7 +263,7 @@ This conversion requires $m>0$, a probability $0<p\leq 1$, and a positive
 integer result for $n$. For the model above, it recovers $p=0.7$ and $n=20$:
 
 ```{r}
-# Recover the binomial parameters from the model mean and variance.
+# Recover the Binomial parameters from the model mean and variance.
 mean_survivors = expected_survivors
 success_probability = 1 - variance_survivors / mean_survivors
 estimated_trial_count = mean_survivors / success_probability
@@ -292,15 +300,15 @@ $$
 \text{Range}: &\quad x = 0, 1, 2, \ldots \\
 \text{Probability}: &\quad \frac{e^{-\lambda}\lambda^x}{x!} \\
 \text{Parameters}: &\quad \lambda\;(\texttt{lambda}) = \text{event rate} \\
-\text{Mean}: &\quad E[x] = \lambda \\
-\text{Variance}: &\quad Var(X) = \lambda \\
+\text{Mean}: &\quad E[X] = \lambda \\
+\text{Variance}: &\quad \operatorname{Var}(X) = \lambda \\
 \text{Inverse}: &\quad \lambda = \mu
 \end{aligned}
 $$
 
 The Poisson distribution is a common starting point when we count events in a fixed unit of time,
-area, or sampling effort: insects caught per trap-night, seedlings per quadrat, or camera detections
-per night. It is often the default distribution for count data when we do not have a fixed
+area, or sampling effort: insects caught per trap-night, seedlings per quadrat, or camera
+detections per night. It is often the default distribution for count data when we do not have a fixed
 upper limit to the number of observations. Its most important property is to always have the
 same variance and mean, such that when this is not appropriate, we need to switch to other
 distributions for count data.
@@ -331,7 +339,7 @@ $$
 
 ### Example: wildlife detections
 
-Suppose a camera records an average of $0.8$ detections per night. If the expected detection
+Suppose a camera records an average of $0.8$ detections/night. If the expected detection
 count scales with observation time, three nights have expected count
 
 $$
@@ -373,7 +381,7 @@ minimum_detections = 5
 )
 ```
 
-Unlike a binomial count, a Poisson count has no fixed upper limit. A count of 100 detections is
+Unlike a Binomial count, a Poisson count has no fixed upper limit. A count of 100 detections is
 possible under this model, although extremely unlikely when $\lambda=2.4$.
 
 ```{r}
@@ -391,20 +399,16 @@ detection_mass_data = data.frame(
 )
 
 # Plot each possible detection count as a vertical probability line.
-plot(
-  detection_mass_data$detections,
-  detection_mass_data$probability,
-  type = "h",
-  xaxt = "n",
-  xlab = "Number of detections",
-  ylab = "Probability"
-)
+ggplot(detection_mass_data, aes(x = detections, ymin = 0, ymax = probability)) +
+  geom_linerange(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Number of detections", y = "Probability") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: flowering stems per orchid plot"}
 
 A survey covers two square metres of a restoration site. Assume flowering stems occur
-at an average rate of 1.2 per square metre. Calculate the probability of finding exactly
+at an average rate of 1.2/m². Calculate the probability of finding exactly
 three stems in the surveyed area. Why does this model allow counts greater than three,
 even though three is the count in the question?
 
@@ -527,13 +531,15 @@ this model is underdispersed relative to the Poisson distribution.
 #| fig-cap: "Conway-Maxwell-Poisson probability mass for clutch size."
 # Calculate and plot the probability mass up to a count that is very unlikely to be exceeded.
 clutch_values = 0:qcmp(q = 0.999, lambda = 8, nu = 2)
-plot(
-  clutch_values,
-  dcmp(x = clutch_values, lambda = 8, nu = 2),
-  type = "h",
-  xlab = "Number of eggs",
-  ylab = "Probability"
+clutch_mass_data = data.frame(
+  eggs = clutch_values,
+  probability = dcmp(x = clutch_values, lambda = 8, nu = 2)
 )
+
+ggplot(clutch_mass_data, aes(x = eggs, ymin = 0, ymax = probability)) +
+  geom_linerange(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Number of eggs", y = "Probability") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: dispersion in a count model"}
@@ -557,7 +563,7 @@ distribution, as expected for $\nu<1$.
 :::
 ::::
 
-## Negative binomial distribution {#sec-negative_binomial}
+## Negative Binomial distribution {#sec-negative_binomial}
 
 $$
 \begin{aligned}
@@ -566,20 +572,20 @@ $$
 \text{Range}: &\quad x = 0, 1, 2, \ldots \\
 \text{Probability}: &\quad
 \frac{\Gamma(x+k)}{\Gamma(k)x!}p^k(1-p)^x \\
-\text{Parameters}: &\quad k\;(\texttt{size}) = \text{dispersion};\quad
-p\;(\texttt{prob}) = \text{prob success} \\
-\text{Mean}: &\quad E[x] = k(1-p)/p \\
-\text{Variance}: &\quad Var(X) = \mu + \mu^2/k \\
-\text{Inverse}: &\quad p = k/(k+\mu)
+\text{Parameters}: &\quad k\;(\texttt{size}) = \text{shape};\quad
+p\;(\texttt{prob}) = \text{probability} \\
+\text{Mean}: &\quad E[X] = k(1-p)/p \\
+\text{Variance}: &\quad \operatorname{Var}(X) = k(1-p)/p^2 \\
+\text{Inverse}: &\quad p = k/(k+\mu),\ \text{which gives } \operatorname{Var}(X) = \mu + \mu^2/k
 \end{aligned}
 $$
 
-When overdispersion occurs, the negative binomial distribution is a useful starting model.
+When overdispersion occurs, the Negative Binomial distribution is a useful starting model.
 It has support $\{0, 1, 2, \ldots\}$ and can accommodate more variation
-than a Poisson model with the same mean. The negative binomial model has two parameters:
+than a Poisson model with the same mean. The Negative Binomial model has two parameters:
 
 - $\mu>0$: the mean count per sampling unit;
-- $k>0$: a shape or dispersion parameter that controls the additional variation
+- $k>0$: a shape parameter that controls the additional variation
 
 The probability mass function is
 
@@ -612,12 +618,12 @@ $$
 \mu+\frac{\mu^2}{k}\longrightarrow\mu.
 $$
 
-Thus, the negative binomial distribution approaches the Poisson distribution as $k$ becomes
+Thus, the Negative Binomial distribution approaches the Poisson distribution as $k$ becomes
 large.
 
 In R, `dnbinom()` and related functions, the argument `size` corresponds to $k$. This naming
-can be confusing because `size` does not mean the sample size here; it is the negative
-binomial shape parameter. The *Details* section of the documentation page for `dnbinom`
+can be confusing because `size` does not mean the sample size here; it is the Negative
+Binomial shape parameter. The *Details* section of the documentation page for `dnbinom`
 explains why it has that name.
 
 ### Example: seedlings in quadrats
@@ -645,7 +651,7 @@ allow at the same mean.
 We can verify these calculations in R:
 
 ```{r}
-# Calculate the negative binomial mean and variance from its parameters.
+# Calculate the Negative Binomial mean and variance from its parameters.
 mean_seedlings = 4
 negative_binomial_size = 1.5
 
@@ -682,14 +688,14 @@ minimum_seedlings = 10
 )
 ```
 
-Like the Poisson distribution, the negative binomial distribution has no fixed
+Like the Poisson distribution, the Negative Binomial distribution has no fixed
 upper limit. A count of 100 is mathematically possible, although very unlikely if your mean
 is 4.
 
 ```{r}
 #| echo: false
-#| fig-cap: "Negative binomial probability mass for seedlings in a quadrat."
-# Calculate and plot the negative binomial probability mass over a useful range.
+#| fig-cap: "Negative Binomial probability mass for seedlings in a quadrat."
+# Calculate and plot the Negative Binomial probability mass over a useful range.
 mean_seedlings = 4
 negative_binomial_size = 1.5
 maximum_seedlings_to_plot = 20
@@ -706,20 +712,16 @@ negative_binomial_mass_data = data.frame(
 )
 
 # Vertical lines make the separate possible count probabilities visible.
-plot(
-  negative_binomial_mass_data$seedlings,
-  negative_binomial_mass_data$probability,
-  type = "h",
-  xaxt = "n",
-  xlab = "Number of seedlings",
-  ylab = "Probability"
-)
+ggplot(negative_binomial_mass_data, aes(x = seedlings, ymin = 0, ymax = probability)) +
+  geom_linerange(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Number of seedlings", y = "Probability") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: orchid stem counts with different dispersion"}
 
-Suppose the mean number of flowering stems per plot is $\mu=3$. Calculate the negative
-binomial variance for $k=1.5$ and $k=6$. Which value gives greater overdispersion? How
+Suppose the mean number of flowering stems per plot is $\mu=3$. Calculate the Negative
+Binomial variance for $k=1.5$ and $k=6$. Which value gives greater overdispersion? How
 does increasing $k$ relate to the Poisson model?
 
 ::: {.callout-tip title="Solution" collapse="true"}
@@ -743,9 +745,9 @@ $$
 \binom{n}{x}\frac{B(x+a,n-x+b)}{B(a,b)} \\
 \text{Parameters}: &\quad n\;(\texttt{size}) = \text{no. trials};\quad
 a\;(\texttt{shape1}),\ b\;(\texttt{shape2}) = \text{shapes} \\
-\text{Mean}: &\quad E[x] = n\frac{a}{a+b} \\
+\text{Mean}: &\quad E[X] = n\frac{a}{a+b} \\
 \text{Variance}: &\quad
-Var(X) = \frac{nab(a+b+n)}
+\operatorname{Var}(X) = \frac{nab(a+b+n)}
 {(a+b)^2(a+b+1)} \\
 \text{Inverse}: &\quad
 \kappa = a+b;\quad
@@ -857,22 +859,17 @@ beta_binomial_mass = VGAM::dbetabinom.ab(
 binomial_mass = dbinom(x = survivor_values, size = 20, prob = 0.25)
 
 # Vertical lines show the Beta-Binomial model and points the Binomial model.
-plot(
-  survivor_values,
-  beta_binomial_mass,
-  type = "h",
-  ylim = c(0, max(binomial_mass)),
-  xlab = "Number of surviving tadpoles",
-  ylab = "Probability"
+survivor_mass_data = data.frame(
+  survivors = survivor_values,
+  beta_binomial = beta_binomial_mass,
+  binomial = binomial_mass
 )
-points(survivor_values, binomial_mass, pch = 1)
-legend(
-  "topright",
-  legend = c("Beta-Binomial", "Binomial"),
-  lty = c(1, NA),
-  pch = c(NA, 1),
-  bty = "n"
-)
+
+ggplot(survivor_mass_data, aes(x = survivors)) +
+  geom_linerange(aes(ymin = 0, ymax = beta_binomial), colour = "#D55E00", linewidth = 0.8) +
+  geom_point(aes(y = binomial), shape = 1, size = 2, colour = "grey40") +
+  labs(x = "Number of surviving tadpoles", y = "Probability") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: variation among tanks"}
@@ -912,35 +909,35 @@ Power laws.
 
 **Normal** - Symmetric distribution. Arises from addition of many small,
 independent random processes. The most common distribution, especially for measurement
-error but a lot ecological variation is not Normal!
+error but a lot of ecological variation is not Normal!
 
-**T** - Like a Normal distribution but with thicker tails. Useful when dealing with a few
+**Student's t** - Like a Normal distribution but with thicker tails. Useful when dealing with a few
 extreme values (i.e., robustness against *outliers*).
 
 ## Positive values
 
-All distributions in this category are assymetric, especially when there is high probability
+All distributions in this category are asymmetric, especially when there is high probability
 close to 0.
 
 **Exponential** - Maximum at $0$. Distribution of waiting times
-for a single event to happen if likelikood of the event per unit of time is constant.
+for a single event to happen if the probability of the event per unit of time is constant.
 
-**Log-Normal** -$X$ follows a Log-Normal if $\text{log}(X)$ follows
+**LogNormal** - $X$ follows a LogNormal distribution if $\text{log}(X)$ follows
 a Normal distribution. Arises from multiplication of many small, independent random processes.
 Quite common for processes involving exponential growth.
 
 **Gamma** - Distribution of waiting times for a certain number of
-events to happen (same assumption as exponential). Very similar shape to Log-Normal.
+events to happen (same assumption as exponential). Very similar shape to LogNormal.
 
-**Weibull** - Distribution of waiting times for a a single event to
-happen assuming the likelihood of the event per unit of time is not constant.
+**Weibull** - Distribution of waiting times for a single event to
+happen assuming the probability of the event per unit of time is not constant.
 
 ## Constrained values
 
 **Uniform** - All values within the range are equally likely.
 
 **Beta** - Values within the range are not equally likely. This distribution can be symmetric
-or assymetric (left skewed or right skewed) depending on parameter values.
+or asymmetric (left skewed or right skewed) depending on parameter values.
 
 ## Uniform distribution
 
@@ -953,7 +950,7 @@ $$
 \text{Parameters}: &\quad a\;(\texttt{min}) = \text{lower bound};\quad
 b\;(\texttt{max}) = \text{upper bound} \\
 \text{Mean}: &\quad E[X] = (a+b)/2 \\
-\text{Variance}: &\quad Var(X) = (b-a)^2/12 \\
+\text{Variance}: &\quad \operatorname{Var}(X) = (b-a)^2/12 \\
 \end{aligned}
 $$
 
@@ -992,7 +989,7 @@ also use `runif()` to construct the random number generator of a zero-inflated d
 ### Example: position along a transect
 
 Suppose a seedling is equally likely to establish anywhere along a 50 m transect. Let $X$ be
-its position in metres, so $a=0$ and $b=50$. The density is $1/50=0.02$ per metre and the
+its position in metres, so $a=0$ and $b=50$. The density is $1/50=0.02$/m and the
 probability that the seedling establishes between 10 m and 25 m is
 
 $$
@@ -1022,13 +1019,15 @@ sqrt((transect_end - transect_start)^2 / 12)
 #| fig-cap: "Uniform probability density for the position of a seedling along a 50 m transect."
 # Calculate the density for positions inside and just outside the transect.
 position_values = seq(from = -10, to = 60, length.out = 701)
-plot(
-  position_values,
-  dunif(x = position_values, min = 0, max = 50),
-  type = "l",
-  xlab = "Position along the transect (m)",
-  ylab = "Density"
+position_density_data = data.frame(
+  position = position_values,
+  density = dunif(x = position_values, min = 0, max = 50)
 )
+
+ggplot(position_density_data, aes(x = position, y = density)) +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Position along the transect (m)", y = "Density (1/m)") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: direction of dispersal"}
@@ -1064,7 +1063,7 @@ $$
 \text{Parameters}: &\quad \mu\;(\texttt{mean}) = \text{mean};\quad
 \sigma\;(\texttt{sd}) = \text{standard deviation} \\
 \text{Mean}: &\quad E[X] = \mu \\
-\text{Variance}: &\quad Var(X) = \sigma^2 \\
+\text{Variance}: &\quad \operatorname{Var}(X) = \sigma^2 \\
 \end{aligned}
 $$
 
@@ -1108,32 +1107,32 @@ deviations of the mean; otherwise that probability is negligible. Also check whe
 data are strongly skewed to the right, which a symmetric model cannot describe.
 :::
 
-### Example: tree heights
+### Example: shell length of mussels
 
-As in [Chapter 2](../Chapter_2/Theory.qmd#sec-continuous_four_faces), suppose tree heights follow a Normal
-distribution with $\mu=22$ m and $\sigma=4$ m. A height of 30 m is two standard deviations
-above the mean:
-
-$$
-z=\frac{30-22}{4}=2.
-$$
-
-Approximately 95% of the probability lies between 14 m and 30 m, so about 5% lies outside
-that interval. By symmetry, half of it is above 30 m:
+Suppose the shell length of the mussels in a bed follows a Normal distribution with
+$\mu=60$ mm and $\sigma=5$ mm. A length of 70 mm is two standard deviations above the
+mean:
 
 $$
-P(X>30)\approx \frac{1-0.95}{2}=0.025.
+z=\frac{70-60}{5}=2.
+$$
+
+Approximately 95% of the probability lies between 50 mm and 70 mm, so about 5% lies outside
+that interval. By symmetry, half of it is above 70 mm:
+
+$$
+P(X>70)\approx \frac{1-0.95}{2}=0.025.
 $$
 
 We can calculate it in R:
 
 ```{r}
-# Set the parameters of the tree height model in metres.
-mean_height = 22
-sd_height = 4
+# Set the parameters of the shell length model in millimetres.
+mean_shell = 60
+sd_shell = 5
 
-# Use the upper tail for the probability of a height above 30 m.
-pnorm(q = 30, mean = mean_height, sd = sd_height, lower.tail = FALSE)
+# Use the upper tail for the probability of a length above 70 mm.
+pnorm(q = 70, mean = mean_shell, sd = sd_shell, lower.tail = FALSE)
 ```
 
 The result is approximately $0.0228$, slightly smaller than our approximation because the
@@ -1142,42 +1141,44 @@ deviations on each side of the mean.
 
 ```{r}
 #| echo: false
-#| fig-cap: "Normal probability density for tree height."
+#| fig-cap: "Normal probability density for the shell length of mussels."
 # Calculate the density within four standard deviations of the mean.
-height_values = seq(from = 6, to = 38, length.out = 400)
-plot(
-  height_values,
-  dnorm(x = height_values, mean = 22, sd = 4),
-  type = "l",
-  xlab = "Tree height (m)",
-  ylab = "Density"
+shell_values = seq(from = 40, to = 80, length.out = 400)
+shell_density_data = data.frame(
+  shell_length = shell_values,
+  density = dnorm(x = shell_values, mean = 60, sd = 5)
 )
+
+ggplot(shell_density_data, aes(x = shell_length, y = density)) +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Shell length (mm)", y = "Density (1/mm)") +
+  theme_classic()
 ```
 
-:::: {.callout-important title="Practice: short trees and a central interval"}
+:::: {.callout-important title="Practice: small mussels and a central interval"}
 
-For the tree height model above ($\mu=22$ m and $\sigma=4$ m), calculate the probability
-that a tree is shorter than 16 m. Between which two heights do we find the central 90% of
+For the shell length model above ($\mu=60$ mm and $\sigma=5$ mm), calculate the probability
+that a shell is shorter than 54 mm. Between which two lengths do we find the central 90% of
 the distribution?
 
 ::: {.callout-tip title="Solution" collapse="true"}
 
-The probability of a height below 16 m is a cumulative probability. The central 90% of the
+The probability of a length below 54 mm is a cumulative probability. The central 90% of the
 distribution lies between the 5% and the 95% quantiles:
 
 ```{r}
 # Calculate a lower-tail probability and the quantiles that enclose the central 90%.
-pnorm(q = 16, mean = 22, sd = 4)
-qnorm(p = c(0.05, 0.95), mean = 22, sd = 4)
+pnorm(q = 54, mean = 60, sd = 5)
+qnorm(p = c(0.05, 0.95), mean = 60, sd = 5)
 ```
 
-The probability is approximately $0.067$ and the interval goes from approximately 15.4 m to
-28.6 m.
+The probability is approximately $0.115$ and the interval goes from approximately 51.8 mm
+to 68.2 mm.
 
 :::
 ::::
 
-## T distribution
+## Student's t distribution
 
 $$
 \begin{aligned}
@@ -1190,7 +1191,7 @@ $$
 \text{Parameters}: &\quad
 \mu\;(\text{location});\quad s\;(\text{scale})>0;\quad
 \nu\;(\texttt{df})>0 \\
-\text{Mean}: &\quad \operatorname{E}[X]=\mu \quad (\nu>1) \\
+\text{Mean}: &\quad E[X]=\mu \quad (\nu>1) \\
 \text{Variance}: &\quad \operatorname{Var}(X)=s^2\frac{\nu}{\nu-2}
 \quad (\nu>2) \\
 \text{Inverse}: &\quad
@@ -1199,13 +1200,13 @@ s=\sigma\sqrt{\frac{\nu-2}{\nu}}
 \end{aligned}
 $$
 
-The T distribution is symmetric and bell-shaped like the Normal distribution, but it has
+The Student's t distribution is symmetric and bell-shaped like the Normal distribution, but it has
 thicker tails. That is, it assigns more probability to values that are far from the centre.
 This makes it useful when the data contain a few extreme values that a Normal model would
 treat as practically impossible. It has three parameters: a location $\mu$ that sets the
 centre, a scale $s>0$ that sets the spread and the degrees of freedom $\nu>0$ that control
 how thick the tails are. The smaller $\nu$ is, the thicker the tails. As $\nu$ increases,
-the T distribution approaches the Normal distribution.
+the Student's t distribution approaches the Normal distribution.
 
 Its probability density function is
 
@@ -1228,102 +1229,104 @@ $$
 
 Note that the scale $s$ is not the standard deviation of the distribution. The standard
 deviation is $\sigma=s\sqrt{\nu/(\nu-2)}$, which is always larger than $s$. So, if we want a
-T distribution with a particular standard deviation $\sigma$, we need to use the scale
+Student's t distribution with a particular standard deviation $\sigma$, we need to use the scale
 $s=\sigma\sqrt{(\nu-2)/\nu}$.
 
-The T distribution functions built into R are standardised (i.e., $\mu = 0$ and $s = 1$)
+The Student's t distribution functions built into R are standardised (i.e., $\mu = 0$ and $s = 1$)
 and only depend on the degrees of freedom. If we want a different location or scale, we
-define our random variable as $X = \mu + s \cdot T$, where $T$ follows the standardised T
-distribution. In practice, this means that we standardise a value as $(x-\mu)/s$ before
+define our random variable as $X = \mu + s \cdot T$, where $T$ follows the standardised
+Student's t distribution. In practice, this means that we standardise a value as $(x-\mu)/s$ before
 passing it to `pt()`, and that the density is `dt((x - mu) / s, df) / s`. The standardised
-T distribution is also the source of the critical values used for some of the confidence
+Student's t distribution is also the source of the critical values used for some of the confidence
 intervals in [Chapter 3](../Chapter_3/Theory.qmd).
 
-### Example: tree heights with thicker tails
+### Example: shell length with thicker tails
 
-Suppose tree heights have a mean of 22 m and a standard deviation of 4 m, as in the Normal
-example, but follow a T distribution with $\nu=5$. The scale is
-
-$$
-s=4\sqrt{\frac{5-2}{5}}\approx 3.10 \text{ m}.
-$$
-
-To calculate the probability of a height above 30 m we first standardise that height:
+Suppose the shell length of mussels has a mean of 60 mm and a standard deviation of 5 mm,
+as in the Normal example, but follows a Student's t distribution with $\nu=5$. The scale is
 
 $$
-t=\frac{30-22}{3.10}\approx 2.58.
+s=5\sqrt{\frac{5-2}{5}}\approx 3.87 \text{ mm}.
 $$
 
-The upper tail probability of the standardised T distribution at that value is
+To calculate the probability of a length above 70 mm we first standardise that length:
+
+$$
+t=\frac{70-60}{3.87}\approx 2.58.
+$$
+
+The upper tail probability of the standardised Student's t distribution at that value is
 approximately $0.025$. We can calculate it in R:
 
 ```{r}
-# Convert the standard deviation into the scale of the T distribution.
-mean_height = 22
-sd_height = 4
-height_df = 5
-height_scale = sd_height * sqrt((height_df - 2) / height_df)
+# Convert the standard deviation into the scale of the Student's t distribution.
+mean_shell = 60
+sd_shell = 5
+shell_df = 5
+shell_scale = sd_shell * sqrt((shell_df - 2) / shell_df)
 
-# Standardise the height before calculating the upper-tail probability.
-pt(q = (30 - mean_height) / height_scale, df = height_df, lower.tail = FALSE)
+# Standardise the length before calculating the upper-tail probability.
+pt(q = (70 - mean_shell) / shell_scale, df = shell_df, lower.tail = FALSE)
 ```
 
 This probability is close to the $0.023$ of the Normal model. The difference between the
-two models appears further out in the tail. For a height above 38 m (four standard
+two models appears further out in the tail. For a length above 80 mm (four standard
 deviations above the mean):
 
 ```{r}
-# Compare the probability of a very tall tree under the T and Normal models.
-pt(q = (38 - mean_height) / height_scale, df = height_df, lower.tail = FALSE)
-pnorm(q = 38, mean = mean_height, sd = sd_height, lower.tail = FALSE)
+# Compare the probability of a very long shell under the Student's t and Normal models.
+pt(q = (80 - mean_shell) / shell_scale, df = shell_df, lower.tail = FALSE)
+pnorm(q = 80, mean = mean_shell, sd = sd_shell, lower.tail = FALSE)
 ```
 
-The T model gives a probability of approximately $0.0018$, whereas the Normal model gives
-approximately $0.00003$.
+The Student's t model gives a probability of approximately $0.0018$, whereas the Normal
+model gives approximately $0.00003$.
 
 ```{r}
 #| echo: false
-#| fig-cap: "Probability density of tree height under a T distribution with five degrees of freedom (solid line) and a Normal distribution (dashed line) with the same mean and standard deviation."
-# Calculate both densities over the same range of heights.
-height_values = seq(from = 2, to = 42, length.out = 400)
-t_scale = 4 * sqrt((5 - 2) / 5)
-t_density = dt(x = (height_values - 22) / t_scale, df = 5) / t_scale
-normal_density = dnorm(x = height_values, mean = 22, sd = 4)
+#| fig-cap: "Probability density of the shell length of mussels under a Student's t distribution with five degrees of freedom (solid line) and a Normal distribution (dashed line) with the same mean and standard deviation."
+# Calculate both densities over the same range of lengths.
+shell_values = seq(from = 35, to = 85, length.out = 400)
+t_scale = 5 * sqrt((5 - 2) / 5)
+t_density = dt(x = (shell_values - 60) / t_scale, df = 5) / t_scale
+normal_density = dnorm(x = shell_values, mean = 60, sd = 5)
 
 # Use different line types to distinguish the two models.
-plot(
-  height_values,
-  t_density,
-  type = "l",
-  xlab = "Tree height (m)",
-  ylab = "Density"
+shell_density_data = data.frame(
+  shell_length = rep(shell_values, times = 2),
+  density = c(t_density, normal_density),
+  curve = rep(c("Student's t", "Normal"), each = length(shell_values))
 )
-lines(height_values, normal_density, lty = 2)
-legend("topright", legend = c("T", "Normal"), lty = c(1, 2), bty = "n")
+
+ggplot(shell_density_data, aes(x = shell_length, y = density, linetype = curve)) +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  scale_linetype_manual(values = c("Student's t" = "solid", "Normal" = "dashed")) +
+  labs(x = "Shell length (mm)", y = "Density (1/mm)", linetype = NULL) +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: degrees of freedom and extreme values"}
 
-Consider two T models for tree height with a mean of 22 m and a standard deviation of 4 m,
-one with $\nu=3$ and one with $\nu=30$. For each model, calculate the probability that a
-height is more than three standard deviations away from the mean (i.e., below 10 m or
-above 34 m). Compare the results with the Normal model.
+Consider two Student's t models for shell length with a mean of 60 mm and a standard
+deviation of 5 mm, one with $\nu=3$ and one with $\nu=30$. For each model, calculate the
+probability that a length is more than three standard deviations away from the mean (i.e.,
+below 45 mm or above 75 mm). Compare the results with the Normal model.
 
 ::: {.callout-tip title="Solution" collapse="true"}
 
-By symmetry, the probability is twice the upper tail probability at 34 m. For each model we
-calculate the scale and standardise the height:
+By symmetry, the probability is twice the upper tail probability at 75 mm. For each model
+we calculate the scale and standardise the length:
 
 ```{r}
 # Calculate the two-sided tail probability for each number of degrees of freedom.
-scale_df3 = 4 * sqrt((3 - 2) / 3)
-2 * pt(q = (34 - 22) / scale_df3, df = 3, lower.tail = FALSE)
+scale_df3 = 5 * sqrt((3 - 2) / 3)
+2 * pt(q = (75 - 60) / scale_df3, df = 3, lower.tail = FALSE)
 
-scale_df30 = 4 * sqrt((30 - 2) / 30)
-2 * pt(q = (34 - 22) / scale_df30, df = 30, lower.tail = FALSE)
+scale_df30 = 5 * sqrt((30 - 2) / 30)
+2 * pt(q = (75 - 60) / scale_df30, df = 30, lower.tail = FALSE)
 
 # The same probability under the Normal model.
-2 * pnorm(q = 34, mean = 22, sd = 4, lower.tail = FALSE)
+2 * pnorm(q = 75, mean = 60, sd = 5, lower.tail = FALSE)
 ```
 
 The probabilities are approximately $0.014$ for $\nu=3$, $0.004$ for $\nu=30$ and $0.003$
@@ -1343,8 +1346,8 @@ $$
 \text{Range}: &\quad \text{Positive} \\
 \text{Density}: &\quad \lambda e^{-\lambda x} \\
 \text{Parameters}: &\quad \lambda\;(\texttt{rate})=\ \text{Rate} \\
-\text{Mean}: &\quad E[x] = 1/\lambda \\
-\text{Variance}: &\quad Var(X) = 1/\lambda^2 \\
+\text{Mean}: &\quad E[X] = 1/\lambda \\
+\text{Variance}: &\quad \operatorname{Var}(X) = 1/\lambda^2 \\
 \text{Inverse}: &\quad \lambda = 1/\mu
 \end{aligned}
 $$
@@ -1382,7 +1385,7 @@ of time.
 ### Example: waiting for a pollinator
 
 Suppose a flower is visited by a pollinator on average once every 2 minutes. The rate is
-$\lambda=1/2=0.5$ visits per minute. The probability of waiting more than 5 minutes for the
+$\lambda=1/2=0.5$ visits/min. The probability of waiting more than 5 minutes for the
 next visit is
 
 $$
@@ -1414,13 +1417,15 @@ qexp(p = 0.5, rate = visit_rate)
 #| fig-cap: "Exponential probability density for the waiting time until the next pollinator visit."
 # Calculate the density over a range that covers most of the probability.
 waiting_values = seq(from = 0, to = 10, length.out = 400)
-plot(
-  waiting_values,
-  dexp(x = waiting_values, rate = 0.5),
-  type = "l",
-  xlab = "Waiting time (minutes)",
-  ylab = "Density"
+waiting_density_data = data.frame(
+  waiting_time = waiting_values,
+  density = dexp(x = waiting_values, rate = 0.5)
 )
+
+ggplot(waiting_density_data, aes(x = waiting_time, y = density)) +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Waiting time (min)", y = "Density (1/min)") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: time until a seed is found"}
@@ -1431,12 +1436,12 @@ has not been found after 8 days. What is the median time until a seed is found?
 
 ::: {.callout-tip title="Solution" collapse="true"}
 
-The rate is $\lambda=1/4=0.25$ per day. The probability that the seed has not been found
+The rate is $\lambda=1/4=0.25$/day. The probability that the seed has not been found
 after 8 days is $e^{-0.25(8)}=e^{-2}\approx 0.135$ and the median is
 $\log(2)/0.25\approx 2.77$ days:
 
 ```{r}
-# Calculate the upper-tail probability and the median for a rate of 0.25 per day.
+# Calculate the upper-tail probability and the median for a rate of 0.25/day.
 pexp(q = 8, rate = 1 / 4, lower.tail = FALSE)
 qexp(p = 0.5, rate = 1 / 4)
 ```
@@ -1444,7 +1449,7 @@ qexp(p = 0.5, rate = 1 / 4)
 :::
 ::::
 
-## Gamma distribution
+## Gamma distribution {#sec-gamma}
 
 $$
 \begin{aligned}
@@ -1456,8 +1461,8 @@ $$
 x^{k-1}e^{-rx} \\
 \text{Parameters}: &\quad k\;(\texttt{shape}) = \text{shape};\quad
 r\;(\texttt{rate}) = \text{rate} \\
-\text{Mean}: &\quad E[x] = k/r \\
-\text{Variance}: &\quad Var(X) = k/r^2 \\
+\text{Mean}: &\quad E[X] = k/r \\
+\text{Variance}: &\quad \operatorname{Var}(X) = k/r^2 \\
 \text{Inverse}: &\quad r = k/\mu
 \quad (\text{equivalently, } \texttt{scale}=\mu/k)
 \end{aligned}
@@ -1500,9 +1505,9 @@ the mean and either `rate` or `scale`.
 
 ### Example: waiting for the third pollinator
 
-We continue with the flower that is visited by pollinators at a rate of $0.5$ visits per
-minute. The waiting time until the third visit follows a Gamma distribution with $k=3$ and
-$r=0.5$ per minute. The expected waiting time is
+We continue with the flower that is visited by pollinators at a rate of $0.5$
+visits/min. The waiting time until the third visit follows a Gamma distribution with $k=3$ and
+$r=0.5$/min. The expected waiting time is
 
 $$
 E[X]=\frac{3}{0.5}=6 \text{ minutes}
@@ -1518,7 +1523,7 @@ which corresponds to a standard deviation of approximately $3.46$ minutes. The p
 of waiting more than 10 minutes for the third visit is:
 
 ```{r}
-# Set the shape (number of visits) and the rate (visits per minute).
+# Set the shape (number of visits) and the rate (visits/min).
 visit_shape = 3
 visit_rate = 0.5
 
@@ -1542,13 +1547,15 @@ pgamma(q = 10, shape = visit_shape, rate = visit_rate_from_mean, lower.tail = FA
 #| fig-cap: "Gamma probability density for the waiting time until the third pollinator visit."
 # Calculate the density over a range that covers most of the probability.
 waiting_values = seq(from = 0, to = 20, length.out = 400)
-plot(
-  waiting_values,
-  dgamma(x = waiting_values, shape = 3, rate = 0.5),
-  type = "l",
-  xlab = "Waiting time (minutes)",
-  ylab = "Density"
+waiting_density_data = data.frame(
+  waiting_time = waiting_values,
+  density = dgamma(x = waiting_values, shape = 3, rate = 0.5)
 )
+
+ggplot(waiting_density_data, aes(x = waiting_time, y = density)) +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Waiting time (min)", y = "Density (1/min)") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: seedling biomass"}
@@ -1559,7 +1566,7 @@ probability that a seedling weighs less than 1 g?
 
 ::: {.callout-tip title="Solution" collapse="true"}
 
-The rate is $r=3/2=1.5$ per gram, the variance is $2^2/3\approx 1.33$ g$^2$ and the
+The rate is $r=3/2=1.5$/g, the variance is $2^2/3\approx 1.33$ g$^2$ and the
 coefficient of variation is $1/\sqrt{3}\approx 0.58$. The probability of a biomass below
 1 g is a cumulative probability:
 
@@ -1588,9 +1595,9 @@ $$
 \exp\left[-\frac{(\log x-\mu)^2}{2\sigma^2}\right] \\
 \text{Parameters}: &\quad \mu\;(\texttt{meanlog}) = \text{mean of log}(X);\quad
 \sigma\;(\texttt{sdlog}) = \text{SD of log}(X) \\
-\text{Mean}: &\quad E[x] = \exp(\mu+\sigma^2/2) \\
+\text{Mean}: &\quad E[X] = \exp(\mu+\sigma^2/2) \\
 \text{Variance}: &\quad
-Var(X) = \left[\exp(\sigma^2)-1\right]\exp(2\mu+\sigma^2) \\
+\operatorname{Var}(X) = \left[\exp(\sigma^2)-1\right]\exp(2\mu+\sigma^2) \\
 \text{Inverse}: &\quad
 \mu = \log(E[X])-\sigma^2/2
 \end{aligned}
@@ -1678,13 +1685,15 @@ pnorm(q = (log(50) - meanlog_mass) / sdlog_mass, lower.tail = FALSE)
 #| fig-cap: "LogNormal probability density for body mass."
 # Calculate the density over a range that covers most of the probability.
 mass_values = seq(from = 0.1, to = 120, length.out = 400)
-plot(
-  mass_values,
-  dlnorm(x = mass_values, meanlog = log(30), sdlog = 0.5),
-  type = "l",
-  xlab = "Body mass (g)",
-  ylab = "Density"
+mass_density_data = data.frame(
+  body_mass = mass_values,
+  density = dlnorm(x = mass_values, meanlog = log(30), sdlog = 0.5)
 )
+
+ggplot(mass_density_data, aes(x = body_mass, y = density)) +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Body mass (g)", y = "Density (1/g)") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: a model with a chosen mean"}
@@ -1720,9 +1729,9 @@ $$
 \frac{x^{a-1}(1-x)^{b-1}}{B(a,b)} \\
 \text{Parameters}: &\quad a\;(\texttt{shape1}),\quad
 b\;(\texttt{shape2}) = \text{shape parameters} \\
-\text{Mean}: &\quad E[x] = a/(a+b) \\
+\text{Mean}: &\quad E[X] = a/(a+b) \\
 \text{Variance}: &\quad
-Var(X) = \frac{ab}{(a+b)^2(a+b+1)} \\
+\operatorname{Var}(X) = \frac{ab}{(a+b)^2(a+b+1)} \\
 \text{Inverse}: &\quad
 \kappa=a+b;\quad
 a=\mu\kappa;\quad b=(1-\mu)\kappa
@@ -1821,23 +1830,28 @@ c(shape1 = shape1_from_mean, shape2 = shape2_from_mean)
 #| fig-cap: "Beta probability densities with different shape parameters for a fraction between zero and one."
 # Calculate density curves for three combinations of shape parameters.
 cover_values = seq(from = 0.001, to = 0.999, length.out = 400)
-plot(
-  cover_values,
-  dbeta(x = cover_values, shape1 = 2, shape2 = 5),
-  type = "l",
-  lty = 1,
-  ylim = c(0, 4),
-  xlab = "Vegetation cover (fraction)",
-  ylab = "Density"
+cover_density_data = data.frame(
+  cover = rep(cover_values, times = 3),
+  density = c(
+    dbeta(x = cover_values, shape1 = 2, shape2 = 5),
+    dbeta(x = cover_values, shape1 = 5, shape2 = 2),
+    dbeta(x = cover_values, shape1 = 0.5, shape2 = 0.5)
+  ),
+  curve = rep(
+    c("a = 2, b = 5", "a = 5, b = 2", "a = 0.5, b = 0.5"),
+    each = length(cover_values)
+  )
 )
-lines(cover_values, dbeta(x = cover_values, shape1 = 5, shape2 = 2), lty = 2)
-lines(cover_values, dbeta(x = cover_values, shape1 = 0.5, shape2 = 0.5), lty = 3)
-legend(
-  "top",
-  legend = c("a = 2, b = 5", "a = 5, b = 2", "a = 0.5, b = 0.5"),
-  lty = 1:3,
-  bty = "n"
-)
+
+# The vertical axis is cut at 4 because the third density grows without bound at both ends.
+ggplot(cover_density_data, aes(x = cover, y = density, linetype = curve)) +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  scale_linetype_manual(
+    values = c("a = 2, b = 5" = "solid", "a = 5, b = 2" = "dashed", "a = 0.5, b = 0.5" = "dotted")
+  ) +
+  coord_cartesian(ylim = c(0, 4)) +
+  labs(x = "Vegetation cover (fraction)", y = "Density", linetype = NULL) +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: precision of a cover model"}
@@ -1870,9 +1884,9 @@ $$
 \exp\left[-\left(\frac{x}{\lambda}\right)^k\right] \\
 \text{Parameters}: &\quad k\;(\texttt{shape})>0;\quad
 \lambda\;(\texttt{scale})>0 \\
-\text{Mean}: &\quad E[x] = \lambda\Gamma(1+1/k) \\
+\text{Mean}: &\quad E[X] = \lambda\Gamma(1+1/k) \\
 \text{Variance}: &\quad
-Var(X) = \lambda^2\left[\Gamma(1+2/k)-\Gamma(1+1/k)^2\right] \\
+\operatorname{Var}(X) = \lambda^2\left[\Gamma(1+2/k)-\Gamma(1+1/k)^2\right] \\
 \text{Inverse}: &\quad
 \lambda = \frac{\mu}{\Gamma(1+1/k)}
 \end{aligned}
@@ -1950,13 +1964,15 @@ pweibull(q = 3, shape = lifespan_shape, scale = lifespan_scale, lower.tail = FAL
 #| fig-cap: "Weibull probability density for the lifespan of a leaf."
 # Calculate the density over a range that covers most of the probability.
 lifespan_values = seq(from = 0, to = 7, length.out = 400)
-plot(
-  lifespan_values,
-  dweibull(x = lifespan_values, shape = 1.5, scale = 2 / gamma(1 + 1 / 1.5)),
-  type = "l",
-  xlab = "Leaf lifespan (years)",
-  ylab = "Density"
+lifespan_density_data = data.frame(
+  lifespan = lifespan_values,
+  density = dweibull(x = lifespan_values, shape = 1.5, scale = 2 / gamma(1 + 1 / 1.5))
 )
+
+ggplot(lifespan_density_data, aes(x = lifespan, y = density)) +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Leaf lifespan (years)", y = "Density (1/year)") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: seedling survival time"}
@@ -2110,13 +2126,15 @@ model.
 #| fig-cap: "Probability mass for the number of individuals of the first species in a sample of 20, which is a Binomial distribution."
 # Each count of a Multinomial distribution follows a Binomial distribution.
 first_species_values = 0:20
-plot(
-  first_species_values,
-  dbinom(x = first_species_values, size = 20, prob = 0.25),
-  type = "h",
-  xlab = "Number of individuals of the first species",
-  ylab = "Probability"
+first_species_mass_data = data.frame(
+  individuals = first_species_values,
+  probability = dbinom(x = first_species_values, size = 20, prob = 0.25)
 )
+
+ggplot(first_species_mass_data, aes(x = individuals, ymin = 0, ymax = probability)) +
+  geom_linerange(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Number of individuals of the first species", y = "Probability") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: habitat use"}
@@ -2209,15 +2227,15 @@ $$
 Each variable on its own follows a Normal distribution with mean $\mu_i$ and variance
 $\sigma_i^2$. When all the correlations are zero, the variables are independent.
 
-### Example: tree diameter and height
+### Example: length and width of mussel shells
 
-Suppose the diameter and the height of a tree follow a Multivariate Normal distribution.
-The diameter has a mean of 30 cm and a standard deviation of 8 cm, the height has a mean of
-22 m and a standard deviation of 4 m, and the correlation between them is $0.6$. The
-covariance between diameter and height is
+Suppose the length and the width of the shell of a mussel follow a Multivariate Normal
+distribution. The length has a mean of 60 mm and a standard deviation of 5 mm, the width
+has a mean of 30 mm and a standard deviation of 3 mm, and the correlation between them is
+$0.6$. The covariance between length and width is
 
 $$
-\Sigma_{12}=0.6(8)(4)=19.2,
+\Sigma_{12}=0.6(5)(3)=9,
 $$
 
 so the covariance matrix is
@@ -2225,28 +2243,28 @@ so the covariance matrix is
 $$
 \boldsymbol{\Sigma}=
 \begin{pmatrix}
-8^2 & 19.2 \\
-19.2 & 4^2
+5^2 & 9 \\
+9 & 3^2
 \end{pmatrix}
 =
 \begin{pmatrix}
-64 & 19.2 \\
-19.2 & 16
+25 & 9 \\
+9 & 9
 \end{pmatrix}.
 $$
 
 We can construct this matrix in R from the standard deviations and the correlation matrix:
 
 ```{r}
-# Set the means, standard deviations and correlation matrix of diameter and height.
-tree_means = c(diameter = 30, height = 22)
-tree_sds = c(8, 4)
-tree_correlation = matrix(c(1, 0.6,
+# Set the means, standard deviations and correlation matrix of shell length and width.
+shell_means = c(length = 60, width = 30)
+shell_sds = c(5, 3)
+shell_correlation = matrix(c(1, 0.6,
                             0.6, 1), nrow = 2)
 
 # diag() creates a matrix with the standard deviations on its diagonal and
 # %*% is matrix multiplication.
-Sigma = diag(tree_sds) %*% tree_correlation %*% diag(tree_sds)
+Sigma = diag(shell_sds) %*% shell_correlation %*% diag(shell_sds)
 Sigma
 ```
 
@@ -2256,32 +2274,35 @@ with the function `mvrnorm()` from the `MASS` package:
 ```{r}
 library(MASS) # Install it first
 
-# Simulate 5000 trees. Each row is a tree and each column a variable.
+# Simulate 5000 mussels. Each row is a mussel and each column a variable.
 set.seed(2026)
-tree_draws = mvrnorm(n = 5000, mu = tree_means, Sigma = Sigma)
+shell_draws = mvrnorm(n = 5000, mu = shell_means, Sigma = Sigma)
 
 # The means and covariances of the sample are close to those of the model.
-colMeans(tree_draws)
-cov(tree_draws)
+colMeans(shell_draws)
+cov(shell_draws)
 ```
 
 ```{r}
 #| echo: false
-#| fig-cap: "Diameter and height of 500 trees simulated from a Multivariate Normal distribution with a correlation of 0.6."
-# Simulate a smaller sample so that individual trees remain visible in the plot.
+#| fig-cap: "Length and width of the shells of 500 mussels simulated from a Multivariate Normal distribution with a correlation of 0.6."
+# Simulate a smaller sample so that individual mussels remain visible in the plot.
 set.seed(2026)
-tree_plot_draws = MASS::mvrnorm(
+shell_plot_draws = MASS::mvrnorm(
   n = 500,
-  mu = c(30, 22),
-  Sigma = matrix(c(64, 19.2,
-                   19.2, 16), nrow = 2)
+  mu = c(60, 30),
+  Sigma = matrix(c(25, 9,
+                   9, 9), nrow = 2)
 )
-plot(
-  tree_plot_draws[, 1],
-  tree_plot_draws[, 2],
-  xlab = "Tree diameter (cm)",
-  ylab = "Tree height (m)"
+shell_plot_data = data.frame(
+  shell_length = shell_plot_draws[, 1],
+  shell_width = shell_plot_draws[, 2]
 )
+
+ggplot(shell_plot_data, aes(x = shell_length, y = shell_width)) +
+  geom_point(colour = "#0072B2", alpha = 0.7, size = 2) +
+  labs(x = "Shell length (mm)", y = "Shell width (mm)") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: a covariance matrix for two traits"}
@@ -2420,14 +2441,16 @@ var(biomass_draws[, 3])
 # Simulate a smaller sample so that individual plants remain visible in the plot.
 set.seed(2026)
 biomass_plot_draws = gtools::rdirichlet(n = 500, alpha = 12 * c(0.2, 0.3, 0.5))
-plot(
-  biomass_plot_draws[, 1],
-  biomass_plot_draws[, 3],
-  xlim = c(0, 1),
-  ylim = c(0, 1),
-  xlab = "Fraction of biomass in leaves",
-  ylab = "Fraction of biomass in roots"
+biomass_plot_data = data.frame(
+  leaves = biomass_plot_draws[, 1],
+  roots = biomass_plot_draws[, 3]
 )
+
+ggplot(biomass_plot_data, aes(x = leaves, y = roots)) +
+  geom_point(colour = "#0072B2", alpha = 0.7, size = 2) +
+  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Fraction of biomass in leaves", y = "Fraction of biomass in roots") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: soil texture"}
@@ -2452,16 +2475,16 @@ A zero-inflated distribution is a mixture of two distributions:
 
 (i) A Bernoulli distribution associated to a binary process.
 
-(ii) Any other distribution (discrete of continuous) that may or may not contain zeros.
+(ii) Any other distribution (discrete or continuous) that may or may not contain zeros.
 
-The idea is that each distribution in the mixture represents a different process. For example,
-in the seed predation data we work with in the course, there is a probability that the
-predators does not find the little dishes with seeds ($p_{0}$). That is represented by
-the Bernoulli distribution mentioned above. If a predator finds a dish with seeds, it can eat
-a variable number of seeds (from zero to as many seeds as there are available) depending on
-how hungry it is and its foraging behaviour.
+The idea is that each distribution in the mixture represents a different process. The first
+process decides whether a sampling unit can have a positive value at all: with probability
+$p_{0}$ it cannot, and its value is zero. That is represented by the Bernoulli distribution
+mentioned above. Where a positive value is possible, the second distribution describes the
+value (which may still be zero if that distribution contains zeros).
 
-A zero-inflated version of a mass or density function $p(x)$ is going to look like this:
+For a discrete distribution with probability mass function $p(x)$, the zero-inflated version
+is going to look like this:
 
 $$
 \begin{aligned}
@@ -2478,9 +2501,20 @@ and the other one comes from the original (non-inflated) distribution ($p(0)$). 
 how the original distribution has to be scaled by a factor $(1- p_{\text{0}})$. This is to
 ensure, as always, that probabilities add up to 1.
 
+For a positive continuous distribution with density $f(x)$ the two parts must be stated
+separately, because a probability is never added to a density. The value zero has a
+probability and the positive values have a density:
+
+$$
+P(X = 0) = p_{\text{0}}, \qquad f_{\text{inf}}(x) = (1 - p_{\text{0}})f(x) \quad \text{for } x \gt 0.
+$$
+
+That is, the density of the positive values integrates to $1 - p_{\text{0}}$, which together
+with the probability of a zero adds up to 1.
+
 There might be packages in R that implement some zero-inflated distributions but we can
 easily implement our own. Below is an example of how to define the `dpqr` functions for a
-zero-inflated negative binomial.
+discrete distribution, the zero-inflated Negative Binomial.
 
 ```{r}
 # The mass/density function you will use for the likelihood, including log

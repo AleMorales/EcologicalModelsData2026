@@ -247,7 +247,7 @@ model_probability = dbinom(
 comparison = data.frame(
   survivors = support,
   observed = observed_frequency,
-  theoretical = model_probability
+  model = model_probability
 )
 
 round(comparison, 4)
@@ -256,7 +256,7 @@ round(comparison, 4)
 The `factor()` step ensures that all possible values from 0 to 25 are included, even if a
 value does not occur in the simulation.
 
-We can compare the observed and theoretical probabilities graphically:
+We can compare the observed frequencies and the model probabilities graphically:
 
 ```{r}
 barplot(
@@ -266,50 +266,62 @@ barplot(
   col = c("grey70", "steelblue"),
   xlab = "Number of seedlings surviving",
   ylab = "Probability",
-  legend.text = c("Observed frequency", "Theoretical probability"),
+  legend.text = c("Observed frequency", "Model probability"),
   args.legend = list(x = "topright"),
-  main = "Observed and theoretical seedling survival"
+  main = "Observed and model seedling survival"
 )
 ```
 
 The observed frequencies will not exactly equal the model probabilities because only 1,000
 groups were simulated. They should generally be similar. With a larger number of simulated
-groups, the observed frequencies would usually become closer to the theoretical probabilities.
+groups, the observed frequencies would usually become closer to the model probabilities.
 
-We can also compare the simulated and theoretical values for the first two questions:
+We can also compare the simulated and model values for the first two questions:
 
 ```{r}
 c(
   observed_exactly_15 = mean(simulated_survivors == 15),
-  theoretical_exactly_15 = prob_exactly_15,
+  model_exactly_15 = prob_exactly_15,
   observed_at_least_15 = mean(simulated_survivors >= 15),
-  theoretical_at_least_15 = prob_at_least_15
+  model_at_least_15 = prob_at_least_15
 )
 ```
 
 
-# Exercise 2: Tree heights under a Normal model
+# Exercise 2: Bill length under a Normal model
 
-Suppose the height $X$ of a randomly selected tree follows a Normal model with
-mean 22 m and standard deviation 4 m:
+The data set `penguins`, which is built into R 4.5.0 and later^[With an older version of R,
+install the package `palmerpenguins` and load the data with
+`data(penguins, package = "palmerpenguins")`. It contains the same measurements, but the
+column with the bill length is called `bill_length_mm`.], contains measurements of adult
+penguins of three species near Palmer Station, Antarctica (Gorman, Williams and Fraser
+2014). One of the measurements is the length of the bill (the column `bill_len`, in
+millimetres). The theory used the flipper length of the Gentoo penguins. Here we use the
+bill length of the 68 Chinstrap penguins (*Pygoscelis antarcticus*), which is well
+described by a Normal distribution with a mean of 49 mm and a standard deviation of 3.3 mm
+([Chapter 3](../../Chapter_3/Theory.qmd) explains how such values are obtained from a
+sample).
+
+Suppose the bill length $X$ of a Chinstrap penguin follows that Normal model:
 
 $$
-X\sim\operatorname{Normal}(22,4^2).
+X\sim\operatorname{Normal}(49,3.3^2).
 $$
 
-1. Calculate the probability that a tree is between 18 m and 26 m tall.
-2. Find the height below which 95% of trees fall under this model.
-3. Simulate 1,000 tree heights. Compare a density-scaled histogram with the
+1. Calculate the probability that a bill is between 45 mm and 52 mm long.
+2. Find the length below which 95% of bills fall under this model.
+3. Simulate 1,000 bill lengths. Compare a density-scaled histogram with the
    model density and explain any differences.
 
 ## Solution
 
-Suppose the height $X$ of a randomly selected tree follows a Normal model with
-mean 22 m and standard deviation 4 m.
+Suppose the bill length $X$ of a Chinstrap penguin follows a Normal model with
+mean 49 mm and standard deviation 3.3 mm.
 
-The observational unit is one tree and height is a continuous random variable, so we
-calculate probabilities for intervals of height. Note that the model above is written with
-the variance, $4^2$, whereas the `sd` argument in R takes the standard deviation, 4 m.
+The observational unit is one penguin and bill length is a continuous random variable, so
+we calculate probabilities for intervals of length. Note that the model above is written
+with the variance, $3.3^2$, whereas the `sd` argument in R takes the standard deviation,
+3.3 mm.
 
 In R, the Normal distribution uses:
 
@@ -319,37 +331,37 @@ In R, the Normal distribution uses:
 - `rnorm()` for simulation.
 
 ```{r}
-# Parameters of the tree height model (in metres)
-height_mean = 22
-height_sd = 4
+# Parameters of the bill length model (in millimetres)
+bill_mean = 49
+bill_sd = 3.3
 ```
 
-### 1. Probability that a tree is between 18 m and 26 m tall
+### 1. Probability that a bill is between 45 mm and 52 mm long
 
 The probability of an interval is the cumulative probability at its upper limit minus the
 cumulative probability at its lower limit:
 
 $$
-P(18<X\leq26)=P(X\leq26)-P(X\leq18).
+P(45<X\leq52)=P(X\leq52)-P(X\leq45).
 $$
 
 In R, `pnorm()` calculates $P(X\leq x)$, so we subtract two calls:
 
 ```{r}
-# Subtract the probability below 18 m from the probability below 26 m
-prob_18_to_26 = pnorm(q = 26, mean = height_mean, sd = height_sd) -
-  pnorm(q = 18, mean = height_mean, sd = height_sd)
+# Subtract the probability below 45 mm from the probability below 52 mm
+prob_45_to_52 = pnorm(q = 52, mean = bill_mean, sd = bill_sd) -
+  pnorm(q = 45, mean = bill_mean, sd = bill_sd)
 
-prob_18_to_26
+prob_45_to_52
 ```
 
-Thus, the probability that a tree is between 18 m and 26 m tall is approximately **0.68**,
-or **68%**. Including or excluding the endpoints makes no difference, because the
-probability of any exact height is zero in a continuous model.
+Thus, the probability that a bill is between 45 mm and 52 mm long is approximately
+**0.71**, or **71%**. Including or excluding the endpoints makes no difference, because the
+probability of any exact length is zero in a continuous model.
 
-### 2. Height below which 95% of trees fall
+### 2. Length below which 95% of bills fall
 
-We want the height $x$ such that
+We want the length $x$ such that
 
 $$
 P(X\leq x)=0.95.
@@ -360,42 +372,42 @@ calculates it:
 
 ```{r}
 # Quantile of the model at a cumulative probability of 0.95
-height_95 = qnorm(p = 0.95, mean = height_mean, sd = height_sd)
+bill_95 = qnorm(p = 0.95, mean = bill_mean, sd = bill_sd)
 
-height_95
+bill_95
 ```
 
-The height is approximately **28.6 m**. That is, under this model 95% of trees are shorter
-than 28.6 m and 5% are taller.
+The length is approximately **54.4 mm**. That is, under this model 95% of bills are shorter
+than 54.4 mm and 5% are longer.
 
-### 3. Simulating 1,000 tree heights
+### 3. Simulating 1,000 bill lengths
 
-We can simulate 1,000 tree heights using `rnorm()`:
+We can simulate 1,000 bill lengths using `rnorm()`:
 
 ```{r}
 # Set a seed so that the simulated sample is reproducible
 set.seed(seed = 101)
 
-tree_heights = rnorm(n = 1000, mean = height_mean, sd = height_sd)
+bill_lengths = rnorm(n = 1000, mean = bill_mean, sd = bill_sd)
 
-head(tree_heights)
+head(bill_lengths)
 ```
 
-Each value in `tree_heights` is the height of one simulated tree. We can now plot a
+Each value in `bill_lengths` is the bill length of one simulated penguin. We can now plot a
 histogram of the sample and add the density of the model with `curve()`:
 
 ```{r}
 # Histogram on the density scale (probability = TRUE) so that it is comparable to the curve
 hist(
-  x = tree_heights, breaks = 25, probability = TRUE,
+  x = bill_lengths, breaks = 25, probability = TRUE,
   col = "grey85", border = "white",
-  xlab = "Tree height (m)", ylab = "Density per metre",
-  main = "Simulated tree heights and Normal model"
+  xlab = "Bill length (mm)", ylab = "Density (1/mm)",
+  main = "Simulated bill lengths and Normal model"
 )
 
 # Add the density of the model that generated the sample
 curve(
-  dnorm(x = x, mean = height_mean, sd = height_sd),
+  dnorm(x = x, mean = bill_mean, sd = bill_sd),
   add = TRUE, lwd = 2
 )
 
@@ -407,9 +419,9 @@ legend(
 
 The histogram uses density scaling because the curve also shows density (with counts on
 the vertical axis the two would not be comparable). The bars do not match the curve
-exactly because they summarise one sample of 1,000 trees, and their heights also depend on
-the width of the bins. With a larger number of simulated trees, the histogram would
-usually become closer to the model density.
+exactly because they summarise one sample of 1,000 simulated penguins, and their heights
+also depend on the width of the bins. With a larger number of simulated penguins, the
+histogram would usually become closer to the model density.
 
 # Exercise 3: Checking for overdispersion
 
@@ -429,19 +441,13 @@ the tools for data transformation we learnt in Chapter 1). Is there still eviden
 3. Which model would you use for `count` when ignoring the `spray` treatment and which model would
 you try when doing it separately for each `spray` treatment?
 
-4. Calculate the parameters of the Negative Binomial using the mean and the variance of the
-sample (tip: check the formulae in the
-[Negative Binomial entry](../../Supplements/distributions.qmd#sec-negative_binomial) of the supplement). Compare the probability mass of the
-empirical distribution and the Negative Binomial with the parameters that you just calculated.
-How well does the model capture the variation in the data?
-
 # Exercise 4: Overdispersed quadrat counts
 
 Let's assume a Negative Binomial distribution with a mean ($\mu = 6$) and shape parameter
 ($k = 0.8$). The formulae and R functions are in the
 [Negative Binomial entry](../../Supplements/distributions.qmd#sec-negative_binomial) of the supplement.
 
-1. Calculate the theoretical mean and variance using the formulas. Then verify them
+1. Calculate the mean and variance of the model using the formulas. Then verify them
 using `dnbinom()` and weighted sums.
 2. Generate a sample of size 500.
 3. Calculate the mean and variance of this sample in R.
