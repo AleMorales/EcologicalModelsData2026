@@ -583,11 +583,13 @@ answers at all.
   long names that make the statistical calculation difficult to read.
 - Name distribution arguments explicitly: `dbinom(x = 15, size = 25, prob = 0.65)`.
   Separate long calls over several lines. Use `TRUE` and `FALSE`, not `T` and `F`.
-- Default to `ggplot2` for new author-generated, rendered figures that show data,
-  fitted models, or uncertainty; follow the figure style below. Base R remains
-  appropriate for compact probability, simulation, and numerical examples when its
-  simpler code helps teach the point. Students may use either base R or `ggplot2`
-  unless an exercise explicitly teaches one system. Use `package::function()` or
+- Plotting follows two rules, by author decision. The author's own figures (the
+  figures of theory pages and supplements) use `ggplot2` in the figure style below.
+  Plots inside exercises (the practicals from Chapter 2 onward, on the student page
+  and in the solutions, and the `Practice` callouts of theory pages and supplements)
+  use simple base R graphics, so that students do not spend their time on
+  visualisation. Details are in "Figures and numerical interpretation". Students may
+  use either base R or `ggplot2` in their own work. Use `package::function()` or
   load the package explicitly. Explain any newly introduced dependency; do not
   introduce a framework for a small example.
 - Do not use pipe operators (`|>` or `%>%`) in course code. Functions from packages
@@ -658,12 +660,13 @@ overlaying continuous densities. Label empirical and theoretical quantities.
 
 ### Default style for author-generated figures
 
-Use `ggplot2` as the default for new rendered figures in theory pages and in
-practicals after Chapter 1. Apply `theme_classic()` unless a different theme has
-a clear teaching purpose. This is a visual convention for author-generated
-figures and worked examples, not a restriction on students' plotting choices.
-The Chapter 1 practical is the deliberate exception: it teaches and compares both
-base R graphics and `ggplot2`, so its examples should continue to use both.
+Use `ggplot2` for the author's own figures: the rendered figures of theory pages
+and supplements, including the figure of every supplement entry. Apply
+`theme_classic()` unless a different theme has a clear teaching purpose. This is a
+visual convention for the author's figures, not a restriction on students' plotting
+choices. Plots inside exercises follow the next subsection. The Chapter 1 practical
+is the deliberate exception to both: it teaches and compares base R graphics and
+`ggplot2`, so its examples should continue to use both.
 
 Use a restrained, consistent palette:
 
@@ -685,6 +688,34 @@ is intended as a model-reporting example, include a compact inset or accompanyin
 table giving the model formula, parameter estimates, and confidence intervals.
 Transform axes only when this makes the relationship or model easier to interpret;
 state the transformation and keep units in the axis labels.
+
+### Plots inside exercises
+
+Plots that students draw, or that a solution draws for them, use simple base R
+graphics. This is an author decision: the exercises are about the model and its
+interpretation, and students should not spend their time on visualisation. It
+applies to the practicals from Chapter 2 onward (the student page and the solution
+page, including the worked exercises) and to the `Practice` callouts of theory pages
+and supplements.
+
+- Use the functions taught in the Chapter 1 practical: `plot()`, `hist()`,
+  `barplot()`, `curve()`, `lines()`, `points()`, `abline()`, `legend()` and
+  `contour()`. Do not load `ggplot2` or `patchwork` in a practical.
+- Keep a plot to a few lines: one call that draws, at most a few that add to it,
+  with axis labels and units. Leave out themes, custom palettes, annotations and
+  multi-panel layouts unless the question asks for them.
+- Distinguish series by line type or symbol (`lty`, `pch`) and add a short
+  `legend()` when there is more than one. Colour is optional; where a colour marks
+  the fitted model, use the vermillion of the author's figures (`"#D55E00"`).
+- The code of an exercise plot is shown (it is part of the solution), whereas the
+  code of an author's figure is usually hidden with `#| echo: false`.
+
+A theory page may also show a short base R call when it teaches a tool that students
+will use in the exercises (`curve()` for a quick look at a function, `contour()` for
+a matrix of log-likelihoods, candidate curves over the data to read starting values).
+The figure that the text then refers to is drawn with `ggplot2`.
+
+### General advice
 
 Choose simple, legible figures that answer the question in the text. Use captions
 for rendered theory figures and legends for multiple series. Where practical,

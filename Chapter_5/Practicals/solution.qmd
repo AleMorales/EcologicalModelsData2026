@@ -3,12 +3,6 @@ title: "Chapter 5: Deterministic functions in ecology — solutions"
 date: today
 ---
 
-```{r}
-#| include: false
-# Load ggplot2 for the consistently formatted rendered figures on this page.
-library(ggplot2)
-```
-
 The fully worked first exercise is on the
 [student practical page](no_solution.qmd). These solutions use the
 same data and tasks as Exercises 2–7 on that page. The answers to the questions on paper
@@ -173,35 +167,30 @@ nitrogen). @fig-end_behaviour shows the five functions.
 #| fig-width: 9
 #| fig-height: 6
 #| fig-cap: "The five functions of Exercise 2. Dashed lines mark the asymptotes that are not zero."
-library(patchwork)
+# One panel per function, in two rows of three: the curve and, where there is one,
+# the asymptote
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(2, 3))
 
-# One panel per function: the curve and, where there is one, the asymptote
-draw_panel = function(fun, from, to, asymptote, title, x_label, y_label) {
-  curve_data = data.frame(x = seq(from, to, length.out = 300))
-  curve_data$y = fun(curve_data$x)
-  panel = ggplot(curve_data, aes(x = x, y = y)) +
-    geom_line(colour = "#D55E00", linewidth = 0.8) +
-    labs(title = title, x = x_label, y = y_label) +
-    expand_limits(y = 0) +
-    theme_classic()
-  if (!is.na(asymptote)) {
-    panel = panel + geom_hline(yintercept = asymptote, linetype = "dashed", colour = "grey40")
-  }
-  panel
-}
+curve(seedling_mass(x), from = 0, to = 100, ylim = c(0, 40), main = "1. Hyperbolic",
+      xlab = "Seedlings per pot", ylab = "Mass per seedling (mg)")
 
-panel_1 = draw_panel(seedling_mass, 0, 100, NA, "1. Hyperbolic",
-                     "Seedlings per pot", "Mass per seedling (mg)")
-panel_2 = draw_panel(nitrogen, 0, 30, 90, "2. Saturating exponential",
-                     "Time (weeks)", "Nitrogen released (kg/ha)")
-panel_3 = draw_panel(seeds_removed, 0, 60, 30, "3. Holling type III",
-                     "Density of seeds (seeds/m²)", "Seeds removed (seeds/night)")
-panel_4 = draw_panel(clutch, 5, 150, 12, "4. Shifted Michaelis–Menten",
-                     "Body mass (mg)", "Eggs per clutch")
-panel_5 = draw_panel(power_exponential, 0, 30, NA, "5. Power and exponential",
-                     "x", "y")
+curve(nitrogen(x), from = 0, to = 30, ylim = c(0, 90), main = "2. Saturating exponential",
+      xlab = "Time (weeks)", ylab = "Nitrogen released (kg/ha)")
+abline(h = 90, lty = 2)
 
-(panel_1 + panel_2 + panel_3) / (panel_4 + panel_5 + plot_spacer())
+curve(seeds_removed(x), from = 0, to = 60, ylim = c(0, 30), main = "3. Holling type III",
+      xlab = "Density of seeds (seeds/m²)", ylab = "Seeds removed (seeds/night)")
+abline(h = 30, lty = 2)
+
+curve(clutch(x), from = 5, to = 150, ylim = c(0, 12), main = "4. Shifted Michaelis–Menten",
+      xlab = "Body mass (mg)", ylab = "Eggs per clutch")
+abline(h = 12, lty = 2)
+
+curve(power_exponential(x), from = 0, to = 30, ylim = c(0, 1.7),
+      main = "5. Power and exponential", xlab = "x", ylab = "y")
+
+par(old_par)
 ```
 
 # Exercise 3: Derivatives and slopes
@@ -778,25 +767,16 @@ a_treated = 210
 a_untreated = 165
 b_both = 0.06
 
-# The two curves on a sequence of concentrations, in one data frame.
-conc_values = seq(0, 1.2, length.out = 300)
-puromycin_curves = data.frame(
-  conc = rep(conc_values, times = 2),
-  rate = c(michaelis_menten(conc_values, a = a_treated, b = b_both),
-           michaelis_menten(conc_values, a = a_untreated, b = b_both)),
-  state = rep(c("treated", "untreated"), each = length(conc_values))
-)
+# Observations as points: filled for the treated cells and open for the untreated cells.
+plot(rate ~ conc, data = Puromycin,
+     pch = ifelse(Puromycin$state == "treated", 16, 1),
+     xlab = "Concentration of substrate (ppm)", ylab = "Rate (counts/min/min)")
 
-# Observations as points (shape by state) and curves as lines (line type by state).
-puromycin_plot = ggplot(Puromycin, aes(x = conc, y = rate)) +
-  geom_point(aes(shape = state), colour = "#0072B2", size = 2) +
-  geom_line(data = puromycin_curves, aes(linetype = state),
-            colour = "#D55E00", linewidth = 0.8) +
-  scale_shape_manual(values = c(treated = 16, untreated = 1)) +
-  labs(x = "Concentration of substrate (ppm)", y = "Rate (counts/min/min)",
-       shape = NULL, linetype = NULL) +
-  theme_classic()
-puromycin_plot
+# One curve per state, with a different line type.
+curve(michaelis_menten(x, a = a_treated, b = b_both), add = TRUE, lty = 1)
+curve(michaelis_menten(x, a = a_untreated, b = b_both), add = TRUE, lty = 2)
+legend("bottomright", legend = c("treated", "untreated"),
+       pch = c(16, 1), lty = c(1, 2), bty = "n")
 ```
 
 Both curves follow the observations of their group. So, by eye, the two states
@@ -849,17 +829,12 @@ exp_values[largest]
 
 # The two curves with the observations of the treated cells.
 treated = Puromycin[Puromycin$state == "treated", ]
-two_curves = data.frame(
-  conc = rep(conc_grid, times = 2),
-  rate = c(mm_values, exp_values),
-  curve = rep(c("Michaelis–Menten", "Saturating exponential"), each = length(conc_grid))
-)
-ggplot(treated, aes(x = conc, y = rate)) +
-  geom_point(colour = "#0072B2", alpha = 0.7, size = 2) +
-  geom_line(data = two_curves, aes(linetype = curve), colour = "#D55E00", linewidth = 0.8) +
-  labs(x = "Concentration of substrate (ppm)", y = "Rate (counts/min/min)",
-       linetype = NULL) +
-  theme_classic()
+plot(rate ~ conc, data = treated,
+     xlab = "Concentration of substrate (ppm)", ylab = "Rate (counts/min/min)")
+lines(x = conc_grid, y = mm_values, lty = 1)
+lines(x = conc_grid, y = exp_values, lty = 2)
+legend("bottomright", legend = c("Michaelis–Menten", "Saturating exponential"),
+       lty = c(1, 2), bty = "n")
 ```
 
 The two functions differ most at a concentration of 0.15 ppm, where the Michaelis–Menten
@@ -933,8 +908,8 @@ range(fir$fecundity)
 ```
 
 The diameter is missing for 22 of the 333 trees, which leaves 311 trees with a diameter
-between 3.2 and 17.4 cm and between 1 and 297 cone rachises. We draw the plot with
-`ggplot2`. The curve of question 2 is already included (@fig-fir):
+between 3.2 and 17.4 cm and between 1 and 297 cone rachises. We draw the plot, with the curve of question 2 already included
+(@fig-fir):
 
 ```{r}
 #| label: fig-fir
@@ -944,16 +919,10 @@ power_law = function(x, a = 1, b = 1) {
   a * x^b
 }
 
-# The curve of question 2 on a sequence of diameters.
-fir_curve = data.frame(DBH = seq(3, 18, length.out = 200))
-fir_curve$fecundity = power_law(fir_curve$DBH, a = 0.5, b = 2)
-
-# Observations as points and the curve as a line.
-ggplot(fir, aes(x = DBH, y = fecundity)) +
-  geom_point(colour = "#0072B2", alpha = 0.7, size = 2) +
-  geom_line(data = fir_curve, colour = "#D55E00", linewidth = 0.8) +
-  labs(x = "Diameter at breast height (cm)", y = "Fecundity (cone rachises)") +
-  theme_classic()
+# Observations as points and the curve of question 2 as a line.
+plot(fecundity ~ DBH, data = fir,
+     xlab = "Diameter at breast height (cm)", ylab = "Fecundity (cone rachises)")
+curve(power_law(x, a = 0.5, b = 2), add = TRUE, lwd = 2, col = "#D55E00")
 ```
 
 The fecundity increases faster and faster with the diameter, and the points spread out
@@ -1044,21 +1013,14 @@ hockey_stick = function(x, a = 1, c = 1) {
   ifelse(x < c, a * x, a * c)
 }
 
-# Both curves on a sequence of densities. michaelis_menten() was defined in Exercise 6.
-settler_values = seq(0, 350, length.out = 400)
-damsel_curves = data.frame(
-  settler.den = rep(settler_values, times = 2),
-  surv.den = c(michaelis_menten(settler_values, a = 9.5, b = 15),
-               hockey_stick(settler_values, a = 0.25, c = 35)),
-  curve = rep(c("Michaelis–Menten", "Hockey stick"), each = length(settler_values))
-)
-
-ggplot(DamselRecruitment_sum, aes(x = settler.den, y = surv.den)) +
-  geom_point(colour = "#0072B2", alpha = 0.7, size = 2) +
-  geom_line(data = damsel_curves, aes(linetype = curve), colour = "#D55E00", linewidth = 0.8) +
-  scale_linetype_manual(values = c("Michaelis–Menten" = "solid", "Hockey stick" = "dashed")) +
-  labs(x = "Settlers per 0.1 m²", y = "Survivors per 0.1 m²", linetype = NULL) +
-  theme_classic()
+# The observations with both curves. michaelis_menten() was defined in Exercise 6.
+# n = 500 makes curve() evaluate the function at enough points to show the corner.
+plot(surv.den ~ settler.den, data = DamselRecruitment_sum, ylim = c(0, 10),
+     xlab = "Settlers per 0.1 m²", ylab = "Survivors per 0.1 m²")
+curve(michaelis_menten(x, a = 9.5, b = 15), add = TRUE, lty = 1)
+curve(hockey_stick(x, a = 0.25, c = 35), add = TRUE, lty = 2, n = 500)
+legend("bottomright", legend = c("Michaelis–Menten", "Hockey stick"),
+       lty = c(1, 2), bty = "n")
 ```
 
 The points at the lowest densities are too close together in the figure to compare the
@@ -1111,22 +1073,13 @@ k_damsel = 15
 shepherd(15, s = s_damsel, k = k_damsel, c = c(0.8, 1, 1.2))
 shepherd(315, s = s_damsel, k = k_damsel, c = c(0.8, 1, 1.2))
 
-# The three curves in one data frame.
-shepherd_curves = data.frame(
-  settler.den = rep(settler_values, times = 3),
-  surv.den = c(shepherd(settler_values, s = s_damsel, k = k_damsel, c = 0.8),
-               shepherd(settler_values, s = s_damsel, k = k_damsel, c = 1),
-               shepherd(settler_values, s = s_damsel, k = k_damsel, c = 1.2)),
-  exponent = rep(c("c = 0.8", "c = 1", "c = 1.2"), each = length(settler_values))
-)
-
-ggplot(DamselRecruitment_sum, aes(x = settler.den, y = surv.den)) +
-  geom_point(colour = "#0072B2", alpha = 0.7, size = 2) +
-  geom_line(data = shepherd_curves, aes(linetype = exponent),
-            colour = "#D55E00", linewidth = 0.8) +
-  scale_linetype_manual(values = c("c = 0.8" = "dotted", "c = 1" = "solid", "c = 1.2" = "dashed")) +
-  labs(x = "Settlers per 0.1 m²", y = "Survivors per 0.1 m²", linetype = NULL) +
-  theme_classic()
+# The observations with the three curves; the vertical axis is extended for c = 0.8.
+plot(surv.den ~ settler.den, data = DamselRecruitment_sum, ylim = c(0, 17),
+     xlab = "Settlers per 0.1 m²", ylab = "Survivors per 0.1 m²")
+curve(shepherd(x, s = s_damsel, k = k_damsel, c = 0.8), add = TRUE, lty = 3)
+curve(shepherd(x, s = s_damsel, k = k_damsel, c = 1), add = TRUE, lty = 1)
+curve(shepherd(x, s = s_damsel, k = k_damsel, c = 1.2), add = TRUE, lty = 2)
+legend("topleft", legend = c("c = 0.8", "c = 1", "c = 1.2"), lty = c(3, 1, 2), bty = "n")
 ```
 
 At $x=k$ the denominator is $1+1^c=2$ for any exponent, so the three curves pass through

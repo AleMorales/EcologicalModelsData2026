@@ -17,6 +17,12 @@ html-math-method:
   url: https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js
 ---
 
+```{r}
+#| include: false
+# Load ggplot2 for the consistently formatted rendered figures in this supplement.
+library(ggplot2)
+```
+
 In this document I provide reference material for several distributions, including their
 mathematical formulae, examples of code and tips on when they might be relevant. There is
 also a section on how to construct zero-inflated distributions.
@@ -130,16 +136,17 @@ rbinom(n = 10, size = 1, prob = occupancy_probability)
 #| fig-cap: "Bernoulli probability mass for the occupancy of a pond."
 # Plot the probability of each of the two possible outcomes.
 occupancy_values = 0:1
-plot(
-  occupancy_values,
-  dbinom(x = occupancy_values, size = 1, prob = 0.3),
-  type = "h",
-  xaxt = "n",
-  ylim = c(0, 1),
-  xlab = "Pond occupied (0 = no, 1 = yes)",
-  ylab = "Probability"
+occupancy_mass_data = data.frame(
+  occupied = occupancy_values,
+  probability = dbinom(x = occupancy_values, size = 1, prob = 0.3)
 )
-axis(side = 1, at = occupancy_values)
+
+ggplot(occupancy_mass_data, aes(x = occupied, ymin = 0, ymax = probability)) +
+  geom_linerange(colour = "#D55E00", linewidth = 0.8) +
+  scale_x_continuous(breaks = occupancy_values) +
+  coord_cartesian(xlim = c(-0.5, 1.5), ylim = c(0, 1)) +
+  labs(x = "Pond occupied (0 = no, 1 = yes)", y = "Probability") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: nest survival"}
@@ -392,14 +399,10 @@ detection_mass_data = data.frame(
 )
 
 # Plot each possible detection count as a vertical probability line.
-plot(
-  detection_mass_data$detections,
-  detection_mass_data$probability,
-  type = "h",
-  xaxt = "n",
-  xlab = "Number of detections",
-  ylab = "Probability"
-)
+ggplot(detection_mass_data, aes(x = detections, ymin = 0, ymax = probability)) +
+  geom_linerange(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Number of detections", y = "Probability") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: flowering stems per orchid plot"}
@@ -528,13 +531,15 @@ this model is underdispersed relative to the Poisson distribution.
 #| fig-cap: "Conway-Maxwell-Poisson probability mass for clutch size."
 # Calculate and plot the probability mass up to a count that is very unlikely to be exceeded.
 clutch_values = 0:qcmp(q = 0.999, lambda = 8, nu = 2)
-plot(
-  clutch_values,
-  dcmp(x = clutch_values, lambda = 8, nu = 2),
-  type = "h",
-  xlab = "Number of eggs",
-  ylab = "Probability"
+clutch_mass_data = data.frame(
+  eggs = clutch_values,
+  probability = dcmp(x = clutch_values, lambda = 8, nu = 2)
 )
+
+ggplot(clutch_mass_data, aes(x = eggs, ymin = 0, ymax = probability)) +
+  geom_linerange(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Number of eggs", y = "Probability") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: dispersion in a count model"}
@@ -707,14 +712,10 @@ negative_binomial_mass_data = data.frame(
 )
 
 # Vertical lines make the separate possible count probabilities visible.
-plot(
-  negative_binomial_mass_data$seedlings,
-  negative_binomial_mass_data$probability,
-  type = "h",
-  xaxt = "n",
-  xlab = "Number of seedlings",
-  ylab = "Probability"
-)
+ggplot(negative_binomial_mass_data, aes(x = seedlings, ymin = 0, ymax = probability)) +
+  geom_linerange(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Number of seedlings", y = "Probability") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: orchid stem counts with different dispersion"}
@@ -858,22 +859,17 @@ beta_binomial_mass = VGAM::dbetabinom.ab(
 binomial_mass = dbinom(x = survivor_values, size = 20, prob = 0.25)
 
 # Vertical lines show the Beta-Binomial model and points the Binomial model.
-plot(
-  survivor_values,
-  beta_binomial_mass,
-  type = "h",
-  ylim = c(0, max(binomial_mass)),
-  xlab = "Number of surviving tadpoles",
-  ylab = "Probability"
+survivor_mass_data = data.frame(
+  survivors = survivor_values,
+  beta_binomial = beta_binomial_mass,
+  binomial = binomial_mass
 )
-points(survivor_values, binomial_mass, pch = 1)
-legend(
-  "topright",
-  legend = c("Beta-Binomial", "Binomial"),
-  lty = c(1, NA),
-  pch = c(NA, 1),
-  bty = "n"
-)
+
+ggplot(survivor_mass_data, aes(x = survivors)) +
+  geom_linerange(aes(ymin = 0, ymax = beta_binomial), colour = "#D55E00", linewidth = 0.8) +
+  geom_point(aes(y = binomial), shape = 1, size = 2, colour = "grey40") +
+  labs(x = "Number of surviving tadpoles", y = "Probability") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: variation among tanks"}
@@ -1023,13 +1019,15 @@ sqrt((transect_end - transect_start)^2 / 12)
 #| fig-cap: "Uniform probability density for the position of a seedling along a 50 m transect."
 # Calculate the density for positions inside and just outside the transect.
 position_values = seq(from = -10, to = 60, length.out = 701)
-plot(
-  position_values,
-  dunif(x = position_values, min = 0, max = 50),
-  type = "l",
-  xlab = "Position along the transect (m)",
-  ylab = "Density"
+position_density_data = data.frame(
+  position = position_values,
+  density = dunif(x = position_values, min = 0, max = 50)
 )
+
+ggplot(position_density_data, aes(x = position, y = density)) +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Position along the transect (m)", y = "Density (1/m)") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: direction of dispersal"}
@@ -1146,13 +1144,15 @@ deviations on each side of the mean.
 #| fig-cap: "Normal probability density for the shell length of mussels."
 # Calculate the density within four standard deviations of the mean.
 shell_values = seq(from = 40, to = 80, length.out = 400)
-plot(
-  shell_values,
-  dnorm(x = shell_values, mean = 60, sd = 5),
-  type = "l",
-  xlab = "Shell length (mm)",
-  ylab = "Density"
+shell_density_data = data.frame(
+  shell_length = shell_values,
+  density = dnorm(x = shell_values, mean = 60, sd = 5)
 )
+
+ggplot(shell_density_data, aes(x = shell_length, y = density)) +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Shell length (mm)", y = "Density (1/mm)") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: small mussels and a central interval"}
@@ -1292,15 +1292,17 @@ t_density = dt(x = (shell_values - 60) / t_scale, df = 5) / t_scale
 normal_density = dnorm(x = shell_values, mean = 60, sd = 5)
 
 # Use different line types to distinguish the two models.
-plot(
-  shell_values,
-  t_density,
-  type = "l",
-  xlab = "Shell length (mm)",
-  ylab = "Density"
+shell_density_data = data.frame(
+  shell_length = rep(shell_values, times = 2),
+  density = c(t_density, normal_density),
+  curve = rep(c("Student's t", "Normal"), each = length(shell_values))
 )
-lines(shell_values, normal_density, lty = 2)
-legend("topright", legend = c("Student's t", "Normal"), lty = c(1, 2), bty = "n")
+
+ggplot(shell_density_data, aes(x = shell_length, y = density, linetype = curve)) +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  scale_linetype_manual(values = c("Student's t" = "solid", "Normal" = "dashed")) +
+  labs(x = "Shell length (mm)", y = "Density (1/mm)", linetype = NULL) +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: degrees of freedom and extreme values"}
@@ -1415,13 +1417,15 @@ qexp(p = 0.5, rate = visit_rate)
 #| fig-cap: "Exponential probability density for the waiting time until the next pollinator visit."
 # Calculate the density over a range that covers most of the probability.
 waiting_values = seq(from = 0, to = 10, length.out = 400)
-plot(
-  waiting_values,
-  dexp(x = waiting_values, rate = 0.5),
-  type = "l",
-  xlab = "Waiting time (minutes)",
-  ylab = "Density"
+waiting_density_data = data.frame(
+  waiting_time = waiting_values,
+  density = dexp(x = waiting_values, rate = 0.5)
 )
+
+ggplot(waiting_density_data, aes(x = waiting_time, y = density)) +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Waiting time (min)", y = "Density (1/min)") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: time until a seed is found"}
@@ -1543,13 +1547,15 @@ pgamma(q = 10, shape = visit_shape, rate = visit_rate_from_mean, lower.tail = FA
 #| fig-cap: "Gamma probability density for the waiting time until the third pollinator visit."
 # Calculate the density over a range that covers most of the probability.
 waiting_values = seq(from = 0, to = 20, length.out = 400)
-plot(
-  waiting_values,
-  dgamma(x = waiting_values, shape = 3, rate = 0.5),
-  type = "l",
-  xlab = "Waiting time (minutes)",
-  ylab = "Density"
+waiting_density_data = data.frame(
+  waiting_time = waiting_values,
+  density = dgamma(x = waiting_values, shape = 3, rate = 0.5)
 )
+
+ggplot(waiting_density_data, aes(x = waiting_time, y = density)) +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Waiting time (min)", y = "Density (1/min)") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: seedling biomass"}
@@ -1679,13 +1685,15 @@ pnorm(q = (log(50) - meanlog_mass) / sdlog_mass, lower.tail = FALSE)
 #| fig-cap: "LogNormal probability density for body mass."
 # Calculate the density over a range that covers most of the probability.
 mass_values = seq(from = 0.1, to = 120, length.out = 400)
-plot(
-  mass_values,
-  dlnorm(x = mass_values, meanlog = log(30), sdlog = 0.5),
-  type = "l",
-  xlab = "Body mass (g)",
-  ylab = "Density"
+mass_density_data = data.frame(
+  body_mass = mass_values,
+  density = dlnorm(x = mass_values, meanlog = log(30), sdlog = 0.5)
 )
+
+ggplot(mass_density_data, aes(x = body_mass, y = density)) +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Body mass (g)", y = "Density (1/g)") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: a model with a chosen mean"}
@@ -1822,23 +1830,28 @@ c(shape1 = shape1_from_mean, shape2 = shape2_from_mean)
 #| fig-cap: "Beta probability densities with different shape parameters for a fraction between zero and one."
 # Calculate density curves for three combinations of shape parameters.
 cover_values = seq(from = 0.001, to = 0.999, length.out = 400)
-plot(
-  cover_values,
-  dbeta(x = cover_values, shape1 = 2, shape2 = 5),
-  type = "l",
-  lty = 1,
-  ylim = c(0, 4),
-  xlab = "Vegetation cover (fraction)",
-  ylab = "Density"
+cover_density_data = data.frame(
+  cover = rep(cover_values, times = 3),
+  density = c(
+    dbeta(x = cover_values, shape1 = 2, shape2 = 5),
+    dbeta(x = cover_values, shape1 = 5, shape2 = 2),
+    dbeta(x = cover_values, shape1 = 0.5, shape2 = 0.5)
+  ),
+  curve = rep(
+    c("a = 2, b = 5", "a = 5, b = 2", "a = 0.5, b = 0.5"),
+    each = length(cover_values)
+  )
 )
-lines(cover_values, dbeta(x = cover_values, shape1 = 5, shape2 = 2), lty = 2)
-lines(cover_values, dbeta(x = cover_values, shape1 = 0.5, shape2 = 0.5), lty = 3)
-legend(
-  "top",
-  legend = c("a = 2, b = 5", "a = 5, b = 2", "a = 0.5, b = 0.5"),
-  lty = 1:3,
-  bty = "n"
-)
+
+# The vertical axis is cut at 4 because the third density grows without bound at both ends.
+ggplot(cover_density_data, aes(x = cover, y = density, linetype = curve)) +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  scale_linetype_manual(
+    values = c("a = 2, b = 5" = "solid", "a = 5, b = 2" = "dashed", "a = 0.5, b = 0.5" = "dotted")
+  ) +
+  coord_cartesian(ylim = c(0, 4)) +
+  labs(x = "Vegetation cover (fraction)", y = "Density", linetype = NULL) +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: precision of a cover model"}
@@ -1951,13 +1964,15 @@ pweibull(q = 3, shape = lifespan_shape, scale = lifespan_scale, lower.tail = FAL
 #| fig-cap: "Weibull probability density for the lifespan of a leaf."
 # Calculate the density over a range that covers most of the probability.
 lifespan_values = seq(from = 0, to = 7, length.out = 400)
-plot(
-  lifespan_values,
-  dweibull(x = lifespan_values, shape = 1.5, scale = 2 / gamma(1 + 1 / 1.5)),
-  type = "l",
-  xlab = "Leaf lifespan (years)",
-  ylab = "Density"
+lifespan_density_data = data.frame(
+  lifespan = lifespan_values,
+  density = dweibull(x = lifespan_values, shape = 1.5, scale = 2 / gamma(1 + 1 / 1.5))
 )
+
+ggplot(lifespan_density_data, aes(x = lifespan, y = density)) +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Leaf lifespan (years)", y = "Density (1/year)") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: seedling survival time"}
@@ -2111,13 +2126,15 @@ model.
 #| fig-cap: "Probability mass for the number of individuals of the first species in a sample of 20, which is a Binomial distribution."
 # Each count of a Multinomial distribution follows a Binomial distribution.
 first_species_values = 0:20
-plot(
-  first_species_values,
-  dbinom(x = first_species_values, size = 20, prob = 0.25),
-  type = "h",
-  xlab = "Number of individuals of the first species",
-  ylab = "Probability"
+first_species_mass_data = data.frame(
+  individuals = first_species_values,
+  probability = dbinom(x = first_species_values, size = 20, prob = 0.25)
 )
+
+ggplot(first_species_mass_data, aes(x = individuals, ymin = 0, ymax = probability)) +
+  geom_linerange(colour = "#D55E00", linewidth = 0.8) +
+  labs(x = "Number of individuals of the first species", y = "Probability") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: habitat use"}
@@ -2277,12 +2294,15 @@ shell_plot_draws = MASS::mvrnorm(
   Sigma = matrix(c(25, 9,
                    9, 9), nrow = 2)
 )
-plot(
-  shell_plot_draws[, 1],
-  shell_plot_draws[, 2],
-  xlab = "Shell length (mm)",
-  ylab = "Shell width (mm)"
+shell_plot_data = data.frame(
+  shell_length = shell_plot_draws[, 1],
+  shell_width = shell_plot_draws[, 2]
 )
+
+ggplot(shell_plot_data, aes(x = shell_length, y = shell_width)) +
+  geom_point(colour = "#0072B2", alpha = 0.7, size = 2) +
+  labs(x = "Shell length (mm)", y = "Shell width (mm)") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: a covariance matrix for two traits"}
@@ -2421,14 +2441,16 @@ var(biomass_draws[, 3])
 # Simulate a smaller sample so that individual plants remain visible in the plot.
 set.seed(2026)
 biomass_plot_draws = gtools::rdirichlet(n = 500, alpha = 12 * c(0.2, 0.3, 0.5))
-plot(
-  biomass_plot_draws[, 1],
-  biomass_plot_draws[, 3],
-  xlim = c(0, 1),
-  ylim = c(0, 1),
-  xlab = "Fraction of biomass in leaves",
-  ylab = "Fraction of biomass in roots"
+biomass_plot_data = data.frame(
+  leaves = biomass_plot_draws[, 1],
+  roots = biomass_plot_draws[, 3]
 )
+
+ggplot(biomass_plot_data, aes(x = leaves, y = roots)) +
+  geom_point(colour = "#0072B2", alpha = 0.7, size = 2) +
+  coord_cartesian(xlim = c(0, 1), ylim = c(0, 1)) +
+  labs(x = "Fraction of biomass in leaves", y = "Fraction of biomass in roots") +
+  theme_classic()
 ```
 
 :::: {.callout-important title="Practice: soil texture"}

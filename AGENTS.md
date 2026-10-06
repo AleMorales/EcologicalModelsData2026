@@ -141,6 +141,16 @@ remain mandatory.
   restricted maximum likelihood (REML), which Chapter 7 does not cover yet.
 - Contour plots with `outer()` and `contour()` are taught in base R in the
   Chapter 1 practical, so later chapters can use them without introduction.
+- Plots follow two rules, decided by the author on 6 October 2026. The author's own
+  figures (theory pages and supplements) use `ggplot2` with `theme_classic()` and the
+  palette of `STYLE_GUIDE.md`. Plots inside exercises (the practicals from Chapter 2
+  onward, student page and solutions, and the `Practice` callouts) use simple base R
+  graphics, so that students do not spend their time on visualisation. The Chapter 1
+  practical teaches both systems and keeps both. The practicals of Chapters 4 and 5
+  and the entry figures of `Supplements/distributions.qmd` were converted to this
+  rule on 6 October 2026. Exceptions that the author decided to keep: the figure with
+  `theme_bw()` in the Chapter 3 theory, and the two starting-value figures of the
+  Chapter 5 theory, which stay in base R (`plot()` with `curve()`).
 - Chapter 5 contains no statistics: it is about deterministic functions and their
   mathematical properties, and it prepares Chapter 6, where the functions are combined
   with distributions and fitted. Detailed descriptions of functions live only in
