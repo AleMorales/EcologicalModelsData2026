@@ -6,9 +6,10 @@ date: today
 Exercise 1 uses a laboratory experiment on the survival of tadpoles, Exercises 2 and 3 use
 field counts of glacier lily seedlings, and Exercise 4 uses measurements of trees and of
 penguins that come with R. Exercise 5 simulates hypothetical experiments from the models
-fitted in Exercise 4. The data of Exercises 1 to 3 are in the package `emdbook`, which you
-need to install once with `install.packages("emdbook")`. Work through the first example
-before trying the remaining exercises. The ideas and notation are introduced in the
+fitted in Exercise 4. Exercises 1 to 4 are the core of the practical and Exercise 5 is extra
+practice. The data of Exercises 1 to 3 are in the package `emdbook`, which you need to
+install once with `install.packages("emdbook")`. Work through the first example before
+trying the remaining exercises. The ideas and notation are introduced in the
 [Chapter 4 theory](../Theory.qmd).
 
 # Exercise 1: Survival of reed frog tadpoles
@@ -17,7 +18,8 @@ The data set `ReedfrogPred` in the package `emdbook` contains the results of lab
 experiments on the predation of tadpoles of the African reed frog *Hyperolius spinigularis*
 (Vonesh and Bolker 2005). Each row is a tank of 1.2 × 0.8 × 0.4 m. The variable `density`
 is the number of tadpoles that were placed in the tank at the start (10, 25 or 35) and
-`surv` is the number of tadpoles that survived. We keep the 24 tanks with predators:
+`surv` is the number of tadpoles that survived. Questions 1 to 5 use the 24 tanks with
+predators, and question 6 also uses the 24 tanks without them:
 
 ```{r}
 # Load the reed frog data from the emdbook package without attaching the package.
@@ -50,7 +52,9 @@ is calculated with the $n_i$ of its own tank.
    the likelihood and the log-likelihood for $p=0.5$ and for $p=2/3$, and verify the
    results in R.
 2. On paper, derive the maximum likelihood estimator of $p$ for all the tanks by
-   differentiating the log-likelihood. Calculate the estimate.
+   differentiating the log-likelihood (the
+   [rules of differentiation](../../Supplements/calculus.qmd#sec-calc-rules) are in the
+   calculus refresher). Calculate the estimate.
 3. Write the negative log-likelihood (NLL) as a function of $\operatorname{logit}p$ and
    minimise it with `optim()`. Check the convergence, report the estimate of $p$ and the
    standard error on the logit scale, and calculate a 95% Wald interval for $p$.
@@ -59,6 +63,10 @@ is calculated with the $n_i$ of its own tank.
 5. Is the Binomial model adequate for these data? For each initial density, compare the
    variance of the number of survivors among tanks with the variance of the fitted model.
    What does the comparison imply for the intervals of questions 3 and 4?
+6. The experiment also had 24 tanks without predators. Fit a model with one probability of
+   survival for all 48 tanks and a model with one probability for each treatment, and
+   compare them with AIC and AICc. How much does the presence of predators change the
+   probability of survival?
 
 ## Solution
 
@@ -325,6 +333,101 @@ the overall fraction of survivors. A model in which $p$ varies among tanks is th
 supplement, and models for observations that are grouped are the subject of
 [Chapter 7](../../Chapter_7/Theory.qmd).
 
+### Question 6
+
+The two treatments belong to the same experiment, so we can compare them with a model for
+all 48 tanks. The first model is the one of question 3 applied to all the tanks, with one
+probability of survival ($K=1$). In the second model the tanks with predators have a
+probability $p_{\mathrm{pred}}$ and the tanks without predators a probability
+$p_{\mathrm{no}}$ ($K=2$), and the contribution of a tank is calculated with the
+probability of its treatment. We write the NLL of the second model with the logit of both
+probabilities as parameters. Both models are compared with AIC and with AICc, which now
+uses the 48 tanks as $n$:
+
+```{r}
+# All 48 tanks: survivors, initial number of tadpoles and treatment ("no" or "pred").
+survivors_all = ReedfrogPred$surv
+tadpoles_all = ReedfrogPred$density
+treatment = ReedfrogPred$pred
+n_tanks_all = length(survivors_all)
+table(treatment)
+
+# NLL of the model with one probability for each treatment. The first element of logit_p is
+# the logit of the survival probability without predators and the second with predators.
+treatment_nll = function(logit_p, survivors, tadpoles, treatment) {
+  p = plogis(logit_p)
+  prob = ifelse(treatment == "pred", p[2], p[1])
+  -sum(dbinom(x = survivors, size = tadpoles, prob = prob, log = TRUE))
+}
+
+# Fit both models; binomial_nll() of question 3 serves for the model with one probability.
+pooled_fit = optim(
+  par = 0,
+  fn = binomial_nll,
+  survivors = survivors_all,
+  tadpoles = tadpoles_all,
+  method = "BFGS"
+)
+treatment_fit = optim(
+  par = c(logit_p_no = 0, logit_p_pred = 0),
+  fn = treatment_nll,
+  survivors = survivors_all,
+  tadpoles = tadpoles_all,
+  treatment = treatment,
+  method = "BFGS",
+  hessian = TRUE
+)
+c(pooled = pooled_fit$convergence, treatment = treatment_fit$convergence)
+
+# Estimates of the survival probabilities, and the fractions of survivors that they should
+# equal: all the tadpoles, and the tadpoles of each treatment.
+plogis(pooled_fit$par)
+plogis(treatment_fit$par)
+sum(survivors_all) / sum(tadpoles_all)
+tapply(survivors_all, treatment, sum) / tapply(tadpoles_all, treatment, sum)
+
+# AIC = 2K - 2 * log-likelihood and AICc = AIC + 2K(K + 1) / (n - K - 1), with n the
+# number of tanks. The minimum of the NLL is minus the maximum log-likelihood.
+k_models = c(pooled = 1, treatment = 2)
+nll_models = c(pooled = pooled_fit$value, treatment = treatment_fit$value)
+aic_tanks = 2 * k_models + 2 * nll_models
+aicc_tanks = aic_tanks + 2 * k_models * (k_models + 1) / (n_tanks_all - k_models - 1)
+rbind(aic = aic_tanks, aicc = aicc_tanks)
+
+# 95% Wald intervals on the logit scale, with the endpoints transformed back, and the
+# difference between the two estimated probabilities.
+se_logit_tanks = sqrt(diag(solve(treatment_fit$hessian)))
+rbind(
+  no = plogis(treatment_fit$par[1] + c(-1, 1) * critical_value * se_logit_tanks[1]),
+  pred = plogis(treatment_fit$par[2] + c(-1, 1) * critical_value * se_logit_tanks[2])
+)
+unname(plogis(treatment_fit$par[1]) - plogis(treatment_fit$par[2]))
+```
+
+Both fits have convergence code 0. The model with one probability estimates 0.699, the
+fraction of the 1,120 tadpoles that survived. The model with two probabilities estimates
+0.927 without predators and 0.471 with predators. These are the fractions of survivors in
+each group of tanks, as the derivation of question 2 predicts for a Binomial model, and the
+second is the estimate of question 3. The AIC is 574.5 for one probability and 274.3 for
+one probability per treatment, and the AICc is 574.6 and 274.5. The difference of about
+300 units is far larger than the two units that the additional parameter costs, and the
+AICc gives the same comparison.
+
+The ecological question is about the size of the effect. The probability of survival is
+0.47 with predators (95% Wald interval from 0.43 to 0.51) and 0.93 without them (from 0.90
+to 0.95), so the presence of predators lowers it by 0.46, from 0.93 to 0.47. We do not
+calculate an interval for that difference, because a standard error of a difference of two
+probabilities that were estimated on the logit scale requires the delta method of
+[Chapter 6](../../Chapter_6/Theory.qmd).
+
+The evidence is weaker than the difference in AIC suggests. Question 5 showed that the
+counts of the tanks with predators vary more than the Binomial model allows, so their
+interval is too narrow and the difference in AIC overstates the evidence. The direction
+and the size of the effect are still what the data show. This is the first model of the
+book in which a parameter differs between groups. In [Chapter 6](../../Chapter_6/Theory.qmd)
+parameters will depend on continuous predictors, and in
+[Chapter 7](../../Chapter_7/Theory.qmd) on groups of observations.
+
 # Exercise 2: Glacier lily seedlings in quadrats
 
 The data set `Lily_sum` in the package `emdbook` contains counts of the glacier lily
@@ -444,7 +547,9 @@ in grams. In both cases we assume that the observations are i.i.d.
    of the Adelie penguins. One of them is missing: remove it explicitly. Fit the Gamma
    model to the masses in grams and again to the same masses in kilograms. With the masses
    in grams the NLL is a large number, and the default stopping rule of `optim()` can end
-   the search too early, so add the argument `control = list(reltol = 1e-12)` to both fits.
+   the search too early, so add the argument `control = list(reltol = 1e-12)` to both fits
+   (if R prints "NaNs produced" during the search, see the callout
+   [When a fit fails or prints warnings](../Theory.qmd#sec-maximum-likelihood)).
    Compare the estimates and the maximum log-likelihoods of the two fits. Explain the
    differences with the units of a density.
 5. Fit a [LogNormal](../../Supplements/distributions.qmd#sec-lognormal) model to the body
@@ -453,37 +558,101 @@ in grams. In both cases we assume that the observations are i.i.d.
 
 # Exercise 5: Estimators and intervals across hypothetical experiments
 
-With a single sample we cannot tell how far an estimate is from the parameter, or whether
-a confidence interval contains it, because the parameter is unknown. As in Exercise 3 of
-the Chapter 3 practical, we can study the behaviour of an estimator by simulating
-hypothetical experiments from a model whose parameters we know. Here we use the maximum
-likelihood estimates of Exercise 4 as the parameters of that model. The simulation then
-shows how the estimators and the intervals would behave if the fitted Gamma model had
-generated the data (see
+This exercise is extra practice. With a single sample we cannot tell how far an estimate
+is from the parameter, or whether a confidence interval contains it, because the parameter
+is unknown. As in Exercise 3 of the Chapter 3 practical, we can study the behaviour of an
+estimator by simulating hypothetical experiments from a model whose parameters we know.
+Here we use the maximum likelihood estimates of Exercise 4 as the parameters of that model.
+The simulation then shows how the estimators and the intervals would behave if the fitted
+Gamma model had generated the data (see
 [Properties of maximum likelihood estimators](../Theory.qmd#sec-mle_properties) and
 [Uncertainty from the likelihood](../Theory.qmd#sec-likelihood-uncertainty)). This
-exercise continues with the objects of Exercise 4.
+exercise continues with the objects of Exercise 4. The function that runs the simulation
+is given below the questions with three gaps, which you fill in.
 
 1. For the shape $k$ of the Gamma model fitted to the tree volumes, calculate a 95% Wald
    interval (on the log scale, with the endpoints transformed back) and a 95% profile
    likelihood interval with `uniroot()`. Compare them.
-2. Set seed 801 and simulate 2,000 hypothetical experiments, each with 31 trees from a
-   Gamma model whose shape and rate are the maximum likelihood estimates of Exercise 4. For
-   each experiment, estimate the shape by the method of moments and by maximum likelihood
-   (start `optim()` at the method-of-moments estimates and use
+2. Complete the first gap of the function `simulate_gamma_experiments()` below. Set seed
+   801 and simulate 2,000 hypothetical experiments, each with 31 trees from a Gamma model
+   whose shape and rate are the maximum likelihood estimates of Exercise 4. For each
+   experiment, the function estimates the shape by the method of moments and by maximum
+   likelihood (the fit starts at the method-of-moments estimates and uses
    `control = list(reltol = 1e-12)`, as in Exercise 4). Compare the mean, the standard
    deviation and the mean squared error of the two estimators with the shape that you used
-   to simulate. Tip: write the simulation as a function of the sample size, the shape and
-   the rate, because you will need it again in question 4.
-3. In the same simulation, record for each experiment whether the Wald interval and the
-   profile likelihood interval for the shape contain the shape that you used to simulate,
-   and calculate the coverage of both intervals. Hint: you do not need `uniroot()` inside
-   the simulation. A profile likelihood interval contains a value whenever the profile
-   log-likelihood at that value is within `qchisq(p = 0.95, df = 1) / 2` of the maximum
-   log-likelihood, so one extra fit with the shape fixed at that value is enough.
+   to simulate. Tip: the function has the sample size, the shape and the rate as arguments
+   because you will need it again in question 4.
+3. Complete the second and the third gap, which record for each experiment whether the
+   Wald interval and the profile likelihood interval for the shape contain the shape that
+   you used to simulate, and calculate the coverage of both intervals. Hint: you do not
+   need `uniroot()` inside the simulation. A profile likelihood interval contains a value
+   whenever the profile log-likelihood at that value is within
+   `qchisq(p = 0.95, df = 1) / 2` of the maximum log-likelihood, so one extra fit with the
+   shape fixed at that value is enough.
 4. Set seed 802 and repeat questions 2 and 3 with experiments of 151 penguins from the
    Gamma model fitted to the body masses in grams. How do the bias and the coverage change?
    The two simulations differ in the sample size and in the model. How can you check which
    of the two explains the change? Do it, without resetting the seed.
 5. Why do these results only approximate the behaviour of the estimators and the intervals
    for the real trees and penguins?
+
+The function below needs `gamma_nll()` and `gamma_nll_given_shape()` from Exercise 4, and
+the objects `critical_value` and `cutoff` (the critical value of the standard Normal
+distribution and the cutoff of the relative log-likelihood for a 95% interval). It stores
+the results of every experiment in one row of a data frame. In each gap, replace `NA` by
+your own code. The lines that follow a gap use the names of the objects that the gap
+creates, so keep those names.
+
+```{r}
+#| eval: false
+# One simulation of hypothetical experiments from a Gamma model whose parameters we know.
+# For each experiment: the maximum likelihood and the method-of-moments estimates of the
+# shape, and whether the Wald interval (log scale) and the profile interval contain the
+# shape that was used to simulate.
+simulate_gamma_experiments = function(n_obs, shape, rate, n_experiments) {
+  results = data.frame(
+    shape_ml = rep(NA, times = n_experiments),
+    shape_mom = rep(NA, times = n_experiments),
+    wald_covered = rep(NA, times = n_experiments),
+    profile_covered = rep(NA, times = n_experiments),
+    converged = rep(NA, times = n_experiments)
+  )
+  for (e in seq_len(n_experiments)) {
+    # One hypothetical experiment and its method-of-moments estimates.
+    x = rgamma(n = n_obs, shape = shape, rate = rate)
+    x_mean = mean(x)
+    x_variance = mean((x - x_mean)^2)
+    shape_mom = x_mean^2 / x_variance
+
+    # GAP 1: maximum likelihood fit of the Gamma model to x with optim(), started at the
+    # method-of-moments estimates of the shape and the rate (on the log scale), with
+    # method = "BFGS", hessian = TRUE and control = list(reltol = 1e-12). Store the result
+    # in an object called fit.
+    fit = NA
+    shape_ml = exp(fit$par[1])
+    se_log_shape = sqrt(solve(fit$hessian)[1, 1])
+
+    # The Wald interval contains the shape when the estimate is within the critical value
+    # of standard errors on the log scale. The profile interval contains it when the
+    # relative profile log-likelihood at that shape is within the cutoff.
+
+    # GAP 2: TRUE when the Wald interval contains the shape that was used to simulate.
+    wald_covered = NA
+
+    # GAP 3: fit the model with the shape fixed at the shape that was used to simulate,
+    # which re-estimates the rate only (use gamma_nll_given_shape() with method = "BFGS"
+    # and control = list(reltol = 1e-12), starting at the estimate of log(rate) of fit),
+    # and store it in an object called inner_fit. Then record in profile_covered whether the
+    # relative profile log-likelihood at that shape is within the cutoff.
+    inner_fit = NA
+    profile_covered = NA
+
+    results$shape_ml[e] = shape_ml
+    results$shape_mom[e] = shape_mom
+    results$wald_covered[e] = wald_covered
+    results$profile_covered[e] = profile_covered
+    results$converged[e] = fit$convergence == 0 && inner_fit$convergence == 0
+  }
+  results
+}
+```

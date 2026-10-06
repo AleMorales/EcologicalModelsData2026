@@ -7,10 +7,14 @@ hand: `Chapter_1/Theory.qmd`, the Chapter 1 practical, and the author's chapter
 on discrete probability with its practical. That chapter has since been merged
 with the generated chapter on continuous probability, and its sections on
 samples moved to the estimation chapter, so the author's text is now spread
-over the author's sections of `Chapter_2/Theory.qmd`, the opening section of
-`Chapter_3/Theory.qmd` (`# Samples and distributions`), and the author's
-exercises in the Chapter 2 and Chapter 3 practicals. `AGENTS.md` lists which
-sections and exercises these are. They are the only references for voice. The
+over the author's sections of `Chapter_2/Theory.qmd` and the author's exercises
+in the Chapter 2 and Chapter 3 practicals. `AGENTS.md` lists which sections and
+exercises these are. They are the only references for voice. The opening section
+of `Chapter_3/Theory.qmd` (`# Samples and distributions`) was the author's text, but
+it was rewritten with real data on 6 October 2026, together with the author's
+paragraph on i.i.d. seeds, the passage on skewness and kurtosis, and the
+overdispersion example of Chapter 2; these are generated drafts awaiting the author's
+review and are not references for voice until the author approves them. The
 rest of Chapters 2 and 3 was generated from learning goals. The author approved
 Chapters 1 to 3 in full on 5 October 2026, so use that generated text as reference
 for content, depth, notation and format, never as a model of how to write.
@@ -285,14 +289,25 @@ A useful explanation sequence is:
 6. Interpret the result in ecological terms, including units and limitations.
 
 Reuse an example while developing a concept: seeds within quadrats, seedling
-survival, wildlife detections, or insect counts. Tree heights, body mass, and
-vegetation cover are useful continuations in the later drafts. State whether data
-are simulated, built in, or supplied in a file. Do not present simulation as field
+survival, wildlife detections, or insect counts. The running examples of the
+theory are real data wherever the concept allows it: balsam fir seedling counts
+(`boot::fir`) for a Poisson model, Gentoo penguin flipper length and body mass for
+a Normal model, owl calls for a Negative Binomial model, and salamander counts for
+overdispersion. A hypothetical example is kept where its parameters must be known
+and round (the Binomial seed-survival model, the supplement entries). Do not
+introduce a hypothetical Normal model of tree heights. State whether data are
+simulated, built in, or supplied in a file. Do not present simulation as field
 evidence or invent the provenance of a dataset.
 
+When the parameters of a model for real data come before estimation has been taught
+(Chapter 2), give rounded values that describe the data well and point to the chapter
+that explains how such values are obtained, instead of calculating them on the page.
+
 Use different datasets for a chapter's theory example and its practical
-exercises. A dataset from an earlier chapter may return in a later chapter
-when the new analysis answers a different question; explain that connection.
+exercises. The practical may use another species or group of the same data set
+(Adelie or Chinstrap penguins when the theory uses Gentoo penguins). A dataset
+from an earlier chapter may return in a later chapter when the new analysis answers
+a different question; explain that connection.
 
 For a distribution, describe its support, parameters, ecological interpretation,
 mean and variance, and R functions. Where relevant, connect the four faces in the
@@ -466,7 +481,9 @@ The title always starts with "Statistical detail: " followed by a noun phrase.
 The main text must be complete without the box: nothing outside a box may rely
 on a symbol or result that appears only inside one. Inside the box the full
 rigour stays (the statement, a "where" clause and an "In plain English"
-sentence). Chapter 4 also opens with a roadmap table after the learning goals
+sentence). Chapter 3 uses these boxes as Chapter 4 does, for the law of large
+numbers, consistency, the bias of the variance estimator and the central limit
+theorem: the main text states each result in plain words. Chapter 4 also opens with a roadmap table after the learning goals
 (step, question, R tool, example) and closes with a "recipe" callout before the
 summary. Later theory chapters may copy both when the chapter is a sequence of
 steps that students carry out.

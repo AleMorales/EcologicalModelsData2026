@@ -11,7 +11,8 @@ library(ggplot2)
 
 The fully worked first exercise is on the
 [student practical page](no_solution.qmd). These solutions use the
-same data, tasks and seeds as Exercises 2–5 on that page.
+same data, tasks and seeds as Exercises 2–5 on that page. Exercises 1 to 4 are the core of
+the practical and Exercise 5 is extra practice.
 
 # Exercise 2: Glacier lily seedlings in quadrats
 
@@ -659,7 +660,9 @@ in grams. In both cases we assume that the observations are i.i.d.
    of the Adelie penguins. One of them is missing: remove it explicitly. Fit the Gamma
    model to the masses in grams and again to the same masses in kilograms. With the masses
    in grams the NLL is a large number, and the default stopping rule of `optim()` can end
-   the search too early, so add the argument `control = list(reltol = 1e-12)` to both fits.
+   the search too early, so add the argument `control = list(reltol = 1e-12)` to both fits
+   (if R prints "NaNs produced" during the search, see the callout
+   [When a fit fails or prints warnings](../Theory.qmd#sec-maximum-likelihood)).
    Compare the estimates and the maximum log-likelihoods of the two fits. Explain the
    differences with the units of a density.
 5. Fit a [LogNormal](../../Supplements/distributions.qmd#sec-lognormal) model to the body
@@ -945,7 +948,11 @@ The argument `reltol` deserves a remark. `optim()` stops when a step reduces the
 by less than a small fraction of its value. With the masses in grams and the default
 setting, the search stops after a single step at a shape of 65.56, practically at the
 starting values, although the NLL can still decrease by 0.0025, and it reports a
-convergence code of zero. A smaller `reltol` makes the search continue to the minimum. How
+convergence code of zero. A smaller `reltol` makes the search continue to the minimum. While
+it searches, `optim()` may try a rate or a shape for which `dgamma()` returns `NaN`, and R
+then prints "NaNs produced". These warnings are harmless when the search ends with
+convergence code 0 and sensible estimates (see
+[When a fit fails or prints warnings](../Theory.qmd#sec-maximum-likelihood)). How
 optimisers decide when to stop is a topic of [Chapter 8](../../Chapter_8/Theory.qmd).
 
 ### Question 5
@@ -1020,40 +1027,104 @@ penguins.
 
 # Exercise 5: Estimators and intervals across hypothetical experiments
 
-With a single sample we cannot tell how far an estimate is from the parameter, or whether
-a confidence interval contains it, because the parameter is unknown. As in Exercise 3 of
-the Chapter 3 practical, we can study the behaviour of an estimator by simulating
-hypothetical experiments from a model whose parameters we know. Here we use the maximum
-likelihood estimates of Exercise 4 as the parameters of that model. The simulation then
-shows how the estimators and the intervals would behave if the fitted Gamma model had
-generated the data (see
+This exercise is extra practice. With a single sample we cannot tell how far an estimate
+is from the parameter, or whether a confidence interval contains it, because the parameter
+is unknown. As in Exercise 3 of the Chapter 3 practical, we can study the behaviour of an
+estimator by simulating hypothetical experiments from a model whose parameters we know.
+Here we use the maximum likelihood estimates of Exercise 4 as the parameters of that model.
+The simulation then shows how the estimators and the intervals would behave if the fitted
+Gamma model had generated the data (see
 [Properties of maximum likelihood estimators](../Theory.qmd#sec-mle_properties) and
 [Uncertainty from the likelihood](../Theory.qmd#sec-likelihood-uncertainty)). This
-exercise continues with the objects of Exercise 4.
+exercise continues with the objects of Exercise 4. The function that runs the simulation
+is given below the questions with three gaps, which you fill in.
 
 1. For the shape $k$ of the Gamma model fitted to the tree volumes, calculate a 95% Wald
    interval (on the log scale, with the endpoints transformed back) and a 95% profile
    likelihood interval with `uniroot()`. Compare them.
-2. Set seed 801 and simulate 2,000 hypothetical experiments, each with 31 trees from a
-   Gamma model whose shape and rate are the maximum likelihood estimates of Exercise 4. For
-   each experiment, estimate the shape by the method of moments and by maximum likelihood
-   (start `optim()` at the method-of-moments estimates and use
+2. Complete the first gap of the function `simulate_gamma_experiments()` below. Set seed
+   801 and simulate 2,000 hypothetical experiments, each with 31 trees from a Gamma model
+   whose shape and rate are the maximum likelihood estimates of Exercise 4. For each
+   experiment, the function estimates the shape by the method of moments and by maximum
+   likelihood (the fit starts at the method-of-moments estimates and uses
    `control = list(reltol = 1e-12)`, as in Exercise 4). Compare the mean, the standard
    deviation and the mean squared error of the two estimators with the shape that you used
-   to simulate. Tip: write the simulation as a function of the sample size, the shape and
-   the rate, because you will need it again in question 4.
-3. In the same simulation, record for each experiment whether the Wald interval and the
-   profile likelihood interval for the shape contain the shape that you used to simulate,
-   and calculate the coverage of both intervals. Hint: you do not need `uniroot()` inside
-   the simulation. A profile likelihood interval contains a value whenever the profile
-   log-likelihood at that value is within `qchisq(p = 0.95, df = 1) / 2` of the maximum
-   log-likelihood, so one extra fit with the shape fixed at that value is enough.
+   to simulate. Tip: the function has the sample size, the shape and the rate as arguments
+   because you will need it again in question 4.
+3. Complete the second and the third gap, which record for each experiment whether the
+   Wald interval and the profile likelihood interval for the shape contain the shape that
+   you used to simulate, and calculate the coverage of both intervals. Hint: you do not
+   need `uniroot()` inside the simulation. A profile likelihood interval contains a value
+   whenever the profile log-likelihood at that value is within
+   `qchisq(p = 0.95, df = 1) / 2` of the maximum log-likelihood, so one extra fit with the
+   shape fixed at that value is enough.
 4. Set seed 802 and repeat questions 2 and 3 with experiments of 151 penguins from the
    Gamma model fitted to the body masses in grams. How do the bias and the coverage change?
    The two simulations differ in the sample size and in the model. How can you check which
    of the two explains the change? Do it, without resetting the seed.
 5. Why do these results only approximate the behaviour of the estimators and the intervals
    for the real trees and penguins?
+
+The function below needs `gamma_nll()` and `gamma_nll_given_shape()` from Exercise 4, and
+the objects `critical_value` and `cutoff` (the critical value of the standard Normal
+distribution and the cutoff of the relative log-likelihood for a 95% interval). It stores
+the results of every experiment in one row of a data frame. In each gap, replace `NA` by
+your own code. The lines that follow a gap use the names of the objects that the gap
+creates, so keep those names.
+
+```{r}
+#| eval: false
+# One simulation of hypothetical experiments from a Gamma model whose parameters we know.
+# For each experiment: the maximum likelihood and the method-of-moments estimates of the
+# shape, and whether the Wald interval (log scale) and the profile interval contain the
+# shape that was used to simulate.
+simulate_gamma_experiments = function(n_obs, shape, rate, n_experiments) {
+  results = data.frame(
+    shape_ml = rep(NA, times = n_experiments),
+    shape_mom = rep(NA, times = n_experiments),
+    wald_covered = rep(NA, times = n_experiments),
+    profile_covered = rep(NA, times = n_experiments),
+    converged = rep(NA, times = n_experiments)
+  )
+  for (e in seq_len(n_experiments)) {
+    # One hypothetical experiment and its method-of-moments estimates.
+    x = rgamma(n = n_obs, shape = shape, rate = rate)
+    x_mean = mean(x)
+    x_variance = mean((x - x_mean)^2)
+    shape_mom = x_mean^2 / x_variance
+
+    # GAP 1: maximum likelihood fit of the Gamma model to x with optim(), started at the
+    # method-of-moments estimates of the shape and the rate (on the log scale), with
+    # method = "BFGS", hessian = TRUE and control = list(reltol = 1e-12). Store the result
+    # in an object called fit.
+    fit = NA
+    shape_ml = exp(fit$par[1])
+    se_log_shape = sqrt(solve(fit$hessian)[1, 1])
+
+    # The Wald interval contains the shape when the estimate is within the critical value
+    # of standard errors on the log scale. The profile interval contains it when the
+    # relative profile log-likelihood at that shape is within the cutoff.
+
+    # GAP 2: TRUE when the Wald interval contains the shape that was used to simulate.
+    wald_covered = NA
+
+    # GAP 3: fit the model with the shape fixed at the shape that was used to simulate,
+    # which re-estimates the rate only (use gamma_nll_given_shape() with method = "BFGS"
+    # and control = list(reltol = 1e-12), starting at the estimate of log(rate) of fit),
+    # and store it in an object called inner_fit. Then record in profile_covered whether the
+    # relative profile log-likelihood at that shape is within the cutoff.
+    inner_fit = NA
+    profile_covered = NA
+
+    results$shape_ml[e] = shape_ml
+    results$shape_mom[e] = shape_mom
+    results$wald_covered[e] = wald_covered
+    results$profile_covered[e] = profile_covered
+    results$converged[e] = fit$convergence == 0 && inner_fit$convergence == 0
+  }
+  results
+}
+```
 
 ## Solution
 
@@ -1114,12 +1185,12 @@ for.
 
 ### Question 2
 
-We write one function that simulates the hypothetical experiments for a given sample size,
-shape and rate, and a second one that summarises the results. For each experiment the
-first function simulates the measurements with `rgamma()`, calculates the method-of-moments
-estimates and uses them to start the maximum likelihood fit. It also records what question
-3 asks for and whether the fits stopped normally. The results are stored in a data frame
-with one row per experiment:
+Here is the skeleton with its three gaps filled in, and a second function that summarises
+the results. For each experiment the first function simulates the measurements with
+`rgamma()`, calculates the method-of-moments estimates and uses them to start the maximum
+likelihood fit (gap 1). It also records what question 3 asks for (gaps 2 and 3) and whether
+the fits stopped normally. The results are stored in a data frame with one row per
+experiment:
 
 ```{r}
 # One simulation of hypothetical experiments from a Gamma model whose parameters we know.

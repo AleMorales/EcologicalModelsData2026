@@ -24,12 +24,6 @@ the tools for data transformation we learnt in Chapter 1). Is there still eviden
 3. Which model would you use for `count` when ignoring the `spray` treatment and which model would
 you try when doing it separately for each `spray` treatment?
 
-4. Calculate the parameters of the Negative Binomial using the mean and the variance of the
-sample (tip: check the formulae in the
-[Negative Binomial entry](../../Supplements/distributions.qmd#sec-negative_binomial) of the supplement). Compare the probability mass of the
-empirical distribution and the Negative Binomial with the parameters that you just calculated.
-How well does the model capture the variation in the data?
-
 ## Solution
 
 ### Question 1
@@ -85,99 +79,13 @@ counts are strongly overdispersed. When accounting for spray, a Poisson model wi
 a predictor is a useful starting point, though we might still end up using a Negative Binomial
 (we will cover formal methods of model comparison later in the book).
 
-### Question 4
-
-For the Negative Binomial parameterisation used in R,
-
-$$
-\operatorname{Var}(X)=\mu+\frac{\mu^2}{k},
-$$
-
-so the shape parameter is
-
-$$
-k=\frac{\mu^2}{\operatorname{Var}(X)-\mu}.
-$$
-
-To match the empirical distribution’s variance, calculate the variance of the sample. To emphasise
-this I avoid using `var()` which is actually a statistical estimator and not the variance
-of the sample (but in practice it is not a critical issue unless $n$ is very small, so do
-not worry too much about it):
-
-```{r}
-counts = InsectSprays$count
-mu_hat = mean(counts)
-empirical_variance = mean((counts - mu_hat)^2)
-
-k_hat = mu_hat^2 / (empirical_variance - mu_hat)
-
-c(
-  mean = mu_hat,
-  empirical_variance = empirical_variance,
-  k = k_hat
-)
-```
-
-The empirical variance is about **51.2**, giving an estimated shape parameter of about **2.2**.
-
-Compare the empirical probability mass with that of the estimated Negative Binomial:
-
-```{r}
-support = 0:max(counts)
-
-empirical_mass = as.numeric(
-  table(factor(counts, levels = support))
-) / length(counts)
-
-negative_binomial_mass = dnbinom(
-  support,
-  size = k_hat,
-  mu = mu_hat
-)
-
-plot(
-  support,
-  empirical_mass,
-  type = "h",
-  lwd = 5,
-  col = "grey65",
-  xlab = "Count",
-  ylab = "Probability",
-  main = "Empirical and Negative Binomial probability mass"
-)
-
-lines(
-  support,
-  negative_binomial_mass,
-  type = "b",
-  pch = 16,
-  col = "steelblue"
-)
-
-legend(
-  "topright",
-  legend = c("Empirical", "Negative Binomial"),
-  col = c("grey65", "steelblue"),
-  lty = 1,
-  pch = c(NA, 16),
-  lwd = c(5, 1)
-)
-```
-
-The estimated Negative Binomial matches the empirical mean and variance by construction, and
-allows more variation than a Poisson model. However, pooling treatments combines groups with
-very different count levels. A single Negative Binomial distribution may therefore not capture
-all the patterns in the empirical distribution and it would be better to account for the
-structure of the data explicitly (we will do that in Chapter 7).
-
-
 # Exercise 4: Overdispersed quadrat counts
 
 Let's assume a Negative Binomial distribution with a mean ($\mu = 6$) and shape parameter
 ($k = 0.8$). The formulae and R functions are in the
 [Negative Binomial entry](../../Supplements/distributions.qmd#sec-negative_binomial) of the supplement.
 
-1. Calculate the theoretical mean and variance using the formulas. Then verify them
+1. Calculate the mean and variance of the model using the formulas. Then verify them
 using `dnbinom()` and weighted sums.
 2. Generate a sample of size 500.
 3. Calculate the mean and variance of this sample in R.
@@ -226,7 +134,7 @@ c(
 
 ### Question 2
 
-Generate a sample of size 500, then calculate its mean and empirical variance. The empirical variance uses the divisor $n$, as in the empirical distribution.
+Generate a sample of size 500:
 
 ```{r}
 set.seed(123)
@@ -236,7 +144,13 @@ sample_counts = rnbinom(
   size = k,
   mu = mu
 )
+```
 
+### Question 3
+
+Calculate the mean and the empirical variance of the sample. The empirical variance uses the divisor $n$, as in the empirical distribution.
+
+```{r}
 sample_mean = mean(sample_counts)
 sample_variance = mean((sample_counts - sample_mean)^2)
 
@@ -248,9 +162,7 @@ c(
 )
 ```
 
-### Question 3
-
-The sample summaries vary between simulations, but should be broadly consistent with a mean of 6 and a variance of 51. The theoretical variance-to-mean ratio is $51/6=8.5$; the sample ratio will not necessarily equal it.
+The sample summaries vary between simulations, but should be broadly consistent with a mean of 6 and a variance of 51. The variance-to-mean ratio of the model is $51/6=8.5$; the sample ratio will not necessarily equal it.
 
 ### Question 4
 

@@ -164,6 +164,37 @@ below the model value, a difference that becomes negligible as the sample size i
 
 # Exercise 3: Variation in tree heights
 
+The data set `trees`, which is part of the `datasets` package that comes with R,
+contains measurements of 31 felled black cherry trees. We use the column `Height`, the height
+of each tree in feet (ft). Let $X_i$ be the height of tree $i$ and assume that the trees are
+i.i.d. with $X_i \sim \operatorname{Normal}(\mu,\sigma^2)$, where $\mu$ is the mean of the
+model (in ft) and $\sigma^2$ its variance (in ft²). Remember that the argument `sd` of
+`rnorm()` takes the standard deviation $\sigma$. See
+[Estimation of two parameters](../Theory.qmd#sec-two_parameters) for the method of moments
+with this model.
+
+With a single sample we cannot tell how far an estimate is from the parameter, because the
+parameter is unknown. To study the behaviour of an estimator we can simulate hypothetical
+experiments from a model whose parameters we know. Here we use the estimates from the
+observed trees as the parameters of that model (a plug-in estimate, as for the standard
+error in [Standard errors](../Theory.qmd#sec-standard_errors)). The simulation then shows how the estimators would behave if
+the fitted model had generated the data. The results approximate the behaviour of the
+estimators for the real trees, and the approximation is better the closer the estimates are
+to the parameters.
+
+1. Load the data with `data(trees, package = "datasets")`. Estimate $\mu$ by method of
+   moments. Estimate $\sigma^2$ in two ways: as the variance of the empirical distribution
+   (i.e. with $n$ in the denominator) and with `var()` (i.e., with $n-1$ in the denominator).
+2. Set seed 434 and simulate 2,000 hypothetical experiments, each with 31 trees from a Normal
+   model whose mean and variance are the method-of-moments estimates of question 1. For each
+   experiment, calculate both variance estimates. Compare their average values and simulated
+   biases with the variance that you used to simulate.
+3. Calculate the mean squared error of each variance estimator in the simulation. Does
+   knowing which estimator is unbiased, by itself, tell you which has the smaller mean
+   squared error?
+
+## Solution
+
 ### Question 1
 
 The observational unit is one tree, and the data are the 31 values of `Height`, measured in
@@ -237,9 +268,36 @@ data.frame(
 The method-of-moments estimator averages approximately 37.56 ft², below the 39.29 ft² used
 to simulate. Its simulated bias is approximately $-1.73$ ft², while the expected bias is
 $-39.29/31 = -1.27$ ft². The estimator from `var()` averages approximately 38.81 ft², with
-a simulated bias of $-0.48$ ft² rather than exactly zero. The differences from the expected
-values are due to the finite number of hypothetical experiments: each average is itself an
-estimate, and it would change with another seed. The simulation shows the bias of the
+a simulated bias of $-0.48$ ft² rather than exactly zero.
+
+The differences from the expected values are due to the finite number of hypothetical
+experiments: each average is itself an estimate, and it would change with another seed. We
+can calculate how much such an average varies. The standard error of the average of 2,000
+estimates is the standard deviation of those estimates divided by $\sqrt{2000}$ (see
+[Standard errors](../Theory.qmd#sec-standard_errors)), and the simulated bias has the same
+standard error because it only subtracts a constant:
+
+```{r}
+# Standard deviation of each estimator across the hypothetical experiments.
+sd_estimates = c(
+  method_of_moments = sd(variance_estimates["method_of_moments", ]),
+  with_var = sd(variance_estimates["with_var", ])
+)
+
+# Standard error of each average, and therefore of each simulated bias.
+se_simulated_bias = sd_estimates / sqrt(n_experiments)
+se_simulated_bias
+
+# Distance between the simulated and the expected bias, in standard errors.
+expected_bias = c(method_of_moments = -variance_mm / n_trees, with_var = 0)
+(simulated_bias - expected_bias) / se_simulated_bias
+```
+
+The standard error is approximately 0.22 ft² for the method-of-moments estimator and
+0.23 ft² for `var()`. So both simulated biases are about two standard errors (2.1) below
+their expected values. A deviation of this size is unusual, but it is still within what
+2,000 experiments can produce, and a simulation with more experiments would come closer to
+the expected values. The simulation shows the bias of the
 estimators for the fitted model; the real model has an unknown variance that is probably
 somewhat different from 39.29 ft², so the bias of the real estimators will also differ.
 
@@ -263,6 +321,30 @@ enough to compensate for its bias. Knowing that one estimator is unbiased does n
 itself, tell us which has the smaller MSE.
 
 # Exercise 4: Mean body mass and interval coverage
+
+Suppose that the body masses (in grams) of small mammals are independent and follow a
+LogNormal model with `meanlog = log(30)` and `sdlog = 0.8`. As described in the
+[LogNormal entry](../../Supplements/distributions.qmd#sec-lognormal) of the supplement, the
+model median on the original scale is $e^{\mu}$ and the **mean mass** is
+$e^{\mu+\sigma^2/2}$, where $\mu$ and $\sigma$ describe log mass.  In this exercise, you
+calculate approximate 95% Wald confidence intervals for the mean mass (see
+[Confidence intervals](../Theory.qmd#sec-confidence_intervals)) and check how often they
+contain it.
+
+1. Calculate the model mean and median mass in grams. Set seed 443, simulate one study of 12
+   animals, and calculate its sample mean, sample median, and estimated standard error of the
+   sample mean (`sd(mass) / sqrt(n)`).
+2. For this study, calculate a 95% Wald interval for the **original-scale mean mass** using
+   `qnorm()`. Interpret the interval. Why is its coverage only approximate for these
+   LogNormal masses?
+3. Set seed 444. Simulate 2,000 studies of 12 animals and 2,000 studies of 100 animals.
+   Calculate the Wald interval for every study and find the fraction of intervals that
+   contain the model mean at each sample size. Compare the fractions with 0.95 and explain
+   why coverage might change with sample size.
+4. State one reason why coverage in this simulation does not prove that the same procedure
+   will work equally well for field data.
+
+## Solution
 
 ### Question 1
 
