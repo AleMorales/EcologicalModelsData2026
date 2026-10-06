@@ -24,7 +24,8 @@ rewritten by the author: use them for topic coverage and continuity, never as a
 model of how to write. The guide governs new and revised material, without requiring a
 wholesale rewrite of existing pages.
 
-Explicit conventions, such as `=` for R assignment, are retained. Where existing
+Explicit conventions, such as `=` for R assignment and the slash in compound units
+(g/day), are retained. Where existing
 files differ, the defaults below are editorial choices for consistency: sentence
 case headings, British English, dollar-delimited mathematics, and modern Quarto
 chunk options. These choices do not imply that the existing files already follow
@@ -391,6 +392,41 @@ Use “approximately” for rounded results and asymptotic approximations. Descr
 simulation summaries as varying across samples. Do not promise monotonic
 improvement in every realised sample as sample size increases. State the
 conditions behind general claims about estimator performance.
+
+## Units
+
+Write compound units with a slash and not with the word "per": µmol/m²/s, g/day,
+kg/ha, seeds/m², prey/day. This is an author decision. Do not write "µmol per m²
+per second", "g per day" or "kg per ha". The rule applies everywhere a unit is
+attached to a quantity: prose, tables, captions, callouts, mathematics and the axis
+labels in R code.
+
+- Use the symbol of a unit where a common one exists (µmol, g, kg, mm, cm, m, ha, L,
+  mL, s, min) and write the name in full for longer units of time (hour, day, night,
+  week, month, year) and for things that are counted in the numerator (seeds, prey,
+  tadpoles, species). Unit names stay in the singular after the slash: seeds/m²,
+  g/day, cm/year.
+- Put a space between the number and the unit and none around the slashes:
+  90 kg/ha, 18 kg/ha/week.
+- A rate without a unit in the numerator takes the slash as well, directly after the
+  number: $b=0.2$/week, a density of $0.0614$/mm. Where such a unit stands alone (in
+  parentheses, an axis label or a code comment) write 1/day, 1/mm: "the inverse units
+  of $x$ (1/day)", `"Density (1/mm)"`.
+- When the units of a derivative are spelled out as a ratio of two compound units,
+  bracket them, because a row of slashes would be ambiguous: (µmol/g/hour)/(µmol/L),
+  (seeds/night)/(seeds/m²), species/(t/ha/year).
+- A substance follows the unit: 40 µg/L of carbon, 0.8 mg/L of nitrogen.
+- In prose use the characters ² and µ (m², µmol). Inside mathematics set units
+  upright with `\text{}` or `\mathrm{}`, for example `\text{ prey/day}`,
+  `\text{ g/m}^2` and `\text{/day}`. In an axis label write the unit in parentheses
+  after the quantity: `"Nitrogen released (kg/ha)"`.
+- "Per" remains when the denominator is an object or a sampling unit and not a unit
+  of measurement: 2.14 seedlings per quadrat, 4.75 calls per visit, 120 tadpoles per
+  tank, 0.02 days per prey, 0.63 survivors per settler, 9.5 survivors per 0.1 m². It
+  also remains in "per unit of $x$", "per unit of time", "species per percent" and
+  "parts per million", and in ordinary description where no unit is attached to a
+  number or a symbol: "the number of prey that the spider eats per day", "one
+  probability of survival per predator treatment".
 
 ## Markdown and Quarto
 
