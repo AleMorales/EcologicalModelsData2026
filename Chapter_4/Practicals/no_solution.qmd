@@ -7,10 +7,20 @@ Exercise 1 uses a laboratory experiment on the survival of tadpoles, Exercises 2
 field counts of glacier lily seedlings, and Exercise 4 uses measurements of trees and of
 penguins that come with R. Exercise 5 simulates hypothetical experiments from the models
 fitted in Exercise 4. Exercises 1 to 4 are the core of the practical and Exercise 5 is extra
-practice. The data of Exercises 1 to 3 are in the package `emdbook`, which you need to
-install once with `install.packages("emdbook")`. Work through the first example before
-trying the remaining exercises. The ideas and notation are introduced in the
+practice. The data of Exercises 1 to 3 are in the package `emdbook`. Work through the first
+example before trying the remaining exercises. The ideas and notation are introduced in the
 [Chapter 4 theory](../Theory.qmd).
+
+As in the theory, every model is written and fitted with the packages RTMB and RTMBdist,
+which you installed in the Chapter 1 practical together with `emdbook`. Load RTMB first and
+RTMBdist second:
+
+```{r}
+#| message: false
+# Load RTMB first and RTMBdist second.
+library(RTMB)
+library(RTMBdist)
+```
 
 # Exercise 1: Survival of reed frog tadpoles
 
@@ -55,18 +65,19 @@ is calculated with the $n_i$ of its own tank.
    differentiating the log-likelihood (the
    [rules of differentiation](../../Supplements/calculus.qmd#sec-calc-rules) are in the
    calculus refresher). Calculate the estimate.
-3. Write the negative log-likelihood (NLL) as a function of $\operatorname{logit}p$ and
-   minimise it with `optim()`. Check the convergence, report the estimate of $p$ and the
-   standard error on the logit scale, and calculate a 95% Wald interval for $p$.
-4. Calculate the 95% likelihood interval for $p$ with `uniroot()` and compare it with the
-   Wald interval.
+3. Write the negative log-likelihood (NLL) with $\operatorname{logit}p$ as the parameter,
+   process it with `MakeADFun()` and minimise it with `optim()`. Check the convergence and
+   report the estimate of $p$. Calculate the standard error on the logit scale from the
+   Hessian by hand and with `sdreport()`, and calculate a 95% Wald interval for $p$.
+4. Calculate the 95% likelihood interval for $p$ by hand with `uniroot()` and with
+   `TMB::tmbprofile()`, and compare it with the Wald interval.
 5. Is the Binomial model adequate for these data? For each initial density, compare the
    variance of the number of survivors among tanks with the variance of the fitted model.
    What does the comparison imply for the intervals of questions 3 and 4?
 6. The experiment also had 24 tanks without predators. Fit a model with one probability of
    survival for all 48 tanks and a model with one probability for each treatment, and
    compare them with AIC and AICc. How much does the presence of predators change the
-   probability of survival?
+   probability of survival, and what is the standard error of that change?
 
 ## Solution
 
@@ -172,25 +183,42 @@ a tank with 35 tadpoles weighs more in the estimate than a tank with 10.
 
 A probability lies between zero and one, so we let the optimiser search over
 $\operatorname{logit}p$, which can take any real value, and convert it into a probability
-with `plogis()` inside the function. The NLL has two arguments for the data, and `dbinom()`
-receives the vector with the initial number of tadpoles of each tank in its argument
-`size`. We start the search at $p=0.5$, whose logit is zero:
+with `plogis()` inside the function. The NLL has the form of the theory: its first argument
+is a list of parameters, with one element (`logit_p`), and its second argument a list of
+data, with two elements (`survivors` and `tadpoles`). `dbinom()` receives the vector with
+the initial number of tadpoles of each tank in its argument `size`. The line `ADREPORT(p)`
+asks for the standard error of $p$ itself, which we use at the end of this question. We
+connect the NLL to the data with `cmb()`, process it with `MakeADFun()` and start the
+search at $p=0.5$, whose logit is zero:
 
 ```{r}
 # Negative log-likelihood of the Binomial model with one survival probability p for all tanks.
-# logit_p can take any real value and plogis() turns it into a probability.
 # The tanks differ in the number of tadpoles n_i, so size is a vector.
-binomial_nll = function(logit_p, survivors, tadpoles) {
+binomial_nll = function(parms, data) {
+  # Make the elements of both lists available by name.
+  getAll(parms, data)
+  # logit_p can take any real value and plogis() turns it into a probability.
   p = plogis(logit_p)
+  # Ask for the standard error of p itself.
+  ADREPORT(p)
   -sum(dbinom(x = survivors, size = tadpoles, prob = p, log = TRUE))
 }
 
-# Fit starting from p = 0.5 (logit 0); hessian = TRUE is used for the standard error.
+# Connect a likelihood to a data set.
+cmb = function(f, d) function(p) f(p, d)
+
+# Process the NLL of the 24 tanks, starting from p = 0.5 (logit 0).
+frog_obj = MakeADFun(
+  cmb(binomial_nll, list(survivors = survivors, tadpoles = tadpoles)),
+  list(logit_p = 0),
+  silent = TRUE
+)
+
+# Fit with BFGS; hessian = TRUE is used for the standard error by hand.
 frog_fit = optim(
-  par = 0,
-  fn = binomial_nll,
-  survivors = survivors,
-  tadpoles = tadpoles,
+  par = frog_obj$par,
+  fn = frog_obj$fn,
+  gr = frog_obj$gr,
   method = "BFGS",
   hessian = TRUE
 )
@@ -205,10 +233,9 @@ The convergence code is 0. By invariance, `plogis()` of the estimate of
 $\operatorname{logit}p$ is the MLE of $p$: 0.471, the value that we derived on paper. The
 minimum of the NLL is 98.94, so the maximum log-likelihood is $-98.94$.
 
-The Hessian that `optim()` returns refers to the parameter that it searched over, so its
-inverse is the approximate variance of the estimate of $\operatorname{logit}p$. We
-calculate the Wald interval on the logit scale and transform its endpoints back with
-`plogis()`:
+There are two routes to the standard error. The first is the calculation by hand of the
+theory. The Hessian that `optim()` returns refers to the parameter that it searched over,
+so its inverse is the approximate variance of the estimate of $\operatorname{logit}p$:
 
 ```{r}
 # The Hessian is a 1 by 1 matrix; take its single element. For this model the second
@@ -216,12 +243,28 @@ calculate the Wald interval on the logit scale and transform its endpoints back 
 frog_fit$hessian[1, 1]
 total_tadpoles * p_hat * (1 - p_hat)
 
-# Standard error on the logit scale and Wald interval on that scale, back-transformed
-# to survival probabilities.
-critical_value = qnorm(p = 0.975)
+# Standard error of the estimate of logit(p).
 se_logit_p = sqrt(1 / frog_fit$hessian[1, 1])
-wald_p = plogis(frog_fit$par + c(-1, 1) * critical_value * se_logit_p)
-c(se_logit_p = se_logit_p)
+se_logit_p
+```
+
+The second route is `sdreport()`, which does this calculation for any model and adds a row
+for the quantity that we asked for with `ADREPORT()`. We calculate the Wald interval on
+the logit scale and transform its endpoints back with `plogis()`:
+
+```{r}
+# Standard errors from sdreport(): the row logit_p is on the scale that was optimised and
+# the row p is the quantity in ADREPORT().
+frog_sd = sdreport(frog_obj)
+frog_summary = summary(frog_sd)
+frog_summary
+
+# Wald interval on the logit scale, back-transformed to survival probabilities.
+critical_value = qnorm(p = 0.975)
+wald_p = plogis(
+  frog_summary["logit_p", "Estimate"] +
+    c(-1, 1) * critical_value * frog_summary["logit_p", "Std. Error"]
+)
 wald_p
 
 # Standard error on the probability scale, from the formula for a proportion.
@@ -229,26 +272,26 @@ sqrt(p_hat * (1 - p_hat) / total_tadpoles)
 ```
 
 The Hessian is 139.5, which agrees with the second derivative of the NLL calculated by
-hand. The standard error of the estimate of $\operatorname{logit}p$ is
-$1/\sqrt{139.5}\approx 0.085$ and the 95% Wald interval for the probability of survival
+hand. By both routes the standard error of the estimate of $\operatorname{logit}p$ is
+$1/\sqrt{139.5}\approx 0.085$, and the 95% Wald interval for the probability of survival
 goes from 0.430 to 0.513. As in the theory, we transformed the endpoints and not the
 standard error, because a standard error on the logit scale cannot be converted into a
-probability with `plogis()` (that requires the delta method of
-[Chapter 6](../../Chapter_6/Theory.qmd)). For this model a standard error on the
-probability scale is available from a formula: the observed information for $p$ is
-$\sum n_i/[\hat p(1-\hat p)]$, so the standard error is
-$\sqrt{\hat p(1-\hat p)/\sum n_i}\approx 0.021$.
+probability with `plogis()`. The standard error of $\hat p$ itself is in the row `p` of
+the table, 0.021: RTMB calculates it with the delta method, which
+[Chapter 6](../../Chapter_6/Theory.qmd#sec-delta-method) explains. For this model we can check it with a
+formula: the observed information for $p$ is $\sum n_i/[\hat p(1-\hat p)]$, so the
+standard error is $\sqrt{\hat p(1-\hat p)/\sum n_i}\approx 0.021$.
 
 ### Question 4
 
 The model has one parameter, so the profile is the log-likelihood itself. The likelihood
 interval contains the values of $p$ whose relative log-likelihood is above the cutoff of
-$-1.92$ (see [Profile likelihood intervals](../Theory.qmd#sec-profile_intervals)). We write
-the relative log-likelihood as a function of $p$ and use `uniroot()` to find the two values
-at which it equals the cutoff. `uniroot()` needs an interval whose ends give values of
-opposite sign. The function that we give it is positive at the estimate, so we search
-between 0.2 and $\hat p$ and between $\hat p$ and 0.8, after checking that the relative
-log-likelihood is below the cutoff at 0.2 and at 0.8:
+$-1.92$ (see [Profile likelihood intervals](../Theory.qmd#sec-profile_intervals)). By hand,
+we write the relative log-likelihood as a function of $p$ and use `uniroot()` to find the
+two values at which it equals the cutoff. `uniroot()` needs an interval whose ends give
+values of opposite sign. The function that we give it is positive at the estimate, so we
+search between 0.2 and $\hat p$ and between $\hat p$ and 0.8, after checking that the
+relative log-likelihood is below the cutoff at 0.2 and at 0.8:
 
 ```{r}
 # Cutoff for a 95% interval: half the 95% quantile of a chi-squared distribution
@@ -280,9 +323,19 @@ p_upper = uniroot(
 c(lower = p_lower, upper = p_upper)
 ```
 
+`TMB::tmbprofile()` calculates the profile of a parameter of the object, and `confint()`
+finds the two crossings of the cutoff. The profile is calculated on the logit scale, so we
+transform the endpoints with `plogis()`:
+
+```{r}
+# Profile of logit(p) and the endpoints of its 95% interval, transformed back.
+frog_profile = TMB::tmbprofile(frog_obj, name = "logit_p", trace = FALSE)
+plogis(confint(frog_profile))
+```
+
 The relative log-likelihood is $-103.7$ at $p=0.2$ and $-148.1$ at $p=0.8$, far below the
-cutoff, so each search interval contains one crossing. The likelihood interval goes from
-0.430 to 0.513, the same as the Wald interval to three
+cutoff, so each search interval contains one crossing. By hand and with `tmbprofile()`
+the likelihood interval goes from 0.430 to 0.513, the same as the Wald interval to three
 decimals. The two methods agree because the sample is large: with 560 tadpoles the
 log-likelihood is very close to a parabola on the logit scale, which is the approximation
 behind the Wald interval. Under the Binomial model with independent tanks, we would report
@@ -340,9 +393,13 @@ all 48 tanks. The first model is the one of question 3 applied to all the tanks,
 probability of survival ($K=1$). In the second model the tanks with predators have a
 probability $p_{\mathrm{pred}}$ and the tanks without predators a probability
 $p_{\mathrm{no}}$ ($K=2$), and the contribution of a tank is calculated with the
-probability of its treatment. We write the NLL of the second model with the logit of both
-probabilities as parameters. Both models are compared with AIC and with AICc, which now
-uses the 48 tanks as $n$:
+probability of its treatment. For the first model we connect `binomial_nll()` of question
+3 to the 48 tanks: the list of data that we give to `cmb()` must use the names that the
+NLL expects (`survivors` and `tadpoles`), whatever the objects are called in our session.
+For the second model we write a new NLL in which `logit_p` is a vector with the logit of
+the two probabilities, and the data include the number of the treatment of each tank
+(`group`), which selects the probability of that tank. Both models are compared with AIC
+and with AICc, which now uses the 48 tanks as $n$:
 
 ```{r}
 # All 48 tanks: survivors, initial number of tadpoles and treatment ("no" or "pred").
@@ -352,30 +409,49 @@ treatment = ReedfrogPred$pred
 n_tanks_all = length(survivors_all)
 table(treatment)
 
+# Number of the treatment of each tank: as.numeric() of a factor returns the position of
+# each level, so 1 is without predators ("no") and 2 with predators ("pred").
+group = as.numeric(treatment)
+
 # NLL of the model with one probability for each treatment. The first element of logit_p is
 # the logit of the survival probability without predators and the second with predators.
-treatment_nll = function(logit_p, survivors, tadpoles, treatment) {
+treatment_nll = function(parms, data) {
+  getAll(parms, data)
   p = plogis(logit_p)
-  prob = ifelse(treatment == "pred", p[2], p[1])
-  -sum(dbinom(x = survivors, size = tadpoles, prob = prob, log = TRUE))
+  # Ask for the standard error of the difference between the two probabilities.
+  difference = p[1] - p[2]
+  ADREPORT(difference)
+  # p[group] is the probability of the treatment of each tank.
+  -sum(dbinom(x = survivors, size = tadpoles, prob = p[group], log = TRUE))
 }
 
-# Fit both models; binomial_nll() of question 3 serves for the model with one probability.
+# Model with one probability: binomial_nll() of question 3 connected to the 48 tanks.
+pooled_obj = MakeADFun(
+  cmb(binomial_nll, list(survivors = survivors_all, tadpoles = tadpoles_all)),
+  list(logit_p = 0),
+  silent = TRUE
+)
 pooled_fit = optim(
-  par = 0,
-  fn = binomial_nll,
-  survivors = survivors_all,
-  tadpoles = tadpoles_all,
+  par = pooled_obj$par,
+  fn = pooled_obj$fn,
+  gr = pooled_obj$gr,
   method = "BFGS"
 )
+
+# Model with one probability for each treatment: the parameter is a vector of two logits.
+treatment_obj = MakeADFun(
+  cmb(
+    treatment_nll,
+    list(survivors = survivors_all, tadpoles = tadpoles_all, group = group)
+  ),
+  list(logit_p = c(0, 0)),
+  silent = TRUE
+)
 treatment_fit = optim(
-  par = c(logit_p_no = 0, logit_p_pred = 0),
-  fn = treatment_nll,
-  survivors = survivors_all,
-  tadpoles = tadpoles_all,
-  treatment = treatment,
-  method = "BFGS",
-  hessian = TRUE
+  par = treatment_obj$par,
+  fn = treatment_obj$fn,
+  gr = treatment_obj$gr,
+  method = "BFGS"
 )
 c(pooled = pooled_fit$convergence, treatment = treatment_fit$convergence)
 
@@ -394,14 +470,22 @@ aic_tanks = 2 * k_models + 2 * nll_models
 aicc_tanks = aic_tanks + 2 * k_models * (k_models + 1) / (n_tanks_all - k_models - 1)
 rbind(aic = aic_tanks, aicc = aicc_tanks)
 
-# 95% Wald intervals on the logit scale, with the endpoints transformed back, and the
-# difference between the two estimated probabilities.
-se_logit_tanks = sqrt(diag(solve(treatment_fit$hessian)))
+# Standard errors: rows 1 and 2 are the two logits and row 3 the difference between the
+# probabilities, from ADREPORT().
+treatment_summary = summary(sdreport(treatment_obj))
+treatment_summary
+
+# 95% Wald intervals: on the logit scale with the endpoints transformed back for the two
+# probabilities, and on the original scale for their difference.
+treatment_estimate = unname(treatment_summary[, "Estimate"])
+treatment_se = unname(treatment_summary[, "Std. Error"])
+treatment_lower = treatment_estimate - critical_value * treatment_se
+treatment_upper = treatment_estimate + critical_value * treatment_se
 rbind(
-  no = plogis(treatment_fit$par[1] + c(-1, 1) * critical_value * se_logit_tanks[1]),
-  pred = plogis(treatment_fit$par[2] + c(-1, 1) * critical_value * se_logit_tanks[2])
+  no = plogis(c(lower = treatment_lower[1], upper = treatment_upper[1])),
+  pred = plogis(c(lower = treatment_lower[2], upper = treatment_upper[2])),
+  difference = c(lower = treatment_lower[3], upper = treatment_upper[3])
 )
-unname(plogis(treatment_fit$par[1]) - plogis(treatment_fit$par[2]))
 ```
 
 Both fits have convergence code 0. The model with one probability estimates 0.699, the
@@ -415,10 +499,9 @@ AICc gives the same comparison.
 
 The ecological question is about the size of the effect. The probability of survival is
 0.47 with predators (95% Wald interval from 0.43 to 0.51) and 0.93 without them (from 0.90
-to 0.95), so the presence of predators lowers it by 0.46, from 0.93 to 0.47. We do not
-calculate an interval for that difference, because a standard error of a difference of two
-probabilities that were estimated on the logit scale requires the delta method of
-[Chapter 6](../../Chapter_6/Theory.qmd).
+to 0.95), so the presence of predators lowers it by 0.46, from 0.93 to 0.47. The difference
+is a quantity calculated from the two parameters, so we asked for it with `ADREPORT()`: its
+standard error is 0.024, which gives a 95% Wald interval from 0.41 to 0.50.
 
 The evidence is weaker than the difference in AIC suggests. Question 5 showed that the
 counts of the tanks with predators vary more than the Binomial model allows, so their
@@ -451,17 +534,21 @@ the Chapter 3 practical (models for observations that are not independent start 
 
 1. Estimate $\mu$ and $k$ with the method of moments, as in the Chapter 3 practical. Also
    calculate the fraction of quadrats without seedlings and the largest count.
-2. Write the NLL of the model with $\log\mu$ and $\log k$ as parameters and minimise it
-   with `optim()`, using the method-of-moments estimates as starting values and
-   `hessian = TRUE`. Report the estimates on the original scale. Compare the log-likelihood
+2. Write the NLL of the model with $\log\mu$ and $\log k$ as parameters, process it with
+   `MakeADFun()` and minimise it with `optim()`, using the method-of-moments estimates as
+   starting values. Report the estimates on the original scale. Compare the log-likelihood
    at the maximum likelihood estimates with the log-likelihood at the method-of-moments
    estimates.
 3. Calculate the log-likelihood on a grid of values of $\mu$ and $k$ with two nested `for`
-   loops and draw the contours of the relative log-likelihood with `contour()`. Add both
-   pairs of estimates and the contour of the approximate joint 95% confidence region. Is
-   the method-of-moments estimate inside the region?
+   loops that call the function `fn` of the object, and draw the contours of the relative
+   log-likelihood with `contour()`. Add both pairs of estimates and the contour of the
+   approximate joint 95% confidence region. Is the method-of-moments estimate inside the
+   region?
 4. Calculate a 95% Wald interval for $k$ (on the log scale, with the endpoints transformed
-   back) and a 95% profile likelihood interval for $k$ with `uniroot()`. Compare them.
+   back) with the standard error from `sdreport()`. Then calculate the profile of $k$ by
+   hand on a grid of values of $k$, as in the theory, and find the values of $k$ that are
+   within 1.92 units of the maximum. Check the result with `TMB::tmbprofile()` and
+   `confint()`, and compare the profile likelihood interval with the Wald interval.
 5. Plot the relative frequencies of the counts together with the probabilities of the
    fitted Negative Binomial model and of a Poisson model. Compare the fraction of empty
    quadrats under each model with the observed fraction, and compare the two models with
@@ -491,14 +578,16 @@ cannot have seedlings and $\lambda$ is the mean number of seedlings in the quadr
 can have them. Use the same counts as in Exercise 2 and the same assumption of i.i.d.
 quadrats.
 
-1. Write a function `dzipois(x, lambda, pzero, log = FALSE)` that returns the probability
-   mass of the zero-inflated Poisson distribution, or its logarithm when `log = TRUE`.
-   Check that the probabilities add up to one over a wide range of counts, for two
-   combinations of parameter values.
-2. Write the NLL with $\log\lambda$ and $\operatorname{logit}p_0$ as parameters. Choose
-   starting values from the data (think of the fraction of empty quadrats and of the mean
-   of the quadrats that are not empty) and fit the model with `optim()`. Interpret both
-   estimates.
+1. Write a function `my_dzipois(x, lambda, pzero, log = FALSE)` that returns the
+   probability mass of the zero-inflated Poisson distribution, or its logarithm when
+   `log = TRUE`. Check that the probabilities add up to one over a wide range of counts,
+   for two combinations of parameter values, and that your function returns the same
+   probabilities as `dzipois()` of the package RTMBdist, in which $p_0$ is the argument
+   `zeroprob`.
+2. Write the NLL with `dzipois()` and with $\log\lambda$ and $\operatorname{logit}p_0$ as
+   parameters. Choose starting values from the data (think of the fraction of empty
+   quadrats and of the mean of the quadrats that are not empty) and fit the model.
+   Interpret both estimates.
 3. Compare the zero-inflated Poisson model with the Negative Binomial model of Exercise 2
    using AIC and AICc. What does the comparison come down to when both models have the
    same number of parameters?
@@ -531,30 +620,30 @@ Fraser 2014). There $X_i$ is the body mass of Adelie penguin $i$, the column `bo
 in grams. In both cases we assume that the observations are i.i.d.
 
 1. Load the trees with `data(trees, package = "datasets")`. Write the NLL of the Gamma
-   model with `dgamma(..., log = TRUE)` and with $\log k$ and $\log r$ as parameters.
-   Calculate method-of-moments estimates from the formulas of the mean and the variance,
-   use them as starting values and fit the model with `optim()` and `hessian = TRUE`.
-   Report the estimates of $k$ and $r$ with their units and the maximum likelihood estimate
-   of the mean volume.
-2. Calculate the correlation between the estimates of $\log k$ and $\log r$ from the
-   Hessian. Calculate the log-likelihood on a grid of values of $k$ and $r$ and draw the
-   contours of the relative log-likelihood. What does the tilt of the contours mean?
-3. Calculate a slice and a profile of the log-likelihood for the shape $k$ and plot both as
-   relative log-likelihoods. Find the range of values of $k$ for which each curve is within
-   1.92 units of the maximum. Which of the two ranges is a confidence interval, and why is
+   model with `dgamma(..., log = TRUE)` and with $\log k$ and $\log r$ as parameters, and
+   mark the data with `OBS()`, which Exercise 5 uses to simulate. Calculate
+   method-of-moments estimates from the formulas of the mean and the variance, use them as
+   starting values and fit the model. Report the estimates of $k$ and $r$ with their units
+   and the maximum likelihood estimate of the mean volume.
+2. Calculate the correlation between the estimates of $\log k$ and $\log r$ with
+   `sdreport()`. Calculate the log-likelihood on a grid of values of $k$ and $r$ and draw
+   the contours of the relative log-likelihood. What does the tilt of the contours mean?
+3. Calculate a slice of the log-likelihood for the shape $k$ on a grid of values, and its
+   profile with `TMB::tmbprofile()`, and plot both as relative log-likelihoods. Find the
+   range of values of $k$ for which each curve is within 1.92 units of the maximum (for the
+   profile, with `confint()`). Which of the two ranges is a confidence interval, and why is
    the slice narrower?
 4. Load the penguins with `data(penguins, package = "datasets")` and keep the body masses
    of the Adelie penguins. One of them is missing: remove it explicitly. Fit the Gamma
-   model to the masses in grams and again to the same masses in kilograms. With the masses
-   in grams the NLL is a large number, and the default stopping rule of `optim()` can end
-   the search too early, so add the argument `control = list(reltol = 1e-12)` to both fits
-   (if R prints "NaNs produced" during the search, see the callout
-   [When a fit fails or prints warnings](../Theory.qmd#sec-maximum-likelihood)).
-   Compare the estimates and the maximum log-likelihoods of the two fits. Explain the
-   differences with the units of a density.
+   model to the masses in grams and again to the same masses in kilograms. Start both fits
+   at a shape of 1 and at the rate that gives the mean of the sample, $1/\overline x$ (for
+   these data the method-of-moments estimates are a poor starting point, as the solution
+   shows; [Chapter 8](../../Chapter_8/Theory.qmd) explains how a fit depends on its
+   starting values). Compare the estimates and the maximum log-likelihoods of the two
+   fits. Explain the differences with the units of a density.
 5. Fit a [LogNormal](../../Supplements/distributions.qmd#sec-lognormal) model to the body
-   masses with `dlnorm()` and `optim()`, in grams and in kilograms, and compare it with the
-   Gamma model using AIC and AICc. Does the comparison depend on the units?
+   masses with `dlnorm()`, in grams and in kilograms, and compare it with the Gamma model
+   using AIC and AICc. Does the comparison depend on the units?
 
 # Exercise 5: Estimators and intervals across hypothetical experiments
 
@@ -571,22 +660,22 @@ exercise continues with the objects of Exercise 4. The function that runs the si
 is given below the questions with three gaps, which you fill in.
 
 1. For the shape $k$ of the Gamma model fitted to the tree volumes, calculate a 95% Wald
-   interval (on the log scale, with the endpoints transformed back) and a 95% profile
-   likelihood interval with `uniroot()`. Compare them.
+   interval (on the log scale, with the endpoints transformed back) with the standard
+   error from `sdreport()`. Compare it with the profile likelihood interval of Exercise 4.
 2. Complete the first gap of the function `simulate_gamma_experiments()` below. Set seed
    801 and simulate 2,000 hypothetical experiments, each with 31 trees from a Gamma model
    whose shape and rate are the maximum likelihood estimates of Exercise 4. For each
    experiment, the function estimates the shape by the method of moments and by maximum
-   likelihood (the fit starts at the method-of-moments estimates and uses
-   `control = list(reltol = 1e-12)`, as in Exercise 4). Compare the mean, the standard
+   likelihood (the fit starts at a shape of 1 and at the rate that gives the mean of the
+   simulated sample, as in question 4 of Exercise 4). Compare the mean, the standard
    deviation and the mean squared error of the two estimators with the shape that you used
    to simulate. Tip: the function has the sample size, the shape and the rate as arguments
    because you will need it again in question 4.
 3. Complete the second and the third gap, which record for each experiment whether the
    Wald interval and the profile likelihood interval for the shape contain the shape that
    you used to simulate, and calculate the coverage of both intervals. Hint: you do not
-   need `uniroot()` inside the simulation. A profile likelihood interval contains a value
-   whenever the profile log-likelihood at that value is within
+   need `tmbprofile()` inside the simulation. A profile likelihood interval contains a
+   value whenever the profile log-likelihood at that value is within
    `qchisq(p = 0.95, df = 1) / 2` of the maximum log-likelihood, so one extra fit with the
    shape fixed at that value is enough.
 4. Set seed 802 and repeat questions 2 and 3 with experiments of 151 penguins from the
@@ -596,12 +685,13 @@ is given below the questions with three gaps, which you fill in.
 5. Why do these results only approximate the behaviour of the estimators and the intervals
    for the real trees and penguins?
 
-The function below needs `gamma_nll()` and `gamma_nll_given_shape()` from Exercise 4, and
-the objects `critical_value` and `cutoff` (the critical value of the standard Normal
-distribution and the cutoff of the relative log-likelihood for a 95% interval). It stores
-the results of every experiment in one row of a data frame. In each gap, replace `NA` by
-your own code. The lines that follow a gap use the names of the objects that the gap
-creates, so keep those names.
+The function below needs `gamma_nll()` from Exercise 4, the helper `cmb()`, and the objects
+`critical_value` and `cutoff` (the critical value of the standard Normal distribution and
+the cutoff of the relative log-likelihood for a 95% interval). It draws every experiment
+with the function `simulate()` of an object that has placeholder data of the right length,
+as in the theory, and stores the results of every experiment in one row of a data frame.
+In each gap, replace `NA` by your own code. The lines that follow a gap use the names of
+the objects that the gap creates, so keep those names.
 
 ```{r}
 #| eval: false
@@ -617,41 +707,55 @@ simulate_gamma_experiments = function(n_obs, shape, rate, n_experiments) {
     profile_covered = rep(NA, times = n_experiments),
     converged = rep(NA, times = n_experiments)
   )
+  # An object with placeholder data of the right length, from which the experiments are
+  # simulated: the values of the data are not used.
+  placeholder_obj = MakeADFun(
+    cmb(gamma_nll, list(x = rep(0, times = n_obs))),
+    list(log_shape = 0, log_rate = 0),
+    silent = TRUE
+  )
   for (e in seq_len(n_experiments)) {
-    # One hypothetical experiment and its method-of-moments estimates.
-    x = rgamma(n = n_obs, shape = shape, rate = rate)
+    # One hypothetical experiment (simulate() takes the parameters on the log scale) and
+    # its method-of-moments estimate of the shape.
+    x = placeholder_obj$simulate(log(c(shape, rate)))$x
     x_mean = mean(x)
     x_variance = mean((x - x_mean)^2)
     shape_mom = x_mean^2 / x_variance
 
-    # GAP 1: maximum likelihood fit of the Gamma model to x with optim(), started at the
-    # method-of-moments estimates of the shape and the rate (on the log scale), with
-    # method = "BFGS", hessian = TRUE and control = list(reltol = 1e-12). Store the result
-    # in an object called fit.
+    # GAP 1: connect gamma_nll() to x and process it with MakeADFun(), with a shape of 1
+    # and a rate of 1 / x_mean as starting values (on the log scale), and store the result
+    # in an object called sim_obj. Then fit it with optim() and method = "BFGS", and store
+    # the result in an object called fit.
+    sim_obj = NA
     fit = NA
-    shape_ml = exp(fit$par[1])
-    se_log_shape = sqrt(solve(fit$hessian)[1, 1])
+    shape_ml = exp(fit$par[["log_shape"]])
 
     # The Wald interval contains the shape when the estimate is within the critical value
     # of standard errors on the log scale. The profile interval contains it when the
     # relative profile log-likelihood at that shape is within the cutoff.
 
-    # GAP 2: TRUE when the Wald interval contains the shape that was used to simulate.
+    # GAP 2: the standard error of the estimate of log(shape), from sdreport() of sim_obj,
+    # in an object called se_log_shape. Then TRUE in wald_covered when the Wald interval
+    # contains the shape that was used to simulate.
+    se_log_shape = NA
     wald_covered = NA
 
-    # GAP 3: fit the model with the shape fixed at the shape that was used to simulate,
-    # which re-estimates the rate only (use gamma_nll_given_shape() with method = "BFGS"
-    # and control = list(reltol = 1e-12), starting at the estimate of log(rate) of fit),
-    # and store it in an object called inner_fit. Then record in profile_covered whether the
-    # relative profile log-likelihood at that shape is within the cutoff.
-    inner_fit = NA
+    # GAP 3: process gamma_nll() for x again with log_shape fixed at the logarithm of the
+    # shape that was used to simulate (the argument map of MakeADFun(), as in the profile
+    # by hand of Exercise 2) and log_rate starting at its estimate in fit, and store the
+    # result in an object called fixed_obj. Fit it with optim(), which re-estimates the
+    # rate only, and store the result in an object called fixed_fit. Then record in
+    # profile_covered whether the relative profile log-likelihood at that shape is within
+    # the cutoff.
+    fixed_obj = NA
+    fixed_fit = NA
     profile_covered = NA
 
     results$shape_ml[e] = shape_ml
     results$shape_mom[e] = shape_mom
     results$wald_covered[e] = wald_covered
     results$profile_covered[e] = profile_covered
-    results$converged[e] = fit$convergence == 0 && inner_fit$convergence == 0
+    results$converged[e] = fit$convergence == 0 && fixed_fit$convergence == 0
   }
   results
 }

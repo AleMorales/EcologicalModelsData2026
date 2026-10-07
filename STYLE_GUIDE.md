@@ -155,7 +155,9 @@ when revising and do not produce them in new text.
 - **Lists and tables in place of explanation.** Chapter 7 defines fixed effects,
   random effects, mixed-effects, hierarchical, and multilevel models as five
   bullets. The author explains one idea at a time in prose and keeps lists for
-  things that are really parallel (the four faces, sources of process error).
+  things that are really parallel (the four faces, sources of process error) and
+  for the elements of a recipe that students have to learn one by one (see
+  "Presenting code in the text").
 - **Imperative and slogan headings.** "Find the maximum", "Add logs rather than
   multiply", "Read the ends of a curve", "What larger samples change". The
   author's headings name the topic: "Joint distributions and independence",
@@ -208,6 +210,10 @@ added a joint-probability table with numbers, which the generated text lacked.
 6. Does anything refer to how the text or data were supplied to the writer?
 7. Is every "I" a real choice or view of the author, and is nothing invented on
    their behalf?
+8. Is each piece of code next to the sentences that explain it, or does the
+   student have to scroll between a long description and a long chunk?
+9. Does the text repeat a number that the chunk above already prints, without
+   comparing it with anything?
 
 ## Voice and vocabulary
 
@@ -288,6 +294,8 @@ A useful explanation sequence is:
 4. Introduce the relevant equation and explain each new symbol.
 5. Translate the calculation into short R code.
 6. Interpret the result in ecological terms, including units and limitations.
+   When the code teaches a tool and not an ecological result, say instead how to
+   read its output (see "Presenting code in the text").
 
 Reuse an example while developing a concept: seeds within quadrats, seedling
 survival, wildlife detections, or insect counts. The running examples of the
@@ -353,6 +361,45 @@ and does not repeat the entire chapter or introduce new material. Keep cross-cha
 method of moments belongs to Chapter 3, AIC to Chapter 4, and BIC and
 cross-validation to Chapter 6.
 
+## Presenting code in the text
+
+These rules come from the author's rewrite of the passage that introduces
+`cmb()`, `MakeADFun()` and `optim()` in Chapter 4. They apply to theory pages,
+supplements and the explanatory text of practicals; they matter most where the
+text teaches a procedure in R (a recipe that students will repeat).
+
+- **One step, one chunk, next to its explanation.** When a procedure has several
+  steps, write the sentences for the first step, then its chunk, then the
+  sentences for the second step, then its chunk. Do not describe three steps in
+  one long paragraph and put all the code in one chunk below it: the student
+  reads a description of code that is too far away and then has to reread the
+  text to make sense of the code. A step is something that can be named in a
+  clause: define a helper, process the NLL, minimise it, read the results.
+- **Explain before the chunk what the chunk uses and returns.** The arguments of
+  a call and the elements of its result are introduced in the text that precedes
+  the chunk that uses them, so that the comments in the code only have to label
+  the lines.
+- **Keep together what is read as a unit.** A function definition, a loop with
+  its set-up, and a figure with its data stay in one chunk. Split a chunk where a
+  new idea starts, not at every line. Chunks are evaluated in order, so a later
+  chunk may use objects that an earlier one created (see "Markdown and Quarto").
+- **Bullets for the items of a recipe.** When students have to learn what the
+  items are (the arguments that a function needs, the elements that an object
+  returns, the steps of a procedure), put each item in its own bullet: the name in
+  code format first, then a short description. The bullets show how many items
+  there are and what they are called. Keep a list in running prose when the items
+  are only illustrations or reasons and nobody has to study each one. The test is
+  whether the student will later need to find, name or remember each item.
+- **Do not repeat in the text what the chunk prints.** The rendered page shows
+  the output under the code. When the text teaches a tool, say what each element
+  of the output is and how to read it (for example, that `convergence` is zero
+  after a normal stop), and refer to it by name and not by value. Quote a number
+  in the text only when it is used: when the text compares it with another value
+  (the estimate with the method of moments, a hand calculation with R), when it
+  answers a question of an exercise, or when the ecological interpretation of
+  the value is the point of the passage. A quoted number must still agree with
+  the code and the seed (see "Figures and numerical interpretation").
+
 ## Statistical language and notation
 
 | Concept | Required distinction |
@@ -362,7 +409,7 @@ cross-validation to Chapter 6.
 | Mass and density | Discrete values have probability mass. Continuous densities give probabilities through integration over intervals; a density value is not a point probability and may exceed one. |
 | Probability and likelihood | Probability varies possible data for fixed parameters. Likelihood varies parameters for the observed data and is not a probability distribution over parameters. |
 | Likelihood notation | Keep the bar in $P(X=x\mid\theta)$ and $L(\theta\mid x_1,\ldots,x_n)$, and say at first use that it reads "for a given value of" (conditional distributions come in Chapter 7). Write $\ell$ for the log-likelihood and, once the data are fixed, $L(\theta)$ and $\ell(\theta)$. The negative log-likelihood (NLL) is $-\ell$, which `optim()` minimises. Draw likelihood figures on the relative log-likelihood scale, $\ell(\theta)-\ell(\hat\theta)$, because only differences between log-likelihoods are meaningful. |
-| Wald and profile likelihood intervals | The profile likelihood interval (cutoff 1.92 for one parameter and 3.00 for a joint region of two) is the reference method. The Wald interval is the fast approximation: explain it as a quadratic approximation of the log-likelihood, calculate it on the scale that was optimised (the log scale for a positive parameter) and transform the endpoints back. Transforming a standard error needs the delta method (Chapter 6). |
+| Wald and profile likelihood intervals | The profile likelihood interval (cutoff 1.92 for one parameter and 3.00 for a joint region of two) is the reference method. The Wald interval is the fast approximation: explain it as a quadratic approximation of the log-likelihood, calculate it on the scale that was optimised (the log scale for a positive parameter) and transform the endpoints back. A standard error cannot be transformed back like an endpoint: for a quantity calculated from the parameters, ask for it with `ADREPORT()` and read it from `sdreport()`; TMB applies a correction called the delta method, which Chapter 6 explains. |
 | Number of parameters in AIC | Use $K$, because $k$ is the shape of the Negative Binomial distribution: $\mathrm{AIC}=2K-2\ell(\hat\theta)$. Only differences between models fitted to the same observations, in the same units, are meaningful, and AIC ranks the candidates without showing that the best one describes the data well. |
 | Deterministic functions | Use the generic parameters $a,b,c,d$ for every function, as positions in a formula, and say what each controls (an asymptote or a value at zero, a rate or a half-maximum, a location, a vertical shift). Ecological symbols ($\alpha$ and $H$; $K$, $r$, $n_0$) appear only when a specific parameterisation is discussed. Write $f'(x)$ and $f''(x)$ in running text, $df/dx$ where the variable matters, and $\partial f/\partial a$ for a partial derivative. $\log$ is the natural logarithm. Derive the units of every parameter from the formula: the argument of an exponential or a logarithm has no units, a parameter that multiplies $x$ has the inverse units of $x$, and one that divides $x$ has the units of $x$. |
 | Names of functions | Michaelis–Menten (with an en dash) is the primary name of $ax/(b+x)$. Holling type II is its predator–prey parameterisation, and Monod and Beverton–Holt are named in a footnote. The entry for the saturating exponential has the ID `sec-fn-monomolecular`. |
@@ -514,6 +561,10 @@ information.
 ```
 
 The title always starts with "Statistical detail: " followed by a noun phrase.
+The same box holds computational detail that a student can skip, with a title
+that starts with "Technical detail: " (Chapter 6 uses it for how automatic
+differentiation works: students need to know that RTMB calculates the gradient
+of the NLL accurately, not what a tape is).
 The main text must be complete without the box: nothing outside a box may rely
 on a symbol or result that appears only inside one. Inside the box the full
 rigour stays (the statement, a "where" clause and an "In plain English"
@@ -616,16 +667,45 @@ answers at all.
 
 For maximum likelihood, show the model and assumptions before the implementation.
 Sum log probabilities or densities using `log = TRUE` rather than computing a
-product and then taking its logarithm. Name a negative log-likelihood clearly and
-explain that `optim()` minimises it by default. For example, after defining
-independent Poisson observations:
+product and then taking its logarithm. Name a negative log-likelihood (NLL) clearly
+and explain that `optim()` minimises it by default. Every NLL of the course from
+Chapter 4 onward is written in the form that RTMB needs: two named lists as
+arguments, the parameters first and the data second, unpacked with `getAll()`. For
+example, for independent Poisson observations:
 
 ```r
-poisson_nll = function(log_lambda, counts) {
+poisson_nll = function(parms, data) {
+  # Make the elements of both lists available by name.
+  getAll(parms, data)
+  # Transform the parameter to the original scale.
   lambda = exp(log_lambda)
   -sum(dpois(x = counts, lambda = lambda, log = TRUE))
 }
+
+# Connect a likelihood to a data set.
+cmb = function(f, d) function(p) f(p, d)
+
+# Process the NLL, then minimise it with BFGS.
+fir_obj = MakeADFun(
+  cmb(poisson_nll, list(counts = fir_counts)),
+  list(log_lambda = log(2)),
+  silent = TRUE
+)
+fir_fit = optim(par = fir_obj$par, fn = fir_obj$fn, gr = fir_obj$gr, method = "BFGS")
 ```
+
+There is no example that passes a plain NLL function to `optim()`. About
+`MakeADFun()` the text says only that it is a step that processes the NLL so that the
+tools of the course can work with it, and that the details come progressively; `cmb()`
+connects a likelihood to data, so that the same likelihood can be used on another data
+set whose variables have the same names; `obj$gr` is the slope that RTMB also supplies
+for BFGS, and Chapter 6 says how. Do not explain automatic differentiation, tapes or
+lexical scoping before Chapter 6. Introduce the other elements when the text reaches
+the tool that needs them, not in the first NLL: `ADREPORT()` with `sdreport()`,
+`OBS()` with `obj$simulate()`, `TMB::tmbprofile()` with `confint()`, and
+`checkConsistency()`. Name the objects `<model>_obj` (result of `MakeADFun()`),
+`<model>_fit` (`optim()`), `<model>_sd` (`sdreport()`) and `<model>_profile_<par>`
+(`tmbprofile()`), and use `silent = TRUE` in every `MakeADFun()` call.
 
 Explain why a transformation is used and report estimates on the ecological scale.
 Discuss starting values, convergence, parameter constraints, and uncertainty when
@@ -635,21 +715,43 @@ parameters. Introduce these details as their concepts arise, without inserting
 advanced optimisation machinery into early probability lessons.
 
 Use `optim()` with `method = "BFGS"` throughout, including one-parameter fits and
-the inner fits of a profile, and say once that Chapter 8 explains the method.
-Pass the data to the NLL as a named extra argument of `optim()`, name the
-elements of `par`, and index them by position inside the function. Handle
-constraints by transformation only (the logarithm for positive parameters,
-`qlogis()` and `plogis()` for probabilities). Bounds, box-constrained methods,
-`optimize()`, sensitivity to starting values, local maxima, and Hessian problems
-belong to Chapter 8. Evaluate a likelihood on a grid with `for` loops (one loop
-filling a vector for a curve, two nested loops filling a matrix for a surface),
-not with `sapply()`, `vapply()`, `Vectorize()`, or `outer()`. Take the Hessian of
-a one-parameter fit as `fit$hessian[1, 1]`, start each inner fit of a profile at
-the joint estimate, and find the endpoints of a profile likelihood interval with
-`uniroot()`, choosing the ends of its search interval from the plotted curve so
-that the function has opposite signs there. When the NLL is large (for example
-for measurements in grams), the default `reltol` of `optim()` can stop the
-search early; set `control = list(reltol = 1e-12)` and point to Chapter 8.
+the inner fits of a profile, pass `gr = obj$gr` from the first fit, and say once
+that Chapter 8 explains the method. Handle constraints by transformation only (the
+logarithm for positive parameters, `qlogis()` and `plogis()` for probabilities).
+Bounds, box-constrained methods, `optimize()`, sensitivity to starting values, local
+maxima, and Hessian problems belong to Chapter 8. Evaluate a likelihood on a grid
+with `for` loops (one loop filling a vector for a curve, two nested loops filling a
+matrix for a surface) that call `obj$fn()` with the parameters on the optimised scale,
+not with `sapply()`, `vapply()`, `Vectorize()`, or `outer()`; a grid draws curves,
+surfaces and slices and never estimates.
+
+Each calculation that TMB already does (standard errors from the Hessian, the delta
+method for derived quantities, likelihood profiles, simulation) is explained and shown
+once by hand on the simplest case, and then done with the TMB tool. By hand, take the
+Hessian of a one-parameter fit as `fit$hessian[1, 1]` from `optim(..., hessian = TRUE)`,
+start each inner fit of a profile at the joint estimate, and find the endpoints of a
+profile likelihood interval with `uniroot()`, choosing the ends of its search interval
+from the plotted curve so that the function has opposite signs there. With TMB, use
+`sdreport()` for standard errors, `ADREPORT()` for a quantity calculated from the
+parameters (TMB applies a correction called the delta method, which Chapter 6
+explains), `TMB::tmbprofile()` with `confint()` for profile intervals, and
+`obj$simulate()` for hypothetical experiments. Write `TMB::tmbprofile()` with the
+prefix, because RTMB does not export it. Draw a profile with `ggplot2` from the data
+frame that `tmbprofile()` returns, on the relative log-likelihood scale; in an exercise,
+`plot()` of the profile object is allowed. Do not set `reltol` in `optim()`.
+
+Distribution functions come from RTMB and RTMBdist everywhere in the course, from
+Chapter 2 onward. Load `library(RTMB)` first and `library(RTMBdist)` second, in a chunk
+with `#| message: false`: both define `dnbinom2()` with different arguments, and the
+course uses the version of RTMBdist (RTMBdist loads RTMB itself, so its version is the
+one that is found whichever order the two calls have; the order keeps the code
+predictable). Write the Negative Binomial in the mean form as
+`dnbinom2(x, mu, size)` (RTMBdist); the form with `size` and `prob`, `dnbinom()`, also
+works in an NLL. A density or probability mass function used in an NLL always comes from
+RTMB or RTMBdist, because the base R versions of some of them fail inside `MakeADFun()`
+(`dnbinom()` with `mu`, `dunif()`). Where RTMB and RTMBdist have no cumulative, quantile
+or random function, base R, MASS or a short hand-written line fills in, and the text says
+so. `RTMBdist::pt()` has no `lower.tail`, so write `stats::pt()` where it is needed.
 
 ## Figures and numerical interpretation
 

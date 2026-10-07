@@ -28,7 +28,8 @@ the package `glmmTMB`), under a Negative Binomial model with two parameters. The
 ends with the use of information criteria to compare different models fitted to the same data.
 
 The chapter has two parts. The first part builds the method: the likelihood function,
-maximum likelihood estimation with `optim()` and models with several parameters. The
+maximum likelihood estimation with `optim()` and the package RTMB, and models with
+several parameters. The
 second part is about what we can say once a model is fitted: the uncertainty of the
 estimates, the properties of maximum likelihood estimators and the comparison of models.
 
@@ -48,7 +49,8 @@ In this chapter, we will cover:
 We will use the [Poisson](../Supplements/distributions.qmd#sec-poisson) and
 [Negative Binomial](../Supplements/distributions.qmd#sec-negative_binomial) distributions
 throughout the chapter. They are described in the
-[Supplement](../Supplements/distributions.qmd).
+[Supplement](../Supplements/distributions.qmd). We write and fit the models with the
+packages RTMB and RTMBdist, whose distribution functions we have used since Chapter 2.
 
 The table below is a roadmap of the chapter. Each row is one step, with the question that
 it answers, the R tools that we use for it and the example on which we show it.
@@ -57,13 +59,13 @@ it answers, the R tools that we use for it and the example on which we show it.
 |---|---|---|---|
 | **Part 1** | | | |
 | The likelihood | How probable are the data for a given value of the parameter? | `dpois(..., log = TRUE)`, `sum()` | Fir seedlings |
-| Estimation | Which value of the parameter makes the data most probable? | `optim()` on the NLL | Fir seedlings |
+| Estimation | Which value of the parameter makes the data most probable? | NLL with `getAll()`, `cmb()`, `MakeADFun()`, `optim()` | Fir seedlings |
 | Transformations | How do we keep a parameter within its range? | `exp()`, `plogis()` | Fir seedlings |
-| Several parameters | What does the likelihood look like, and what does it say about one parameter? | `for` loops, `contour()`, profiles | Owls |
+| Several parameters | What does the likelihood look like, and what does it say about one parameter? | `dnbinom2()`, `for` loops with `obj$fn()`, `contour()`, profiles | Owls |
 | **Part 2** | | | |
-| Standard errors | How precise is the estimate? | `hessian = TRUE`, `solve()` | Fir seedlings and owls |
-| Confidence intervals | Which parameter values do the data support? | Wald interval on the fitted scale; profile with `uniroot()` | Fir seedlings and owls |
-| Properties | Why does the method work, and when does it fail? | Simulation | Owls |
+| Standard errors | How precise is the estimate? | The Hessian by hand, then `sdreport()` and `ADREPORT()` | Fir seedlings and owls |
+| Confidence intervals | Which parameter values do the data support? | Wald interval on the fitted scale; profile with `TMB::tmbprofile()` and `confint()` | Fir seedlings and owls |
+| Properties | Why does the method work, and when does it fail? | Simulation with `obj$simulate()` | Owls |
 | Model comparison | Which of two models is better supported by the data? | AIC | Owls |
 
 : Roadmap of the chapter. NLL is the negative log-likelihood, which is defined in @sec-maximum-likelihood.
@@ -130,15 +132,28 @@ L(\lambda\mid 0,1,2)
 $$
 
 For $\lambda=1$ this gives $e^{-3}/2\approx 0.0249$ and for $\lambda=2$ it gives
-$e^{-6}\,2^{3}/2\approx 0.0099$. We can verify our maths with R:
+$e^{-6}\,2^{3}/2\approx 0.0099$.
+
+To verify our maths with R, we first load the packages RTMB and RTMBdist and the counts of
+the 50 quadrats, as in Chapter 3:
 
 ```{r}
+#| message: false
+# Load RTMB first and RTMBdist second.
+library(RTMB)
+library(RTMBdist)
+
 # Counts of balsam fir seedlings in 50 quadrats (see ?boot::fir), as in Chapter 3,
 # and the number of quadrats.
 data(fir, package = "boot")
 seedling_counts = fir$count
 n_quadrats = length(seedling_counts)
+```
 
+`dpois()` returns the contribution of each of the three counts for a given value of
+$\lambda$, and `prod()` multiplies them:
+
+```{r}
 # The counts of the first three quadrats.
 first_counts = seedling_counts[1:3]
 first_counts
@@ -151,8 +166,7 @@ prod(dpois(x = first_counts, lambda = 1))
 prod(dpois(x = first_counts, lambda = 2))
 ```
 
-The three contributions for $\lambda=1$ are approximately 0.368, 0.368 and 0.184, and
-their product is the value that we calculated by hand. These three counts are about 2.5
+The two products are the values that we calculated by hand. These three counts are about 2.5
 times more probable under a mean of 1 than under a mean of 2 (their own mean is 1). The
 likelihood of the whole sample is calculated in the same way:
 
@@ -266,7 +280,7 @@ sum(dpois(x = seedling_counts, lambda = 2, log = TRUE))
 log(prod(dpois(x = seedling_counts, lambda = 2)))
 ```
 
-Both calculations give $-89.52$ for $\lambda=2$. With 50 counts the product still works.
+Both calculations give the same value. With 50 counts the product still works.
 To see when it fails, we simulate 1,000 counts from a Poisson model with $\lambda=4$:
 
 ```{r}
@@ -282,8 +296,8 @@ sum(dpois(x = many_counts, lambda = 4, log = TRUE))
 ```
 
 R returns zero for the product, although none of the probabilities in it is zero, whereas
-the log-likelihood is an ordinary number (approximately $-2095$). From here on we always
-work with log-likelihoods.
+the log-likelihood is an ordinary number. From here on we always work with
+log-likelihoods.
 
 For continuous data the contributions to the likelihood are densities. Recall from
 [Chapter 2](../Chapter_2/Theory.qmd#sec-continuous_measurements) that a density has units
@@ -439,9 +453,7 @@ We draw the curve for a smaller sample from the same data, the first ten quadrat
 the shape of a likelihood curve is easier to see when the sample is small (in
 @sec-likelihood-uncertainty we compare what ten and 50 quadrats say about $\lambda$). From
 here on we say each time which of the two samples a result refers to. The ten quadrats
-contain 22 seedlings, so their estimate is 2.2 seedlings per quadrat. We define a grid of
-values of $\lambda$ and fill a vector with the log-likelihood at each of them, using a
-`for` loop:
+contain 22 seedlings, so their estimate is 2.2 seedlings per quadrat:
 
 ```{r}
 # The counts of the first ten quadrats and their maximum likelihood estimate.
@@ -449,7 +461,12 @@ ten_counts = seedling_counts[1:10]
 ten_counts
 lambda_hat_ten = mean(ten_counts)
 lambda_hat_ten
+```
 
+We define a grid of values of $\lambda$ and fill a vector with the log-likelihood at each
+of them, using a `for` loop:
+
+```{r}
 # Candidate values of lambda (seedlings per quadrat).
 lambda_grid = seq(from = 0.8, to = 5, by = 0.05)
 
@@ -458,7 +475,13 @@ loglik_grid = rep(NA, times = length(lambda_grid))
 for (i in seq_along(lambda_grid)) {
   loglik_grid[i] = sum(dpois(x = ten_counts, lambda = lambda_grid[i], log = TRUE))
 }
+```
 
+We then subtract the log-likelihood at the estimate from every value of the grid. We also
+calculate the relative log-likelihood at two values of $\lambda$ that are one seedling
+away from the estimate, on either side of it:
+
+```{r}
 # Relative log-likelihood: the difference from the log-likelihood at the estimate.
 loglik_lambda_hat_ten = sum(dpois(x = ten_counts, lambda = lambda_hat_ten, log = TRUE))
 relative_loglik = loglik_grid - loglik_lambda_hat_ten
@@ -508,47 +531,82 @@ the function `optim()`. Since it minimises, we do not give it the log-likelihood
 **negative log-likelihood** (NLL), $-\ell(\theta)$: the parameter value with the lowest NLL
 is the one with the highest likelihood.
 
-The arguments of `optim()` that we need are:
-
-- `par`: the starting value of the parameter (a vector when there are several parameters);
-- `fn`: the function to minimise, whose first argument is the parameter;
-- further named arguments, which `optim()` passes on to `fn` (here `counts`, the data);
-- `method`: the algorithm. We use `"BFGS"` throughout this chapter. It uses the slope of
-  the function to decide in which direction to move, and
-  [Chapter 8](../Chapter_8/Theory.qmd) explains how this and other methods work.
-
-For the Poisson model of the 50 counts, starting the search at 1 seedling per quadrat:
+In this book every NLL is written in the same form, which the package RTMB needs. It is a
+function with two arguments, both of them named lists: the first holds the parameters
+(`parms`) and the second the data (`data`). Its first line calls `getAll()`, which makes
+the elements of both lists available by their names, so that the rest of the function
+reads like the model. For the Poisson model the list of parameters has one element,
+`lambda`, and the list of data has one element, `counts`:
 
 ```{r}
-# Negative log-likelihood of Poisson counts as a function of lambda.
-poisson_nll_lambda = function(lambda, counts) {
+# Negative log-likelihood of Poisson counts. The first argument holds the parameters
+# and the second the data, both as named lists.
+poisson_nll_lambda = function(parms, data) {
+  # Make the elements of both lists available by name.
+  getAll(parms, data)
   -sum(dpois(x = counts, lambda = lambda, log = TRUE))
 }
-
-# optim() minimises fn, starting from par. Further named arguments (here counts)
-# are passed on to fn.
-fit_lambda = optim(
-  par = 1,
-  fn = poisson_nll_lambda,
-  counts = seedling_counts,
-  method = "BFGS"
-)
-
-# Estimate, minimum of the negative log-likelihood, and convergence code (0 = normal stop).
-fit_lambda$par
-fit_lambda$value
-fit_lambda$convergence
 ```
 
-`optim()` returns a list. Its element `par` is the value of the parameter at the minimum,
-that is, the estimate: 2.14 seedlings per quadrat, as before (the last decimals differ
-because a numerical search stops very close to the maximum and not exactly on it). The
-element `value` is the NLL
-at that point (89.29), so the maximum log-likelihood is $-89.29$. The element `convergence`
-is a code that is zero when the algorithm stopped normally, which is the first thing to
-check after every fit.
+Three steps take us from this function to the estimate. First, we connect the likelihood
+to a data set with a small helper function, `cmb()`, which takes an NLL and a list of data
+and returns the NLL of those data as a function of the parameters only. This way we can
+later calculate the same likelihood on other data, as long as the variables in the list
+have the same names.
 
-## Constraints and transformations
+```{r}
+# Connect a likelihood to a data set.
+cmb = function(f, d) function(p) f(p, d)
+```
+
+Second, `MakeADFun()` processes the NLL so that the tools that we use
+in the rest of the course can work with it (the details are explained progressively
+through the course). We give it the function returned by `cmb()` and a list with the
+starting value of every parameter, and it returns the object that the optimiser needs:
+
+```{r}
+# Process the NLL of the 50 counts, with a starting value of 1 seedling per quadrat.
+# silent = TRUE stops MakeADFun() from printing its progress.
+fir_lambda_obj = MakeADFun(
+  cmb(poisson_nll_lambda, list(counts = seedling_counts)),
+  list(lambda = 1),
+  silent = TRUE
+)
+```
+
+We take three elements from this object that are passed to the `optim()` function:
+
+- `par`, the starting values as a vector;
+- `fn`, the NLL as a function of that vector;
+- and `gr`, the gradients of the NLL with respect to parameters (details on why we need it in [Chapter 6](../Chapter_6/Theory.qmd) and [Chapter 8](../Chapter_8/Theory.qmd)).
+
+```{r}
+# optim() minimises fn, starting from par and using the slope gr.
+fir_lambda_fit = optim(
+  par = fir_lambda_obj$par,
+  fn = fir_lambda_obj$fn,
+  gr = fir_lambda_obj$gr,
+  method = "BFGS"
+)
+```
+
+The fourth argument (`method`) determines which specific algorithm is used for optimisation.
+We will use `"BFGS"` in most cases as it is quite efficient. `optim()` returns a list and
+its most relevant elements are
+
+- `par`, the value of the parameter at the minimum (i.e., the maximum likelihood estimate);
+- `value`,  the value of NLL at the maximum likelihood estimate;
+- `convergence`, a code that is zero when the algorithm stopped normally, which is the first thing to
+check after every fit. If you get a value different from 0 that means something went wrong.
+
+```{r}
+# Estimate, minimum of the negative log-likelihood, and convergence code (0 = normal stop).
+fir_lambda_fit$par
+fir_lambda_fit$value
+fir_lambda_fit$convergence
+```
+
+## Constraints and transformations {#sec-constraints}
 
 A **constraint** is a restriction on the values that a parameter can take. The mean
 $\lambda$ of a Poisson distribution must be positive, and a probability must lie between
@@ -566,28 +624,67 @@ a positive mean:
 ```{r}
 # Negative log-likelihood on the log scale: log_lambda can take any real value
 # and exp() turns it into a positive mean.
-poisson_nll = function(log_lambda, counts) {
+poisson_nll = function(parms, data) {
+  getAll(parms, data)
+  # Transform the parameter to the original scale.
   lambda = exp(log_lambda)
   -sum(dpois(x = counts, lambda = lambda, log = TRUE))
 }
-
-# Fit starting from log(1) and check the convergence code.
-poisson_fit = optim(
-  par = log(1),
-  fn = poisson_nll,
-  counts = seedling_counts,
-  method = "BFGS"
-)
-poisson_fit$convergence
-
-# Estimate on the log scale and transformed back to seedlings per quadrat.
-poisson_fit$par
-exp(poisson_fit$par)
 ```
 
-The search started at $\log 1=0$ and ended at $\log\hat\lambda\approx 0.761$, with
-convergence code 0. Transformed back with `exp()`, the estimate is again 2.14 seedlings per
-quadrat.
+The steps of the fit are the same as before. The parameter in the list of starting values
+is now `log_lambda`, so the search starts at $\log 1=0$:
+
+```{r}
+# Process the NLL of the 50 counts, starting from log(1).
+fir_obj = MakeADFun(
+  cmb(poisson_nll, list(counts = seedling_counts)),
+  list(log_lambda = log(1)),
+  silent = TRUE
+)
+
+# Fit and check the convergence code.
+fir_fit = optim(par = fir_obj$par, fn = fir_obj$fn, gr = fir_obj$gr, method = "BFGS")
+fir_fit$convergence
+```
+
+The element `par` of the fit is the estimate of $\log\lambda$, the quantity that the
+optimiser searched over. We transform it back with `exp()` to report it in seedlings per
+quadrat (`unname()` drops the name `log_lambda`, which no longer describes the value):
+
+```{r}
+# Estimate on the log scale and transformed back to seedlings per quadrat.
+fir_fit$par
+lambda_mle = unname(exp(fir_fit$par))
+lambda_mle
+```
+
+On the original scale the estimate is again 2.14 seedlings per quadrat.
+
+The same NLL can be connected to another data set, as long as its list uses the same
+name, `counts`. For the first ten quadrats, only the list of data changes:
+
+```{r}
+# The same likelihood connected to the counts of the first ten quadrats.
+fir_ten_obj = MakeADFun(
+  cmb(poisson_nll, list(counts = ten_counts)),
+  list(log_lambda = log(1)),
+  silent = TRUE
+)
+fir_ten_fit = optim(
+  par = fir_ten_obj$par,
+  fn = fir_ten_obj$fn,
+  gr = fir_ten_obj$gr,
+  method = "BFGS"
+)
+fir_ten_fit$convergence
+
+# Estimate in seedlings per quadrat.
+unname(exp(fir_ten_fit$par))
+```
+
+The estimate is 2.2 seedlings per quadrat, the mean of the ten counts. We will use both
+objects again in @sec-likelihood-uncertainty.
 
 For a probability $p$ the corresponding transformation is the **logit**,
 $\operatorname{logit}(p)=\log\left[p/(1-p)\right]$, which covers all the real numbers as
@@ -602,8 +699,8 @@ qlogis(p = 0.25)
 plogis(q = qlogis(p = 0.25))
 ```
 
-The logit of 0.25 is approximately $-1.10$, and `plogis()` returns the 0.25 that we
-started with. We will use this transformation in @sec-likelihood-surface.
+The logit of 0.25 is a negative number, and `plogis()` returns the 0.25 that we started
+with. We will use this transformation in @sec-likelihood-surface.
 
 Fitting on a transformed scale and reporting on the original scale relies on a property of
 maximum likelihood called **invariance**: the MLE of a function of a parameter is that
@@ -628,7 +725,7 @@ seedlings is $P(X=0\mid\lambda)=e^{-\lambda}$, and its MLE is $e^{-\hat\lambda}$
 ```{r}
 # By invariance, the estimate of the probability of an empty quadrat, exp(-lambda),
 # is calculated from the estimate of lambda.
-exp(-exp(poisson_fit$par))
+exp(-lambda_mle)
 ```
 
 That is, we estimate that approximately 12% of the quadrats are empty (in the sample, 7 of
@@ -638,20 +735,22 @@ an example of a biased estimator: $\hat\lambda$ is an unbiased estimator of $\la
 $e^{-\hat\lambda}$ is a biased estimator of $e^{-\lambda}$. So invariance carries over the
 estimate, but it does not carry over unbiasedness.
 
-::: {.callout-note title="When a fit fails or prints warnings"}
+::: {.callout-note title="When a fit fails"}
 Check the element `convergence` after every fit. A code other than zero means that the
 search did not finish normally, and the values in `par` are then not estimates.
 
-While it searches, `optim()` can try parameter values for which a `d*` function returns
-`NaN`, and R then prints the warning "NaNs produced". If the search ends with convergence
-code 0 and the estimates are sensible, these warnings are harmless. You will meet them
-with the Gamma distribution in the practical.
+While it searches, `optim()` can try parameter values for which the NLL cannot be
+calculated, and `fn` then returns `NaN` without a warning. BFGS treats such a value as a
+failed step and tries a shorter one, so this is harmless when the search ends with
+convergence code 0 and the estimates are sensible. When the NLL is `NaN` at the starting
+values, `optim()` stops with the error "initial value in 'vmmin' is not finite".
 
 If a fit fails, check first that every constrained parameter is transformed inside the
 NLL. Then try other starting values (the method-of-moments estimates are a good choice),
-look at the data, and calculate the NLL at the starting values to see whether it returns
-an ordinary number. [Chapter 8](../Chapter_8/Theory.qmd) explains why optimisers fail and
-what else can be done.
+look at the data, and calculate the NLL at the starting values, for example with
+`fir_obj$fn(fir_obj$par)`, to see whether it returns an ordinary number.
+[Chapter 8](../Chapter_8/Theory.qmd) explains why optimisers fail and what else can be
+done.
 :::
 
 :::: {.callout-important title="Practice: back to the ecological scale"}
@@ -695,7 +794,7 @@ data set `Owls` in the package `glmmTMB` contains observations of barn owl nests
 and Bersier 2007). For each visit of a parent to a nest, the variable `SiblingNegotiation`
 is the number of calls made by the nestlings. As in that practical, we keep the visits of
 the female parent to nests where the nestlings had been fed (`Satiated`), so that all
-counts can reasonably share one mean, and we calculate the method-of-moments estimates:
+counts can reasonably share one mean:
 
 ```{r}
 # Load the Owls data from the glmmTMB package without attaching the package.
@@ -707,7 +806,13 @@ satiated_female = Owls[Owls$FoodTreatment == "Satiated" & Owls$SexParent == "Fem
 # Number of calls at each of these visits, and the number of visits.
 call_counts = satiated_female$SiblingNegotiation
 n_visits = length(call_counts)
+```
 
+We also calculate the mean and the variance of the counts and, from them, the
+method-of-moments estimate of the shape of a Negative Binomial distribution (the model is
+introduced below):
+
+```{r}
 # Method-of-moments estimates, as in the practical of Chapter 3.
 mu_hat = mean(call_counts)
 variance_hat = mean((call_counts - mu_hat)^2)
@@ -732,52 +837,62 @@ per visit and $\hat k_{\mathrm{MM}}=\hat\mu^2/(\hat\sigma^2-\hat\mu)\approx 0.60
 $\hat\sigma^2$ is the variance of the sample with divisor $n$ and the subscript marks the
 method-of-moments estimate, as in Chapter 3.
 
-The NLL is written as before, with two differences. `optim()` passes all the parameters to
-the function as one vector, so the first argument (`par`) now holds both parameters and we
-take them apart by position inside the function: `par[1]` is $\log\mu$ and `par[2]` is
-$\log k$ (both parameters are positive, so we use the logarithm for both). Also, `dnbinom()`
-accepts two different sets of parameters, so we name the arguments `mu` and `size`
-explicitly:
+The NLL is written as before. The list of parameters now has two elements, `log_mu` and
+`log_k` (both parameters are positive, so we use the logarithm for both), and the list of
+data has one, `calls`. For the probability mass we use `dnbinom2()` of the package
+RTMBdist, which is written in terms of the mean (`mu`) and the shape (`size`):
 
 ```{r}
 # Negative log-likelihood of the Negative Binomial model with mean mu and shape k.
-# par holds the two parameters on the log scale: par[1] is log(mu) and par[2] is log(k).
-nb_nll = function(par, counts) {
-  mu = exp(par[1])
-  k = exp(par[2])
-  -sum(dnbinom(x = counts, mu = mu, size = k, log = TRUE))
+nb_nll = function(parms, data) {
+  getAll(parms, data)
+  # Transform the parameters to the original scale.
+  mu = exp(log_mu)
+  k = exp(log_k)
+  -sum(dnbinom2(x = calls, mu = mu, size = k, log = TRUE))
 }
 ```
 
+::: {.callout-warning title="Two functions called `dnbinom2()`"}
+The packages RTMB and RTMBdist both have a function called `dnbinom2()`, with different
+arguments: in RTMBdist they are the mean and the shape (`mu` and `size`), and in RTMB the
+mean and the variance (`mu` and `var`). R uses the function of the package that was
+attached last, which is RTMBdist when we load `library(RTMB)` first and
+`library(RTMBdist)` second, as at the start of this chapter. So always load both packages
+in that order and name the arguments `mu` and `size`. If only RTMB is loaded, R stops
+with an error about an unused argument `size`.
+:::
+
 The optimiser needs a starting value for each parameter. The method-of-moments estimates
 are a sensible choice: they are quick to calculate and, being estimates of the same
-parameters, they should not be far from the maximum. We give names to the elements of the
-starting vector, which `optim()` keeps in its result. The argument `hessian = TRUE` asks
-for the matrix of second derivatives at the minimum, which we will need in
-@sec-likelihood-uncertainty:
+parameters, they should not be far from the maximum. We give them to `MakeADFun()` in a
+list with the names that the NLL uses, and `optim()` keeps those names in its result:
 
 ```{r}
-# Start from the method-of-moments estimates, on the log scale.
-start = c(log_mu = log(mu_hat), log_k = log(k_mom))
-
-# Fit the model; hessian = TRUE also returns the matrix of second derivatives,
-# which we use later for standard errors.
-owl_fit = optim(
-  par = start,
-  fn = nb_nll,
-  counts = call_counts,
-  method = "BFGS",
-  hessian = TRUE
+# Process the NLL of the owl counts, starting from the method-of-moments estimates
+# on the log scale.
+owl_obj = MakeADFun(
+  cmb(nb_nll, list(calls = call_counts)),
+  list(log_mu = log(mu_hat), log_k = log(k_mom)),
+  silent = TRUE
 )
-owl_fit$convergence
 
+# Fit the model and check the convergence code.
+owl_fit = optim(par = owl_obj$par, fn = owl_obj$fn, gr = owl_obj$gr, method = "BFGS")
+owl_fit$convergence
+```
+
+The element `par` of the fit is now a vector with two named elements, `log_mu` and
+`log_k`. We select each of them by its name and transform it back with `exp()`:
+
+```{r}
 # Maximum likelihood estimates on the original scale.
 mu_mle = unname(exp(owl_fit$par["log_mu"]))
 k_mle = unname(exp(owl_fit$par["log_k"]))
 c(mu_mle = mu_mle, k_mle = k_mle)
 ```
 
-The convergence code is 0. The estimate of the mean is $\hat\mu\approx 4.75$ calls per
+The estimate of the mean is $\hat\mu\approx 4.75$ calls per
 visit, which is the mean of the sample: for a Negative Binomial model the MLE of
 the mean is the mean of the sample, whatever the value of $k$. The estimate of the shape
 is $\hat k\approx 0.33$, far from the method-of-moments estimate of 0.60 at which the
@@ -791,8 +906,24 @@ the fitted model describes the data. For counts we can compare the relative freq
 each count in the sample with the probability that the fitted model assigns to it. As a
 reference we add a Poisson model with the same mean, which is the model that we would use
 if there were no overdispersion (its MLE is the mean of the sample, as we saw in
-@sec-maximum-likelihood). We calculate the log-likelihood of the two models and, as a
-specific check, the fraction of visits without calls:
+@sec-maximum-likelihood). As a specific check, we calculate the fraction of visits without
+calls in the sample and the probability that each fitted model assigns to a count of zero:
+
+```{r}
+# Fraction of visits without calls: observed, and under each fitted model.
+c(
+  observed = mean(call_counts == 0),
+  nb_mle = dnbinom2(x = 0, mu = mu_mle, size = k_mle),
+  poisson = dpois(x = 0, lambda = mu_hat)
+)
+```
+
+The visits without calls are 44% of the sample (54 of 122). The fitted Negative Binomial
+model assigns a probability of 0.41 to a count of zero, whereas under the Poisson model a
+visit without calls would be very rare (a probability of 0.009). The log-likelihoods of
+the two models compare them on the whole sample. The element `value` of a fit is the NLL
+at the estimates, so the maximum log-likelihood of the Negative Binomial model is minus
+that value:
 
 ```{r}
 # Log-likelihood at the maximum likelihood estimates and for a Poisson model with the
@@ -800,19 +931,9 @@ specific check, the fraction of visits without calls:
 loglik_mle = -owl_fit$value
 loglik_poisson = sum(dpois(x = call_counts, lambda = mu_hat, log = TRUE))
 c(mle = loglik_mle, poisson = loglik_poisson)
-
-# Fraction of visits without calls: observed, and under each fitted model.
-c(
-  observed = mean(call_counts == 0),
-  nb_mle = dnbinom(x = 0, mu = mu_mle, size = k_mle),
-  poisson = dpois(x = 0, lambda = mu_hat)
-)
 ```
 
-The visits without calls are 44% of the sample (54 of 122). The fitted Negative Binomial
-model assigns a probability of 0.41 to a count of zero, whereas under the Poisson model a
-visit without calls would be very rare (a probability of 0.009). The log-likelihoods say
-the same about the whole sample: $-299.4$ for the Negative Binomial model and $-634.2$ for
+The log-likelihood of the Negative Binomial model is about 335 units higher than that of
 the Poisson model. @fig-owl_fits shows the two fitted distributions with the relative
 frequencies of the sample. The Negative Binomial model reproduces the high frequency of
 visits without calls and spreads the rest of its probability over a wide range of counts,
@@ -837,7 +958,7 @@ observed_data = data.frame(
 fitted_data = rbind(
   data.frame(
     count = count_values,
-    probability = dnbinom(x = count_values, mu = mu_mle, size = k_mle),
+    probability = dnbinom2(x = count_values, mu = mu_mle, size = k_mle),
     model = "Negative Binomial (maximum likelihood)"
   ),
   data.frame(
@@ -883,7 +1004,9 @@ ggplot() +
 With two parameters we can still evaluate the log-likelihood on a grid, which now has two
 dimensions: one for the values of $\mu$ and one for the values of $k$. We store the results
 in a matrix with one row per value of $\mu$ and one column per value of $k$, and fill it
-with two nested `for` loops:
+with two nested `for` loops. Inside the loops we call `owl_obj$fn()`, which returns the
+NLL for a vector of parameters on the scale that was optimised. So we give it the
+logarithms of the candidate values and change the sign of the result:
 
 ```{r}
 # Grids of candidate values for the mean (calls per visit) and the shape.
@@ -891,13 +1014,11 @@ mu_grid = seq(from = 2.5, to = 9, length.out = 91)
 k_grid = seq(from = 0.12, to = 0.75, length.out = 91)
 
 # Pre-allocate a matrix and fill it with two nested loops: row i for the i-th mean
-# and column j for the j-th shape.
+# and column j for the j-th shape. fn() takes log(mu) and log(k) and returns the NLL.
 loglik_surface = matrix(NA, nrow = length(mu_grid), ncol = length(k_grid))
 for (i in seq_along(mu_grid)) {
   for (j in seq_along(k_grid)) {
-    loglik_surface[i, j] = sum(
-      dnbinom(x = call_counts, mu = mu_grid[i], size = k_grid[j], log = TRUE)
-    )
+    loglik_surface[i, j] = -owl_obj$fn(c(log(mu_grid[i]), log(k_grid[j])))
   }
 }
 
@@ -961,30 +1082,33 @@ $p=k/(k+\mu)$ (the "Inverse" line of the
 
 ```{r}
 #| include: false
-# Negative log-likelihood in R's own parameters: shape k (size) and probability p (prob).
-# par[1] is log(k) and par[2] is logit(p).
-nb_prob_nll = function(par, counts) {
-  k = exp(par[1])
-  p = plogis(par[2])
-  -sum(dnbinom(x = counts, size = k, prob = p, log = TRUE))
+# Negative log-likelihood in R's own parameters: shape k (size) and probability p (prob),
+# with log(k) and logit(p) as the transformed parameters.
+nb_prob_nll = function(parms, data) {
+  getAll(parms, data)
+  k = exp(log_k)
+  p = plogis(logit_p)
+  -sum(dnbinom(x = calls, size = k, prob = p, log = TRUE))
 }
 
 # Starting values: the method-of-moments shape and p = k / (k + mu).
-start_prob = c(log_k = log(k_mom), logit_p = qlogis(k_mom / (k_mom + mu_hat)))
-
-owl_fit_prob = optim(
-  par = start_prob,
-  fn = nb_prob_nll,
-  counts = call_counts,
-  method = "BFGS",
-  hessian = TRUE
+owl_prob_obj = MakeADFun(
+  cmb(nb_prob_nll, list(calls = call_counts)),
+  list(log_k = log(k_mom), logit_p = qlogis(k_mom / (k_mom + mu_hat))),
+  silent = TRUE
 )
-owl_fit_prob$convergence
+owl_prob_fit = optim(
+  par = owl_prob_obj$par,
+  fn = owl_prob_obj$fn,
+  gr = owl_prob_obj$gr,
+  method = "BFGS"
+)
+owl_prob_fit$convergence
 
 # Estimates on the original scale and the maximum log-likelihood.
-k_mle_prob = unname(exp(owl_fit_prob$par["log_k"]))
-p_mle = unname(plogis(owl_fit_prob$par["logit_p"]))
-c(k_mle_prob = k_mle_prob, p_mle = p_mle, loglik = -owl_fit_prob$value)
+k_mle_prob = unname(exp(owl_prob_fit$par["log_k"]))
+p_mle = unname(plogis(owl_prob_fit$par["logit_p"]))
+c(k_mle_prob = k_mle_prob, p_mle = p_mle, loglik = -owl_prob_fit$value)
 
 # By invariance, p equals k / (k + mu) evaluated at the first fit.
 k_mle / (k_mle + mu_mle)
@@ -1007,13 +1131,12 @@ the shape of the surface around the maximum (@fig-surface_size_prob).
 k_grid_prob = seq(from = 0.12, to = 0.75, length.out = 91)
 p_grid = seq(from = 0.02, to = 0.16, length.out = 91)
 
-# Fill the matrix of log-likelihoods with two nested loops.
+# Fill the matrix of log-likelihoods with two nested loops; fn() takes log(k) and logit(p).
 loglik_surface_prob = matrix(NA, nrow = length(k_grid_prob), ncol = length(p_grid))
 for (i in seq_along(k_grid_prob)) {
   for (j in seq_along(p_grid)) {
-    loglik_surface_prob[i, j] = sum(
-      dnbinom(x = call_counts, size = k_grid_prob[i], prob = p_grid[j], log = TRUE)
-    )
+    loglik_surface_prob[i, j] =
+      -owl_prob_obj$fn(c(log(k_grid_prob[i]), qlogis(p_grid[j])))
   }
 }
 relative_surface_prob = loglik_surface_prob - loglik_mle
@@ -1096,26 +1219,25 @@ need it to calculate confidence intervals).
 # Fine grid of shape values on which the slice and the profile are evaluated.
 k_fine = seq(from = 0.12, to = 0.75, length.out = 127)
 
-# Negative log-likelihood as a function of logit(p) only, for a given shape k.
-nll_given_k = function(logit_p, k, counts) {
-  -sum(dnbinom(x = counts, size = k, prob = plogis(logit_p), log = TRUE))
-}
-
 # Slice: p is fixed at its estimate. Profile: for each k, p is re-estimated with optim(),
-# starting from the joint estimate.
+# starting from the joint estimate. The argument map of MakeADFun() keeps log(k) fixed
+# at the value given in the list of parameters, so that only logit(p) is estimated.
 slice_loglik = rep(NA, times = length(k_fine))
 profile_loglik = rep(NA, times = length(k_fine))
 profile_p = rep(NA, times = length(k_fine))
 profile_convergence = rep(NA, times = length(k_fine))
 for (i in seq_along(k_fine)) {
-  slice_loglik[i] = sum(
-    dnbinom(x = call_counts, size = k_fine[i], prob = p_mle, log = TRUE)
+  slice_loglik[i] = -owl_prob_obj$fn(c(log(k_fine[i]), qlogis(p_mle)))
+  inner_obj = MakeADFun(
+    cmb(nb_prob_nll, list(calls = call_counts)),
+    list(log_k = log(k_fine[i]), logit_p = qlogis(p_mle)),
+    map = list(log_k = factor(NA)),
+    silent = TRUE
   )
   inner_fit = optim(
-    par = owl_fit_prob$par["logit_p"],
-    fn = nll_given_k,
-    k = k_fine[i],
-    counts = call_counts,
+    par = inner_obj$par,
+    fn = inner_obj$fn,
+    gr = inner_obj$gr,
     method = "BFGS"
   )
   profile_loglik[i] = -inner_fit$value
@@ -1141,16 +1263,17 @@ all(profile_convergence == 0)
 slice_k_mu = rep(NA, times = length(k_fine))
 profile_k_mu = rep(NA, times = length(k_fine))
 for (i in seq_along(k_fine)) {
-  slice_k_mu[i] = sum(
-    dnbinom(x = call_counts, mu = mu_mle, size = k_fine[i], log = TRUE)
+  slice_k_mu[i] = -owl_obj$fn(c(log(mu_mle), log(k_fine[i])))
+  inner_obj = MakeADFun(
+    cmb(nb_nll, list(calls = call_counts)),
+    list(log_mu = log(mu_mle), log_k = log(k_fine[i])),
+    map = list(log_k = factor(NA)),
+    silent = TRUE
   )
   inner_fit = optim(
-    par = log(mu_mle),
-    fn = function(log_mu, k, counts) {
-      -sum(dnbinom(x = counts, mu = exp(log_mu), size = k, log = TRUE))
-    },
-    k = k_fine[i],
-    counts = call_counts,
+    par = inner_obj$par,
+    fn = inner_obj$fn,
+    gr = inner_obj$gr,
     method = "BFGS"
   )
   profile_k_mu[i] = -inner_fit$value
@@ -1288,6 +1411,16 @@ variance equal to the inverse of the Fisher information. The observed informatio
 the second derivative of the log-likelihood at the estimate) estimates it from the sample.
 :::
 
+We build the Wald interval in four steps, which are the subsections below. We first
+calculate the information and the standard error for a model with one parameter, where
+everything can be done by hand ("Fisher information"). We then generalise the calculation
+to several parameters with the Hessian matrix ("The Hessian matrix"). Because the fits
+of this chapter search for unconstrained parameters, we next see how the standard error
+and the interval change when a parameter is transformed ("Constrained and unconstrained
+parameters"). Finally, we let TMB do all these calculations ("Automation with TMB").
+
+### Fisher information
+
 The information measures how sharply the log-likelihood is curved around its maximum. We
 calculate it from our sample as the **observed information**, which is the negative of the second
 derivative of the log-likelihood at the estimate,^[Strictly, the Fisher information in the
@@ -1344,7 +1477,11 @@ observed_information
 approximate_variance = 1 / observed_information
 standard_error = sqrt(approximate_variance)
 c(approximate_variance = approximate_variance, standard_error = standard_error)
+```
 
+The same formula gives the standard error for all 50 quadrats:
+
+```{r}
 # The same standard error for all 50 quadrats: the value of Chapter 3.
 sqrt(lambda_hat / n_quadrats)
 ```
@@ -1352,13 +1489,6 @@ sqrt(lambda_hat / n_quadrats)
 With all 50 quadrats the standard error is 0.207 seedlings per quadrat, the value that we
 calculated in Chapter 3. With ten quadrats it is more than twice as large (0.47), because
 the sample contains about five times less information.
-
-With several parameters, the information is a matrix that contains the second derivatives
-of the log-likelihood with respect to every pair of parameters. The matrix of second
-derivatives of a function is called its **Hessian**. With `hessian = TRUE`, `optim()`
-returns the Hessian of the function that it minimised, the NLL, at the estimates. This is
-the observed information matrix, and its inverse approximates the variances of the
-estimates and the covariances between them. We use it below for the owl model.
 
 In [Chapter 3](../Chapter_3/Theory.qmd#sec-confidence_intervals) we defined the Wald
 interval^[The interval is named after Abraham Wald, who developed in 1943 the large-sample
@@ -1376,62 +1506,143 @@ wald_original = lambda_hat_ten + c(-1, 1) * critical_value * standard_error
 wald_original
 ```
 
-That is, 1.28 to 3.12 seedlings per quadrat.
+That is, 1.28 to 3.12 seedlings per quadrat. This interval is symmetric around the
+estimate and it is calculated on the original scale of the parameter, with the standard
+error of $\hat\lambda$.
 
-With `optim()` we do not need to derive the second derivative by hand, because the Hessian
-contains it. However, `optim()` calculates the Hessian of the function that it minimised
-with respect to the parameter that it searched over, which in our fit is $\log\lambda$. So
-the standard error that we obtain from it is the standard error of the estimate of
-$\log\lambda$:
+### The Hessian matrix
+
+With several parameters, the information is a matrix that contains the second derivatives
+of the log-likelihood with respect to every pair of parameters. The matrix of second
+derivatives of a function is called its **Hessian**. The Hessian of the NLL at the
+estimates is the observed information matrix, and its inverse approximates the variances
+of the estimates (on its diagonal) and the covariances between them (outside the
+diagonal). We use it first for the Poisson model and then for the owl model.
+
+We do not need to derive the second derivatives by hand. With `hessian = TRUE`, `optim()`
+also returns the Hessian of the function that it minimised, calculated numerically at the
+estimate. It is the Hessian with respect to the parameter that `optim()` searched over,
+which in our fit is $\log\lambda$ (see @sec-constraints). So the standard error that we
+obtain from it is the standard error of the estimate of $\log\lambda$:
 
 ```{r}
-# Fit the Poisson model to the ten quadrats on the log scale, now with the Hessian.
-poisson_fit_ten = optim(
-  par = log(1),
-  fn = poisson_nll,
-  counts = ten_counts,
-  method = "BFGS",
-  hessian = TRUE
+# Fit the Poisson model to the ten quadrats again, now asking for the Hessian.
+fir_ten_fit = optim(
+  par = fir_ten_obj$par, fn = fir_ten_obj$fn, gr = fir_ten_obj$gr,
+  method = "BFGS", hessian = TRUE
 )
-poisson_fit_ten$convergence
 
 # The Hessian is a 1 by 1 matrix; take its single element. Its inverse is the
 # approximate variance of the estimate of log(lambda).
-hessian_log = poisson_fit_ten$hessian[1, 1]
+hessian_log = fir_ten_fit$hessian[1, 1]
 se_log_lambda = sqrt(1 / hessian_log)
 c(hessian_log = hessian_log, se_log_lambda = se_log_lambda)
-
-# Wald interval on the log scale, back-transformed to seedlings per quadrat.
-wald_log = exp(poisson_fit_ten$par + c(-1, 1) * critical_value * se_log_lambda)
-wald_log
 ```
 
 A fit with one parameter returns a matrix with one row and one column, from which we take
 the single element. The Hessian is 22 (you can check that the second derivative of the NLL
 with respect to $\log\lambda$ is $n\lambda$, which at the estimate is the total number of
 seedlings) and the standard error of the estimate of
-$\log\lambda$ is $1/\sqrt{22}\approx 0.213$. We calculate the Wald interval on the log
-scale, where this standard error applies, and transform its endpoints back with `exp()`:
-1.45 to 3.34 seedlings per quadrat. We can transform the endpoints because the logarithm is
-an increasing function: $\log\lambda$ lies between the two endpoints on the log scale exactly
-when $\lambda$ lies between their exponentials. So the transformed interval contains the
-parameter in the same hypothetical experiments as the interval on the log scale, and it has
-the same coverage.
+$\log\lambda$ is $1/\sqrt{22}\approx 0.213$.
 
-This interval differs from the first one, although both are 95% Wald intervals for the
-same parameter and the same data. A Wald interval depends on the scale on which it is
-calculated, because the Normal approximation is applied to a different quantity in each
-case ($\hat\lambda$ or its logarithm). The interval from the log scale is actually better
-as it captures the asymmetry around the estimate and excludes negative values, which is
-already addressing two of the shortcomings of the Wald interval on the original scale.
-Note that we transformed the endpoints of the interval and not the standard error. A
-standard error cannot be transformed in that way: $e^{\widehat{\operatorname{SE}}}$ is not
-the standard error of $\hat\lambda$ (it has no units, whereas the standard error of
-$\hat\lambda$ is in seedlings per quadrat). To obtain a standard error on the original scale
-we need the delta method, which we will see in
-[Chapter 6](../Chapter_6/Theory.qmd).^[To first order, the delta method gives
-$\widehat{\operatorname{SE}}(\hat\lambda)\approx\hat\lambda\,\widehat{\operatorname{SE}}(\log\hat\lambda)$,
-that is, the standard error on the log scale multiplied by the estimate.]
+The owl model has two parameters, so its Hessian is a matrix with two rows and two
+columns, and we need its inverse, which approximates the covariance matrix of the
+estimates of $\log\mu$ and $\log k$. We fit the model of the previous section again, now
+asking `optim()` for the Hessian. The model is the same, so the estimates do not change:
+
+```{r}
+# Fit the owl model again, now asking optim() for the Hessian.
+owl_fit = optim(
+  par = owl_obj$par, fn = owl_obj$fn, gr = owl_obj$gr,
+  method = "BFGS", hessian = TRUE
+)
+```
+
+Three functions take us from the Hessian to the standard errors:
+
+- `solve()` applied to a matrix returns its inverse (matrices were introduced in the
+  Chapter 1 practical);
+- `diag()` extracts the diagonal of a matrix, which here holds the variances of the two
+  estimates;
+- `sqrt()` turns the variances into standard errors.
+
+```{r}
+# Invert the Hessian, take the variances from its diagonal and their square roots.
+owl_covariance = solve(owl_fit$hessian)
+sqrt(diag(owl_covariance))
+```
+
+These are the standard errors of the estimates of $\log\mu$ and $\log k$, which are the
+parameters that `optim()` searched over, and not of $\mu$ and $k$ themselves. We now look
+at why that matters.
+
+### Constrained and unconstrained parameters
+
+Both the mean $\lambda$ of the Poisson model and the shape $k$ of the Negative Binomial
+model are constrained to be positive, and in @sec-constraints we removed the constraint
+by fitting their logarithms, which can take any real value. The Hessian that we have just
+used belongs to the unconstrained parameter. For the ten quadrats we therefore have two
+standard errors, one for the estimator $\hat\lambda$ (calculated by hand, in seedlings per
+quadrat) and one for the estimator of $\log\lambda$ (from the Hessian). The second is
+approximately the first one divided by the estimate, that is, the standard error relative
+to the size of the estimate ($0.47/2.2\approx 0.213$). We compare them with two ways of
+moving the second one back to the original scale:
+
+```{r}
+c(
+  # By hand, from the observed information of lambda (seedlings per quadrat).
+  original_scale = standard_error,
+  # From the Hessian with respect to log(lambda).
+  log_scale = se_log_lambda,
+  # exp() applied to the standard error on the log scale.
+  exp_of_se = exp(se_log_lambda),
+  # The standard error on the log scale multiplied by the estimate.
+  se_times_estimate = lambda_hat_ten * se_log_lambda
+)
+```
+
+Applying `exp()` to the standard error gives a number that is far from the standard error
+of $\hat\lambda$, whereas multiplying it by the estimate reproduces it. A standard error
+cannot be back-transformed as we back-transform a value of the parameter, because it is
+calculated from expectations and expectations do not pass through non-linear functions
+(this is known as Jensen's inequality).^[A standard error is the square root of an expected
+squared deviation. **Jensen's inequality** states that, if $g$ is a convex function (as
+$\exp$ is), then $E[g(X)]\ge g(E[X])$, with equality only when $g$ is linear. A non-linear
+transformation of an estimator therefore does not transform its mean, and the standard
+error, which is built from expectations, is not transformed either: the transformation
+stretches the sampling distribution by different amounts in different places. For a
+function $g$ of an estimate, the delta method corrects for this by multiplying the
+standard error by the slope of the function at the estimate,
+$\widehat{\operatorname{SE}}(g(\hat\theta))\approx
+|g'(\hat\theta)|\,\widehat{\operatorname{SE}}(\hat\theta)$, and for $g=\exp$ the slope is
+$\exp(\hat\theta)=\hat\lambda$, which is the multiplication in the last element above.]
+The correction that gives the right standard error is the **delta method**, which
+[Chapter 6](../Chapter_6/Theory.qmd#sec-delta-method) explains.
+
+The endpoints of an interval are different. We can transform them because the logarithm is
+an increasing function: $\log\lambda$ lies between the two endpoints on the log scale
+exactly when $\lambda$ lies between their exponentials. So the transformed interval
+contains the parameter in the same hypothetical experiments as the interval on the log
+scale, and it has the same coverage. We calculate the Wald interval on the log scale,
+where the standard error from the Hessian applies, and transform its endpoints back with
+`exp()`:
+
+```{r}
+# Wald interval on the log scale, with the endpoints transformed back to seedlings
+# per quadrat.
+wald_log = exp(
+  fir_ten_fit$par[["log_lambda"]] + c(-1, 1) * critical_value * se_log_lambda
+)
+wald_log
+```
+
+This interval (1.45 to 3.34 seedlings per quadrat) differs from the first one (1.28 to
+3.12), although both are 95% Wald intervals for the same parameter and the same data. A
+Wald interval depends on the scale on which it is calculated, because the Normal
+approximation is applied to a different quantity in each case ($\hat\lambda$ or its
+logarithm). The interval from the log scale is better here because it captures the
+asymmetry around the estimate and it cannot include negative values, which addresses two
+shortcomings of the Wald interval on the original scale.
 
 The Wald interval amounts to replacing the log-likelihood by a parabola with the same
 curvature at the maximum,
@@ -1446,51 +1657,113 @@ interval. The approximation is good when the log-likelihood is close to a parabo
 scale that we use, and we saw in @fig-likelihood_curve that for the ten quadrats it is not
 symmetric.
 
-With two parameters the Hessian is a matrix with two rows and two columns, and we need its
-inverse. In R, `solve()` applied to a matrix returns its inverse (matrices were introduced
-in the Chapter 1 practical), `diag()` extracts the diagonal of a matrix, which here holds
-the variances of the two estimates, and `sqrt()` turns them into standard errors. For the
-owl fit:
+### Automation with TMB
+
+The steps above are the same for every model: obtain the Hessian at the estimates, invert
+it, take the square roots of its diagonal and, for a quantity calculated from the
+parameters, apply the delta method. TMB does all of this for us. The function
+`sdreport()` of RTMB takes the object returned by `MakeADFun()` after the fit (it reads
+the estimates from the object), calculates the Hessian itself, and `summary()` of its
+result is a table with one row per parameter, on the scale that was optimised, and two
+columns:
+
+- `Estimate`, the estimate of the parameter;
+- `Std. Error`, its standard error.
 
 ```{r}
-# Two parameters: solve() returns the inverse of the Hessian, which approximates the
-# covariance matrix of the estimates of log(mu) and log(k). diag() takes its diagonal
-# (the variances) and sqrt() gives the standard errors.
-owl_covariance = solve(owl_fit$hessian)
-owl_se = sqrt(diag(owl_covariance))
-owl_se
-
-# Wald intervals on the log scales, back-transformed to the original scales.
-owl_wald_lower = exp(owl_fit$par - critical_value * owl_se)
-owl_wald_upper = exp(owl_fit$par + critical_value * owl_se)
-owl_wald = rbind(
-  mu = c(estimate = mu_mle, lower = owl_wald_lower[[1]], upper = owl_wald_upper[[1]]),
-  k = c(estimate = k_mle, lower = owl_wald_lower[[2]], upper = owl_wald_upper[[2]])
-)
-owl_wald
+# sdreport() calculates the standard errors from the Hessian at the estimates.
+fir_ten_sd = sdreport(fir_ten_obj)
+fir_ten_summary = summary(fir_ten_sd)
+fir_ten_summary
 ```
 
-The standard errors are 0.164 for the estimate of $\log\mu$ and 0.165 for the estimate of
-$\log k$, and the back-transformed Wald intervals are 3.45 to 6.55 calls per visit for
-$\mu$ and 0.24 to 0.45 for $k$.
+The standard error of `log_lambda` is the one that we obtained from the Hessian, and from
+here on we use `sdreport()`. For a quantity calculated from the parameters, such as
+$\lambda$ or the shape $k$ of the owl model, we ask for its standard error with
+`ADREPORT()` inside the NLL. TMB then applies the delta method for us and adds a row for
+that quantity to the table. For the owl model we add one line to the NLL, `ADREPORT(k)`,
+which asks for the standard error of $k$ itself, next to that of $\log k$:
+
+```{r}
+# The Negative Binomial NLL with one more line.
+nb_nll = function(parms, data) {
+  getAll(parms, data)
+  mu = exp(log_mu)
+  k = exp(log_k)
+  # Ask for the standard error of k itself.
+  ADREPORT(k)
+  -sum(dnbinom2(x = calls, mu = mu, size = k, log = TRUE))
+}
+```
+
+We process the new NLL and fit it again, because `sdreport()` reads the estimates from
+the processed object. The model is the same, so the estimates do not change:
+
+```{r}
+# Process the new NLL and fit it again.
+owl_obj = MakeADFun(
+  cmb(nb_nll, list(calls = call_counts)),
+  list(log_mu = log(mu_hat), log_k = log(k_mom)),
+  silent = TRUE
+)
+owl_fit = optim(par = owl_obj$par, fn = owl_obj$fn, gr = owl_obj$gr, method = "BFGS")
+```
+
+The table of `sdreport()` has the standard errors that we obtained from the inverse of the
+Hessian, and one more row for the quantity in `ADREPORT()`:
+
+```{r}
+# The standard errors of log(mu) and log(k), and the row of k from ADREPORT().
+owl_sd = sdreport(owl_obj)
+owl_summary = summary(owl_sd)
+owl_summary
+```
+
+The last row is the quantity that we asked for with `ADREPORT()`: $\hat k\approx 0.327$,
+with a standard error of 0.054. It agrees with the delta method for the exponential
+that we applied above, $0.327\times 0.165$, the estimate multiplied by the standard error
+of $\log k$. We can now calculate a Wald interval for $k$ on each of the two scales:
+
+```{r}
+# Lower and upper endpoints of a Wald interval for every row of the table.
+owl_lower = owl_summary[, "Estimate"] - critical_value * owl_summary[, "Std. Error"]
+owl_upper = owl_summary[, "Estimate"] + critical_value * owl_summary[, "Std. Error"]
+
+# Rows log_mu and log_k: intervals on the log scales, with the endpoints transformed back.
+owl_wald_mu = exp(c(owl_lower[["log_mu"]], owl_upper[["log_mu"]]))
+owl_wald_k = exp(c(owl_lower[["log_k"]], owl_upper[["log_k"]]))
+
+# Row k, from ADREPORT(): interval for k on the original scale.
+owl_wald_k_original = c(owl_lower[["k"]], owl_upper[["k"]])
+
+rbind(
+  "mu, from the log scale" = owl_wald_mu,
+  "k, from the log scale" = owl_wald_k,
+  "k, original scale" = owl_wald_k_original
+)
+```
+
+The Wald intervals from the log scales are 3.45 to 6.55 calls per visit for $\mu$ and
+0.237 to 0.453 for $k$. On the original scale the interval for $k$ is 0.221 to 0.434: it
+is symmetric around the estimate and lies lower than the first one. As for the ten
+quadrats, the same fit gives two different Wald intervals, and in @sec-profile_intervals
+we compare both with the profile likelihood interval.
 
 :::: {.callout-important title="Practice: an interval from the log scale"}
 
 In the practice about ticks on lizards, the fit on the log scale returned `par = 0.92`.
-The sample had 20 lizards and the Hessian returned by `optim()` is 50.2. Calculate a 95%
+For that parameter, `sdreport()` reports a standard error of 0.141. Calculate a 95%
 Wald interval for the mean number of ticks per lizard. Why is it not symmetric around the
 estimate?
 
 ::: {.callout-tip title="Solution" collapse="true"}
 
-The standard error of the estimate of the logarithm of the mean is
-$1/\sqrt{50.2}\approx 0.141$. We calculate the interval on the log scale and transform its
-endpoints:
+The standard error is that of the estimate of the logarithm of the mean, so we calculate
+the interval on the log scale and transform its endpoints:
 
 ```{r}
 # Wald interval on the log scale, back-transformed to ticks per lizard.
-se_log_mean = sqrt(1 / 50.2)
-exp(0.92 + c(-1, 1) * qnorm(p = 0.975) * se_log_mean)
+exp(0.92 + c(-1, 1) * qnorm(p = 0.975) * 0.141)
 ```
 
 The interval goes from approximately 1.9 to 3.3 ticks per lizard, around an estimate of
@@ -1508,14 +1781,15 @@ vary together across hypothetical experiments. A covariance divided by the two s
 errors is the correlation between the estimates
 ([Chapter 2](../Chapter_2/Theory.qmd#sec-two_continuous_variables) introduced the
 correlation as a parameter of the bivariate Normal distribution), and `cov2cor()` does this
-conversion for a whole matrix:
+conversion for a whole matrix. `sdreport()` keeps the inverse of the Hessian in its
+element `cov.fixed`:
 
 ```{r}
-# Correlations between the estimates, from the inverse Hessian.
-cov2cor(owl_covariance)
+# Correlations between the estimates, from the covariance matrix kept by sdreport().
+cov2cor(owl_sd$cov.fixed)
 
 # The same for the parameters k and p, whose estimates are correlated.
-cov2cor(solve(owl_fit_prob$hessian))
+cov2cor(sdreport(owl_prob_obj)$cov.fixed)
 ```
 
 For the estimates of $\log\mu$ and $\log k$ the correlation is zero to four decimals. For
@@ -1588,13 +1862,28 @@ $\theta_0$ in exactly those experiments, which gives it a coverage of
 approximately 95%.
 :::
 
+We calculate the profile likelihood interval in three steps. We first calculate it by hand
+for a model with one parameter, the Poisson model, and then for a model with two
+parameters, the Negative Binomial model of the owls, to see what the calculation involves.
+In practice we do not do these calculations ourselves: TMB automates them for any model
+that was processed with `MakeADFun()`, and the third subsection shows the two functions
+that do it. From then on, this is how we calculate profile likelihood intervals.
+
+### One parameter
+
 The Poisson model has one parameter, so the profile is the log-likelihood itself, and the
 endpoints of the interval are the two values of $\lambda$ at which the relative
-log-likelihood equals $-1.92$. We calculate them first for the ten quadrats
+log-likelihood equals $-1.92$. We calculate them by hand for the ten quadrats
 (@fig-likelihood_curve). To find them we use `uniroot()`,
-which searches for the value at which a function crosses zero. Its main arguments are the
-function (`f`) and an `interval` in which to search, whose two ends must give values of
-opposite sign. We give it the relative log-likelihood plus the cutoff, which is zero at
+which searches for the value at which a function crosses zero. Its main arguments are:
+
+- `f`, the function;
+- `interval`, the range in which to search, whose two ends must give values of opposite
+  sign;
+- `tol`, the precision with which the crossing point is located.
+
+It returns a list, and the crossing point is the element called `root`. We give it the
+relative log-likelihood plus the cutoff, which is zero at
 the endpoints of the confidence interval, positive at the estimate (where it equals 1.92)
 and negative far from it. There is one crossing on each side of the estimate, so we call
 `uniroot()` twice: between 0.8 and $\hat\lambda$, and between $\hat\lambda$ and 5. These
@@ -1602,86 +1891,129 @@ are the two ends of the curve in @fig-likelihood_curve, where the relative log-l
 is far below the cutoff.
 
 ```{r}
-# Relative log-likelihood of the Poisson model: with one parameter it is also the profile.
-poisson_relative_loglik = function(lambda, counts) {
-  sum(dpois(x = counts, lambda = lambda, log = TRUE)) -
-    sum(dpois(x = counts, lambda = mean(counts), log = TRUE))
+# Relative log-likelihood of the ten quadrats plus the cutoff, as a function of lambda.
+# With one parameter the log-likelihood is also the profile.
+ten_crossing = function(lambda) {
+  sum(dpois(x = ten_counts, lambda = lambda, log = TRUE)) - loglik_lambda_hat_ten + cutoff
 }
 
 # uniroot() finds where a function crosses zero inside an interval whose ends give
-# values of opposite sign. We look for the two values of lambda where the relative
-# log-likelihood of the ten quadrats equals -cutoff, one below the estimate and one
-# above it.
-lambda_lower = uniroot(
-  f = function(lambda) poisson_relative_loglik(lambda, counts = ten_counts) + cutoff,
-  interval = c(0.8, lambda_hat_ten),
-  tol = 1e-8
-)$root
-lambda_upper = uniroot(
-  f = function(lambda) poisson_relative_loglik(lambda, counts = ten_counts) + cutoff,
-  interval = c(lambda_hat_ten, 5),
-  tol = 1e-8
-)$root
-likelihood_interval = c(lambda_lower, lambda_upper)
-likelihood_interval
+# values of opposite sign: once below the estimate and once above it.
+lambda_lower = uniroot(f = ten_crossing, interval = c(0.8, lambda_hat_ten), tol = 1e-8)$root
+lambda_upper = uniroot(f = ten_crossing, interval = c(lambda_hat_ten, 5), tol = 1e-8)$root
+c(lambda_lower, lambda_upper)
+```
 
+The likelihood interval goes from 1.40 to 3.25 seedlings per quadrat. We will not repeat
+this calculation for other models: it is what `tmbprofile()` and `confint()` do for us
+in the third subsection.
+
+### Two parameters
+
+The owl model has two parameters, so the interval of each of them is calculated from its
+profile, as defined in @sec-likelihood-surface. To see what the calculation involves, we
+calculate the profile of $k$ once by
+hand, on a grid of values of $k$. For each value we process the NLL with $\log k$ held
+fixed and fit it with `optim()`, which then re-estimates only $\log\mu$. The argument
+`map = list(log_k = factor(NA))` of `MakeADFun()` keeps `log_k` fixed at the value given
+in the list of parameters:
+
+```{r}
+# Profile of k by hand: for each value of k on a grid, the mean is re-estimated with k
+# held fixed, starting from the joint estimate.
+k_values = seq(from = 0.15, to = 0.60, by = 0.005)
+profile_k = rep(NA, times = length(k_values))
+for (i in seq_along(k_values)) {
+  inner_obj = MakeADFun(
+    cmb(nb_nll, list(calls = call_counts)),
+    list(log_mu = owl_fit$par[["log_mu"]], log_k = log(k_values[i])),
+    map = list(log_k = factor(NA)),
+    silent = TRUE
+  )
+  inner_fit = optim(par = inner_obj$par, fn = inner_obj$fn, gr = inner_obj$gr, method = "BFGS")
+  # Relative profile log-likelihood (both values are NLLs, so the order is reversed).
+  profile_k[i] = owl_fit$value - inner_fit$value
+}
+
+# Values of k on the grid whose relative profile log-likelihood is above the cutoff.
+range(k_values[profile_k >= -cutoff])
+```
+
+On this grid the values of $k$ above the cutoff go from 0.24 to 0.45, to the precision of
+its step.
+
+### Automation with TMB {#sec-profile_automation}
+
+The two calculations above follow the same steps for every model and parameter: move the
+parameter away from its estimate, re-estimate the other parameters at each step (the inner
+fits), record the NLL and find the two values at which the relative profile
+log-likelihood crosses the cutoff. TMB does all of this for us, so in practice we never
+write the grid, the inner fits or the calls to `uniroot()` ourselves. Two functions are
+enough:
+
+- `TMB::tmbprofile()` calculates the profile of one parameter of a model that was
+  processed with `MakeADFun()`. Its main arguments are the object and `name`, the name of
+  the parameter to profile as it is written in the list of parameters; `trace = FALSE`
+  stops the printing of progress. It returns a data frame with the values of the parameter
+  and the NLL at each of them. The function belongs to the package TMB, on which RTMB is
+  built and which is installed with it, so we write `TMB::tmbprofile()`.
+- `confint()` takes the result of `tmbprofile()` and finds the two crossings of the
+  cutoff, that is, the endpoints of the 95% profile likelihood interval.
+
+The profile is calculated on the scale that was optimised, so we transform the endpoints
+back. For the Poisson model with one parameter there are no other parameters to
+re-estimate, and the result is the interval that we calculated by hand:
+
+```{r}
+# Profile of log(lambda) for the ten quadrats (trace = FALSE stops the printing of
+# progress) and the endpoints of its 95% interval, transformed back.
+fir_ten_profile = TMB::tmbprofile(fir_ten_obj, name = "log_lambda", trace = FALSE)
+likelihood_interval = exp(confint(fir_ten_profile))
+likelihood_interval
+```
+
+We now have three intervals for $\lambda$ from the ten quadrats, and we collect them in a
+matrix to compare them:
+
+```{r}
 # The three intervals for lambda (seedlings per quadrat) from the ten quadrats.
-intervals_ten = rbind(
-  "Wald, original scale" = wald_original,
-  "Wald, log scale" = wald_log,
-  "Likelihood" = likelihood_interval
+intervals_ten = rbind(wald_original, wald_log, likelihood_interval)
+dimnames(intervals_ten) = list(
+  c("Wald, original scale", "Wald, log scale", "Likelihood"),
+  c("lower", "upper")
 )
-colnames(intervals_ten) = c("lower", "upper")
 intervals_ten
 ```
 
-The element `root` of the result is the crossing point, and the argument `tol` sets the
-precision with which it is located. The likelihood interval goes from 1.40 to 3.25
-seedlings per quadrat. The matrix at the end of the output collects the three intervals
-that we have calculated for $\lambda$ from the ten quadrats. The likelihood interval is not
+The likelihood interval is not
 symmetric: it extends 0.80 below the estimate and 1.05 above it, following the asymmetry of
 the curve.
 It also does not depend on the scale, because a value of $\lambda$ and its logarithm have
-the same likelihood, so we would obtain the same interval by searching over
-$\log\lambda$. As expected (see above), the Wald interval from the log scale is closer to it
-than the Wald interval on the original scale.
+the same likelihood, so we obtain the same interval whether we search over $\lambda$, as
+we did by hand, or over $\log\lambda$, as `tmbprofile()` did. As expected (see above), the
+Wald interval from the log scale is closer to it than the Wald interval on the original
+scale.
 
-We now repeat the three intervals for all 50 quadrats, with the same steps:
+We now repeat the three intervals for all 50 quadrats, with `sdreport()` and
+`tmbprofile()`:
 
 ```{r}
 # Wald interval on the original scale for the 50 quadrats (the interval of Chapter 3).
 wald_original_all = lambda_hat + c(-1, 1) * critical_value * sqrt(lambda_hat / n_quadrats)
 
-# Wald interval from the log scale: refit with the Hessian and transform the endpoints.
-poisson_fit = optim(
-  par = log(1),
-  fn = poisson_nll,
-  counts = seedling_counts,
-  method = "BFGS",
-  hessian = TRUE
+# Wald interval from the log scale, with the standard error from sdreport().
+fir_summary = summary(sdreport(fir_obj))
+wald_log_all = exp(
+  fir_summary["log_lambda", "Estimate"] +
+    c(-1, 1) * critical_value * fir_summary["log_lambda", "Std. Error"]
 )
-se_log_lambda_all = sqrt(1 / poisson_fit$hessian[1, 1])
-wald_log_all = exp(poisson_fit$par + c(-1, 1) * critical_value * se_log_lambda_all)
 
-# Likelihood interval: the two crossings of the cutoff.
-lambda_lower_all = uniroot(
-  f = function(lambda) poisson_relative_loglik(lambda, counts = seedling_counts) + cutoff,
-  interval = c(0.8, lambda_hat),
-  tol = 1e-8
-)$root
-lambda_upper_all = uniroot(
-  f = function(lambda) poisson_relative_loglik(lambda, counts = seedling_counts) + cutoff,
-  interval = c(lambda_hat, 5),
-  tol = 1e-8
-)$root
+# Likelihood interval from the profile.
+fir_profile = TMB::tmbprofile(fir_obj, name = "log_lambda", trace = FALSE)
 
 # The three intervals for lambda (seedlings per quadrat) from the 50 quadrats.
-intervals_all = rbind(
-  "Wald, original scale" = wald_original_all,
-  "Wald, log scale" = wald_log_all,
-  "Likelihood" = c(lambda_lower_all, lambda_upper_all)
-)
-colnames(intervals_all) = c("lower", "upper")
+intervals_all = rbind(wald_original_all, wald_log_all, exp(confint(fir_profile)))
+dimnames(intervals_all) = dimnames(intervals_ten)
 intervals_all
 ```
 
@@ -1695,95 +2027,37 @@ quadratic approximation behind the Wald interval is better. With ten quadrats th
 endpoint was 1.28, 1.45 or 1.40 depending on the method, whereas with 50 quadrats it hardly
 matters which interval we report.
 
-The owl model has two parameters, so the interval of each of them is calculated from its
-profile, as defined in @sec-likelihood-surface. To compute the profile of $\mu$, we first write a function that returns the log-likelihood
-for a given value of $\mu$. This is used then by `optim()` to re-estimate $\log k$ with
-$\mu$ held fixed. We then calculate the relative log-likelihood as shown earlier. A second
-pair of functions does the same for $k$:
+For the owl model, `tmbprofile()` makes the inner fits that we wrote as a loop, with
+the other parameter re-estimated at each step, and `confint()` locates the endpoints. We
+use them for both parameters, in two lines each instead of the loop:
 
 ```{r}
-# Profile log-likelihood of mu relative to the maximum: for each mu the shape is
-# re-estimated with optim() on log(k), starting from the joint estimate.
-nll_given_mu = function(log_k, mu, counts) {
-  -sum(dnbinom(x = counts, mu = mu, size = exp(log_k), log = TRUE))
-}
-profile_relative_mu = function(mu, counts) {
-  inner_fit = optim(
-    par = owl_fit$par["log_k"],
-    fn = nll_given_mu,
-    mu = mu,
-    counts = counts,
-    method = "BFGS"
-  )
-  -inner_fit$value - loglik_mle
-}
+# Profiles of log(k) and log(mu), and their 95% intervals transformed back.
+owl_profile_k = TMB::tmbprofile(owl_obj, name = "log_k", trace = FALSE)
+owl_profile_mu = TMB::tmbprofile(owl_obj, name = "log_mu", trace = FALSE)
+owl_interval_k = exp(confint(owl_profile_k))
+owl_interval_mu = exp(confint(owl_profile_mu))
 
-# The same for k, re-estimating the mean on the log scale.
-nll_given_k_mu = function(log_mu, k, counts) {
-  -sum(dnbinom(x = counts, mu = exp(log_mu), size = k, log = TRUE))
-}
-profile_relative_k = function(k, counts) {
-  inner_fit = optim(
-    par = owl_fit$par["log_mu"],
-    fn = nll_given_k_mu,
-    k = k,
-    counts = counts,
-    method = "BFGS"
-  )
-  -inner_fit$value - loglik_mle
-}
-
-# Both profiles are zero at the joint estimate.
-c(profile_relative_mu(mu = mu_mle, counts = call_counts),
-  profile_relative_k(k = k_mle, counts = call_counts))
-```
-
-Both profiles are zero at their maximum likelihood estimate, as they should be (because we
-calculated relative log-likelihoods). We find the endpoints with `uniroot()` as before. There
-are no hard rules to determine the intervals, one should be below the MLE and the other one
-above and you need to guess a value far enough that will include the endpoint of the confidence
-interval. Sometimes you need some trial and error but if you plotted the likelihood surface
-that helps (@fig-likelihood_surface):
-
-```{r}
-# Endpoints of the profile likelihood interval of mu, below and above the estimate.
-mu_lower = uniroot(
-  f = function(mu) profile_relative_mu(mu, counts = call_counts) + cutoff,
-  interval = c(1, mu_mle),
-  tol = 1e-8
-)$root
-mu_upper = uniroot(
-  f = function(mu) profile_relative_mu(mu, counts = call_counts) + cutoff,
-  interval = c(mu_mle, 20),
-  tol = 1e-8
-)$root
-
-# Endpoints of the profile likelihood interval of k.
-k_lower = uniroot(
-  f = function(k) profile_relative_k(k, counts = call_counts) + cutoff,
-  interval = c(0.05, k_mle),
-  tol = 1e-8
-)$root
-k_upper = uniroot(
-  f = function(k) profile_relative_k(k, counts = call_counts) + cutoff,
-  interval = c(k_mle, 2),
-  tol = 1e-8
-)$root
-
-# Profile intervals next to the Wald intervals calculated on the log scales.
+# Profile intervals next to the Wald intervals.
 owl_intervals = rbind(
-  "mu, profile" = c(mu_lower, mu_upper),
-  "mu, Wald" = owl_wald["mu", c("lower", "upper")],
-  "k, profile" = c(k_lower, k_upper),
-  "k, Wald" = owl_wald["k", c("lower", "upper")]
+  owl_interval_mu, owl_wald_mu, owl_interval_k, owl_wald_k, owl_wald_k_original
 )
-colnames(owl_intervals) = c("lower", "upper")
+dimnames(owl_intervals) = list(
+  c("mu, profile", "mu, Wald from the log scale",
+    "k, profile", "k, Wald from the log scale", "k, Wald on the original scale"),
+  c("lower", "upper")
+)
 owl_intervals
 ```
 
-The profile likelihood intervals are 3.49 to 6.68 calls per visit for $\mu$ and 0.24 to
-0.45 for $k$. For $k$ the Wald interval from the log scale is almost the same (0.237 to
-0.453 against 0.235 to 0.451). For $\mu$ the profile likelihood interval reaches further
+The profile likelihood intervals are 3.49 to 6.68 calls per visit for $\mu$ and 0.235 to
+0.451 for $k$. For $k$ the Wald interval from the log scale is almost the same (0.237 to
+0.453). The Wald interval on the original scale (0.221 to 0.434) is not: it is symmetric
+around the estimate, whereas the profile likelihood interval extends 0.09 below the
+estimate and 0.12 above it, so both of its endpoints are too low. This is why we calculate
+Wald intervals on the scale that was optimised and transform their endpoints, and why the
+profile likelihood interval is the reference with which we compare them. For $\mu$ the
+profile likelihood interval reaches further
 above the estimate than the Wald interval from the log scale (6.68 against 6.55).
 @fig-profile_interval shows that the profile of $\mu$ is not a parabola on the original
 scale. The parabola in the figure is the quadratic approximation on that scale, drawn with
@@ -1797,27 +2071,33 @@ interval that is symmetric around the estimate cannot follow it.
 #| echo: false
 #| label: fig-profile_interval
 #| fig-cap: "Relative profile log-likelihood of the mean number of calls per visit for the owl data (solid line) and the quadratic approximation that corresponds to the Wald interval on the original scale (dashed line). The horizontal line is the cutoff of the 95% interval, at -1.92, and the vertical lines mark the endpoints of the profile likelihood interval."
-# Evaluate the profile on a grid of means.
-mu_fine = seq(from = 2.5, to = 9, length.out = 131)
-profile_mu_values = rep(NA, times = length(mu_fine))
-for (i in seq_along(mu_fine)) {
-  profile_mu_values[i] = profile_relative_mu(mu = mu_fine[i], counts = call_counts)
-}
+# The profile of mu over a wider range than the default of tmbprofile() (ytol is the
+# drop in log-likelihood at which the profile stops), as a relative log-likelihood.
+profile_mu_wide = TMB::tmbprofile(owl_obj, name = "log_mu", ytol = 6, trace = FALSE)
+mu_lower = owl_interval_mu[1, "lower"]
+mu_upper = owl_interval_mu[1, "upper"]
+k_lower = owl_interval_k[1, "lower"]
+k_upper = owl_interval_k[1, "upper"]
 
 # Quadratic approximation around the estimate, with the standard error of mu from the
 # Negative Binomial variance: sqrt((mu + mu^2 / k) / n), in calls per visit.
+mu_fine = seq(from = 2.5, to = 9, length.out = 131)
 se_mu_nb = sqrt((mu_mle + mu_mle^2 / k_mle) / n_visits)
 quadratic_values = -(mu_fine - mu_mle)^2 / (2 * se_mu_nb^2)
 
 curve_data = rbind(
-  data.frame(mu = mu_fine, relative = profile_mu_values, curve = "Profile"),
+  data.frame(
+    mu = exp(profile_mu_wide$log_mu),
+    relative = -(profile_mu_wide$value - min(profile_mu_wide$value)),
+    curve = "Profile"
+  ),
   data.frame(mu = mu_fine, relative = quadratic_values, curve = "Quadratic approximation")
 )
 ggplot(curve_data, aes(x = mu, y = relative, linetype = curve)) +
   geom_line(colour = "#D55E00", linewidth = 0.8) +
   geom_hline(yintercept = -cutoff, colour = "grey40") +
   geom_vline(xintercept = c(mu_lower, mu_upper), colour = "grey40", linetype = "dotted") +
-  coord_cartesian(ylim = c(-6, 0)) +
+  coord_cartesian(xlim = c(2.5, 9), ylim = c(-6, 0)) +
   labs(
     x = expression(paste("Mean number of calls per visit, ", mu)),
     y = "Relative log-likelihood",
@@ -1905,17 +2185,59 @@ intervals is not a 95% region for the pair.
 ## Coverage checked by simulation
 
 As in [Chapter 3](../Chapter_3/Theory.qmd#sec-confidence_intervals), we check the coverage
-of the intervals with a simulation in which we know the parameters. For each hypothetical
-experiment we calculate both types of interval and record whether each of them contains
-the parameter used to simulate. We consider two cases with small samples, where the
+of the intervals with a simulation in which we know the parameters. To simulate from a
+model that is written as an NLL, we mark the data inside it with `OBS()`. The object
+returned by `MakeADFun()` then has a function `simulate()`, which draws one hypothetical
+experiment of the size of the data for the parameter values that we give it, on the scale
+that was optimised. With this line the NLL of the owl model is complete:
+
+```{r}
+# The complete NLL of the Negative Binomial model.
+nb_nll = function(parms, data) {
+  getAll(parms, data)
+  # Mark the data as observations, so that they can be simulated.
+  calls = OBS(calls)
+  mu = exp(log_mu)
+  k = exp(log_k)
+  ADREPORT(k)
+  -sum(dnbinom2(x = calls, mu = mu, size = k, log = TRUE))
+}
+```
+
+We process and fit it as before, and the estimates do not change:
+
+```{r}
+# Process and fit as before (the estimates do not change).
+owl_obj = MakeADFun(
+  cmb(nb_nll, list(calls = call_counts)),
+  list(log_mu = log(mu_hat), log_k = log(k_mom)),
+  silent = TRUE
+)
+owl_fit = optim(par = owl_obj$par, fn = owl_obj$fn, gr = owl_obj$gr, method = "BFGS")
+```
+
+We give `simulate()` the estimates on the log scale, which are in the element `par` of the
+fit. It returns a list in which the simulated data have the name that they have in the NLL
+(`calls`). For example, these are the first 20 counts of one hypothetical experiment of 122
+visits:
+
+```{r}
+# One hypothetical experiment of 122 visits at the estimates: its first 20 counts.
+set.seed(seed = 700)
+owl_obj$simulate(owl_fit$par)$calls[1:20]
+```
+
+For each hypothetical experiment we calculate both types of interval and record whether
+each of them contains the parameter used to simulate (the code is not shown; it repeats
+the loop of @sec-mle_properties). We consider two cases with small samples, where the
 large-sample results are most at risk (@fig-coverage).
 
 The first case uses a Poisson model and compares the Wald interval on the original scale
 with the likelihood interval, with 5,000 hypothetical experiments. Chapter 3 warned that
 the Wald interval does badly when the expected total count $n\lambda$ is small, so we take
 $\lambda=0.5$ and 10 quadrats, an expected total of five seedlings. The coverage of the
-Wald interval is 0.871, far from the intended 0.95, and that of the likelihood interval is
-0.931.^[A sample in which all the quadrats are empty
+Wald interval is 0.878, far from the intended 0.95, and that of the likelihood interval is
+0.924.^[A sample in which all the quadrats are empty
 gives an estimate of zero. The Wald interval on the original scale then collapses to
 $[0,0]$, and a likelihood interval can still be calculated at the boundary (it runs from
 zero to the value at which the log-likelihood has dropped by 1.92). The simulation counts
@@ -1925,100 +2247,97 @@ experiments.]
 The second case uses the Negative Binomial model with the owl estimates as parameters and
 20 visits per experiment. It compares, for the shape $k$, the Wald interval calculated on
 the log scale with the profile likelihood interval, with 2,000 hypothetical experiments.
-The coverages are 0.946 and 0.942, so here the two intervals perform equally well: a
+The coverages are 0.945 and 0.942, so here the two intervals perform equally well: a
 coverage simulated with 2,000 experiments has itself a standard error of about 0.005
 ($\sqrt{0.95\times 0.05/2000}$), so a difference of this size is within the noise of the
 simulation.
 
 ```{r}
 #| include: false
-# Cutoff of the relative log-likelihood for 95% profile intervals (one parameter).
-cutoff = qchisq(p = 0.95, df = 1) / 2
-critical_value = qnorm(p = 0.975)
-
-# Fit the Negative Binomial model to a sample of counts by maximum likelihood.
-# Returns the estimates, the method-of-moments shape, and whether the fit converged.
-# The starting values are the method-of-moments estimates when they exist.
-fit_negbin = function(counts, hessian = FALSE) {
-  mu_start = mean(counts)
-  variance_start = mean((counts - mu_start)^2)
-  k_start_mom = ifelse(
-    variance_start > mu_start,
-    mu_start^2 / (variance_start - mu_start),
-    NA
-  )
-  fit = optim(
-    par = log(c(mu_start, ifelse(is.na(k_start_mom), 1, k_start_mom))),
-    fn = nb_nll,
-    counts = counts,
-    method = "BFGS",
-    hessian = hessian
-  )
-  list(
-    mu = exp(fit$par[1]),
-    k = exp(fit$par[2]),
-    k_mom = k_start_mom,
-    loglik = -fit$value,
-    convergence = fit$convergence,
-    hessian = fit$hessian
-  )
-}
-
+#| warning: false
 # Poisson model: coverage of the Wald interval on the original scale and of the
-# likelihood interval, for a mean lambda and a number of quadrats.
-poisson_coverage = function(lambda, n_quadrats, n_experiments) {
-  # One row per hypothetical experiment, one column per quadrat.
-  counts = matrix(
-    rpois(n = n_experiments * n_quadrats, lambda = lambda),
-    nrow = n_experiments,
-    ncol = n_quadrats
-  )
-  totals = rowSums(counts)
-  estimates = totals / n_quadrats
-
-  # Wald interval on the original scale.
-  se = sqrt(estimates / n_quadrats)
-  wald_covered = estimates - critical_value * se <= lambda &
-    lambda <= estimates + critical_value * se
-
-  # The likelihood interval contains lambda when its relative log-likelihood is within
-  # the cutoff. A sample of zeros has no finite estimate of the interval: a miss.
-  relative = -n_quadrats * (lambda - estimates) + totals * log(lambda / estimates)
-  likelihood_covered = totals > 0 & relative >= -cutoff
-
-  c(wald = mean(wald_covered), likelihood = mean(likelihood_covered))
+# likelihood interval, for a mean of 0.5 seedlings per quadrat and 10 quadrats.
+poisson_sim_nll = function(parms, data) {
+  getAll(parms, data)
+  counts = OBS(counts)
+  -sum(dpois(x = counts, lambda = exp(log_lambda), log = TRUE))
 }
-
 set.seed(seed = 701)
-coverage_poisson_small = poisson_coverage(lambda = 0.5, n_quadrats = 10, n_experiments = 5000)
-
-# Negative Binomial model (owl estimates): coverage of the Wald interval for k on the log
-# scale and of the profile interval. The profile at the generating k is the log-likelihood
-# with mu set to the sample mean, which is its maximum for any k.
-negbin_coverage = function(n_visits, n_experiments) {
-  wald_covered = rep(NA, times = n_experiments)
-  profile_covered = rep(NA, times = n_experiments)
-  for (e in seq_len(n_experiments)) {
-    counts = rnbinom(n = n_visits, mu = mu_mle, size = k_mle)
-    fit = fit_negbin(counts = counts, hessian = TRUE)
-    se_log_k = tryCatch(sqrt(solve(fit$hessian)[2, 2]), error = function(e) NA)
-    if (fit$convergence == 0 && !is.na(se_log_k)) {
-      wald_covered[e] = abs(log(k_mle) - log(fit$k)) <= critical_value * se_log_k
-      profile_loglik_k0 = sum(
-        dnbinom(x = counts, mu = mean(counts), size = k_mle, log = TRUE)
-      )
-      profile_covered[e] = profile_loglik_k0 - fit$loglik >= -cutoff
-    }
-  }
-  c(
-    wald = mean(wald_covered, na.rm = TRUE),
-    profile = mean(profile_covered, na.rm = TRUE),
-    failed = sum(is.na(wald_covered))
-  )
+lambda_sim = 0.5
+n_quadrats_sim = 10
+# Placeholder data of the right length: the values are not used.
+poisson_sim_obj = MakeADFun(
+  cmb(poisson_sim_nll, list(counts = rep(0, times = n_quadrats_sim))),
+  list(log_lambda = 0),
+  silent = TRUE
+)
+# The estimate is the mean of the counts, so only the total of each experiment is kept.
+totals = rep(NA, times = 5000)
+for (e in seq_along(totals)) {
+  totals[e] = sum(poisson_sim_obj$simulate(log(lambda_sim))$counts)
 }
+estimates = totals / n_quadrats_sim
 
+# Wald interval on the original scale.
+se = sqrt(estimates / n_quadrats_sim)
+wald_covered = estimates - critical_value * se <= lambda_sim &
+  lambda_sim <= estimates + critical_value * se
+
+# The likelihood interval contains lambda when its relative log-likelihood is within
+# the cutoff. A sample of zeros has no finite estimate of the interval: a miss.
+relative = -n_quadrats_sim * (lambda_sim - estimates) + totals * log(lambda_sim / estimates)
+likelihood_covered = totals > 0 & relative >= -cutoff
+coverage_poisson_small = c(wald = mean(wald_covered), likelihood = mean(likelihood_covered))
+coverage_poisson_small
+mean(totals == 0)
+
+# Negative Binomial model (owl estimates), 20 visits: coverage of the Wald interval for k
+# on the log scale and of the profile interval. The profile interval contains the
+# generating k when the relative profile log-likelihood at that k is within the cutoff,
+# which takes one extra fit with log(k) fixed in place of a whole profile.
 set.seed(seed = 702)
-coverage_nb_small = negbin_coverage(n_visits = 20, n_experiments = 2000)
+n_visits_sim = 20
+nb_sim_obj = MakeADFun(
+  cmb(nb_nll, list(calls = rep(0, times = n_visits_sim))),
+  list(log_mu = 0, log_k = 0),
+  silent = TRUE
+)
+wald_covered = rep(NA, times = 2000)
+profile_covered = rep(NA, times = 2000)
+for (e in seq_along(wald_covered)) {
+  sim_calls = nb_sim_obj$simulate(owl_fit$par)$calls
+  # Starting values: the method-of-moments estimates when they exist.
+  sim_mu = mean(sim_calls)
+  sim_variance = mean((sim_calls - sim_mu)^2)
+  k_start = ifelse(sim_variance > sim_mu, sim_mu^2 / (sim_variance - sim_mu), 1)
+  sim_obj = MakeADFun(
+    cmb(nb_nll, list(calls = sim_calls)),
+    list(log_mu = log(sim_mu), log_k = log(k_start)),
+    silent = TRUE
+  )
+  sim_fit = optim(par = sim_obj$par, fn = sim_obj$fn, gr = sim_obj$gr, method = "BFGS")
+  se_log_k = tryCatch(
+    summary(sdreport(sim_obj))["log_k", "Std. Error"],
+    error = function(err) NA
+  )
+  if (sim_fit$convergence == 0 && !is.na(se_log_k)) {
+    wald_covered[e] = abs(log(k_mle) - sim_fit$par[["log_k"]]) <= critical_value * se_log_k
+    fixed_obj = MakeADFun(
+      cmb(nb_nll, list(calls = sim_calls)),
+      list(log_mu = log(sim_mu), log_k = log(k_mle)),
+      map = list(log_k = factor(NA)),
+      silent = TRUE
+    )
+    fixed_fit = optim(par = fixed_obj$par, fn = fixed_obj$fn, gr = fixed_obj$gr, method = "BFGS")
+    profile_covered[e] = sim_fit$value - fixed_fit$value >= -cutoff
+  }
+}
+coverage_nb_small = c(
+  wald = mean(wald_covered, na.rm = TRUE),
+  profile = mean(profile_covered, na.rm = TRUE),
+  failed = sum(is.na(wald_covered))
+)
+coverage_nb_small
 
 # Collect the results for the figure.
 coverage_results = data.frame(
@@ -2078,20 +2397,20 @@ samples, however, there are results that hold for the MLEs of a very wide class 
 models, and they are the reason why this book uses maximum
 likelihood. The standard errors and the intervals of @sec-likelihood-uncertainty relied on
 them. This section shows three of these properties at work (consistency, asymptotic
-normality and efficiency) and then looks at what happens in small samples and, in an
-optional section, when the model is not a good description of the data generating process.
+normality and efficiency) and then looks at what happens in small samples and when the model
+is not a good description of the data generating process.
 
 We can check all these properties with the same simulation. As in the Chapter 3 practical, we simulate
 hypothetical experiments from the model using the plug-in estimates: a Negative Binomial model
 with the maximum likelihood estimates for the owls as parameters ($\mu=4.75$ and
 $k=0.327$). We simulate 2,000 hypothetical experiments for each of three sample sizes: 20,
-122 (the size of the owl sample) and 500 visits. For each experiment we calculate the
-maximum likelihood estimate of $k$ with `optim()`, as above, and the method-of-moments
-estimate.^[I hide the code to avoid getting sidetracked. You will do your own simulations in
-the practical, and you can always check the source code on GitHub.]
+122 (the size of the owl sample) and 500 visits. The function `simulate()` of an object
+draws experiments of the size of its data, so for each sample size we process the NLL
+with placeholder data of that length, whose values are not used. Each simulated sample is
+then fitted like the data, with `cmb()`, `MakeADFun()` and `optim()`, and we keep the
+maximum likelihood estimate of $k$ and the method-of-moments estimate:
 
 ```{r}
-#| echo: false
 #| warning: false
 # Hypothetical experiments from a Negative Binomial model whose parameters are the
 # maximum likelihood estimates for the owls, for three numbers of visits.
@@ -2100,14 +2419,33 @@ n_experiments = 2000
 visit_sizes = c(20, 122, 500)
 sim_k_ml = matrix(NA, nrow = n_experiments, ncol = length(visit_sizes))
 sim_k_mom = matrix(NA, nrow = n_experiments, ncol = length(visit_sizes))
-sim_converged = matrix(NA, nrow = n_experiments, ncol = length(visit_sizes))
 for (s in seq_along(visit_sizes)) {
+  # Placeholder data of the right length: the values are not used.
+  placeholder_obj = MakeADFun(
+    cmb(nb_nll, list(calls = rep(0, times = visit_sizes[s]))),
+    list(log_mu = 0, log_k = 0),
+    silent = TRUE
+  )
   for (e in seq_len(n_experiments)) {
-    counts = rnbinom(n = visit_sizes[s], mu = mu_mle, size = k_mle)
-    fit = fit_negbin(counts = counts)
-    sim_k_ml[e, s] = fit$k
-    sim_k_mom[e, s] = fit$k_mom
-    sim_converged[e, s] = fit$convergence == 0
+    # One hypothetical experiment at the estimates for the owls.
+    sim_calls = placeholder_obj$simulate(owl_fit$par)$calls
+
+    # Method of moments: k exists only when the variance is larger than the mean.
+    sim_mu = mean(sim_calls)
+    sim_variance = mean((sim_calls - sim_mu)^2)
+    if (sim_variance > sim_mu) {
+      sim_k_mom[e, s] = sim_mu^2 / (sim_variance - sim_mu)
+    }
+
+    # Maximum likelihood, starting from the method-of-moments estimates (or k = 1).
+    k_start = ifelse(is.na(sim_k_mom[e, s]), 1, sim_k_mom[e, s])
+    sim_obj = MakeADFun(
+      cmb(nb_nll, list(calls = sim_calls)),
+      list(log_mu = log(sim_mu), log_k = log(k_start)),
+      silent = TRUE
+    )
+    sim_fit = optim(par = sim_obj$par, fn = sim_obj$fn, gr = sim_obj$gr, method = "BFGS")
+    sim_k_ml[e, s] = exp(sim_fit$par[["log_k"]])
   }
 }
 ```
@@ -2119,16 +2457,17 @@ sample grows: the chance of missing the parameter by more than any given margin 
 small ([Chapter 3](../Chapter_3/Theory.qmd#sec-large_samples) introduced this property).
 Maximum likelihood estimators are consistent when the observations are i.i.d. from the
 model. In the simulation we can calculate the chance that the estimate misses the shape
-$k$ by a margin of 0.1 or more:
+$k$ by a margin of 0.1 or more. The matrix `sim_k_ml` has one column per sample size, and
+`colMeans()` calculates the mean of each column. As in Chapter 3, the mean of `TRUE` and
+`FALSE` values is the fraction of `TRUE` values:
 
 ```{r}
 # Fraction of the estimates that differ by 0.1 or more from the shape used to simulate,
-# for 20, 122 and 500 visits. colMeans() calculates the mean of each column, and the
-# mean of TRUE and FALSE values is the fraction of TRUE values.
+# for 20, 122 and 500 visits.
 colMeans(abs(sim_k_ml - k_mle) >= 0.1)
 ```
 
-With 20 visits, 46% of the estimates differ from the $k$ used to simulate by 0.1 or more.
+With 20 visits, 45% of the estimates differ from the $k$ used to simulate by 0.1 or more.
 With 122 visits it is 7%, and with 500 visits none of the 2,000 estimates does. For your
 own analysis, consistency means that more data bring the estimate closer to the parameter
 of the model, so a larger sample is worth its cost. How close the estimate from a sample
@@ -2239,8 +2578,8 @@ sd(log(sim_k_ml[, 2]))
 ```
 
 The standard deviation of the estimates of $\log k$ across the 2,000 hypothetical
-experiments with 122 visits is 0.161, close to the 0.165 that we obtained from the Hessian
-of a single sample. For your own analysis this means that, with a sample of this size, the
+experiments with 122 visits is 0.162, close to the 0.165 that `sdreport()` gave us from
+a single sample. For your own analysis this means that, with a sample of this size, the
 standard error from one fit describes the variation across hypothetical experiments well.
 With 20 visits the sampling distribution of $\hat k$ is far from Normal, which is why the
 scale matters in a small sample: for the Wald interval calculated on the log scale, the
@@ -2262,13 +2601,20 @@ The mean squared error (MSE) of
 [Chapter 3](../Chapter_3/Theory.qmd#sec-sampling_distribution) allows us to compare
 estimators of the same parameter. In large samples, where the bias is negligible, this
 comes down to comparing their variances. We compare the two estimators of $k$ with the
-estimates stored in the simulation:
+estimates stored in the simulation. The method of moments gives no estimate of $k$ when
+the variance of a sample is not larger than its mean, and the simulation left an `NA` in
+that case, so we first count the samples in which it happened:
 
 ```{r}
-# The method of moments gives no estimate of k when the variance of a sample is not
-# larger than its mean. Count the samples in which that happened.
+# Number of simulated samples without a method-of-moments estimate of k.
 sum(is.na(sim_k_mom))
+```
 
+For each number of visits we then calculate the mean, the standard deviation and the MSE
+of both estimators, and collect them in a table with one row per number of visits. In its
+column names, `ml` stands for maximum likelihood and `mom` for the method of moments:
+
+```{r}
 # Mean, standard deviation and mean squared error of both estimators of k for each
 # number of visits. Column s of sim_k_ml and sim_k_mom holds the 2,000 estimates for
 # the s-th number of visits.
@@ -2300,7 +2646,7 @@ standard errors are 0.024 and 0.042, respectively. Standard errors
 decrease with the square root of the sample size, so the method of moments would need
 about $(0.086/0.055)^2\approx 2.5$ times as many visits to estimate $k$ with the precision
 that maximum likelihood achieves with 122. With 20 visits maximum likelihood also has the
-smaller MSE (0.042 against 0.112).
+smaller MSE (0.044 against 0.117).
 
 What the simulation shows for this model is a general property. An MLE is **asymptotically
 efficient**: in large samples no other regular estimator of the same parameter is more
@@ -2343,7 +2689,7 @@ data.frame(
 ```
 
 With 20 visits, $\hat k$ is on average 21% larger than the $k$ used to simulate. With 122
-visits the bias is 2.7% and with 500 visits 0.6%. This is the general behaviour: MLEs are
+visits the bias is 2.6% and with 500 visits 0.6%. This is the general behaviour: MLEs are
 in general biased in finite samples, and the bias decreases as the sample grows.^[Corrections
 of the bias exist for particular models. Dividing by $n-1$ in the estimator of a variance
 is one of them ([Chapter 3](../Chapter_3/Theory.qmd#sec-two_parameters)). Restricted
@@ -2356,7 +2702,28 @@ hypothetical experiments. The warning about finite samples in
 much as to the method of moments: for a small sample the properties of this section are
 approximations, and simulation is the way to check them.
 
-## Misspecified models (optional) {#sec-misspecified}
+RTMB has a function that runs such a simulation for a fitted model, `checkConsistency()`.
+It draws `n` hypothetical experiments of the size of the data from the model at its
+estimates, using the data marked with `OBS()`, and with `estimate = TRUE` it fits the
+model to each of them. `summary()` of its result holds the estimates of every experiment
+on the scale that was optimised, from which we calculate the relative bias of $\hat k$:
+
+```{r}
+#| warning: false
+# 2,000 hypothetical experiments of 122 visits at the estimates, each of them fitted.
+set.seed(seed = 801)
+owl_check = checkConsistency(owl_obj, n = 2000, estimate = TRUE)
+
+# Estimates of log(mu) and log(k) in every experiment, and the relative bias of k.
+check_estimates = summary(owl_check)$estimate$par
+mean(exp(check_estimates$log_k)) / k_mle - 1
+```
+
+The relative bias is 3.0%, close to the 2.6% of our own loop for 122 visits (the two
+numbers come from different sets of 2,000 experiments). `checkConsistency()` also reports
+a p-value for a test that the simulation and the NLL agree, which we do not use here.
+
+## Misspecified models {#sec-misspecified}
 
 This section can be skipped at a first reading: the rest of the chapter does not depend on
 it. All the properties above assume that the observations are a random sample from the model.
@@ -2406,16 +2773,21 @@ observed_gap
 simulated_gap = sim_k_mom[, 2] - sim_k_ml[, 2]
 max(simulated_gap)
 mean(simulated_gap >= observed_gap)
-
-# Fraction of visits without calls under the method-of-moments estimates.
-dnbinom(x = 0, mu = mu_hat, size = k_mom)
 ```
 
 In none of the 2,000 hypothetical experiments does the method-of-moments estimate exceed
 the maximum likelihood estimate by 0.27 or more (the largest difference is 0.23). A gap of
 this size is therefore unusual when the model generated the data, so the two methods
 disagree mainly because the model is an approximation, and each of them settles for a
-different compromise. The method of moments reproduces the mean and the variance of the
+different compromise. To see the compromise of the method of moments, we calculate the
+probability of a visit without calls that its estimates imply:
+
+```{r}
+# Fraction of visits without calls under the method-of-moments estimates.
+dnbinom2(x = 0, mu = mu_hat, size = k_mom)
+```
+
+The method of moments reproduces the mean and the variance of the
 sample by construction, but its estimates imply that 27% of the visits have no calls,
 against 44% in the sample. Maximum likelihood reproduces the mean and comes close to that
 fraction (41%), and implies too large a variance.
@@ -2501,8 +2873,7 @@ approximation is. Apart from a constant that is
 the same for all the models, AIC estimates how far the fitted model is from the data
 generating process when the fitted model is used to predict new data from the same
 process. The distance is the Kullback–Leibler divergence, which is defined in the box
-"Statistical detail" of @sec-misspecified (an optional section; you do not need it for
-what follows).^[Akaike (1973, 1974) derived the criterion
+"Statistical detail" of @sec-misspecified.^[Akaike (1973, 1974) derived the criterion
 as an estimate of a loss based on the Kullback–Leibler divergence. Reading the term $2K$
 as a correction for using the same data twice is the usual interpretation of the
 criterion.] The maximum log-likelihood alone is too optimistic for that purpose, because
@@ -2511,7 +2882,11 @@ for this. In plain English, AIC rewards a model for assigning a high probability
 data and penalises it for each parameter that it needed to do so.
 
 For the owls we have fitted two models: the Poisson model, with one parameter, and the
-Negative Binomial model, with two.
+Negative Binomial model, with two. We collect the number of parameters and the maximum
+log-likelihood of each model in a table (for a model fitted with `optim()`, the maximum
+log-likelihood is minus the element `value` of the fit) and calculate the AIC from them.
+Only differences in AIC matter, so we also calculate the difference between each model and
+the one with the lowest AIC:
 
 ```{r}
 # Maximised log-likelihood, number of estimated parameters K and AIC for the two models
@@ -2519,7 +2894,7 @@ Negative Binomial model, with two.
 aic_table = data.frame(
   model = c("Poisson", "Negative Binomial"),
   K = c(1, 2),
-  loglik = c(loglik_poisson, loglik_mle)
+  loglik = c(loglik_poisson, -owl_fit$value)
 )
 aic_table$aic = 2 * aic_table$K - 2 * aic_table$loglik
 
@@ -2528,14 +2903,13 @@ aic_table$delta_aic = aic_table$aic - min(aic_table$aic)
 aic_table
 ```
 
-The AIC is 1270.3 for the Poisson model and 602.9 for the Negative Binomial model. The
-difference of 667 units in favour of the Negative Binomial model is very large compared
-with the two units that its additional parameter costs, in agreement with what
+The difference of 667 units in favour of the Negative Binomial model is very large
+compared with the two units that its additional parameter costs, in agreement with what
 @fig-owl_fits showed.
 
 The justification of AIC is asymptotic, and when the number of observations $n$
 is small compared with the number of parameters $K$ the term $2K$ is too small to properly
-penalized complex models: the criterion then tends to prefer models with too many parameters.
+penalise complex models: the criterion then tends to prefer models with too many parameters.
 The **corrected AIC**
 (AICc) adds a penalty that is large when $n$ is close to $K$ and disappears as $n$ grows:^[The
 correction was derived by Sugiura (1978) for linear regression with Normal errors and
@@ -2623,18 +2997,20 @@ book, so we collect them as a recipe:
 ::: {.callout-note title="A recipe for a fit"}
 1. Write the model: the random variable, its distribution and the assumptions (for
    example, that the observations are i.i.d.).
-2. Write the NLL as an R function, using `log = TRUE`, and transform every constrained
-   parameter inside it (the logarithm for a positive parameter, the logit for a
-   probability).
-3. Choose starting values, for example the method-of-moments estimates.
-4. Minimise the NLL with `optim()`, using `method = "BFGS"` and `hessian = TRUE`, and
-   check that `convergence` is zero.
+2. Write the NLL as an R function of two lists, the parameters and the data, that starts
+   with `getAll()` and uses `log = TRUE`. Transform every constrained parameter inside it
+   (the logarithm for a positive parameter, the logit for a probability).
+3. Connect the NLL to the data with `cmb()` and process it with `MakeADFun()`, with a
+   list of starting values, for example the method-of-moments estimates.
+4. Minimise the NLL with `optim()`, using the elements `par`, `fn` and `gr` of the object
+   and `method = "BFGS"`, and check that `convergence` is zero.
 5. Transform the estimates back to the original scale and compare the fitted model with
    the data.
-6. Calculate standard errors from the inverse of the Hessian, and Wald intervals on the
-   scale that was optimised, transforming their endpoints back.
-7. Calculate profile likelihood intervals with `uniroot()` for the parameters that the
-   question is about.
+6. Calculate standard errors with `sdreport()`, and Wald intervals on the scale that was
+   optimised, transforming their endpoints back. For the standard error of a quantity
+   calculated from the parameters, add `ADREPORT()` to the NLL.
+7. Calculate profile likelihood intervals with `TMB::tmbprofile()` and `confint()` for the
+   parameters that the question is about.
 8. Compare the candidate models with AIC.
 :::
 
@@ -2644,7 +3020,8 @@ The likelihood is the joint probability (or density) of the observed sample, rea
 function of the parameters with the data held fixed. For i.i.d. observations it is a
 product of contributions, and its logarithm, the log-likelihood, is a sum. The maximum
 likelihood estimate is the parameter value with the highest likelihood. We find it by
-minimising the negative log-likelihood with `optim()`, because a closed-form solution
+minimising the negative log-likelihood with `optim()`, after connecting it to the data
+with `cmb()` and processing it with `MakeADFun()`, because a closed-form solution
 exists only for a few models. Constraints on parameters are handled with transformations
 (the logarithm for positive parameters and the logit for probabilities), and invariance
 allows us to transform the estimates back.
@@ -2657,9 +3034,11 @@ interest, so the profile takes their uncertainty into account.
 Uncertainty is calculated from the same likelihood. In a large sample the sampling
 distribution of a maximum likelihood estimator is approximately Normal, with a variance
 equal to the inverse of the Fisher information, which we calculate from the curvature of
-the log-likelihood at its maximum. The inverse of the Hessian returned by
-`optim()` gives standard errors and covariances on the scale that was optimised, and Wald
-intervals are calculated on that scale and transformed back. Profile likelihood intervals
+the log-likelihood at its maximum. From the inverse of the Hessian, `sdreport()` gives
+standard errors and covariances on the scale that was optimised, and Wald
+intervals are calculated on that scale and transformed back. The standard error of a
+quantity calculated from the parameters is requested with `ADREPORT()`. Profile likelihood
+intervals, which we calculate with `tmbprofile()`,
 contain the values whose profile log-likelihood is within 1.92 units of the maximum; they
 do not depend on the scale and they follow the asymmetry of the likelihood. A joint
 confidence region for two parameters uses a cutoff of 3.00. Simulation shows how close the

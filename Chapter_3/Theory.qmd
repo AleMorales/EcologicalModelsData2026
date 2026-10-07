@@ -81,8 +81,22 @@ n_quadrats = length(seedling_counts)
 seedling_counts
 ```
 
-`table()` counts how often each value appears. Divide by the number of quadrats to
-calculate relative frequencies:
+The distribution functions of this chapter come from the packages RTMB and RTMBdist, which
+provide the distribution functions used in the whole course, including some that base R
+lacks. [Chapter 4](../Chapter_4/Theory.qmd) explains what else they do. We load them once,
+RTMB first:
+
+```{r}
+#| message: false
+# Load RTMB first and RTMBdist second.
+library(RTMB)
+library(RTMBdist)
+```
+
+`table()` counts how often each value appears. Some possible counts may be absent from a
+sample, and `table()` would then leave them out. Setting the values from zero to eight as
+`factor()` levels makes `table()` include those counts with frequency zero. We then divide
+by the number of quadrats to calculate the relative frequencies:
 
 ```{r}
 # Count each value from zero to eight seedlings and divide by the sample size.
@@ -92,9 +106,7 @@ relative_frequency = count_table / n_quadrats
 relative_frequency
 ```
 
-Some possible counts may be absent from a sample (here, no quadrat has six or eight
-seedlings). Setting the values as `factor()` levels makes `table()` include those counts
-with frequency zero.
+In this sample no quadrat has six or eight seedlings.
 
 The relative frequencies lie between zero and one and sum to one. We compare them with the
 probabilities predicted by a model that we use to approximate the data generating process.
@@ -171,7 +183,10 @@ between the two becomes less and less likely.
 
 With real data we cannot make the sample larger, but in a simulation we can. We simulate
 samples from the Poisson model and compare relative frequencies at sample sizes from 10 to
-100,000 quadrats to see this convergence in action:
+100,000 quadrats to see this convergence in action. We store the results in a matrix with
+one row per count and one column per sample size, plus a last column with the
+probabilities of the model. A `for` loop simulates one sample of each size and fills its
+column:
 
 ```{r}
 # Compare relative frequencies for several sample sizes with the model.
@@ -1086,7 +1101,9 @@ be derived mathematically. The general way to study it is a simulation, where we
 parameter of the model and carry out as many hypothetical experiments as we want. Let's assume a Poisson
 model with $\lambda=2.14$ (the estimate from the fir seedlings) and an experiment with 50
 quadrats, as in the data, and carry out 2,000 hypothetical experiments. For each one we
-calculate the estimate of $\lambda$:
+calculate the estimate of $\lambda$. We repeat the experiment with `replicate()`, which
+evaluates an expression (`expr`) a number of times (`n`) and collects the results in a
+vector. Here the expression simulates the counts of one experiment and returns their mean:
 
 ```{r}
 # Parameter of the model, quadrats per experiment and number of hypothetical experiments.
@@ -1095,20 +1112,26 @@ true_lambda = 2.14
 n_quadrats = 50
 n_experiments = 2000
 
-# replicate() runs the expression n times and collects the results in a vector.
 # Each run simulates one experiment with 50 quadrats and returns its estimate of lambda.
 lambda_estimates = replicate(
   n = n_experiments,
   expr = mean(rpois(n = n_quadrats, lambda = true_lambda))
 )
+```
 
+The vector `lambda_estimates` holds one estimate per hypothetical experiment. We summarise
+it with its mean and its standard deviation:
+
+```{r}
 # Mean and standard deviation of the 2,000 estimates (one per hypothetical experiment).
 mean(lambda_estimates)
 sd(lambda_estimates)
 ```
 
-The estimates have a mean of approximately 2.14 and a standard deviation of approximately
-0.205 seedlings per quadrat. Their distribution, which approximates the sampling
+The mean of the estimates is close to the parameter that we gave to the simulation, and
+their standard deviation (approximately 0.205 seedlings per quadrat) measures how much the
+estimate changes from one experiment to the next; we use both values below. The
+distribution of the estimates, which approximates the sampling
 distribution of $\hat\lambda$, is shown in @fig-sampling_distribution. The horizontal axis
 is a mean count per quadrat, which is why its values are not restricted to integers.
 
@@ -1444,7 +1467,9 @@ The fraction of hypothetical experiments for which the interval actually contain
 called the **coverage** of the procedure. The Wald interval relies on an approximation (and
 on a plug-in standard error), so its coverage may differ from the confidence level that we
 intended. We can check this with a simulation, where we know $\lambda$. For each simulated
-experiment we calculate the interval and record whether it contains the parameter:
+experiment we calculate the interval and record whether it contains the parameter. The
+expression that `replicate()` repeats now has several lines, so we write it between braces,
+and its last line is the value of each run (`TRUE` or `FALSE`):
 
 ```{r}
 # Parameter of the model, quadrats per experiment and number of hypothetical experiments.
@@ -1468,7 +1493,12 @@ covered = replicate(
     lower <= true_lambda && true_lambda <= upper
   }
 )
+```
 
+The coverage is the fraction of experiments in which the result is `TRUE`. R counts `TRUE`
+as one and `FALSE` as zero, so `mean()` calculates that fraction:
+
+```{r}
 # The mean of TRUE and FALSE values is the fraction of TRUE values.
 mean(covered)
 ```
@@ -1880,8 +1910,8 @@ of the estimated mean count? What is the standard deviation of the count in one 
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-The standard error is $\sqrt{2.14/100}pprox 0.146$ seedlings per quadrat. The standard
-deviation of one count is $\sqrt{2.14}pprox 1.46$ seedlings per quadrat.
+The standard error is $\sqrt{2.14/100}\approx 0.146$ seedlings per quadrat. The standard
+deviation of one count is $\sqrt{2.14}\approx 1.46$ seedlings per quadrat.
 
 :::
 ::::

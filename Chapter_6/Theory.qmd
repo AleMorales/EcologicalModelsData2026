@@ -11,8 +11,6 @@ execute:
   eval: false
 ---
 
-TODO: Make sure to explain the concept of automatic differentiation.
-
 # Introduction
 
 In this chapter, we learn how to fit an ecological response curve together
@@ -27,9 +25,13 @@ function, known as the Holling type II functional response when it describes
 predation. Here, we use it for the expected intake rate of a predator
 consuming prey at different prey densities. Real intake measurements
 will not all fall on the expected curve, so we need an observation model as
-well as a response function. We first write that likelihood as an ordinary R
-function, then express the same model in RTMB. This prepares us to add random
-effects to nonlinear curves in Chapter 7.
+well as a response function. We write that likelihood and fit it with
+`MakeADFun()` and `optim()`, as we have done since
+[Chapter 4](../Chapter_4/Theory.qmd). We then say more about two things that
+RTMB has been doing for us since that chapter: it calculates the slope of the
+likelihood, and the standard error of a quantity calculated from the
+parameters (the delta method). This also prepares us to add random effects to
+nonlinear curves in Chapter 7.
 
 The supplied practical datasets are simulated ecological examples. Their
 generating models and parameter values are not given when you analyse them.
@@ -42,10 +44,12 @@ After studying this chapter, you should be able to:
   and observational unit for a single-predictor dataset;
 - write and optimise the resulting log-likelihood, check convergence, and
   interpret estimates in ecological units;
-- express an observation model in RTMB, use its derivatives for fitting,
-  and recognise when its automatic differentiation may be unsuitable;
-- calculate and interpret approximate confidence intervals, then use a
-  simulation study to investigate their bias and coverage;
+- explain what the gradient of a likelihood is, why an accurate gradient from
+  RTMB helps when fitting curves, and recognise when automatic differentiation
+  may be unsuitable;
+- calculate and interpret approximate confidence intervals, explain how the
+  delta method gives the standard error of a quantity calculated from the
+  parameters, then use a simulation study to investigate bias and coverage;
 - compare models fitted to the same observations using information criteria
   and held-out predictive performance;
 - simulate from a fitted model and interpret scaled quantile residuals.
@@ -149,16 +153,22 @@ $$
 $$
 
 Here $y_i$ is the observed value of $Y_i$. As in
-[Chapter 4](../Chapter_4/Theory.qmd), `optim()` minimises a function by
-default, so we minimise the negative log-likelihood. We optimise the logarithms
-of positive parameters and transform the estimates back afterwards.
+[Chapter 4](../Chapter_4/Theory.qmd), we write the negative log-likelihood
+(NLL) with two named lists, connect it to the data with `cmb()`, process it
+with `MakeADFun()` and minimise it with `optim()` and BFGS. We optimise the
+logarithms of positive parameters and transform the estimates back afterwards.
+The two `ADREPORT()` lines ask for the standard errors of two quantities
+calculated from the parameters, which we use in @sec-delta-method.
 
 The supplied predator data can be downloaded as `shapes2.csv` from the
 [`Data` folder](https://github.com/AleMorales/EcologicalModelsData2026/tree/main/Data)
 in the course GitHub repository. In this Quarto website, the file is one
 directory above this theory page:
 
-```r
+```{r}
+library(RTMB)
+library(RTMBdist)
+
 # Load the supplied simulated intake data.
 intake_data = read.csv("../Data/shapes2.csv")
 
@@ -167,29 +177,44 @@ intake_curve = function(x, a, b) {
   a * x / (b + x)
 }
 
-# Calculate the negative normal log-likelihood on log parameter scales.
-intake_nll = function(par, x, y) {
-  a = exp(par[1])
-  b = exp(par[2])
-  sigma = exp(par[3])
+# Negative log-likelihood of Normal observations around the curve.
+intake_nll = function(parms, data) {
+  # Make the elements of both lists available by name.
+  getAll(parms, data)
+  # Transform the parameters to the original scale.
+  a = exp(log_a)
+  b = exp(log_b)
+  sigma = exp(log_sigma)
   mu = intake_curve(x = x, a = a, b = b)
+  # Expected intake rate at a prey density of 10.
+  intake_10 = intake_curve(x = 10, a = a, b = b)
+  # Ask for the standard errors of a and of the expected intake rate.
+  ADREPORT(a)
+  ADREPORT(intake_10)
   -sum(dnorm(x = y, mean = mu, sd = sigma, log = TRUE))
 }
 
-# Choose positive starting values and minimise the negative log-likelihood.
-fit = optim(
-  par = c(log_a = log(max(intake_data$y)),
-          log_b = log(median(intake_data$x)),
-          log_sigma = log(sd(intake_data$y))),
-  fn = intake_nll,
-  x = intake_data$x, y = intake_data$y,
-  method = "BFGS", hessian = TRUE
+# Connect a likelihood to a data set.
+cmb = function(f, d) function(p) f(p, d)
+
+# Process the NLL, with positive starting values on the log scale.
+intake_obj = MakeADFun(
+  cmb(intake_nll, list(x = intake_data$x, y = intake_data$y)),
+  list(log_a = log(max(intake_data$y)),
+       log_b = log(median(intake_data$x)),
+       log_sigma = log(sd(intake_data$y))),
+  silent = TRUE
 )
+
+# Minimise the NLL with BFGS.
+intake_fit = optim(par = intake_obj$par, fn = intake_obj$fn,
+                   gr = intake_obj$gr, method = "BFGS")
+
 # Check convergence, then return estimates on their ecological scales.
-fit$convergence
-estimates = c(a = exp(fit$par["log_a"]),
-              b = exp(fit$par["log_b"]),
-              sigma = exp(fit$par["log_sigma"]))
+intake_fit$convergence
+estimates = c(a = exp(intake_fit$par[["log_a"]]),
+              b = exp(intake_fit$par[["log_b"]]),
+              sigma = exp(intake_fit$par[["log_sigma"]]))
 estimates
 ```
 
@@ -200,104 +225,118 @@ does not establish that the model describes the observations well.
 [Chapter 5](../Chapter_5/Theory.qmd#sec-starting-values) shows how to read
 starting values from a plot of the data, using the landmarks of the function.
 
-## Write the same model in RTMB
+## `MakeADFun()` and automatic differentiation {#sec-makeadfun}
 
-The manual likelihood above makes every part of the model visible. We will
-now express the same likelihood using [RTMB](https://cran.r-project.org/web/packages/RTMB/vignettes/RTMB-introduction.html),
-an R interface to Template Model Builder (TMB). RTMB records the calculations
-in the objective function and supplies derivatives through **automatic
-differentiation**. These derivatives can help an optimiser find and check a
-solution; they do not guarantee convergence or a suitable statistical model.
-We will return to how differentiation works in Chapter 8.
+Since [Chapter 4](../Chapter_4/Theory.qmd#sec-maximum-likelihood) we have given
+every NLL to `MakeADFun()` before fitting it. There we said only that this step
+processes the function so that the tools of the course can work with it, and
+that RTMB also supplies the slope that BFGS uses. We can now say more about
+that slope.
 
-```r
-# Load RTMB before recording the likelihood calculation.
-library(RTMB)
+The **gradient** of the NLL is the vector of its partial derivatives with
+respect to the parameters, that is, its slope in the direction of each
+parameter ([Chapter 5](../Chapter_5/Theory.qmd#sec-parameter-derivatives)).
+`MakeADFun()` processes the NLL in such a way that RTMB can calculate this
+gradient accurately at any value of the parameters, with a method called
+**automatic differentiation**. We do not have to derive any formula for it. The
+element `gr` of the object returns the gradient, with one value per parameter,
+and at the estimates every one of them is close to zero, as it should be at a
+minimum:
 
-# Define the same likelihood with RTMB's distribution notation.
-intake_rtmb = function(par) {
-  a = exp(par$log_a)
-  b = exp(par$log_b)
-  sigma = exp(par$log_sigma)
-  mu = intake_curve(x = intake_data$x, a = a, b = b)
-  y = intake_data$y
-  y %~% dnorm(mean = mu, sd = sigma)
-}
-
-# Supply starting values, then record the objective and its derivatives.
-intake_parameters = list(
-  log_a = log(max(intake_data$y)),
-  log_b = log(median(intake_data$x)),
-  log_sigma = log(sd(intake_data$y))
-)
-intake_obj = MakeADFun(intake_rtmb, intake_parameters, silent = TRUE)
-# Check that the ordinary R and recorded objectives agree before fitting.
-c(in_R = intake_rtmb(intake_parameters),
-  recorded = intake_obj$fn(intake_obj$par))
-# Use the recorded gradient to minimise the negative log-likelihood.
-rtmb_fit = optim(par = intake_obj$par, fn = intake_obj$fn,
-                 gr = intake_obj$gr, method = "BFGS")
-# Check convergence and compare the two fitted objective values.
-rtmb_fit$convergence
-exp(rtmb_fit$par)
-c(manual = fit$value, RTMB = rtmb_fit$value)
+```{r}
+# The gradient of the NLL at the starting values and at the estimates.
+intake_obj$gr(intake_obj$par)
+intake_obj$gr(intake_fit$par)
 ```
 
-The `par` argument is now a named list; `$` selects each parameter. The
-data remain available to the objective through the surrounding R
-environment. The left side of `%~%` is the observed response. The right
-side is its distribution, whose mean comes from the deterministic curve.
-RTMB converts that expression to a **negative** log-likelihood, including
-the distribution's normalising terms. `MakeADFun()` returns an objective
-`fn`, a gradient `gr`, and a Hessian method `he`. Its parameter names and
-order come from the starting list. The two fits should give nearly the
-same estimates and negative log-likelihood. Small numerical differences
-can arise because the derivatives and stopping rules differ. Evaluating
-the R objective before fitting provides a useful first debugging check.
+An accurate gradient helps when fitting curves for three reasons. First, BFGS
+needs the gradient at every step to decide in which direction to move, and
+without `gr` the optimiser has to approximate it by evaluating the NLL several
+more times for every parameter
+([Chapter 8](../Chapter_8/Theory.qmd) explains how). A response curve adds its
+own parameters to those of the distribution, so this cost grows. Second, the
+parameters of a curve are often strongly correlated (here the limiting rate
+$a$ and the half-maximum $b$), so that the NLL forms a narrow and curved
+valley like the one of the owl model in
+[Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood-surface). In such a valley
+the direction of the next step depends on small differences between the partial
+derivatives, and an inexact gradient can stop the search before it reaches the
+minimum. Third, the same derivatives are behind the other tools: `sdreport()`
+calculates the Hessian from them, the delta method needs the derivatives of the
+quantities requested with `ADREPORT()` (@sec-delta-method), and in Chapter 7 a
+parameter marked with `random =` in `MakeADFun()` is integrated out of the
+likelihood with an approximation that is built on them.
 
-The practical advantage for Chapter 7 is that the same RTMB syntax can
-also include random effects. For example, a parameter named `u` can
-be marked with `random = "u"` in `MakeADFun()`. RTMB can then approximate
-the likelihood after integrating over `u`, using a Laplace approximation.
-We will introduce that calculation with the new models, rather than
-requiring you to carry out the integration yourself.
+For RTMB to calculate these derivatives, the NLL must be written with
+operations and functions that it knows. This is the reason why the density and
+probability mass functions of the course come from RTMB and RTMBdist.
 
-::: {.callout-warning title="When RTMB is awkward"}
-Automatic differentiation follows a smooth calculation. A curve with a
-sharp change at an *unknown* threshold, or a branch that depends on a
-parameter, can have undefined or misleading derivatives at the change.
-Such [piecewise calculations need special care](https://cran.r-project.org/web/packages/RTMB/vignettes/RTMB-tips.html).
-It can also be harder to debug a model after RTMB has recorded its
-calculation: the automatic differentiation tape runs through TMB's
-compiled machinery, which you cannot step through like ordinary R code.
-Check the objective on sensible parameter values in R first, compare its
-value with a manually calculated likelihood when possible, and inspect
-`intake_obj$fn(intake_obj$par)` and `intake_obj$gr(intake_obj$par)` before
-trusting a fitted result.
+::: {.callout-caution collapse="true" icon=false title="Technical detail: how automatic differentiation works"}
+[RTMB](https://cran.r-project.org/web/packages/RTMB/vignettes/RTMB-introduction.html)
+is an R interface to the package Template Model Builder (TMB). `MakeADFun()`
+runs the NLL once, at the starting values, and records every elementary
+operation that the function carries out on the parameters (each sum, product,
+division, exponential and logarithm), in the order in which they happen. This
+record is called a **tape**. The derivative of each of these operations is
+known (they are the
+[rules of differentiation](../Supplements/calculus.qmd#sec-calc-rules)), and the
+chain rule combines them along the tape into the derivative of the NLL with
+respect to every parameter. In plain English, RTMB differentiates the code of
+the NLL step by step, as we would differentiate a formula by hand. The result
+is exact up to rounding error: it is neither an algebraic formula nor a
+numerical approximation. The elements `fn`, `gr` and `he` (the Hessian) of the
+object all work from the tape. Because the tape runs through TMB's compiled
+code, it cannot be stepped through like ordinary R code.
 :::
+
+::: {.callout-warning title="When automatic differentiation needs care"}
+RTMB works out the derivatives from the calculations that the NLL carried out
+when `MakeADFun()` ran it at the starting values. If the NLL contains a branch
+that depends on a parameter (an `if` that compares a parameter with a value),
+only the side that was taken at the starting values is used afterwards, and a
+curve with a sharp change at an *unknown* threshold can have an undefined or
+misleading derivative at the change. Such
+[piecewise calculations need special care](https://cran.r-project.org/web/packages/RTMB/vignettes/RTMB-tips.html).
+Check the NLL on sensible parameter values in R first (a function written with
+`getAll()` can be called directly with two lists), and inspect
+`intake_obj$fn(intake_obj$par)` and `intake_obj$gr(intake_obj$par)` before
+fitting.
+:::
+
+The practicals of this chapter and of Chapter 7 use a shorter notation of RTMB
+for the same likelihood. In `y %~% dnorm(mean = mu, sd = sigma)` the left side
+is the observed response and the right side its distribution, and RTMB adds the
+negative log density of `y` to the NLL, so that no `-sum(...)` line is needed.
+Their functions take one named list of parameters and select its elements with
+`$`.
 
 ## Return to confidence intervals
 
-The Hessian from this fit describes curvature on the **log-parameter
-scale**. Under the regularity conditions discussed in Chapter 4, its inverse
-approximates the covariance matrix on that scale. An approximate 95%
-quadratic interval for the limiting rate $a$ is:
+As in [Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood-uncertainty),
+`sdreport()` calculates the standard errors of the estimates from the Hessian,
+which describes curvature on the **log-parameter scale**. Under the regularity
+conditions discussed in Chapter 4, its inverse approximates the covariance
+matrix on that scale. An approximate 95% Wald interval for the limiting rate
+$a$ is:
 
-```r
-# Use the inverse Hessian to estimate standard errors on the log scale.
-se_log = sqrt(diag(solve(fit$hessian)))
+```{r}
+# Standard errors on the log scale and for the two ADREPORT() quantities.
+intake_sd = sdreport(intake_obj)
+intake_summary = summary(intake_sd)
+intake_summary
+
+# Wald interval on the log scale, with the endpoints transformed back
+# to intake-rate units.
 z = qnorm(p = 0.975)
-# Transform the interval endpoints back to intake-rate units.
-a_interval = exp(fit$par["log_a"] + c(-1, 1) * z * se_log["log_a"])
+se_log_a = intake_summary["log_a", "Std. Error"]
+a_interval = exp(intake_fit$par[["log_a"]] + c(-1, 1) * z * se_log_a)
 a_interval
 ```
 
-The endpoints are transformed back to rate units. For the RTMB fit,
-`intake_obj$he(rtmb_fit$par)` supplies the Hessian of the same negative
-log-likelihood at its optimum. The same inverse-Hessian calculation
-applies on the log-parameter scale. For a profile interval,
+The endpoints are transformed back to rate units. For a profile interval,
 hold a candidate value of $a$ fixed and re-optimise **both** $b$ and
-$\sigma$ at every candidate value. The profile follows the best possible
+$\sigma$ at every candidate value, which is what
+`TMB::tmbprofile(intake_obj, name = "log_a")` does. The profile follows the best possible
 fit at each $a$; a slice that fixes $b$ and $\sigma$ at their original
 estimates is different. Both methods remain approximate and depend on the
 observation model and independence assumption.
@@ -308,6 +347,85 @@ over time, they may be dependent. Treating every row as independent can
 make an interval too narrow. A calculation from the Hessian cannot repair
 an unsuitable observation model.
 :::
+
+## The delta method {#sec-delta-method}
+
+The **delta method** approximates the standard error of a quantity that is
+calculated from the estimates, using the standard errors of those estimates.
+In [Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood-uncertainty) we asked for
+such a quantity with `ADREPORT()` and read its standard error from
+`sdreport()`. Here we see how that standard error is calculated, first for a
+quantity that depends on one parameter.
+
+Let $g(\theta)$ be the quantity and $\hat\theta$ the estimate. Close to the
+estimate we replace the function by its tangent line,
+$g(\theta)\approx g(\hat\theta)+g'(\hat\theta)(\theta-\hat\theta)$. Across
+hypothetical experiments the estimate varies around the parameter with a
+standard deviation equal to its standard error, and a straight line multiplies
+that variation by its slope. Therefore
+
+$$
+\operatorname{SE}\big(g(\hat\theta)\big)\approx
+\left|g'(\hat\theta)\right|\,\operatorname{SE}(\hat\theta),
+$$
+
+where $g'$ is the derivative of $g$. In plain English, the standard error of
+the new quantity is the standard error of the estimate multiplied by the slope
+of the function that links the two. For the limiting rate, $a=e^{\log a}$,
+the derivative of the exponential is the exponential itself, so
+$\operatorname{SE}(\hat a)\approx\hat a\,\operatorname{SE}(\log\hat a)$. This is
+the formula that Chapter 4 gave in a footnote.
+
+A quantity may depend on several parameters. The expected intake rate at a prey
+density of 10, $g=10a/(b+10)$, depends on $a$ and on $b$, whose estimates are
+correlated. The tangent line becomes a tangent plane and the variance of the
+quantity is approximately
+
+$$
+\operatorname{Var}\big(g(\hat\theta)\big)\approx
+\nabla g(\hat\theta)^{\top}\,\hat\Sigma\,\nabla g(\hat\theta),
+$$
+
+where $\hat\theta$ is now the vector of estimates (here on the log scale),
+$\nabla g$ is the vector of the partial derivatives of $g$ with respect to each
+parameter ([Chapter 5](../Chapter_5/Theory.qmd#sec-parameter-derivatives)) and
+$\hat\Sigma$ is the covariance matrix of the estimates, that is, the inverse of
+the Hessian. In plain English, each parameter contributes its variance
+multiplied by the square of the slope of $g$ in its direction, and each pair of
+parameters contributes its covariance multiplied by the two slopes. RTMB
+obtains $\nabla g$ by automatic differentiation as well, which is why
+`ADREPORT()` is called inside the NLL: the quantity has to be calculated there
+for RTMB to differentiate it. We calculate both standard errors by hand and
+compare them with the rows `a` and `intake_10` of `intake_summary`:
+
+```{r}
+# Estimates on the original scale.
+a_hat = exp(intake_fit$par[["log_a"]])
+b_hat = exp(intake_fit$par[["log_b"]])
+
+# By hand, one parameter: the estimate of a times the standard error of log(a).
+a_hat * intake_summary["log_a", "Std. Error"]
+
+# By hand, several parameters: partial derivatives of the expected intake rate
+# at a density of 10 with respect to log(a), log(b) and log(sigma).
+gradient_10 = c(
+  a_hat * 10 / (b_hat + 10),
+  -a_hat * 10 * b_hat / (b_hat + 10)^2,
+  0
+)
+# Combine them with the covariance matrix of the estimates.
+sqrt(sum(gradient_10 * (intake_sd$cov.fixed %*% gradient_10)))
+```
+
+The delta method is an approximation of its own, on top of the one behind the
+standard errors of the estimates. It is good when $g$ is close to a straight
+line over the range of values that the uncertainty of the estimates covers,
+which is the case for large samples. For a positive parameter such as $a$, the
+Wald interval calculated on the log scale with its endpoints transformed back
+remains the one that we recommend, as in Chapter 4. The delta method is what we
+need when we report a standard error on the original scale, or the uncertainty
+of a quantity that is not itself a parameter, such as a point of the fitted
+curve.
 
 ## Check an interval by simulation
 
@@ -355,8 +473,8 @@ $$
 Both use the same fitted likelihood, but BIC's penalty per parameter
 grows with sample size. Count observation-distribution parameters such as
 $\sigma$ or a negative binomial shape parameter in $K$. On our `optim()`
-fits, `fit$value` is the *negative* log-likelihood, so
-`2 * K + 2 * fit$value` calculates AIC. A lower value is preferred by
+fits, `intake_fit$value` is the *negative* log-likelihood, so
+`2 * K + 2 * intake_fit$value` calculates AIC. A lower value is preferred by
 that criterion **among the candidates compared**. The value does not
 measure absolute model adequacy.
 
@@ -476,10 +594,11 @@ observation-level variation and cannot support this residual check.
 1. Plot the observations and check their units, support, missing values,
    repeated measurements, and predictor range.
 2. Choose a small set of plausible mean curves and observation models.
-3. Write the likelihood, check it at sensible parameter values, fit every
-   parameter (using RTMB for the smooth models in the practical), inspect
-   convergence, and plot fitted curves against the data.
-4. Estimate confidence intervals for ecologically meaningful parameters.
+3. Write the likelihood, check it at sensible parameter values, process it
+   with `MakeADFun()`, fit every parameter, inspect convergence, and plot
+   fitted curves against the data.
+4. Estimate confidence intervals for ecologically meaningful parameters, and
+   ask for quantities calculated from them with `ADREPORT()`.
 5. Compare compatible candidates by AIC or BIC and, when appropriate,
    cross-validated predictive scores.
 6. Simulate observations from the fitted model and inspect scaled
@@ -551,15 +670,29 @@ ordinary dataset.
 :::
 ::::
 
-:::: {.callout-important title="Question 7: choosing RTMB"}
-What does RTMB provide to the optimiser, and why might a response curve
-with an unknown sharp threshold need extra care?
+:::: {.callout-important title="Question 7: automatic differentiation"}
+What does RTMB provide to the optimiser, and why might a response curve with
+an unknown sharp threshold need extra care?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-RTMB supplies derivatives of the recorded likelihood calculation.
-At a sharp threshold the derivative may be undefined, and a branch
-chosen according to a parameter may not be recorded as intended.
-Check the R objective and consider a smooth curve or a different
+RTMB calculates the gradient of the NLL accurately by automatic
+differentiation, and `optim()` receives it as `gr`.
+At a sharp threshold the derivative may be undefined, and of a branch
+chosen according to a parameter only the side taken at the starting values is
+used. Check the NLL in R and consider a smooth curve or a different
 fitting strategy for that model.
+:::
+::::
+
+:::: {.callout-important title="Question 8: the delta method"}
+A fit gives $\log\hat b=2.40$ with a standard error of 0.11. What is the
+approximate standard error of $\hat b$, and which line of the NLL makes
+`sdreport()` report it?
+
+::: {.callout-tip title="Answer" collapse="true"}
+By the delta method it is the standard error on the log scale multiplied by
+the slope of the exponential at the estimate, which is $\hat b=e^{2.40}\approx
+11.0$: approximately $11.0\times0.11\approx1.2$, in the units of prey density.
+The line `ADREPORT(b)` inside the NLL asks for it.
 :::
 ::::
