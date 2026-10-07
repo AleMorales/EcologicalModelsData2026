@@ -342,10 +342,13 @@ functions (Michaelis–Menten and Ricker) and links to the rest, and the rules o
 `Supplements/calculus.qmd`. An entry has: a summary block in `aligned` display
 mathematics (R, shape, domain, range, parameters, value at zero, value at infinity,
 special points, alternative forms); one or two paragraphs on uses, with author–year
-citations and a sentence on whether a mechanistic derivation exists; the formula with a
-"where" clause and its landmarks derived; an `### Example:` subsection calculated by hand
-and verified in R, with the R function written with the same letters as the formula; a
-figure; and a `Practice` callout with a collapsed solution. Use `\verb|...|` and not
+citations and a sentence on whether a mechanistic derivation exists; and the formula with a
+"where" clause and its landmarks derived. The entries have no `### Example:` subsection,
+figure or `Practice` callout: the author removed them on 7 October 2026, so do not add
+them back. A statement about how a function is used must rest on Chapter 3 of Bolker's
+*Ecological Models and Data in R*, which the page names as its source and which the author
+trusts, or on a citation that was checked against the publication and is in the reference
+list of the page. Use `\verb|...|` and not
 `\texttt{...}` for R code that contains `^` or `_` inside display mathematics, because
 MathJax refuses those characters in `\texttt{}` (a render without warnings does not show
 this; look at the page in a browser).
