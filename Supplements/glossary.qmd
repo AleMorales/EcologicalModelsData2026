@@ -8,6 +8,11 @@ execute:
   eval: false
 ---
 
+- **`ADREPORT()`**: A function of RTMB that is called inside a negative log-likelihood to ask
+for the standard error of a quantity calculated from the parameters, such as $k=e^{\log k}$
+when the model is fitted on the log scale. The standard error is read from the result of
+`sdreport()`. TMB calculates it with the delta method. See also delta method.
+
 - **Akaike information criterion (AIC)**: A criterion to compare models fitted to the same
 data, calculated as
 $$
@@ -132,6 +137,19 @@ systematic relationships among variables, variation among units, measurement and
 procedures, and observational error. A statistical model is a simplified representation of
 this process.
 
+- **Delta method**: An approximation of the standard error of a quantity $g(\hat\theta)$ that
+is calculated from an estimate $\hat\theta$,
+$$
+\operatorname{SE}\big(g(\hat\theta)\big) \approx \left|g'(\hat\theta)\right|\,\operatorname{SE}(\hat\theta),
+$$
+where $g'$ is the derivative of $g$. In plain English, the uncertainty of the estimate is
+multiplied by the slope of the function that links it to the new quantity. With several
+parameters, the partial derivatives of $g$ are combined with the covariances of the
+estimates. The approximation is better when the sample is large and the function is close to
+a straight line over the range of the estimate. RTMB applies it to the quantities requested
+with `ADREPORT()` from [Chapter 4](../Chapter_4/Theory.qmd) onward, and
+[Chapter 6](../Chapter_6/Theory.qmd#sec-delta-method) explains it.
+
 - **Density-scaled histogram**: A histogram in which the height of each bar is the relative
 frequency of the bin divided by the width of the bin. The area of each bar equals the
 relative frequency and the areas of all bars add up to one, so the histogram can be compared
@@ -224,7 +242,8 @@ value of the response.
 its arguments. With `hessian = TRUE`, `optim()` returns the Hessian of the negative
 log-likelihood at the estimates, on the scale of the parameters that were optimised. This
 is the observed information matrix, and its inverse (calculated with `solve()`) approximates
-the variances and covariances of the estimates.
+the variances and covariances of the estimates. The function `sdreport()` of RTMB
+calculates the Hessian itself and returns the standard errors and the covariance matrix.
 
 - **Histogram**: A summary of a sample of continuous measurements. The range of the
 measurements is divided into intervals (called **bins**) and the observations in each bin
@@ -318,6 +337,14 @@ maximum at the same parameter value as the likelihood, and it avoids numbers tha
 small for the computer to represent. Its value has no meaning by itself: only differences
 between log-likelihoods calculated from the same data are meaningful.
 
+- **`MakeADFun()`**: The function of RTMB that processes a negative log-likelihood written
+with two named lists, one for the parameters and one for the data, so that the tools of the
+course can work with it. It returns an object with the starting values (`par`), the value of
+the negative log-likelihood (`fn`) and its slope (`gr`), which `optim()` uses, and with the
+function `simulate()`. The same object is the argument of `sdreport()` and of
+`TMB::tmbprofile()`. [Chapter 4](../Chapter_4/Theory.qmd) uses it from the first fit and
+[Chapter 6](../Chapter_6/Theory.qmd#sec-makeadfun) says more about it.
+
 - **Marginal distribution**: The distribution of one random variable in a joint
 distribution, regardless of the value of the others. It is recovered by adding the joint
 probabilities over the other variable (discrete) or by integrating the joint density over
@@ -377,7 +404,9 @@ function are monotonic; the Ricker function is not.
 
 - **Negative log-likelihood (NLL)**: Minus the log-likelihood, $-\ell(\theta)$. The function
 `optim()` minimises by default, so we give it the NLL: the parameter value with the lowest
-NLL is the one with the highest likelihood.
+NLL is the one with the highest likelihood. From Chapter 4 onward the NLL is written as a
+function of two named lists, the parameters and the data, so that RTMB can process it with
+`MakeADFun()`.
 
 - **Nested functions**: A function is nested in another when it is the special case obtained
 by fixing one of the parameters of the other at a particular value. The Michaelis–Menten
@@ -388,6 +417,11 @@ recovered when $c=1$. Nested functions are the usual candidates in a comparison 
 that the question is about. Which parameter is of interest and which is a nuisance depends
 on the question. A profile likelihood re-estimates the nuisance parameters for every value of
 the parameter of interest.
+
+- **`OBS()`**: A function of RTMB that is called inside a negative log-likelihood to mark a
+data variable as an observation. It makes it possible to simulate the data: the function
+`simulate()` of the object made by `MakeADFun()` replaces every marked variable with values
+drawn from the model, which gives one hypothetical experiment.
 
 - **Observation**: The value actually recorded in the real world (e.g., the number of seeds
 that survived in one particular quadrat). It is written with a lower-case letter, $x$,
@@ -444,15 +478,17 @@ interest, when the nuisance parameters are re-estimated for every value,
 $$
 \ell_{\mathrm{prof}}(\theta_1) = \max_{\theta_2}\,\ell(\theta_1,\theta_2).
 $$
-In this course the re-estimation is done with `optim()`. A profile does not depend on how
-the nuisance parameters are written, whereas a slice does.
+In this course the re-estimation is done with `optim()`, one value at a time or with
+`TMB::tmbprofile()`. A profile does not depend on how the nuisance parameters are written,
+whereas a slice does.
 
 - **Profile likelihood interval**: An approximate confidence interval that contains all the
 values of a parameter whose relative profile log-likelihood is above $-1.92$ (half the 0.95
 quantile of a chi-squared distribution with one degree of freedom). It follows from Wilks'
 theorem. It does not depend on the scale of the parameter and it follows the asymmetry of
 the likelihood, which is why it is the reference method of this book. Its endpoints are
-found with `uniroot()`. For a model with one parameter it is simply called the likelihood
+found with `uniroot()` or with `confint()` applied to the result of `TMB::tmbprofile()`. For a
+model with one parameter it is simply called the likelihood
 interval.
 
 - **Pseudo-random sequence**: A sequence of numbers generated by a deterministic algorithm
@@ -493,6 +529,13 @@ parameters, each of which is an expression of the old ones. The curve does not c
 meaning, the units and the correlation of the parameters do. The Michaelis–Menten function
 and the Holling type II functional response are two parameterisations of one curve.
 
+- **RTMB**: An R package in which we write a negative log-likelihood as an R function and
+that provides the tools to fit it. Its functions for probability mass and density (together
+with those of the package RTMBdist, which adds more distributions) are used from
+[Chapter 2](../Chapter_2/Theory.qmd) onward, and [Chapter 4](../Chapter_4/Theory.qmd) uses
+`MakeADFun()`, `sdreport()`, `ADREPORT()` and `OBS()` to fit models and to calculate their
+uncertainty. It is built on the package TMB, which is installed with it.
+
 - **Sample**: A collection of values that have been observed or simulated through a data
 generating process.
 
@@ -507,6 +550,11 @@ distribution itself, but we can approximate it with a simulation.
 - **Scale parameter**: A parameter that multiplies or divides $x$ wherever $x$ appears in a
 formula. Changing it stretches or compresses the curve along the $x$ axis without changing
 its shape.
+
+- **`sdreport()`**: A function of RTMB that, applied to an object made by `MakeADFun()` after
+a fit, calculates the Hessian of the negative log-likelihood at the estimates and returns
+their standard errors and covariance matrix, on the scale that was optimised. It also
+returns the estimates and standard errors of the quantities requested with `ADREPORT()`.
 
 - **Seed**: The starting state of the algorithm that generates a pseudo-random sequence. If
 the same seed is set before the same simulation, R produces the same sequence again. In R,
@@ -539,6 +587,12 @@ the standard deviation of the observations.
 distributions, the support can be unconstrained (any real value), positive (any value above
 zero) or constrained (any value within a range).
 
+- **`TMB::tmbprofile()`**: A function of the package TMB (written with its prefix, because
+RTMB does not export it) that calculates the profile likelihood of one parameter of an
+object made by `MakeADFun()`: for each value of the parameter it re-estimates the others. It
+returns a data frame of values of the parameter and of the negative log-likelihood, and
+`confint()` of the result gives the endpoints of the profile likelihood interval.
+
 - **Unimodal function**: A function that rises to a single maximum and declines after it
 (a hump-shaped function), as the Ricker function does.
 
@@ -558,8 +612,10 @@ standard Normal distribution (e.g., $z \approx 1.96$ for a 95% interval). It rel
 sampling distribution of the estimator being approximately Normal, so its coverage can
 differ from the confidence level in small samples. With maximum likelihood it is a quadratic
 approximation of the log-likelihood around the estimate, with the standard error obtained
-from the Hessian. The interval depends on the scale on which it is calculated, so for a
-positive parameter it is calculated on the log scale and its endpoints are transformed back.
+from the Hessian (`sdreport()` calculates it). The interval depends on the scale on which it
+is calculated, so for a positive parameter it is calculated on the log scale and its
+endpoints are transformed back. A quantity calculated from the parameters has its own
+standard error, which `ADREPORT()` provides through the delta method.
 
 - **Wilks' theorem**: In large samples, twice the difference between the maximum
 log-likelihood and the profile log-likelihood at the parameter value that generated the data

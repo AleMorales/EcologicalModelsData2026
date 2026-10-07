@@ -186,7 +186,17 @@ is terminology that I completely made up] @fig-four_faces:
 In R, all of these functions are implemented for each distribution. The name of each function
 consists of a prefix letter followed by a shortened name for the distribution. The four faces of
 the Binomial distribution are implemented by functions `dbinom`, `pbinom`, `qbinom` and `rbinom`,
-respectively.
+respectively. We take them from the packages RTMB and RTMBdist, which provide the
+distribution functions used in the whole course, including some that base R lacks.
+[Chapter 4](../Chapter_4/Theory.qmd) explains what else they do. We load them once, RTMB
+first:
+
+```{r}
+#| message: false
+# Load RTMB first and RTMBdist second.
+library(RTMB)
+library(RTMBdist)
+```
 
 To illustrate the four faces, we will assume in our seed survival example that each seed has
 a probability of survival of $0.4$ and that the variation in observations across different
@@ -660,21 +670,24 @@ P(a<X\leq b)=F_X(b)-F_X(a).
 $$
 
 For example, we can calculate the probability that a flipper is between 210.5 mm and
-223.5 mm long. For the probability that a flipper is longer than 230 mm we need the upper
-tail of the distribution, that is $P(X>230)=1-F_X(230)$, which `pnorm()` calculates when we
-set `lower.tail = FALSE`. In R:
+223.5 mm long (i.e., within one standard deviation of the mean). In R:
 
 ```{r}
 # Subtract two cumulative probabilities to obtain the probability of an interval.
 pnorm(q = 223.5, mean = 217, sd = 6.5) - pnorm(q = 210.5, mean = 217, sd = 6.5)
+```
 
+That is, the model assigns a probability of approximately $0.68$ to lengths within one
+standard deviation of the mean. For the probability that a flipper is longer than 230 mm
+we need the upper tail of the distribution, that is $P(X>230)=1-F_X(230)$, which `pnorm()`
+calculates when we set `lower.tail = FALSE`:
+
+```{r}
 # Use the upper tail for the probability of a length above 230 mm.
 pnorm(q = 230, mean = 217, sd = 6.5, lower.tail = FALSE)
 ```
 
-That is, the model assigns a probability of approximately $0.68$ to lengths between
-210.5 mm and 223.5 mm (i.e., within one standard deviation of the mean) and a probability
-of approximately $0.023$ to lengths above 230 mm.
+Under the model, about 2% of the flippers are longer than 230 mm.
 
 The **quantile function** is again the inverse of the cumulative probability function.
 For a continuous distribution such as the Normal, the cumulative probability increases
@@ -1114,15 +1127,21 @@ $$
 $$
 
 For a continuous distribution we need to calculate integrals instead of sums. R can
-approximate an integral using numerical methods with the function `integrate()`. Its arguments are the
-function to be integrated (`f`) and the limits of the integral (`lower` and `upper`). It returns a list with several elements, and the value of the integral
-is the element called `value`. For the flipper length model (a Normal distribution with a
+approximate an integral using numerical methods with the function `integrate()`. Its
+arguments are:
+
+- `f`, the function to be integrated;
+- `lower` and `upper`, the limits of the integral.
+
+It returns a list with several elements, and the value of the integral is the element
+called `value`. For the flipper length model (a Normal distribution with a
 mean of 217 mm and a standard deviation of 6.5 mm) we integrate from 150 mm to 280 mm. These
 limits are about ten standard deviations away from the mean, so the density outside them is
 negligible.^[With infinite limits, `integrate()` evaluates the function at a set of points
 spread over the whole real line and it can miss a narrow peak that lies far from zero. For
 this model it would return a value close to zero without any warning, so it is safer to
-give limits that contain practically all the probability.]
+give limits that contain practically all the probability.] For the mean, the function to
+integrate is $x$ times the density:
 
 ```{r}
 # Integrate x times the density to obtain the mean of the flipper length model.
@@ -1131,7 +1150,11 @@ expected_flipper = integrate(
   lower = 150, upper = 280
 )$value
 expected_flipper
+```
 
+For the variance, it is the squared distance from that mean times the density:
+
+```{r}
 # Integrate the squared distance from the mean times the density to obtain the variance.
 flipper_variance = integrate(
   f = function(x) (x - expected_flipper)^2 * dnorm(x = x, mean = 217, sd = 6.5),
@@ -1284,9 +1307,7 @@ al. (2016)^[Price, S. J., Muncy, B. L., Bonner, S. J., Drayer, A. N. and Barton,
 abundance of stream salamanders. *Journal of Applied Ecology*, 53, 459–468.], who visited
 23 stream sites four times each and counted the salamanders of several species. We use the
 counts of the spring salamander (*Gyrinophilus porphyriticus*, coded as `GP`) in the 12
-sites that were not affected by mining, which gives 48 counts. We treat these counts as
-i.i.d., which is a simplification because the four visits to a site share the conditions of
-that site ([Chapter 7](../Chapter_7/Theory.qmd) deals with grouped observations):
+sites that were not affected by mining, which gives 48 counts:
 
 ```{r}
 # Load the salamander counts and keep one species at the sites without mining.
@@ -1294,7 +1315,14 @@ data(Salamanders, package = "glmmTMB")
 spring_salamanders = Salamanders[Salamanders$spp == "GP" & Salamanders$mined == "no", ]
 counts = spring_salamanders$count
 length(counts)
+```
 
+We treat these counts as i.i.d., which is a simplification because the four visits to a
+site share the conditions of that site ([Chapter 7](../Chapter_7/Theory.qmd) deals with
+grouped observations). We calculate the mean and the variance of the sample, and the ratio
+between them:
+
+```{r}
 # Compare the sample variance with the sample mean.
 sample_mean = mean(counts)
 sample_variance = var(counts)
@@ -1302,8 +1330,7 @@ dispersion_ratio = sample_variance / sample_mean
 c(sample_mean, sample_variance, dispersion_ratio)
 ```
 
-The mean is approximately 2.2 salamanders per visit and the variance is approximately 5.0,
-so the dispersion ratio is approximately 2.3. That is, the variance of the counts is more
+The dispersion ratio is approximately 2.3. That is, the variance of the counts is more
 than twice the variance of a Poisson model with the same mean.
 
 A ratio close to one is consistent with the Poisson mean–variance relationship;

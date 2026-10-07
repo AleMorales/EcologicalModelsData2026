@@ -8,6 +8,19 @@ The fully worked first exercise is on the
 same data, tasks and seeds as Exercises 2–5 on that page. Exercises 1 to 4 are the core of
 the practical and Exercise 5 is extra practice.
 
+As on that page, we load RTMB first and RTMBdist second, and define the helper `cmb()`
+that connects a likelihood to a data set:
+
+```{r}
+#| message: false
+# Load RTMB first and RTMBdist second.
+library(RTMB)
+library(RTMBdist)
+
+# Connect a likelihood to a data set.
+cmb = function(f, d) function(p) f(p, d)
+```
+
 # Exercise 2: Glacier lily seedlings in quadrats
 
 The data set `Lily_sum` in the package `emdbook` contains counts of the glacier lily
@@ -31,17 +44,21 @@ the Chapter 3 practical (models for observations that are not independent start 
 
 1. Estimate $\mu$ and $k$ with the method of moments, as in the Chapter 3 practical. Also
    calculate the fraction of quadrats without seedlings and the largest count.
-2. Write the NLL of the model with $\log\mu$ and $\log k$ as parameters and minimise it
-   with `optim()`, using the method-of-moments estimates as starting values and
-   `hessian = TRUE`. Report the estimates on the original scale. Compare the log-likelihood
+2. Write the NLL of the model with $\log\mu$ and $\log k$ as parameters, process it with
+   `MakeADFun()` and minimise it with `optim()`, using the method-of-moments estimates as
+   starting values. Report the estimates on the original scale. Compare the log-likelihood
    at the maximum likelihood estimates with the log-likelihood at the method-of-moments
    estimates.
 3. Calculate the log-likelihood on a grid of values of $\mu$ and $k$ with two nested `for`
-   loops and draw the contours of the relative log-likelihood with `contour()`. Add both
-   pairs of estimates and the contour of the approximate joint 95% confidence region. Is
-   the method-of-moments estimate inside the region?
+   loops that call the function `fn` of the object, and draw the contours of the relative
+   log-likelihood with `contour()`. Add both pairs of estimates and the contour of the
+   approximate joint 95% confidence region. Is the method-of-moments estimate inside the
+   region?
 4. Calculate a 95% Wald interval for $k$ (on the log scale, with the endpoints transformed
-   back) and a 95% profile likelihood interval for $k$ with `uniroot()`. Compare them.
+   back) with the standard error from `sdreport()`. Then calculate the profile of $k$ by
+   hand on a grid of values of $k$, as in the theory, and find the values of $k$ that are
+   within 1.92 units of the maximum. Check the result with `TMB::tmbprofile()` and
+   `confint()`, and compare the profile likelihood interval with the Wald interval.
 5. Plot the relative frequencies of the counts together with the probabilities of the
    fitted Negative Binomial model and of a Poisson model. Compare the fraction of empty
    quadrats under each model with the observed fraction, and compare the two models with
@@ -90,30 +107,37 @@ fraction of 0.496), while the largest count is 72 seedlings.
 
 ### Question 2
 
-The NLL is the one of the theory. `optim()` passes both parameters to the function in one
-vector, and inside the function `par[1]` is $\log\mu$ and `par[2]` is $\log k$, so that
-both parameters stay positive. We start the search at the method-of-moments estimates:
+The NLL is the one of the theory, with `dnbinom2()` and with $\log\mu$ and $\log k$ as
+parameters, so that both stay positive. Here the data are called `counts`, so that is the
+name that the list of data must use when we connect the NLL to the seedling counts. We
+start the search at the method-of-moments estimates. The function `fn` of the object
+returns the NLL for any vector of parameters on the log scale, so before the fit we use it
+to calculate the log-likelihood at the starting values:
 
 ```{r}
 # Negative log-likelihood of the Negative Binomial model with mean mu and shape k.
-# par[1] is log(mu) and par[2] is log(k), so that both parameters stay positive.
-nb_nll = function(par, counts) {
-  mu = exp(par[1])
-  k = exp(par[2])
-  -sum(dnbinom(x = counts, mu = mu, size = k, log = TRUE))
+nb_nll = function(parms, data) {
+  # Make the elements of both lists available by name.
+  getAll(parms, data)
+  # Transform the parameters to the original scale.
+  mu = exp(log_mu)
+  k = exp(log_k)
+  -sum(dnbinom2(x = counts, mu = mu, size = k, log = TRUE))
 }
 
-# Start from the method-of-moments estimates, on the log scale.
-start_lily = c(log_mu = log(mu_mom_lily), log_k = log(k_mom_lily))
-
-# Fit with BFGS; hessian = TRUE is used for the standard errors in question 4.
-lily_fit = optim(
-  par = start_lily,
-  fn = nb_nll,
-  counts = lily_counts,
-  method = "BFGS",
-  hessian = TRUE
+# Process the NLL of the seedling counts, starting from the method-of-moments estimates
+# on the log scale.
+lily_obj = MakeADFun(
+  cmb(nb_nll, list(counts = lily_counts)),
+  list(log_mu = log(mu_mom_lily), log_k = log(k_mom_lily)),
+  silent = TRUE
 )
+
+# Log-likelihood at the method-of-moments estimates, which are the starting values.
+loglik_mom_lily = -lily_obj$fn(lily_obj$par)
+
+# Fit with BFGS and check the convergence code.
+lily_fit = optim(par = lily_obj$par, fn = lily_obj$fn, gr = lily_obj$gr, method = "BFGS")
 lily_fit$convergence
 
 # Estimates on the original scale.
@@ -123,7 +147,6 @@ c(mu_mle = mu_mle_lily, k_mle = k_mle_lily)
 
 # Log-likelihood at the maximum likelihood estimates and at the method-of-moments estimates.
 loglik_mle_lily = -lily_fit$value
-loglik_mom_lily = -nb_nll(par = start_lily, counts = lily_counts)
 c(mle = loglik_mle_lily, mom = loglik_mom_lily)
 ```
 
@@ -139,9 +162,10 @@ the shape was 0.33 and the method-of-moments estimate was 0.60.
 ### Question 3
 
 We choose grids that contain both pairs of estimates with some margin, and fill a matrix
-that has one row per value of $\mu$ and one column per value of $k$. The cutoff for a
-joint region of two parameters is half the 0.95 quantile of a chi-squared distribution
-with two degrees of freedom (see
+that has one row per value of $\mu$ and one column per value of $k$. Inside the loops we
+call `lily_obj$fn()` with the logarithms of the candidate values and change the sign of
+the NLL that it returns. The cutoff for a joint region of two parameters is half the 0.95
+quantile of a chi-squared distribution with two degrees of freedom (see
 [Uncertainty from the likelihood](../Theory.qmd#sec-likelihood-uncertainty)):
 
 ```{r}
@@ -150,12 +174,11 @@ mu_grid_lily = seq(from = 2.5, to = 6, length.out = 71)
 k_grid_lily = seq(from = 0.17, to = 0.42, length.out = 71)
 
 # Fill a matrix with two nested loops: row i is the i-th mean and column j the j-th shape.
+# fn() takes log(mu) and log(k) and returns the NLL.
 loglik_surface_lily = matrix(NA, nrow = length(mu_grid_lily), ncol = length(k_grid_lily))
 for (i in seq_along(mu_grid_lily)) {
   for (j in seq_along(k_grid_lily)) {
-    loglik_surface_lily[i, j] = sum(
-      dnbinom(x = lily_counts, mu = mu_grid_lily[i], size = k_grid_lily[j], log = TRUE)
-    )
+    loglik_surface_lily[i, j] = -lily_obj$fn(c(log(mu_grid_lily[i]), log(k_grid_lily[j])))
   }
 }
 
@@ -212,78 +235,79 @@ values that the likelihood supports.
 
 ### Question 4
 
-For the Wald interval we invert the Hessian with `solve()` and take the square roots of its
-diagonal, which are the standard errors of the estimates of $\log\mu$ and $\log k$. We
-calculate the interval for $\log k$ and transform its endpoints with `exp()`:
+For the Wald interval, `sdreport()` gives the standard errors of the estimates of
+$\log\mu$ and $\log k$. We calculate the interval for $\log k$ and transform its endpoints
+with `exp()`:
 
 ```{r}
 # 0.975 quantile of the standard Normal distribution and the cutoff for one parameter.
 critical_value = qnorm(p = 0.975)
 cutoff = qchisq(p = 0.95, df = 1) / 2
 
-# Wald interval for k: the inverse Hessian approximates the covariance matrix of the
-# estimates of log(mu) and log(k). Calculate on the log scale and back-transform the endpoints.
-lily_se = sqrt(diag(solve(lily_fit$hessian)))
-lily_se
-wald_k_lily = exp(lily_fit$par["log_k"] + c(-1, 1) * critical_value * lily_se["log_k"])
+# Standard errors of the estimates of log(mu) and log(k).
+lily_sd = sdreport(lily_obj)
+lily_summary = summary(lily_sd)
+lily_summary
+
+# Wald interval for k: calculate on the log scale and back-transform the endpoints.
+wald_k_lily = exp(
+  lily_summary["log_k", "Estimate"] +
+    c(-1, 1) * critical_value * lily_summary["log_k", "Std. Error"]
+)
 wald_k_lily
 ```
 
 The standard errors are 0.126 for the estimate of $\log\mu$ and 0.117 for the estimate of
 $\log k$, and the Wald interval for $k$ goes from 0.208 to 0.329.
 
-For the profile likelihood interval we write a function that returns the relative profile
-log-likelihood for a given value of $k$. Inside it, `optim()` re-estimates $\log\mu$ with
-$k$ held fixed, starting from the joint estimate. Then `uniroot()` finds the two values of
-$k$ at which this function equals $-1.92$. We search between 0.05 and the estimate and
-between the estimate and 1, which are values far outside the region of high likelihood in
-@fig-lily_surface:
+For the profile by hand we follow the theory. The surface of @fig-lily_surface shows that
+the values of $k$ that the data support lie well inside the range from 0.15 to 0.45, so we
+take a grid over that range. For each value of $k$ on the grid we process the NLL with
+$\log k$ held fixed, with the argument `map` of `MakeADFun()`, and `optim()` then
+re-estimates only $\log\mu$, starting from the joint estimate:
 
 ```{r}
-# Profile log-likelihood of k relative to the maximum: for each k the mean is
-# re-estimated with optim() on log(mu), starting from the joint estimate.
-nll_given_k_lily = function(log_mu, k, counts) {
-  -sum(dnbinom(x = counts, mu = exp(log_mu), size = k, log = TRUE))
-}
-profile_relative_k_lily = function(k, counts) {
-  inner_fit = optim(
-    par = lily_fit$par["log_mu"],
-    fn = nll_given_k_lily,
-    k = k,
-    counts = counts,
-    method = "BFGS"
+# Profile of k by hand: for each value of k on a grid, the mean is re-estimated with k
+# held fixed, starting from the joint estimate.
+k_values_lily = seq(from = 0.15, to = 0.45, by = 0.005)
+profile_k_lily = rep(NA, times = length(k_values_lily))
+for (i in seq_along(k_values_lily)) {
+  inner_obj = MakeADFun(
+    cmb(nb_nll, list(counts = lily_counts)),
+    list(log_mu = lily_fit$par[["log_mu"]], log_k = log(k_values_lily[i])),
+    map = list(log_k = factor(NA)),
+    silent = TRUE
   )
-  -inner_fit$value - loglik_mle_lily
+  inner_fit = optim(par = inner_obj$par, fn = inner_obj$fn, gr = inner_obj$gr, method = "BFGS")
+  # Relative profile log-likelihood (both values are NLLs, so the order is reversed).
+  profile_k_lily[i] = lily_fit$value - inner_fit$value
 }
 
-# The profile is zero at the joint estimate.
-profile_relative_k_lily(k = k_mle_lily, counts = lily_counts)
+# Values of k on the grid whose relative profile log-likelihood is above the cutoff.
+range(k_values_lily[profile_k_lily >= -cutoff])
+```
 
-# uniroot() finds where the relative profile equals -cutoff, below and above the estimate.
-# The ends of each search interval were chosen from the surface above.
-k_lower_lily = uniroot(
-  f = function(k) profile_relative_k_lily(k, counts = lily_counts) + cutoff,
-  interval = c(0.05, k_mle_lily),
-  tol = 1e-8
-)$root
-k_upper_lily = uniroot(
-  f = function(k) profile_relative_k_lily(k, counts = lily_counts) + cutoff,
-  interval = c(k_mle_lily, 1),
-  tol = 1e-8
-)$root
+`TMB::tmbprofile()` makes the same inner fits and `confint()` locates the two endpoints.
+The profile is calculated for $\log k$, so we transform them with `exp()`:
+
+```{r}
+# Profile of log(k) and the endpoints of its 95% interval, transformed back.
+lily_profile_k = TMB::tmbprofile(lily_obj, name = "log_k", trace = FALSE)
+profile_interval_k_lily = exp(confint(lily_profile_k))
 
 # Profile interval next to the Wald interval for the shape.
 rbind(
-  profile = c(lower = k_lower_lily, upper = k_upper_lily),
-  wald = c(lower = wald_k_lily[[1]], upper = wald_k_lily[[2]])
+  profile = profile_interval_k_lily[1, ],
+  wald = c(lower = wald_k_lily[1], upper = wald_k_lily[2])
 )
 ```
 
-The profile is zero at the joint estimate (up to the precision of the optimiser), as it
-should be. The profile likelihood interval for $k$ goes from 0.207 to 0.328 and the Wald
-interval from 0.208 to 0.329, so they agree to two decimals. With 256 quadrats the profile
-log-likelihood is close to a parabola on the log scale of $k$, and the fast approximation
-gives the same answer as the reference method.
+On the grid, the values of $k$ within 1.92 units of the maximum go from 0.210 to 0.325,
+to the precision of its step of 0.005. `tmbprofile()` agrees with them and gives the
+endpoints with more decimals: the profile likelihood interval for $k$ goes from 0.207 to
+0.328. The Wald interval goes from 0.208 to 0.329, so the two intervals agree to two
+decimals. With 256 quadrats the profile log-likelihood is close to a parabola on the log
+scale of $k$, and the fast approximation gives the same answer as the reference method.
 
 ### Question 5
 
@@ -297,7 +321,7 @@ model and $K=2$ for the Negative Binomial model:
 # and the relative frequencies in the sample.
 count_values_lily = 0:max(lily_counts)
 observed_lily = tabulate(lily_counts + 1, nbins = length(count_values_lily)) / n_lily
-nb_probability = dnbinom(x = count_values_lily, mu = mu_mle_lily, size = k_mle_lily)
+nb_probability = dnbinom2(x = count_values_lily, mu = mu_mle_lily, size = k_mle_lily)
 poisson_probability = dpois(x = count_values_lily, lambda = mu_mom_lily)
 
 # Fraction of empty quadrats: observed and under each model.
@@ -395,14 +419,16 @@ cannot have seedlings and $\lambda$ is the mean number of seedlings in the quadr
 can have them. Use the same counts as in Exercise 2 and the same assumption of i.i.d.
 quadrats.
 
-1. Write a function `dzipois(x, lambda, pzero, log = FALSE)` that returns the probability
-   mass of the zero-inflated Poisson distribution, or its logarithm when `log = TRUE`.
-   Check that the probabilities add up to one over a wide range of counts, for two
-   combinations of parameter values.
-2. Write the NLL with $\log\lambda$ and $\operatorname{logit}p_0$ as parameters. Choose
-   starting values from the data (think of the fraction of empty quadrats and of the mean
-   of the quadrats that are not empty) and fit the model with `optim()`. Interpret both
-   estimates.
+1. Write a function `my_dzipois(x, lambda, pzero, log = FALSE)` that returns the
+   probability mass of the zero-inflated Poisson distribution, or its logarithm when
+   `log = TRUE`. Check that the probabilities add up to one over a wide range of counts,
+   for two combinations of parameter values, and that your function returns the same
+   probabilities as `dzipois()` of the package RTMBdist, in which $p_0$ is the argument
+   `zeroprob`.
+2. Write the NLL with `dzipois()` and with $\log\lambda$ and $\operatorname{logit}p_0$ as
+   parameters. Choose starting values from the data (think of the fraction of empty
+   quadrats and of the mean of the quadrats that are not empty) and fit the model.
+   Interpret both estimates.
 3. Compare the zero-inflated Poisson model with the Negative Binomial model of Exercise 2
    using AIC and AICc. What does the comparison come down to when both models have the
    same number of parameters?
@@ -426,7 +452,7 @@ of the result:
 ```{r}
 # Mass function of a zero-inflated Poisson distribution: with probability pzero a quadrat
 # cannot have seedlings, otherwise the count follows a Poisson distribution.
-dzipois = function(x, lambda, pzero, log = FALSE) {
+my_dzipois = function(x, lambda, pzero, log = FALSE) {
   # Poisson probability scaled by the probability of belonging to the Poisson part.
   result = (1 - pzero) * dpois(x = x, lambda = lambda)
   # An empty quadrat can come from either part, so pzero is added to the probability of zero.
@@ -435,12 +461,23 @@ dzipois = function(x, lambda, pzero, log = FALSE) {
 }
 
 # The probabilities add up to one over a wide range of counts.
-sum(dzipois(x = 0:200, lambda = 7.9, pzero = 0.5))
-sum(dzipois(x = 0:200, lambda = 2, pzero = 0.1))
+sum(my_dzipois(x = 0:200, lambda = 7.9, pzero = 0.5))
+sum(my_dzipois(x = 0:200, lambda = 2, pzero = 0.1))
+
+# The same probabilities from dzipois() of RTMBdist, for the counts 0 to 3, and the
+# largest difference between the two functions over all the counts.
+my_dzipois(x = 0:3, lambda = 2, pzero = 0.1)
+dzipois(x = 0:3, lambda = 2, zeroprob = 0.1)
+max(abs(
+  my_dzipois(x = 0:200, lambda = 7.9, pzero = 0.5) -
+    dzipois(x = 0:200, lambda = 7.9, zeroprob = 0.5)
+))
 ```
 
 Both sums are 1, as they should be for a probability mass function. We used two different
-pairs of parameter values, the first of which is close to the estimates of question 2.
+pairs of parameter values, the first of which is close to the estimates of question 2. Our
+function and `dzipois()` return the same probabilities (the largest difference is of the
+order of $10^{-17}$, the precision of the computer), so from here on we use `dzipois()`.
 
 ### Question 2
 
@@ -452,26 +489,25 @@ is the mean of the quadrats that have seedlings:
 
 ```{r}
 # Negative log-likelihood of the zero-inflated Poisson model.
-# par[1] is log(lambda) and par[2] is logit(pzero).
-zip_nll = function(par, counts) {
-  lambda = exp(par[1])
-  pzero = plogis(par[2])
-  -sum(dzipois(x = counts, lambda = lambda, pzero = pzero, log = TRUE))
+zip_nll = function(parms, data) {
+  getAll(parms, data)
+  # Transform the parameters to the original scale.
+  lambda = exp(log_lambda)
+  pzero = plogis(logit_pzero)
+  -sum(dzipois(x = counts, lambda = lambda, zeroprob = pzero, log = TRUE))
 }
 
 # Starting values from the data: the fraction of empty quadrats for pzero and the mean
 # of the non-empty quadrats for lambda.
-start_zip = c(
-  log_lambda = log(mean(lily_counts[lily_counts > 0])),
-  logit_pzero = qlogis(p = mean(lily_counts == 0))
+zip_obj = MakeADFun(
+  cmb(zip_nll, list(counts = lily_counts)),
+  list(
+    log_lambda = log(mean(lily_counts[lily_counts > 0])),
+    logit_pzero = qlogis(p = mean(lily_counts == 0))
+  ),
+  silent = TRUE
 )
-
-zip_fit = optim(
-  par = start_zip,
-  fn = zip_nll,
-  counts = lily_counts,
-  method = "BFGS"
-)
+zip_fit = optim(par = zip_obj$par, fn = zip_obj$fn, gr = zip_obj$gr, method = "BFGS")
 zip_fit$convergence
 
 # Estimates on the original scale.
@@ -481,7 +517,10 @@ c(lambda = lambda_zip, pzero = pzero_zip, loglik = -zip_fit$value)
 
 # Starting values on the original scale, and the probability of a count of zero under
 # a Poisson distribution with the estimated lambda.
-c(lambda_start = exp(start_zip[["log_lambda"]]), pzero_start = plogis(start_zip[["logit_pzero"]]))
+c(
+  lambda_start = exp(zip_obj$par[["log_lambda"]]),
+  pzero_start = plogis(zip_obj$par[["logit_pzero"]])
+)
 dpois(x = 0, lambda = lambda_zip)
 ```
 
@@ -521,13 +560,13 @@ and the same $n$, so the difference does not change either.
 ### Question 4
 
 We calculate the two probabilities under each model, together with the corresponding
-fractions of the sample. For the Negative Binomial model, `pnbinom()` with
+fractions of the sample. For the Negative Binomial model, `pnbinom2()` with
 `lower.tail = FALSE` gives the probability of more than 19 seedlings:
 
 ```{r}
 # Probability of zero and of 20 or more seedlings: observed, zero-inflated Poisson and
 # Negative Binomial.
-zip_probability = dzipois(x = count_values_lily, lambda = lambda_zip, pzero = pzero_zip)
+zip_probability = dzipois(x = count_values_lily, lambda = lambda_zip, zeroprob = pzero_zip)
 c(
   zero_observed = mean(lily_counts == 0),
   zero_zip = zip_probability[1],
@@ -536,7 +575,7 @@ c(
 c(
   twenty_or_more_observed = mean(lily_counts >= 20),
   twenty_or_more_zip = sum(zip_probability[count_values_lily >= 20]),
-  twenty_or_more_nb = pnbinom(q = 19, mu = mu_mle_lily, size = k_mle_lily, lower.tail = FALSE)
+  twenty_or_more_nb = pnbinom2(q = 19, mu = mu_mle_lily, size = k_mle_lily, lower.tail = FALSE)
 )
 ```
 
@@ -619,30 +658,30 @@ Fraser 2014). There $X_i$ is the body mass of Adelie penguin $i$, the column `bo
 in grams. In both cases we assume that the observations are i.i.d.
 
 1. Load the trees with `data(trees, package = "datasets")`. Write the NLL of the Gamma
-   model with `dgamma(..., log = TRUE)` and with $\log k$ and $\log r$ as parameters.
-   Calculate method-of-moments estimates from the formulas of the mean and the variance,
-   use them as starting values and fit the model with `optim()` and `hessian = TRUE`.
-   Report the estimates of $k$ and $r$ with their units and the maximum likelihood estimate
-   of the mean volume.
-2. Calculate the correlation between the estimates of $\log k$ and $\log r$ from the
-   Hessian. Calculate the log-likelihood on a grid of values of $k$ and $r$ and draw the
-   contours of the relative log-likelihood. What does the tilt of the contours mean?
-3. Calculate a slice and a profile of the log-likelihood for the shape $k$ and plot both as
-   relative log-likelihoods. Find the range of values of $k$ for which each curve is within
-   1.92 units of the maximum. Which of the two ranges is a confidence interval, and why is
+   model with `dgamma(..., log = TRUE)` and with $\log k$ and $\log r$ as parameters, and
+   mark the data with `OBS()`, which Exercise 5 uses to simulate. Calculate
+   method-of-moments estimates from the formulas of the mean and the variance, use them as
+   starting values and fit the model. Report the estimates of $k$ and $r$ with their units
+   and the maximum likelihood estimate of the mean volume.
+2. Calculate the correlation between the estimates of $\log k$ and $\log r$ with
+   `sdreport()`. Calculate the log-likelihood on a grid of values of $k$ and $r$ and draw
+   the contours of the relative log-likelihood. What does the tilt of the contours mean?
+3. Calculate a slice of the log-likelihood for the shape $k$ on a grid of values, and its
+   profile with `TMB::tmbprofile()`, and plot both as relative log-likelihoods. Find the
+   range of values of $k$ for which each curve is within 1.92 units of the maximum (for the
+   profile, with `confint()`). Which of the two ranges is a confidence interval, and why is
    the slice narrower?
 4. Load the penguins with `data(penguins, package = "datasets")` and keep the body masses
    of the Adelie penguins. One of them is missing: remove it explicitly. Fit the Gamma
-   model to the masses in grams and again to the same masses in kilograms. With the masses
-   in grams the NLL is a large number, and the default stopping rule of `optim()` can end
-   the search too early, so add the argument `control = list(reltol = 1e-12)` to both fits
-   (if R prints "NaNs produced" during the search, see the callout
-   [When a fit fails or prints warnings](../Theory.qmd#sec-maximum-likelihood)).
-   Compare the estimates and the maximum log-likelihoods of the two fits. Explain the
-   differences with the units of a density.
+   model to the masses in grams and again to the same masses in kilograms. Start both fits
+   at a shape of 1 and at the rate that gives the mean of the sample, $1/\overline x$ (for
+   these data the method-of-moments estimates are a poor starting point, as the solution
+   shows; [Chapter 8](../../Chapter_8/Theory.qmd) explains how a fit depends on its
+   starting values). Compare the estimates and the maximum log-likelihoods of the two
+   fits. Explain the differences with the units of a density.
 5. Fit a [LogNormal](../../Supplements/distributions.qmd#sec-lognormal) model to the body
-   masses with `dlnorm()` and `optim()`, in grams and in kilograms, and compare it with the
-   Gamma model using AIC and AICc. Does the comparison depend on the units?
+   masses with `dlnorm()`, in grams and in kilograms, and compare it with the Gamma model
+   using AIC and AICc. Does the comparison depend on the units?
 
 ## Solution
 
@@ -650,7 +689,9 @@ in grams. In both cases we assume that the observations are i.i.d.
 
 The observational unit is one tree, and the data are the 31 volumes in cubic feet.
 `dgamma()` returns a density, so the NLL is minus the sum of the log densities. Both
-parameters are positive and we search over their logarithms. For the starting values we
+parameters are positive and we search over their logarithms. The line with `OBS()` marks
+the data as observations, which does not change the fit and allows us to simulate from the
+model in Exercise 5. For the starting values we
 solve $E[X]=k/r$ and $\operatorname{Var}(X)=k/r^2$ for the parameters, which gives
 $k=E[X]^2/\operatorname{Var}(X)$ and $r=E[X]/\operatorname{Var}(X)$, and we insert the mean
 and the variance of the sample (with divisor $n$):
@@ -662,11 +703,14 @@ tree_volume = trees$Volume
 n_trees = length(tree_volume)
 
 # Negative log-likelihood of the Gamma model with shape k and rate r.
-# par[1] is log(k) and par[2] is log(r). dgamma() returns a density, so these are
-# log densities.
-gamma_nll = function(par, x) {
-  shape = exp(par[1])
-  rate = exp(par[2])
+# dgamma() returns a density, so these are log densities.
+gamma_nll = function(parms, data) {
+  getAll(parms, data)
+  # Mark the data as observations, so that they can be simulated in Exercise 5.
+  x = OBS(x)
+  # Transform the parameters to the original scale.
+  shape = exp(log_shape)
+  rate = exp(log_rate)
   -sum(dgamma(x = x, shape = shape, rate = rate, log = TRUE))
 }
 
@@ -674,18 +718,21 @@ gamma_nll = function(par, x) {
 # which give k = mean^2 / variance and r = mean / variance.
 volume_mean = mean(tree_volume)
 volume_variance = mean((tree_volume - volume_mean)^2)
-start_volume = log(c(
-  log_shape = volume_mean^2 / volume_variance,
-  log_rate = volume_mean / volume_variance
-))
-start_volume
+shape_mom_volume = volume_mean^2 / volume_variance
+rate_mom_volume = volume_mean / volume_variance
 
+# Process the NLL of the tree volumes and fit it.
+volume_obj = MakeADFun(
+  cmb(gamma_nll, list(x = tree_volume)),
+  list(log_shape = log(shape_mom_volume), log_rate = log(rate_mom_volume)),
+  silent = TRUE
+)
+volume_obj$par
 volume_fit = optim(
-  par = start_volume,
-  fn = gamma_nll,
-  x = tree_volume,
-  method = "BFGS",
-  hessian = TRUE
+  par = volume_obj$par,
+  fn = volume_obj$fn,
+  gr = volume_obj$gr,
+  method = "BFGS"
 )
 volume_fit$convergence
 
@@ -701,7 +748,7 @@ c(
 )
 
 # Method-of-moments estimate of the shape, for comparison.
-exp(start_volume["log_shape"])
+shape_mom_volume
 ```
 
 The convergence code is 0. The estimates are $\hat k\approx 3.89$, which has no units, and
@@ -715,24 +762,26 @@ mean and disagree on the parameter that controls the variance. The minimum of th
 
 ### Question 2
 
-`cov2cor()` converts the inverse of the Hessian into correlations. For the surface we use
-the same nested loops as in Exercise 2, now with `dgamma()`:
+`sdreport()` keeps the inverse of the Hessian in its element `cov.fixed`, and `cov2cor()`
+converts it into correlations. For the surface we use the same nested loops as in
+Exercise 2, now with `volume_obj$fn()`:
 
 ```{r}
-# Correlation between the estimates of log(k) and log(r), from the inverse Hessian.
-cov2cor(solve(volume_fit$hessian))
+# Correlation between the estimates of log(k) and log(r), from the covariance matrix
+# kept by sdreport().
+volume_sd = sdreport(volume_obj)
+cov2cor(volume_sd$cov.fixed)
 
 # Grids of candidate values for the shape and the rate (1/ft³).
 shape_grid = seq(from = 1.5, to = 8, length.out = 71)
 rate_grid = seq(from = 0.04, to = 0.3, length.out = 71)
 
-# Fill the matrix of log-likelihoods with two nested loops.
+# Fill the matrix of log-likelihoods with two nested loops; fn() takes log(k) and log(r)
+# and returns the NLL.
 loglik_surface_volume = matrix(NA, nrow = length(shape_grid), ncol = length(rate_grid))
 for (i in seq_along(shape_grid)) {
   for (j in seq_along(rate_grid)) {
-    loglik_surface_volume[i, j] = sum(
-      dgamma(x = tree_volume, shape = shape_grid[i], rate = rate_grid[j], log = TRUE)
-    )
+    loglik_surface_volume[i, j] = -volume_obj$fn(c(log(shape_grid[i]), log(rate_grid[j])))
   }
 }
 relative_surface_volume = loglik_surface_volume + volume_fit$value
@@ -764,45 +813,43 @@ that overestimates the shape would tend to overestimate the rate too.
 
 ### Question 3
 
-The slice fixes the rate at its estimate and varies the shape. The profile re-estimates the
-rate for every value of the shape, with an NLL in which the shape is given and only
-$\log r$ is searched. Each of these inner searches starts at the joint estimate. We
-evaluate both curves on a grid of 261 values of the shape:
+The slice fixes the rate at its estimate and varies the shape, so we evaluate
+`volume_obj$fn()` on a grid of 261 values of the shape. The profile re-estimates the rate
+for every value of the shape, which is what `tmbprofile()` does. It returns a data frame
+with the values of $\log k$ that it visited and the NLL at each of them (`value`), from
+which we calculate the relative log-likelihood. By default the profile stops when the
+log-likelihood has dropped by two units, and with `ytol = 6` it continues until a drop of
+six units, so that the plot covers the same range as the slice:
 
 ```{r}
 # Cutoff for a 95% interval of one parameter: half the 95% quantile of a chi-squared
 # distribution with one degree of freedom.
 cutoff = qchisq(p = 0.95, df = 1) / 2
 
-# Negative log-likelihood as a function of log(r) only, for a given shape.
-gamma_nll_given_shape = function(log_rate, shape, x) {
-  -sum(dgamma(x = x, shape = shape, rate = exp(log_rate), log = TRUE))
-}
-
-# Slice: the rate is fixed at its estimate. Profile: for each shape the rate is
-# re-estimated with optim(), starting from the joint estimate.
+# Slice: the rate is fixed at its estimate and the shape varies over a grid.
 shape_fine = seq(from = 1.5, to = 8, length.out = 261)
-slice_loglik_volume = rep(NA, times = length(shape_fine))
-profile_loglik_volume = rep(NA, times = length(shape_fine))
+slice_relative_volume = rep(NA, times = length(shape_fine))
 for (i in seq_along(shape_fine)) {
-  slice_loglik_volume[i] = sum(
-    dgamma(x = tree_volume, shape = shape_fine[i], rate = rate_volume, log = TRUE)
-  )
-  inner_fit = optim(
-    par = volume_fit$par["log_rate"],
-    fn = gamma_nll_given_shape,
-    shape = shape_fine[i],
-    x = tree_volume,
-    method = "BFGS"
-  )
-  profile_loglik_volume[i] = -inner_fit$value
+  # Both values are NLLs, so the order of the difference is reversed.
+  slice_relative_volume[i] =
+    volume_fit$value - volume_obj$fn(c(log(shape_fine[i]), log(rate_volume)))
 }
 
-# Relative log-likelihoods and the range of shapes within the cutoff of the maximum.
-slice_relative_volume = slice_loglik_volume + volume_fit$value
-profile_relative_volume = profile_loglik_volume + volume_fit$value
+# Profile: for each shape the rate is re-estimated. ytol is the drop in log-likelihood
+# at which the profile stops.
+volume_profile_shape = TMB::tmbprofile(
+  volume_obj,
+  name = "log_shape",
+  ytol = 6,
+  trace = FALSE
+)
+profile_shape_volume = exp(volume_profile_shape$log_shape)
+profile_relative_volume = min(volume_profile_shape$value) - volume_profile_shape$value
+
+# Range of shapes within the cutoff of the maximum: from the grid for the slice and
+# from confint() for the profile.
 range(shape_fine[slice_relative_volume >= -cutoff])
-range(shape_fine[profile_relative_volume >= -cutoff])
+exp(confint(volume_profile_shape))
 ```
 
 ```{r}
@@ -810,9 +857,10 @@ range(shape_fine[profile_relative_volume >= -cutoff])
 #| fig-cap: "Slice (dashed line) and profile (solid line) of the relative log-likelihood for the shape of the Gamma model fitted to the tree volumes. The horizontal line is at minus half the 95% quantile of the chi-squared distribution with one degree of freedom."
 # Relative log-likelihood along the profile, with the slice and the cutoff added.
 plot(
-  x = shape_fine,
+  x = profile_shape_volume,
   y = profile_relative_volume,
   type = "l",
+  xlim = c(1.5, 8),
   ylim = c(-6, 0),
   xlab = "Shape (k)",
   ylab = "Relative log-likelihood"
@@ -822,9 +870,9 @@ abline(h = -cutoff, col = "grey40")
 legend("topright", legend = c("Profile", "Slice"), lty = c(1, 2), bty = "n")
 ```
 
-The slice is within 1.92 units of the maximum for shapes between 3.28 and 4.55, and the
-profile for shapes between 2.33 and 6.05 (the grid has a step of 0.025, so the endpoints
-are accurate to about that amount). The range of the profile is the approximate 95%
+The slice is within 1.92 units of the maximum for shapes between 3.28 and 4.55 (the grid
+has a step of 0.025, so these endpoints are accurate to about that amount), and the
+profile for shapes between 2.32 and 6.06. The range of the profile is the approximate 95%
 confidence interval for the shape. The slice is about a third as wide
 (@fig-volume_profile). It describes what the data would say about the shape if we knew that
 the rate is exactly 0.129/ft³. The rate is estimated from the same 31 trees, and
@@ -836,8 +884,9 @@ uncertainty about the other. The profile follows the ridge of the surface in
 
 We select the Adelie penguins and count the missing body masses with `is.na()`. A missing
 mass cannot contribute to the likelihood, so we remove it explicitly and report it. The
-NLL is the function `gamma_nll()` of question 1, and a small function calculates the
-method-of-moments starting values for each unit:
+NLL is the function `gamma_nll()` of question 1, which we connect to the masses in each
+unit, and a small function calculates the starting values for each unit: a shape of 1 and
+the rate that gives the mean of the sample:
 
 ```{r}
 # Load the penguin data (in R 4.5.0 and later) and keep the Adelie penguins.
@@ -852,32 +901,35 @@ n_penguins = length(mass_g)
 # The same masses in kilograms.
 mass_kg = mass_g / 1000
 
-# Fit the Gamma model to the masses in grams and in kilograms, with method-of-moments
-# starting values calculated for each unit.
-start_from_moments = function(x) {
-  x_mean = mean(x)
-  x_variance = mean((x - x_mean)^2)
-  log(c(log_shape = x_mean^2 / x_variance, log_rate = x_mean / x_variance))
+# Starting values for a sample x, on the log scale: a shape of 1, and the rate that gives
+# the mean of the sample (the mean of a Gamma distribution is shape / rate).
+start_from_mean = function(x) {
+  list(log_shape = log(1), log_rate = log(1 / mean(x)))
 }
 
-# The default stopping rule of optim() is relative to the value of the negative
-# log-likelihood, which is large in grams, so the search could stop almost at the starting
-# values. A smaller relative tolerance (reltol) makes both fits reach the maximum.
+# Fit the Gamma model to the masses in grams and in kilograms: the same NLL connected to
+# two data sets.
+penguin_obj_g = MakeADFun(
+  cmb(gamma_nll, list(x = mass_g)),
+  start_from_mean(mass_g),
+  silent = TRUE
+)
 penguin_fit_g = optim(
-  par = start_from_moments(mass_g),
-  fn = gamma_nll,
-  x = mass_g,
-  method = "BFGS",
-  hessian = TRUE,
-  control = list(reltol = 1e-12)
+  par = penguin_obj_g$par,
+  fn = penguin_obj_g$fn,
+  gr = penguin_obj_g$gr,
+  method = "BFGS"
+)
+penguin_obj_kg = MakeADFun(
+  cmb(gamma_nll, list(x = mass_kg)),
+  start_from_mean(mass_kg),
+  silent = TRUE
 )
 penguin_fit_kg = optim(
-  par = start_from_moments(mass_kg),
-  fn = gamma_nll,
-  x = mass_kg,
-  method = "BFGS",
-  hessian = TRUE,
-  control = list(reltol = 1e-12)
+  par = penguin_obj_kg$par,
+  fn = penguin_obj_kg$fn,
+  gr = penguin_obj_kg$gr,
+  method = "BFGS"
 )
 c(grams = penguin_fit_g$convergence, kilograms = penguin_fit_kg$convergence)
 
@@ -919,16 +971,47 @@ log-likelihood, and $151\times\log(1000)=1043.07$ is the difference that we foun
 reason the value of a log-likelihood means nothing by itself, and log-likelihoods
 calculated from data in different units cannot be compared.
 
-The argument `reltol` deserves a remark. `optim()` stops when a step reduces the function
-by less than a small fraction of its value. With the masses in grams and the default
-setting, the search stops after a single step at a shape of 65.56, practically at the
-starting values, although the NLL can still decrease by 0.0025, and it reports a
-convergence code of zero. A smaller `reltol` makes the search continue to the minimum. While
-it searches, `optim()` may try a rate or a shape for which `dgamma()` returns `NaN`, and R
-then prints "NaNs produced". These warnings are harmless when the search ends with
-convergence code 0 and sensible estimates (see
-[When a fit fails or prints warnings](../Theory.qmd#sec-maximum-likelihood)). How
-optimisers decide when to stop is a topic of [Chapter 8](../../Chapter_8/Theory.qmd).
+The starting values deserve a remark. In question 1 we started at the method-of-moments
+estimates, and here we did not. This is the fit in grams started at those estimates:
+
+```{r}
+# The fit in grams again, now started at the method-of-moments estimates.
+mass_mean = mean(mass_g)
+mass_variance = mean((mass_g - mass_mean)^2)
+moments_obj_g = MakeADFun(
+  cmb(gamma_nll, list(x = mass_g)),
+  list(log_shape = log(mass_mean^2 / mass_variance), log_rate = log(mass_mean / mass_variance)),
+  silent = TRUE
+)
+moments_fit_g = optim(
+  par = moments_obj_g$par,
+  fn = moments_obj_g$fn,
+  gr = moments_obj_g$gr,
+  method = "BFGS"
+)
+
+# Convergence code, shape at the start and at the end of the search, and how far the NLL
+# is above the minimum of the first fit.
+c(
+  convergence = moments_fit_g$convergence,
+  shape_start = exp(moments_obj_g$par[["log_shape"]]),
+  shape_end = exp(moments_fit_g$par[["log_shape"]]),
+  nll_above_minimum = moments_fit_g$value - penguin_fit_g$value
+)
+```
+
+The search stops after a single step at a shape of 65.56, practically at its starting
+values, although the NLL can still decrease by 0.0025, and it reports a convergence code
+of zero. At the method-of-moments estimates the mean of the model already equals the mean
+of the sample, so the slope of the NLL with respect to the rate is zero and the first step
+changes only the shape, which lowers the NLL very little. `optim()` stops when a step
+reduces the function by less than a small fraction of its value, and with the masses in
+grams the NLL is a large number. A convergence code of zero means that the search stopped
+normally, and it is good practice to check that other starting values lead to the same
+estimates, as the callout
+[When a fit fails](../Theory.qmd#sec-maximum-likelihood) recommends. How optimisers decide
+when to stop, and how a fit depends on its starting values, are topics of
+[Chapter 8](../../Chapter_8/Theory.qmd).
 
 ### Question 5
 
@@ -939,28 +1022,39 @@ As starting values we use the mean and the standard deviation of the logarithms 
 masses:
 
 ```{r}
-# Negative log-likelihood of the LogNormal model; par[1] is meanlog and par[2] is log(sdlog).
-lognormal_nll = function(par, x) {
-  -sum(dlnorm(x = x, meanlog = par[1], sdlog = exp(par[2]), log = TRUE))
+# Negative log-likelihood of the LogNormal model, with meanlog and log(sdlog) as parameters.
+lognormal_nll = function(parms, data) {
+  getAll(parms, data)
+  # meanlog can take any real value; sdlog is positive.
+  sdlog = exp(log_sdlog)
+  -sum(dlnorm(x = x, meanlog = meanlog, sdlog = sdlog, log = TRUE))
 }
 
 # Starting values: mean and standard deviation of the logarithms of the masses.
 start_lognormal = function(x) {
-  c(meanlog = mean(log(x)), log_sdlog = log(sd(log(x))))
+  list(meanlog = mean(log(x)), log_sdlog = log(sd(log(x))))
 }
+lognormal_obj_g = MakeADFun(
+  cmb(lognormal_nll, list(x = mass_g)),
+  start_lognormal(mass_g),
+  silent = TRUE
+)
 lognormal_fit_g = optim(
-  par = start_lognormal(mass_g),
-  fn = lognormal_nll,
-  x = mass_g,
-  method = "BFGS",
-  control = list(reltol = 1e-12)
+  par = lognormal_obj_g$par,
+  fn = lognormal_obj_g$fn,
+  gr = lognormal_obj_g$gr,
+  method = "BFGS"
+)
+lognormal_obj_kg = MakeADFun(
+  cmb(lognormal_nll, list(x = mass_kg)),
+  start_lognormal(mass_kg),
+  silent = TRUE
 )
 lognormal_fit_kg = optim(
-  par = start_lognormal(mass_kg),
-  fn = lognormal_nll,
-  x = mass_kg,
-  method = "BFGS",
-  control = list(reltol = 1e-12)
+  par = lognormal_obj_kg$par,
+  fn = lognormal_obj_kg$fn,
+  gr = lognormal_obj_kg$gr,
+  method = "BFGS"
 )
 c(grams = lognormal_fit_g$convergence, kilograms = lognormal_fit_kg$convergence)
 
@@ -1015,22 +1109,22 @@ exercise continues with the objects of Exercise 4. The function that runs the si
 is given below the questions with three gaps, which you fill in.
 
 1. For the shape $k$ of the Gamma model fitted to the tree volumes, calculate a 95% Wald
-   interval (on the log scale, with the endpoints transformed back) and a 95% profile
-   likelihood interval with `uniroot()`. Compare them.
+   interval (on the log scale, with the endpoints transformed back) with the standard
+   error from `sdreport()`. Compare it with the profile likelihood interval of Exercise 4.
 2. Complete the first gap of the function `simulate_gamma_experiments()` below. Set seed
    801 and simulate 2,000 hypothetical experiments, each with 31 trees from a Gamma model
    whose shape and rate are the maximum likelihood estimates of Exercise 4. For each
    experiment, the function estimates the shape by the method of moments and by maximum
-   likelihood (the fit starts at the method-of-moments estimates and uses
-   `control = list(reltol = 1e-12)`, as in Exercise 4). Compare the mean, the standard
+   likelihood (the fit starts at a shape of 1 and at the rate that gives the mean of the
+   simulated sample, as in question 4 of Exercise 4). Compare the mean, the standard
    deviation and the mean squared error of the two estimators with the shape that you used
    to simulate. Tip: the function has the sample size, the shape and the rate as arguments
    because you will need it again in question 4.
 3. Complete the second and the third gap, which record for each experiment whether the
    Wald interval and the profile likelihood interval for the shape contain the shape that
    you used to simulate, and calculate the coverage of both intervals. Hint: you do not
-   need `uniroot()` inside the simulation. A profile likelihood interval contains a value
-   whenever the profile log-likelihood at that value is within
+   need `tmbprofile()` inside the simulation. A profile likelihood interval contains a
+   value whenever the profile log-likelihood at that value is within
    `qchisq(p = 0.95, df = 1) / 2` of the maximum log-likelihood, so one extra fit with the
    shape fixed at that value is enough.
 4. Set seed 802 and repeat questions 2 and 3 with experiments of 151 penguins from the
@@ -1040,12 +1134,13 @@ is given below the questions with three gaps, which you fill in.
 5. Why do these results only approximate the behaviour of the estimators and the intervals
    for the real trees and penguins?
 
-The function below needs `gamma_nll()` and `gamma_nll_given_shape()` from Exercise 4, and
-the objects `critical_value` and `cutoff` (the critical value of the standard Normal
-distribution and the cutoff of the relative log-likelihood for a 95% interval). It stores
-the results of every experiment in one row of a data frame. In each gap, replace `NA` by
-your own code. The lines that follow a gap use the names of the objects that the gap
-creates, so keep those names.
+The function below needs `gamma_nll()` from Exercise 4, the helper `cmb()`, and the objects
+`critical_value` and `cutoff` (the critical value of the standard Normal distribution and
+the cutoff of the relative log-likelihood for a 95% interval). It draws every experiment
+with the function `simulate()` of an object that has placeholder data of the right length,
+as in the theory, and stores the results of every experiment in one row of a data frame.
+In each gap, replace `NA` by your own code. The lines that follow a gap use the names of
+the objects that the gap creates, so keep those names.
 
 ```{r}
 #| eval: false
@@ -1061,41 +1156,55 @@ simulate_gamma_experiments = function(n_obs, shape, rate, n_experiments) {
     profile_covered = rep(NA, times = n_experiments),
     converged = rep(NA, times = n_experiments)
   )
+  # An object with placeholder data of the right length, from which the experiments are
+  # simulated: the values of the data are not used.
+  placeholder_obj = MakeADFun(
+    cmb(gamma_nll, list(x = rep(0, times = n_obs))),
+    list(log_shape = 0, log_rate = 0),
+    silent = TRUE
+  )
   for (e in seq_len(n_experiments)) {
-    # One hypothetical experiment and its method-of-moments estimates.
-    x = rgamma(n = n_obs, shape = shape, rate = rate)
+    # One hypothetical experiment (simulate() takes the parameters on the log scale) and
+    # its method-of-moments estimate of the shape.
+    x = placeholder_obj$simulate(log(c(shape, rate)))$x
     x_mean = mean(x)
     x_variance = mean((x - x_mean)^2)
     shape_mom = x_mean^2 / x_variance
 
-    # GAP 1: maximum likelihood fit of the Gamma model to x with optim(), started at the
-    # method-of-moments estimates of the shape and the rate (on the log scale), with
-    # method = "BFGS", hessian = TRUE and control = list(reltol = 1e-12). Store the result
-    # in an object called fit.
+    # GAP 1: connect gamma_nll() to x and process it with MakeADFun(), with a shape of 1
+    # and a rate of 1 / x_mean as starting values (on the log scale), and store the result
+    # in an object called sim_obj. Then fit it with optim() and method = "BFGS", and store
+    # the result in an object called fit.
+    sim_obj = NA
     fit = NA
-    shape_ml = exp(fit$par[1])
-    se_log_shape = sqrt(solve(fit$hessian)[1, 1])
+    shape_ml = exp(fit$par[["log_shape"]])
 
     # The Wald interval contains the shape when the estimate is within the critical value
     # of standard errors on the log scale. The profile interval contains it when the
     # relative profile log-likelihood at that shape is within the cutoff.
 
-    # GAP 2: TRUE when the Wald interval contains the shape that was used to simulate.
+    # GAP 2: the standard error of the estimate of log(shape), from sdreport() of sim_obj,
+    # in an object called se_log_shape. Then TRUE in wald_covered when the Wald interval
+    # contains the shape that was used to simulate.
+    se_log_shape = NA
     wald_covered = NA
 
-    # GAP 3: fit the model with the shape fixed at the shape that was used to simulate,
-    # which re-estimates the rate only (use gamma_nll_given_shape() with method = "BFGS"
-    # and control = list(reltol = 1e-12), starting at the estimate of log(rate) of fit),
-    # and store it in an object called inner_fit. Then record in profile_covered whether the
-    # relative profile log-likelihood at that shape is within the cutoff.
-    inner_fit = NA
+    # GAP 3: process gamma_nll() for x again with log_shape fixed at the logarithm of the
+    # shape that was used to simulate (the argument map of MakeADFun(), as in the profile
+    # by hand of Exercise 2) and log_rate starting at its estimate in fit, and store the
+    # result in an object called fixed_obj. Fit it with optim(), which re-estimates the
+    # rate only, and store the result in an object called fixed_fit. Then record in
+    # profile_covered whether the relative profile log-likelihood at that shape is within
+    # the cutoff.
+    fixed_obj = NA
+    fixed_fit = NA
     profile_covered = NA
 
     results$shape_ml[e] = shape_ml
     results$shape_mom[e] = shape_mom
     results$wald_covered[e] = wald_covered
     results$profile_covered[e] = profile_covered
-    results$converged[e] = fit$convergence == 0 && inner_fit$convergence == 0
+    results$converged[e] = fit$convergence == 0 && fixed_fit$convergence == 0
   }
   results
 }
@@ -1105,54 +1214,30 @@ simulate_gamma_experiments = function(n_obs, shape, rate, n_experiments) {
 
 ### Question 1
 
-The Wald interval uses the standard error of the estimate of $\log k$, which is the square
-root of the first diagonal element of the inverse Hessian. For the profile likelihood
-interval we write the relative profile log-likelihood of the shape as a function, which
-uses `gamma_nll_given_shape()` of Exercise 4, and find with `uniroot()` where it equals
-$-1.92$. The profile plotted in Exercise 4 is below the cutoff at both ends of its grid
-(1.5 and 8), so we search between 1 and the estimate and between the estimate and 15:
+The Wald interval uses the standard error of the estimate of $\log k$, which is in the
+table of `sdreport()`. The profile likelihood interval is the one that `confint()` gave us
+in question 3 of Exercise 4:
 
 ```{r}
 # Wald interval for the shape of the tree volumes: calculate on the log scale with the
-# standard error from the inverse Hessian, and back-transform the endpoints.
+# standard error from sdreport(), and back-transform the endpoints.
 critical_value = qnorm(p = 0.975)
-se_log_shape_volume = sqrt(solve(volume_fit$hessian)[1, 1])
-wald_shape_volume = exp(volume_fit$par["log_shape"] + c(-1, 1) * critical_value * se_log_shape_volume)
+volume_summary = summary(volume_sd)
+volume_summary
+wald_shape_volume = exp(
+  volume_summary["log_shape", "Estimate"] +
+    c(-1, 1) * critical_value * volume_summary["log_shape", "Std. Error"]
+)
 
-# Profile log-likelihood of the shape relative to the maximum, with the rate re-estimated.
-gamma_profile_relative = function(shape, x, fit) {
-  inner_fit = optim(
-    par = fit$par["log_rate"],
-    fn = gamma_nll_given_shape,
-    shape = shape,
-    x = x,
-    method = "BFGS"
-  )
-  fit$value - inner_fit$value
-}
-
-# uniroot() finds where the relative profile equals -cutoff. The ends of the search
-# intervals were chosen from the profile plotted in Exercise 4: below and above the
-# estimate, where the profile is under -cutoff.
-shape_lower_volume = uniroot(
-  f = function(shape) gamma_profile_relative(shape, x = tree_volume, fit = volume_fit) + cutoff,
-  interval = c(1, shape_volume),
-  tol = 1e-8
-)$root
-shape_upper_volume = uniroot(
-  f = function(shape) gamma_profile_relative(shape, x = tree_volume, fit = volume_fit) + cutoff,
-  interval = c(shape_volume, 15),
-  tol = 1e-8
-)$root
-
+# Wald interval next to the profile interval of Exercise 4.
 rbind(
-  wald = unname(wald_shape_volume),
-  profile = c(shape_lower_volume, shape_upper_volume)
+  wald = c(lower = wald_shape_volume[1], upper = wald_shape_volume[2]),
+  profile = exp(confint(volume_profile_shape))[1, ]
 )
 ```
 
 The Wald interval goes from 2.41 to 6.27 and the profile likelihood interval from 2.32 to
-6.06, which agrees with the range that we found on the grid in Exercise 4. The two
+6.06. The two
 intervals differ in the first decimal, unlike those for the lily seedlings in Exercise 2:
 with 31 trees the profile log-likelihood is further from a parabola. From a single sample
 we cannot tell which of the two intervals behaves better, which is what the simulation is
@@ -1161,11 +1246,11 @@ for.
 ### Question 2
 
 Here is the skeleton with its three gaps filled in, and a second function that summarises
-the results. For each experiment the first function simulates the measurements with
-`rgamma()`, calculates the method-of-moments estimates and uses them to start the maximum
-likelihood fit (gap 1). It also records what question 3 asks for (gaps 2 and 3) and whether
-the fits stopped normally. The results are stored in a data frame with one row per
-experiment:
+the results. For each experiment the first function draws the measurements with
+`simulate()`, calculates the method-of-moments estimate of the shape and fits the model by
+maximum likelihood like the data, with `cmb()`, `MakeADFun()` and `optim()` (gap 1). It
+also records what question 3 asks for (gaps 2 and 3) and whether the fits stopped
+normally. The results are stored in a data frame with one row per experiment:
 
 ```{r}
 # One simulation of hypothetical experiments from a Gamma model whose parameters we know.
@@ -1180,46 +1265,55 @@ simulate_gamma_experiments = function(n_obs, shape, rate, n_experiments) {
     profile_covered = rep(NA, times = n_experiments),
     converged = rep(NA, times = n_experiments)
   )
+  # An object with placeholder data of the right length, from which the experiments are
+  # simulated: the values of the data are not used.
+  placeholder_obj = MakeADFun(
+    cmb(gamma_nll, list(x = rep(0, times = n_obs))),
+    list(log_shape = 0, log_rate = 0),
+    silent = TRUE
+  )
   for (e in seq_len(n_experiments)) {
-    # One hypothetical experiment and its method-of-moments estimates.
-    x = rgamma(n = n_obs, shape = shape, rate = rate)
+    # One hypothetical experiment (simulate() takes the parameters on the log scale) and
+    # its method-of-moments estimate of the shape.
+    x = placeholder_obj$simulate(log(c(shape, rate)))$x
     x_mean = mean(x)
     x_variance = mean((x - x_mean)^2)
     shape_mom = x_mean^2 / x_variance
 
-    # Maximum likelihood fit, started at the method-of-moments estimates. The small
-    # relative tolerance keeps the search from stopping too early when the negative
-    # log-likelihood is large (the penguin masses are in grams).
-    fit = optim(
-      par = log(c(shape_mom, x_mean / x_variance)),
-      fn = gamma_nll,
-      x = x,
-      method = "BFGS",
-      hessian = TRUE,
-      control = list(reltol = 1e-12)
+    # Gap 1: maximum likelihood fit, started at a shape of 1 and the rate that gives the
+    # mean of the simulated sample.
+    sim_obj = MakeADFun(
+      cmb(gamma_nll, list(x = x)),
+      list(log_shape = log(1), log_rate = log(1 / x_mean)),
+      silent = TRUE
     )
-    shape_ml = exp(fit$par[1])
-    se_log_shape = sqrt(solve(fit$hessian)[1, 1])
+    fit = optim(par = sim_obj$par, fn = sim_obj$fn, gr = sim_obj$gr, method = "BFGS")
+    shape_ml = exp(fit$par[["log_shape"]])
 
     # The Wald interval contains the shape when the estimate is within the critical value
     # of standard errors on the log scale. The profile interval contains it when the
     # relative profile log-likelihood at that shape is within the cutoff.
-    wald_covered = abs(log(shape) - fit$par[1]) <= critical_value * se_log_shape
-    inner_fit = optim(
-      par = fit$par[2],
-      fn = gamma_nll_given_shape,
-      shape = shape,
-      x = x,
-      method = "BFGS",
-      control = list(reltol = 1e-12)
+
+    # Gap 2: standard error of the estimate of log(shape) and the check for the Wald interval.
+    se_log_shape = summary(sdreport(sim_obj))["log_shape", "Std. Error"]
+    wald_covered = abs(log(shape) - fit$par[["log_shape"]]) <= critical_value * se_log_shape
+
+    # Gap 3: one extra fit with log_shape fixed at the shape that was used to simulate,
+    # which re-estimates the rate only, and the check for the profile interval.
+    fixed_obj = MakeADFun(
+      cmb(gamma_nll, list(x = x)),
+      list(log_shape = log(shape), log_rate = fit$par[["log_rate"]]),
+      map = list(log_shape = factor(NA)),
+      silent = TRUE
     )
-    profile_covered = fit$value - inner_fit$value >= -cutoff
+    fixed_fit = optim(par = fixed_obj$par, fn = fixed_obj$fn, gr = fixed_obj$gr, method = "BFGS")
+    profile_covered = fit$value - fixed_fit$value >= -cutoff
 
     results$shape_ml[e] = shape_ml
     results$shape_mom[e] = shape_mom
     results$wald_covered[e] = wald_covered
     results$profile_covered[e] = profile_covered
-    results$converged[e] = fit$convergence == 0 && inner_fit$convergence == 0
+    results$converged[e] = fit$convergence == 0 && fixed_fit$convergence == 0
   }
   results
 }
@@ -1272,7 +1366,7 @@ sensitive to a few very large estimates.
 The simulation of question 2 already recorded what we need. For the Wald interval we do
 not have to calculate the endpoints: the interval on the log scale contains $\log k$
 exactly when the estimate of $\log k$ is within $z_{0.975}$ standard errors of it. For the
-profile likelihood interval we followed the hint. One inner fit with the shape fixed at the
+profile likelihood interval we followed the hint. One extra fit with the shape fixed at the
 value used to simulate gives the profile log-likelihood at that value, and the interval
 contains it when the difference from the maximum log-likelihood is above $-1.92$. The
 coverage is the fraction of experiments in which each check is `TRUE`:

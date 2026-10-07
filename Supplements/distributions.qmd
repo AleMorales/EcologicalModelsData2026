@@ -31,6 +31,24 @@ For each distribution I provide the default parameterisation in R, but I also pr
 *inverse* parameterisation where we use the mean ($\mu$) as input, as we normally model the
 effect of covariates on the mean.
 
+The functions come from the packages RTMB and RTMBdist, which provide the distribution
+functions used in the whole course, including some that base R lacks
+([Chapter 4](../Chapter_4/Theory.qmd) explains what else they do). Load RTMB first and
+RTMBdist second:
+
+```{r}
+#| message: false
+# Load the packages with the distribution functions of the course, in this order.
+library(RTMB)
+library(RTMBdist)
+```
+
+The probability mass or density function of every entry comes from these two packages,
+with the Uniform distribution as the only exception. Where they have no function for the
+cumulative probability, the quantiles or random numbers, the function of base R with the
+usual name fills in (e.g., `qbinom()` and `rpois()`). An entry says so when a function
+comes from another package or has to be calculated from the probability mass.
+
 # Discrete distributions
 
 Six distributions for count data that cover the most common scenarios in ecology. Some
@@ -53,7 +71,7 @@ shared by the trials within a unit.
 
 ## Bernoulli distribution
 
-Base R uses the Binomial functions with `size = 1` to represent a Bernoulli distribution.
+R uses the Binomial functions with `size = 1` to represent a Bernoulli distribution.
 
 $$
 \begin{aligned}
@@ -432,21 +450,24 @@ dpois(x = 3, lambda = expected_stems)
 
 $$
 \begin{aligned}
-\text{R}: &\quad \texttt{COMPoissonReg::dcmp, pcmp, qcmp, rcmp} \\
+\text{R}: &\quad \texttt{dcompois2} \quad
+(\text{the other functions are calculated from the probability mass}) \\
 \text{Type}: &\quad \text{Discrete} \\
 \text{Range}: &\quad x = 0, 1, 2, \ldots \\
 \text{Probability}: &\quad
 \frac{\lambda^x}{(x!)^\nu Z(\lambda, \nu)} \\
 \text{Normalising constant}: &\quad
 Z(\lambda, \nu) = \sum_{j = 0}^{\infty}\frac{\lambda^j}{(j!)^\nu} \\
-\text{Parameters}: &\quad \lambda\;(\texttt{lambda}) > 0 = \text{rate parameter};\quad
-\nu\;(\texttt{nu}) > 0 = \text{dispersion parameter} \\
+\text{Parameters}: &\quad \mu\;(\texttt{mean}) > 0 = \text{mean};\quad
+\nu\;(\texttt{nu}) > 0 = \text{dispersion parameter};\quad
+\lambda > 0 = \text{rate parameter} \\
 \text{Mean}: &\quad
 E[X] = \lambda\frac{\partial}{\partial\lambda}\log Z(\lambda, \nu) \\
 \text{Variance}: &\quad
 \operatorname{Var}(X) = \lambda\frac{\partial}{\partial\lambda}E[X] \\
 \text{Inverse}: &\quad
-\lambda \text{ must be found numerically for a chosen } \mu \text{ and } \nu
+\lambda \text{ is found numerically for a chosen } \mu \text{ and } \nu
+\text{ (}\texttt{dcompois2}\text{ does this)}
 \end{aligned}
 $$
 
@@ -477,63 +498,86 @@ For $\nu=1$ this ratio is $\lambda/x$, as in the Poisson distribution. When $\nu
 ratio decreases faster as $x$ grows, so the probability is concentrated on fewer counts.
 When $\nu<1$ it decreases more slowly, which gives a longer right tail.
 
-Unlike the Poisson distribution, `lambda` is not generally the mean. The normalising
-constant $Z(\lambda, \nu)$ and therefore the mean have no simple closed form. The
-`COMPoissonReg` package calculates these quantities numerically; use `ecmp()` and
-`vcmp()` when you need the mean or variance for particular parameter values.
+Unlike in the Poisson distribution, $\lambda$ is not generally the mean. The normalising
+constant $Z(\lambda, \nu)$ and therefore the mean and the variance have no simple closed
+form. Because we normally model the mean, the function `dcompois2()` of RTMB takes the
+mean $\mu$ (`mean`) and $\nu$ (`nu`) as arguments and finds the corresponding $\lambda$
+numerically.^[RTMB also has `dcompois()`, whose argument `mode` is $\lambda^{1/\nu}$.]
+RTMB has no cumulative probability, quantile or random number function for this
+distribution, so we calculate those from the probability mass, as the example below
+shows.
 
 ### Example: clutch size
 
 Counts such as the number of eggs in a clutch often vary less than a Poisson model
-predicts. Suppose clutch size follows a Conway-Maxwell-Poisson distribution with
-$\lambda=8$ and $\nu=2$. We cannot calculate $Z(\lambda,\nu)$ by hand, but the ratios of
-consecutive probabilities are simple:
-
-$$
-\frac{P(X=1)}{P(X=0)}=\frac{8}{1^2}=8, \qquad
-\frac{P(X=2)}{P(X=1)}=\frac{8}{2^2}=2, \qquad
-\frac{P(X=3)}{P(X=2)}=\frac{8}{3^2}\approx 0.89.
-$$
-
-The probabilities increase up to a clutch of two eggs and decrease afterwards, so two is
-the most likely clutch size. We can verify these ratios in R:
+predicts. Suppose clutch size follows a Conway-Maxwell-Poisson distribution with a mean
+of $\mu=2.5$ eggs and $\nu=2$. We cannot calculate the probabilities by hand, because
+$\lambda$ and $Z(\lambda,\nu)$ have no closed form, so we calculate them in R for clutches
+of up to 50 eggs (the probability of a larger clutch is negligible):
 
 ```{r}
-# Requires the COMPoissonReg package.
-library(COMPoissonReg)
-
 # nu > 1 gives a distribution that is less variable than a Poisson distribution.
-clutch_lambda = 8
+clutch_mean = 2.5
 clutch_nu = 2
 
-# Probabilities of clutches with zero to three eggs.
-clutch_mass = dcmp(x = 0:3, lambda = clutch_lambda, nu = clutch_nu)
-clutch_mass
+# Probability mass of clutches with zero to 50 eggs, which adds up to one.
+clutch_values = 0:50
+clutch_mass = dcompois2(x = clutch_values, mean = clutch_mean, nu = clutch_nu)
+sum(clutch_mass)
 
-# Ratios of consecutive probabilities.
-clutch_mass[2:4] / clutch_mass[1:3]
+# Probabilities of clutches with zero to three eggs.
+clutch_mass[1:4]
 ```
 
-The mean and variance are calculated numerically:
+We can check these probabilities against the formula. The ratio of the probabilities of
+two consecutive counts is $\lambda/x^\nu$, so each ratio multiplied by $x^\nu$ must give the
+same number, which is $\lambda$:
 
 ```{r}
-# Calculate the mean and variance of the clutch size model.
-ecmp(lambda = clutch_lambda, nu = clutch_nu)
-vcmp(lambda = clutch_lambda, nu = clutch_nu)
+# Ratios of consecutive probabilities (one against zero eggs, two against one, ...).
+clutch_ratio = clutch_mass[2:4] / clutch_mass[1:3]
+clutch_ratio
+
+# Each ratio multiplied by x^nu gives lambda.
+clutch_ratio * (1:3)^clutch_nu
 ```
 
-The mean is approximately $2.56$ eggs and the variance is approximately $1.42$ eggs
-squared. A Poisson distribution with the same mean would have a variance of $2.56$, so
+The three products are the same, $\lambda\approx 7.64$. The ratios are approximately
+$7.64$, $1.91$ and $0.85$: the probabilities increase up to a clutch of two eggs and
+decrease afterwards, so two is the most likely clutch size.
+
+The mean and the variance are sums over the possible clutch sizes:
+
+```{r}
+# Calculate the mean and variance of the clutch size model from the probability mass.
+sum(clutch_values * clutch_mass)
+sum((clutch_values - clutch_mean)^2 * clutch_mass)
+```
+
+The mean is $2.5$ eggs, as we chose, and the variance is approximately $1.39$ eggs
+squared. A Poisson distribution with the same mean would have a variance of $2.5$, so
 this model is underdispersed relative to the Poisson distribution.
+
+A cumulative probability is a sum of probability mass, and `sample()` draws random counts
+with the probabilities of the model:
+
+```{r}
+# Probability of a clutch of at most three eggs.
+sum(clutch_mass[clutch_values <= 3])
+
+# Simulate the clutch size of ten nests.
+set.seed(2026)
+sample(x = clutch_values, size = 10, replace = TRUE, prob = clutch_mass)
+```
 
 ```{r}
 #| echo: false
 #| fig-cap: "Conway-Maxwell-Poisson probability mass for clutch size."
 # Calculate and plot the probability mass up to a count that is very unlikely to be exceeded.
-clutch_values = 0:qcmp(q = 0.999, lambda = 8, nu = 2)
+clutch_plot_values = 0:8
 clutch_mass_data = data.frame(
-  eggs = clutch_values,
-  probability = dcmp(x = clutch_values, lambda = 8, nu = 2)
+  eggs = clutch_plot_values,
+  probability = dcompois2(x = clutch_plot_values, mean = 2.5, nu = 2)
 )
 
 ggplot(clutch_mass_data, aes(x = eggs, ymin = 0, ymax = probability)) +
@@ -544,21 +588,24 @@ ggplot(clutch_mass_data, aes(x = eggs, ymin = 0, ymax = probability)) +
 
 :::: {.callout-important title="Practice: dispersion in a count model"}
 
-Calculate the mean and variance of a Conway-Maxwell-Poisson distribution with $\lambda=2$
-and $\nu=0.5$. Is this model overdispersed or underdispersed relative to the Poisson
+Calculate the variance of a Conway-Maxwell-Poisson distribution with a mean of $4.5$ and
+$\nu=0.5$. Is this model overdispersed or underdispersed relative to the Poisson
 distribution?
 
 ::: {.callout-tip title="Solution" collapse="true"}
 
 ```{r}
-# Calculate the mean and variance for a dispersion parameter smaller than one.
-ecmp(lambda = 2, nu = 0.5)
-vcmp(lambda = 2, nu = 0.5)
+# Probability mass up to a count beyond which the probability is negligible.
+count_values = 0:100
+count_mass = dcompois2(x = count_values, mean = 4.5, nu = 0.5)
+sum(count_mass)
+
+# Calculate the variance for a dispersion parameter smaller than one.
+sum((count_values - 4.5)^2 * count_mass)
 ```
 
-The mean is approximately $4.55$ and the variance is approximately $7.92$. The variance
-is larger than the mean, so the model is overdispersed relative to the Poisson
-distribution, as expected for $\nu<1$.
+The variance is approximately $7.81$. It is larger than the mean of $4.5$, so the model
+is overdispersed relative to the Poisson distribution, as expected for $\nu<1$.
 
 :::
 ::::
@@ -567,13 +614,15 @@ distribution, as expected for $\nu<1$.
 
 $$
 \begin{aligned}
-\text{R}: &\quad \texttt{dnbinom, pnbinom, qnbinom, rnbinom} \\
+\text{R}: &\quad \texttt{dnbinom2, pnbinom2, qnbinom2, rnbinom2} \quad (\texttt{mu},\ \texttt{size}) \\
+          &\quad \texttt{dnbinom, pnbinom, qnbinom, rnbinom} \quad (\texttt{size},\ \texttt{prob}) \\
 \text{Type}: &\quad \text{Discrete} \\
 \text{Range}: &\quad x = 0, 1, 2, \ldots \\
 \text{Probability}: &\quad
 \frac{\Gamma(x+k)}{\Gamma(k)x!}p^k(1-p)^x \\
 \text{Parameters}: &\quad k\;(\texttt{size}) = \text{shape};\quad
-p\;(\texttt{prob}) = \text{probability} \\
+p\;(\texttt{prob}) = \text{probability};\quad
+\mu\;(\texttt{mu}) = \text{mean} \\
 \text{Mean}: &\quad E[X] = k(1-p)/p \\
 \text{Variance}: &\quad \operatorname{Var}(X) = k(1-p)/p^2 \\
 \text{Inverse}: &\quad p = k/(k+\mu),\ \text{which gives } \operatorname{Var}(X) = \mu + \mu^2/k
@@ -621,10 +670,13 @@ $$
 Thus, the Negative Binomial distribution approaches the Poisson distribution as $k$ becomes
 large.
 
-In R, `dnbinom()` and related functions, the argument `size` corresponds to $k$. This naming
+In R, `dnbinom2()` and related functions, the argument `size` corresponds to $k$. This naming
 can be confusing because `size` does not mean the sample size here; it is the Negative
 Binomial shape parameter. The *Details* section of the documentation page for `dnbinom`
-explains why it has that name.
+explains why it has that name. Note that `dnbinom2()` with the arguments `mu` and `size`
+is the function of RTMBdist: RTMB has a function with the same name and other arguments,
+which is why RTMBdist is loaded second (see the warning in
+[Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood-surface)).
 
 ### Example: seedlings in quadrats
 
@@ -668,10 +720,10 @@ The probability of observing exactly 10 seedlings is:
 # Calculate the probability of one particular seedling count.
 seedlings_to_check = 10
 
-dnbinom(
+dnbinom2(
   x = seedlings_to_check,
-  size = negative_binomial_size,
-  mu = mean_seedlings
+  mu = mean_seedlings,
+  size = negative_binomial_size
 )
 ```
 
@@ -681,10 +733,10 @@ The probability of observing at least 10 seedlings is:
 # Calculate the probability of at least the requested number of seedlings.
 minimum_seedlings = 10
 
-1 - pnbinom(
+1 - pnbinom2(
   q = minimum_seedlings - 1,
-  size = negative_binomial_size,
-  mu = mean_seedlings
+  mu = mean_seedlings,
+  size = negative_binomial_size
 )
 ```
 
@@ -700,10 +752,10 @@ mean_seedlings = 4
 negative_binomial_size = 1.5
 maximum_seedlings_to_plot = 20
 seedling_values = seq.int(from = 0, to = maximum_seedlings_to_plot)
-negative_binomial_mass = dnbinom(
+negative_binomial_mass = dnbinom2(
   x = seedling_values,
-  size = negative_binomial_size,
-  mu = mean_seedlings
+  mu = mean_seedlings,
+  size = negative_binomial_size
 )
 
 negative_binomial_mass_data = data.frame(
@@ -737,8 +789,8 @@ approaches the mean, which is the Poisson mean–variance relationship.
 
 $$
 \begin{aligned}
-\text{R}: &\quad \texttt{dbetabinom.ab, pbetabinom.ab}\\
-          &\quad \texttt{qbetabinom.ab, rbetabinom.ab} \\
+\text{R}: &\quad \texttt{dbetabinom, rbetabinom} \quad
+(\text{cumulative probabilities from the probability mass}) \\
 \text{Type}: &\quad \text{Discrete} \\
 \text{Range}: &\quad x = 0, 1, \ldots, n \\
 \text{Probability}: &\quad
@@ -773,7 +825,9 @@ $$
 
 where $B(a,b)=\Gamma(a)\Gamma(b)/\Gamma(a+b)$ is the beta function.
 
-These functions are available in the `VGAM` package. I recommend parameterising from mean,
+The probability mass function, `dbetabinom()`, and a random number generator,
+`rbetabinom()`, are available in RTMBdist. It has no function for the cumulative
+probability, which we calculate by adding up the probability mass. I recommend parameterising from mean,
 size and a precision parameter ($\kappa$ inverse of a scale, the larger it is the narrower the
 distribution). Writing $\bar{p}=a/(a+b)$ for the mean probability across sampling units and
 $\kappa=a+b$ for the precision, the mean and variance are:
@@ -834,12 +888,9 @@ The additional variation is most visible in the tails. The probability that at l
 tadpoles survive in a tank is much higher than under the Binomial model:
 
 ```{r}
-#| message: false
-# Requires the VGAM package
-library(VGAM)
-
-# Probability of at least ten survivors under the Beta-Binomial model.
-1 - pbetabinom.ab(q = 9, size = tadpole_count, shape1 = shape1, shape2 = shape2)
+# Probability of at least ten survivors under the Beta-Binomial model: the complement
+# of the sum of the probability mass from zero to nine survivors.
+1 - sum(dbetabinom(x = 0:9, size = tadpole_count, shape1 = shape1, shape2 = shape2))
 
 # The same probability under a Binomial model with the same mean.
 1 - pbinom(q = 9, size = tadpole_count, prob = mean_survivors_per_tank / tadpole_count)
@@ -850,7 +901,7 @@ library(VGAM)
 #| fig-cap: "Beta-Binomial probability mass for surviving tadpoles in a tank (lines), compared with a Binomial distribution with the same mean (points)."
 # Calculate the probability mass under both models for all possible counts.
 survivor_values = 0:20
-beta_binomial_mass = VGAM::dbetabinom.ab(
+beta_binomial_mass = dbetabinom(
   x = survivor_values,
   size = 20,
   shape1 = 3,
@@ -985,6 +1036,10 @@ The Uniform distribution is rarely a good model for an ecological measurement, b
 common building block in simulations (e.g., to choose random positions or directions). We
 also use `runif()` to construct the random number generator of a zero-inflated distribution
 (see @sec-zero_inflated).
+
+RTMB and RTMBdist have no Uniform distribution, so the four functions are those of base R.
+That is enough for calculations and simulations, but `dunif()` cannot be used in a
+likelihood that is fitted with the tools of [Chapter 4](../Chapter_4/Theory.qmd).
 
 ### Example: position along a transect
 
@@ -1182,14 +1237,15 @@ to 68.2 mm.
 
 $$
 \begin{aligned}
-\text{R}: &\quad \texttt{dt, pt, qt, rt} \\
+\text{R}: &\quad \texttt{dt, stats::pt, qt, rt} \quad (\text{standardised});\quad
+\texttt{dt2, pt2, qt2, rt2} \\
 \text{Type}: &\quad \text{Continuous} \\
 \text{Range}: &\quad -\infty < x < \infty \\
 \text{Density}: &\quad
 \frac{\Gamma((\nu+1)/2)}{s\sqrt{\nu\pi}\,\Gamma(\nu/2)}
 \left[1+\frac{(x-\mu)^2}{\nu s^2}\right]^{-(\nu+1)/2} \\
 \text{Parameters}: &\quad
-\mu\;(\text{location});\quad s\;(\text{scale})>0;\quad
+\mu\;(\texttt{mu}) = \text{location};\quad s\;(\texttt{sigma})>0 = \text{scale};\quad
 \nu\;(\texttt{df})>0 \\
 \text{Mean}: &\quad E[X]=\mu \quad (\nu>1) \\
 \text{Variance}: &\quad \operatorname{Var}(X)=s^2\frac{\nu}{\nu-2}
@@ -1236,7 +1292,11 @@ The Student's t distribution functions built into R are standardised (i.e., $\mu
 and only depend on the degrees of freedom. If we want a different location or scale, we
 define our random variable as $X = \mu + s \cdot T$, where $T$ follows the standardised
 Student's t distribution. In practice, this means that we standardise a value as $(x-\mu)/s$ before
-passing it to `pt()`, and that the density is `dt((x - mu) / s, df) / s`. The standardised
+passing it to `pt()`, and that the density is `dt((x - mu) / s, df) / s`. RTMBdist has its
+own `pt()`, which lacks the argument `lower.tail`, so we write `stats::pt()` to call the
+function of base R. RTMBdist also has `dt2()`, `pt2()`, `qt2()` and `rt2()`, which take the
+location (`mu`) and the scale (`sigma`) as arguments and do the standardisation for us; note
+that `sigma` is the scale $s$ and not the standard deviation. The standardised
 Student's t distribution is also the source of the critical values used for some of the confidence
 intervals in [Chapter 3](../Chapter_3/Theory.qmd).
 
@@ -1266,7 +1326,10 @@ shell_df = 5
 shell_scale = sd_shell * sqrt((shell_df - 2) / shell_df)
 
 # Standardise the length before calculating the upper-tail probability.
-pt(q = (70 - mean_shell) / shell_scale, df = shell_df, lower.tail = FALSE)
+stats::pt(q = (70 - mean_shell) / shell_scale, df = shell_df, lower.tail = FALSE)
+
+# The same probability with the location and the scale as arguments.
+pt2(q = 70, mu = mean_shell, sigma = shell_scale, df = shell_df, lower.tail = FALSE)
 ```
 
 This probability is close to the $0.023$ of the Normal model. The difference between the
@@ -1275,7 +1338,7 @@ deviations above the mean):
 
 ```{r}
 # Compare the probability of a very long shell under the Student's t and Normal models.
-pt(q = (80 - mean_shell) / shell_scale, df = shell_df, lower.tail = FALSE)
+stats::pt(q = (80 - mean_shell) / shell_scale, df = shell_df, lower.tail = FALSE)
 pnorm(q = 80, mean = mean_shell, sd = sd_shell, lower.tail = FALSE)
 ```
 
@@ -1320,10 +1383,10 @@ we calculate the scale and standardise the length:
 ```{r}
 # Calculate the two-sided tail probability for each number of degrees of freedom.
 scale_df3 = 5 * sqrt((3 - 2) / 3)
-2 * pt(q = (75 - 60) / scale_df3, df = 3, lower.tail = FALSE)
+2 * stats::pt(q = (75 - 60) / scale_df3, df = 3, lower.tail = FALSE)
 
 scale_df30 = 5 * sqrt((30 - 2) / 30)
-2 * pt(q = (75 - 60) / scale_df30, df = 30, lower.tail = FALSE)
+2 * stats::pt(q = (75 - 60) / scale_df30, df = 30, lower.tail = FALSE)
 
 # The same probability under the Normal model.
 2 * pnorm(q = 75, mean = 60, sd = 5, lower.tail = FALSE)
@@ -1501,7 +1564,9 @@ controls the relative variation: the smaller $k$ is, the more variable and skewe
 distribution, whereas for large $k$ it becomes almost symmetric.
 
 R's `rate` and `scale` are reciprocals: `scale = 1/rate`. I recommend to parameterise it from
-the mean and either `rate` or `scale`.
+the mean and either `rate` or `scale`. RTMBdist also has `dgamma2()`, `pgamma2()`,
+`qgamma2()` and `rgamma2()`, which take the mean (`mean`) and the standard deviation (`sd`)
+of the distribution as arguments.
 
 ### Example: waiting for the third pollinator
 
@@ -1770,6 +1835,9 @@ parameters are $a=\mu\kappa$ and $b=(1-\mu)\kappa$, and the variance becomes
 $$
 \operatorname{Var}(X)=\frac{\mu(1-\mu)}{\kappa+1}.
 $$
+
+RTMBdist has functions with this parameterisation, `dbeta2()`, `pbeta2()`, `qbeta2()` and
+`rbeta2()`, in which the argument `mu` is the mean and `phi` is the precision $\kappa$.
 
 The Beta distribution can take many shapes. It is symmetric when $a=b$, it places more
 probability towards $1$ when $a>b$ and towards $0$ when $a<b$. When both parameters are
@@ -2166,8 +2234,7 @@ dmultinom(x = c(5, 3, 2), size = 10, prob = c(0.5, 0.3, 0.2))
 
 $$
 \begin{aligned}
-\text{R}: &\quad \texttt{MASS::mvrnorm};\quad
-\texttt{mvtnorm::dmvnorm, pmvnorm, rmvnorm} \\
+\text{R}: &\quad \texttt{dmvnorm};\quad \texttt{MASS::mvrnorm} \\
 \text{Type}: &\quad \text{Continuous, multivariate} \\
 \text{Range}: &\quad \mathbf{x}\in\mathbb{R}^K \\
 \text{Density}: &\quad
@@ -2268,8 +2335,17 @@ Sigma = diag(shell_sds) %*% shell_correlation %*% diag(shell_sds)
 Sigma
 ```
 
-Base R does not have functions for this distribution, but we can generate random samples
-with the function `mvrnorm()` from the `MASS` package:
+The density function is `dmvnorm()` of RTMB. At the means, the exponent of the density is
+zero, and the determinant of this covariance matrix is $25(9)-9(9)=144$, so the density is
+$1/(2\pi\sqrt{144})\approx 0.0133$/mm$^2$:
+
+```{r}
+# Density at the mean length and width.
+dmvnorm(x = c(60, 30), mu = shell_means, Sigma = Sigma)
+```
+
+RTMB has no random number generator for this distribution, but we can generate random
+samples with the function `mvrnorm()` from the `MASS` package:
 
 ```{r}
 library(MASS) # Install it first
@@ -2393,8 +2469,8 @@ As with the Beta distribution, it is convenient to parameterise the Dirichlet di
 from the mean fractions and a precision $\kappa=\alpha_0$, so that
 $\alpha_i=\kappa\mu_i$.
 
-Need to use the `gtools` package (only density and random sampler are available, but
-that is enough for this course!).
+RTMBdist provides the density, `ddirichlet()`, and a random number generator,
+`rdirichlet()`, which is enough for this course.
 
 ### Example: biomass partitioning
 
@@ -2416,8 +2492,6 @@ which corresponds to a standard deviation of approximately $0.139$. We can check
 values by simulating many plants:
 
 ```{r}
-library(gtools) # Install it first!
-
 # Convert the mean fractions and the precision into the shape parameters.
 fraction_means = c(leaves = 0.2, stems = 0.3, roots = 0.5)
 fraction_precision = 12
@@ -2440,7 +2514,7 @@ var(biomass_draws[, 3])
 #| fig-cap: "Fractions of biomass allocated to leaves and roots in 500 plants simulated from a Dirichlet distribution."
 # Simulate a smaller sample so that individual plants remain visible in the plot.
 set.seed(2026)
-biomass_plot_draws = gtools::rdirichlet(n = 500, alpha = 12 * c(0.2, 0.3, 0.5))
+biomass_plot_draws = rdirichlet(n = 500, alpha = 12 * c(0.2, 0.3, 0.5))
 biomass_plot_data = data.frame(
   leaves = biomass_plot_draws[, 1],
   roots = biomass_plot_draws[, 3]
@@ -2512,13 +2586,16 @@ $$
 That is, the density of the positive values integrates to $1 - p_{\text{0}}$, which together
 with the probability of a zero adds up to 1.
 
-There might be packages in R that implement some zero-inflated distributions but we can
-easily implement our own. Below is an example of how to define the `dpqr` functions for a
-discrete distribution, the zero-inflated Negative Binomial.
+RTMBdist implements zero-inflated versions of several distributions (e.g., `dzipois()`,
+`dzibinom()`, `dzinbinom()`, `dzinbinom2()` and `dzigamma()`), in which the argument
+`zeroprob` is $p_{0}$, but we can easily implement our own, which shows how the formulas
+above become code. Below is an example of how to define the `dpqr` functions for a
+discrete distribution, the zero-inflated Negative Binomial. Their names start with `my_`
+so that they do not replace the functions of RTMBdist.
 
 ```{r}
 # The mass/density function you will use for the likelihood, including log
-dzinbinom = function(x, size, ..., pzero, log = FALSE) {
+my_dzinbinom = function(x, size, ..., pzero, log = FALSE) {
   baseline = dnbinom(x, size = size, ..., log = FALSE)
   result = (1 - pzero) * baseline
   result = ifelse(x == 0, pzero + result, result)
@@ -2526,7 +2603,7 @@ dzinbinom = function(x, size, ..., pzero, log = FALSE) {
 }
 
 # The random number generator for sampling
-rzinbinom = function(n, size, ..., pzero) {
+my_rzinbinom = function(n, size, ..., pzero) {
   # Original distribution
   result = rnbinom(n, size = size, ...)
   # Bernoulli distribution
@@ -2535,8 +2612,8 @@ rzinbinom = function(n, size, ..., pzero) {
 }
 
 # Cumulative probability for tail probabilities and p-values
-pzinbinom = function(q, size, ..., pzero,
-                      lower.tail = TRUE, log.p = FALSE) {
+my_pzinbinom = function(q, size, ..., pzero,
+                         lower.tail = TRUE, log.p = FALSE) {
   baseline = pnbinom(q, size = size, ...,
                       lower.tail = TRUE, log.p = FALSE)
   result = ifelse(q < 0, 0, pzero + (1 - pzero) * baseline)
@@ -2545,7 +2622,7 @@ pzinbinom = function(q, size, ..., pzero,
 }
 
 # Quantile function (assuming 0 < pzero < 1)
-qzinbinom = function(p, size, ..., pzero, lower.tail = TRUE) {
+my_qzinbinom = function(p, size, ..., pzero, lower.tail = TRUE) {
   # Switch between lower or upper tail
   if (!lower.tail) p = 1 - p
 
@@ -2564,11 +2641,51 @@ size = 2
 prob = size / (size + mean)
 pzero = 0.25
 
-x = 0:qzinbinom(0.999, size = size, prob = prob, pzero = pzero)
-plot(x, dzinbinom(x, size = size, prob = prob, pzero = pzero),
+x = 0:my_qzinbinom(0.999, size = size, prob = prob, pzero = pzero)
+plot(x, my_dzinbinom(x, size = size, prob = prob, pzero = pzero),
      type = "h", xlab = "Count", ylab = "Probability")
 
-pzinbinom(0:10, size = size, prob = prob, pzero = pzero)
-qzinbinom(c(0.5, 0.9), size = size, prob = prob, pzero = pzero)
-rzinbinom(10, size = size, prob = prob, pzero = pzero)
+my_pzinbinom(0:10, size = size, prob = prob, pzero = pzero)
+my_qzinbinom(c(0.5, 0.9), size = size, prob = prob, pzero = pzero)
+my_rzinbinom(10, size = size, prob = prob, pzero = pzero)
+```
+
+The function of RTMBdist gives the same probabilities as ours:
+
+```{r}
+# Compare our probability mass function with dzinbinom() of RTMBdist.
+my_dzinbinom(0:3, size = size, prob = prob, pzero = pzero)
+dzinbinom(x = 0:3, size = size, prob = prob, zeroprob = pzero)
+```
+
+::: {.callout-note title="Using your own distribution in a negative log-likelihood"}
+A mass or density function that you write yourself can be used as the likelihood of a model
+fitted with `MakeADFun()`, as long as RTMB is able to differentiate it automatically (the
+gradient that `optim()` receives as `obj$gr`; see
+[Chapter 6](../Chapter_6/Theory.qmd#sec-makeadfun)). The functions above meet this
+requirement because they only use arithmetic and `dnbinom()`, which RTMB knows how to
+differentiate, and because the condition of their `ifelse()` depends on the data (`x == 0`)
+and not on a parameter. A function that branches on a parameter, calls a function of another
+package that RTMB does not know, or calls a function with its package prefix (such as
+`stats::dnbinom()`, which forces the version that cannot be differentiated) may need
+additional steps. The same holds for the functions that simulate from the model with
+`obj$simulate()` or calculate residuals, which need extra code in your function. The article
+[Adding a distribution](https://janolefi.github.io/RTMBdist/articles/adding-a-distribution.html)
+of the RTMBdist documentation explains these steps, among them how to write conditions with
+arithmetic indicators such as `smaller()` and `greater()` instead of `if` and `ifelse()`, how
+to keep a function stable when it is evaluated at the boundary of its support, and how to
+test its gradient. The article is written for those who add a distribution to the package,
+and the functions of this section do not follow all its recommendations.
+:::
+
+For a distribution without a zero-inflated version in RTMBdist, the function
+`zero_inflate()` constructs one from a probability mass or density function. The new
+function takes the values, `zeroprob` and then the arguments of the original function. For
+example, for the Conway-Maxwell-Poisson distribution (see @sec-com_poisson):
+
+```{r}
+# Construct a zero-inflated Conway-Maxwell-Poisson probability mass function.
+# discrete = TRUE says that the original distribution is a probability mass function.
+dzicompois2 = zero_inflate(dcompois2, discrete = TRUE)
+dzicompois2(x = 0:3, zeroprob = 0.25, mean = 2.5, nu = 2)
 ```
