@@ -490,6 +490,13 @@ labels in R code.
 - Use `$...$` for inline mathematics and `$$` on separate lines for display
   equations. Use `aligned` for a derivation with several steps. Explain symbols
   in prose; equations are part of the surrounding sentences.
+- Write the argument of a logarithm in parentheses, as in R: $\log(3)$, $\log(2)/b$,
+  $\log(f(x))=\log(a)-bx$ and $\log(\log(2))$, never $\log 3$ or $\log a$. This is an
+  author decision. It applies to $\log$ and $\ln$ in inline and display mathematics, in
+  prose and in tables. Use `\log\left(...\right)` when the argument is a tall expression
+  such as a fraction, and keep `\log` bare only where the function is named and not
+  applied ("the symbol $\log$ is the natural logarithm"). Write the base of another
+  logarithm as a subscript before the bracket, $\log_{10}(x)$.
 - Use relative `.qmd` links, for example
   `[Chapter 5](../Chapter_5/Theory.qmd)`. Match actual filename case, including
   `solution.qmd`, even when the local filesystem accepts different casing.

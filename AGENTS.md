@@ -189,7 +189,10 @@ of an entry was shortened to match. The hidden chunk that loads `ggplot2` is sti
 page, although no figure uses it.
 
 The author requires `=` for all R assignment throughout the course, including
-function definitions. Apply this rule to existing and new code. The references contain occasional
+function definitions. Apply this rule to existing and new code. The author also requires
+parentheses around the argument of a logarithm in mathematics ($\log(3)$, not $\log 3$;
+`STYLE_GUIDE.md`, "Markdown and Quarto"); on 12 October 2026 this was applied to
+`Supplements/deterministic-functions.qmd`, and other pages have not been checked against it. The references contain occasional
 typos, inconsistent formatting, and stale cross-references; preserve the teaching
 approach without treating those defects as conventions. For beginner-facing
 examples, prefer ordinary numeric literals and `NA` over typed literals such as
