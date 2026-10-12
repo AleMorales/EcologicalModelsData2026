@@ -2,200 +2,125 @@
 
 ## Basis and scope
 
-This guide is derived from the material the author has written or rewritten by
-hand: `Chapter_1/Theory.qmd`, the Chapter 1 practical, and the author's chapter
-on discrete probability with its practical. That chapter has since been merged
-with the generated chapter on continuous probability, and its sections on
-samples moved to the estimation chapter, so the author's text is now spread
-over the author's sections of `Chapter_2/Theory.qmd` and the author's exercises
-in the Chapter 2 and Chapter 3 practicals. `AGENTS.md` lists which sections and
-exercises these are. They are the only references for voice. The opening section
-of `Chapter_3/Theory.qmd` (`# Samples and distributions`) was the author's text, but
-it was rewritten with real data on 6 October 2026, together with the author's
-paragraph on i.i.d. seeds, the passage on skewness and kurtosis, and the
-overdispersion example of Chapter 2; these are generated drafts awaiting the author's
-review and are not references for voice until the author approves them. The
-rest of Chapters 2 and 3 was generated from learning goals. The author approved
-Chapters 1 to 3 in full on 5 October 2026, so use that generated text as reference
-for content, depth, notation and format, never as a model of how to write.
-Chapters 4 and 5 were rewritten to this guide and await the author's review. The theory
-pages of Chapters 6 to 8 were generated from learning goals and have not been
-rewritten by the author: use them for topic coverage and continuity, never as a
-model of how to write. The guide governs new and revised material, without requiring a
-wholesale rewrite of existing pages.
+This guide is derived from the text that the author wrote by hand. `AGENTS.md` lists
+which sections and exercises are references for voice and which are generated drafts;
+generated text, even when approved, is a reference for content, depth, notation and
+format and never a model of how to write. The guide governs new and revised material and
+does not require a wholesale rewrite of existing pages. Where existing files differ from
+it, the guide holds. The author's chapters contain typos and slips of grammar; those are
+not part of the voice.
 
-Explicit conventions, such as `=` for R assignment and the slash in compound units
-(g/day), are retained. Where existing
-files differ, the defaults below are editorial choices for consistency: sentence
-case headings, British English, dollar-delimited mathematics, and modern Quarto
-chunk options. These choices do not imply that the existing files already follow
-them uniformly. The author's chapters contain typos and slips of grammar; those
-are not part of the voice and should not be imitated.
+## PRIORITY: the author's voice
 
-## PRIORITY: the author's voice and how generated text differs from it
+**This section takes priority over the other prose preferences in this guide and over
+generic textbook concision.** Scientific accuracy and the course scope stay mandatory.
 
-**This section takes priority over the other prose preferences in this guide.**
-It comes from comparing the author's text (Chapter 1 and the chapter on
-discrete probability) with the generated chapters, and from the edits the
-author made when rewriting generated text (the rewrite of the discrete
-probability chapter and the first edits to the former chapter on continuous
-probability, now part of Chapter 2). Scientific accuracy and the course scope
-stay mandatory.
-
-An earlier attempt to describe this voice asked for an "ecologist speaking
-candidly", openings built on "a recognisable ecological tension", and "lightly
-provocative" wording. Applied to the former continuous-probability chapter and
-the estimation chapter (now Chapter 3), it produced quips and slogans that the
-author then deleted. Do not write to that brief. The author's
-voice is plainer than that: a teacher who defines a concept, shows it on one
-example, says what it is for in this book, and adds an honest aside when one is
-useful.
+An earlier brief asked for an "ecologist speaking candidly", openings built on "a
+recognisable ecological tension" and "lightly provocative" wording. It produced quips and
+slogans that the author deleted; do not write to it. The author's voice is plainer: a
+teacher who defines a concept, shows it on one example, says what it is for in this book
+and adds an honest aside when one is useful.
 
 ### What the author's voice is
 
-- **Definition first.** A section opens with the concept, usually in bold in the
-  first sentence, and then brings in the example: "A **random variable** is the
-  quantity whose value is uncertain before we make that observation. [...] We
-  will use a hypothetical experiment on seed survival to illustrate how to model
-  ecological count data." The example is announced as an example.
-- **A guide through the book.** The author keeps telling the reader what a
-  concept is for and where it returns: "We will use quantiles to describe a
-  distribution numerically [...] We will also use quantiles to quantify
-  parameter uncertainty as confidence intervals (see Chapter 3)." The author
-  also says what the course will not use: "We will not use it much in this
-  course", with a footnote explaining that cumulative probabilities are the
-  basis of p-values. Write these signposts; they replace generic motivation.
-- **First person where the author is really speaking.** "I" marks the author's
-  own choices and judgement: "I call them the four faces; this is terminology
-  that I completely made up", "Below I go over three important examples", "My
-  best example of this is...". "We" is for shared reasoning and "you" for what
-  the student does. Never invent an anecdote, opinion, or reading history for
-  the author. When a passage would need one, write it neutrally and flag it for
-  the author to fill in.
-- **Connected reasoning in full paragraphs.** Sentences are linked by plain
-  connectives: "Note that", "That is,", "In other words", "However,", "So",
-  "Also,", "It turns out that", "Now, if". One step leads to the next, and a
-  paragraph usually carries a whole argument. Parentheses hold short asides and
-  examples, often with "e.g." or "i.e.".
-- **Mathematics stated properly, then translated.** The author uses the correct
-  term and symbol (countably infinite, product space, weak law of large numbers,
-  convergence in probability), gives the equation, and then says what it means:
-  "In plain English, as $n$ grows, the chance that the relative frequency
-  differs from the model probability by at least $\varepsilon$ becomes small."
-  When rewriting generated text the author added rigour of this kind. Do not
-  water the mathematics down to sound friendly. Symbols are explained in a
-  "where ..." clause directly after the equation.
-- **Worked numbers.** A general statement is followed by a small case the
-  student can check: a table of joint probabilities filled in with
-  $0.4 \times 0.7 = 0.28$, a probability calculated by hand and then "We can
-  verify our math with R:". Code is introduced by a short lead-in ending in a
-  colon ("In R:", "We can calculate it in R:").
-- **Footnotes for asides.** History and sources (Bernoulli 1713), remarks on
-  terminology ("In some texts this is called subjective probability, but this
-  has an unwarranted pejorative connotation"), technical qualifications, and
-  further reading go in footnotes, so the main line of reasoning stays clean.
-- **Frank and occasionally dry.** The author says when something is confusing
-  or debated and takes a position: "language in applied statistics is often
-  used lazily and inconsistently", "those pesky assumptions". This happens a few
-  times per chapter and is always about something real. It is not decoration.
-- **Model, not truth.** The author writes "model probability", "model
-  distribution", and "data generating process", and replaced "theoretical" and
-  "population" wording when rewriting. Data are "treated as if they were a
-  random sample from the model".
-- **Chapter 1 is the exception in register.** The author confirmed this. It is
-  a personal introduction to the book, written with more candour: personal
-  history, rhetorical questions ("So what is the issue?"), and opinion on
-  p-values. From Chapter 2 onward the chapters describe mathematics and
-  statistics and take a more formal tone: the same person, but mostly
-  definitions, equations, examples, and signposts. The author's text in Chapter 2 is the register
-  to match. Do not carry Chapter 1's candour or level of opinion into the
-  technical chapters.
+- **Definition first.** A section opens with the concept, usually in bold in the first
+  sentence, and then announces the example as an example: "A **random variable** is the
+  quantity whose value is uncertain before we make that observation. [...] We will use a
+  hypothetical experiment on seed survival to illustrate how to model ecological count
+  data."
+- **A guide through the book.** The author says what a concept is for, where it returns
+  and what the course will not use: "We will also use quantiles to quantify parameter
+  uncertainty as confidence intervals (see Chapter 3)", "We will not use it much in this
+  course". These signposts replace generic motivation.
+- **First person where the author is really speaking.** "I" marks the author's own
+  choices and judgement ("I call them the four faces; this is terminology that I
+  completely made up"), "we" shared reasoning and "you" what the student does. Never
+  invent an anecdote, opinion or reading history for the author: write the passage
+  neutrally and flag it for the author to fill in.
+- **Connected reasoning in full paragraphs.** Sentences are linked by plain connectives
+  ("Note that", "That is,", "In other words", "However,", "So", "It turns out that"), and
+  a paragraph usually carries a whole argument. Parentheses hold short asides, often with
+  "e.g." or "i.e.".
+- **Mathematics stated properly, then translated.** The correct term and symbol
+  (countably infinite, convergence in probability), the equation, symbols explained in a
+  "where ..." clause directly after it, and then the meaning: "In plain English, as $n$
+  grows, ...". Do not water the mathematics down to sound friendly.
+- **Worked numbers.** A general statement is followed by a small case that the student
+  can check ($0.4 \times 0.7 = 0.28$ in a table of joint probabilities; a probability by
+  hand and then "We can verify our math with R:"). Code is introduced by a short lead-in
+  that ends in a colon ("In R:").
+- **Footnotes for asides:** history and sources, remarks on terminology, technical
+  qualifications and further reading, so that the main line of reasoning stays clean.
+- **Frank and occasionally dry.** The author says when something is confusing or debated
+  and takes a position ("those pesky assumptions"). A few times per chapter, always about
+  something real.
+- **Model, not truth.** "Model probability", "model distribution" and "data generating
+  process", not "theoretical", "true" or "population" (except in a simulation where the
+  known generating parameter is the point). Data are "treated as if they were a random
+  sample from the model".
+- **Register.** Chapter 1 is the only personal, candid chapter (personal history,
+  rhetorical questions, opinion on p-values). From Chapter 2 onward the tone is more
+  formal: the same person, but mostly definitions, equations, examples and signposts. Do
+  not carry the candour of Chapter 1 into technical chapters.
 
 ### What generated text does instead
 
-These patterns separate the generated chapters from the author's. Remove them
-when revising and do not produce them in new text.
+Remove these patterns when revising and do not produce them.
 
-- **Scene-setting hooks before the concept.** "When we put a quadrat in the
-  field, we do not know in advance how many of its seeds will survive." "When we
-  measure a tree, there is no ecological reason for its height to jump only
-  from 22 m to 23 m." The author deleted both and started with the definition.
-- **Quips, personification, and slogans.** "measurements that refuse to stay
-  neatly in whole numbers", "it is not a prize awarded because data were
-  collected in the same way", "neither one gives a model a free pass", "not a
-  rubber stamp", "a body-mass column does not come with 'lognormal' written on
-  it", "not a magic label". Say the plain thing.
-- **"X, not Y" as a reflex.** Generated paragraphs keep ending on a correction
-  of a mistake nobody made: "These are assumed population values, not estimates
-  from a forest." "It is a model prediction, not the height of a particular
-  observed tree." "That is a mathematical convenience, not permission to forget
-  how precisely the field measurement was made." State what is true. Keep a
-  contrast only where students really do confuse the two things (density and
-  probability, standard deviation and standard error), and then explain the
-  difference instead of asserting it. The author kept a handful of these in a
-  whole chapter of their own text; treat that as the ceiling.
-- **A caveat after every statement.** "does not establish", "does not
-  guarantee", "does not, by itself", "is not proof that" appear in almost every
-  paragraph of the generated chapters. One caveat, placed where the risk is, teaches
-  more than twenty. Put a recurring misconception in a single warning callout
-  and stop repeating it in the prose and again in the quiz.
-- **Repeated provenance disclaimers.** "These are simulated observations, not
-  field measurements" after each example. State once, where the data are
-  introduced, whether they are simulated, built in, or supplied.
-- **Leaking the authoring process.** "The author supplied the mapping below",
-  "author-supplied leaf identifier", "supplied 2007 PDF", "This verified
-  piecewise structure", "outside this chapter's learning goals", "replace these
-  labels with physical units when they are available". The reader is a student;
-  write what the data are and where they come from, in the author's voice ("In
-  the original experiment, each leaf was measured at every light level").
-- **Clipped, stacked declaratives.** "A peak shows an estimate. Its width helps
-  describe uncertainty." "Independence is an assumption that permits this
-  product." Each sentence is correct, but nothing links them and nobody is
-  speaking. Rewrite as reasoning with connectives, and say why the step matters.
-- **Lists and tables in place of explanation.** Chapter 7 defines fixed effects,
-  random effects, mixed-effects, hierarchical, and multilevel models as five
-  bullets. The author explains one idea at a time in prose and keeps lists for
-  things that are really parallel (the four faces, sources of process error) and
-  for the elements of a recipe that students have to learn one by one (see
-  "Presenting code in the text").
-- **Imperative and slogan headings.** "Find the maximum", "Add logs rather than
-  multiply", "Read the ends of a curve", "What larger samples change". The
-  author's headings name the topic: "Joint distributions and independence",
-  "Expectations", "Samples and distributions", "A simple diagnostic for
-  overdispersion". A question heading is fine now and then ("What do these
-  probabilities mean?").
-- **Italics for emphasis on ordinary words.** "the *estimated mean*", "its
-  *mean*", "that *procedure*". The author rarely does this. Use bold for a new
-  term and let the sentence carry the emphasis.
-- **Splitting what belongs together.** The generated four faces were four
-  numbered subsections, each with its own plot and code. The author merged them
-  into one section with one list, one code block, and one composite figure.
-  Prefer the integrated treatment when ideas are introduced as a set.
-- **Defensive links.** "These conditions also appear in R's AIC documentation."
-  The author cites to credit a source, point to a debate, or recommend reading,
+- **Scene-setting hooks before the concept:** "When we put a quadrat in the field, we do
+  not know in advance how many of its seeds will survive."
+- **Quips, personification and slogans:** "measurements that refuse to stay neatly in
+  whole numbers", "not a rubber stamp", "neither one gives a model a free pass".
+- **"X, not Y" as a reflex:** paragraphs that end on the correction of a mistake nobody
+  made ("These are assumed population values, not estimates from a forest."). State what
+  is true. Keep a contrast only where students really confuse two things (density and
+  probability, standard deviation and standard error), and then explain the difference.
+  A handful per chapter is the ceiling.
+- **A caveat after every statement:** "does not establish", "does not guarantee", "is not
+  proof that". Place one caveat where the risk is, and put a recurring misconception in a
+  single warning callout instead of repeating it in the prose and in the quiz.
+- **Repeated provenance disclaimers.** State once, where the data are introduced,
+  whether they are simulated, built in or supplied in a file. Do not present a simulation
+  as field evidence.
+- **Leaking the authoring process:** "The author supplied the mapping below", "This
+  verified piecewise structure", "outside this chapter's learning goals". The reader is a
+  student; say what the data are and where they come from.
+- **Clipped, stacked declaratives:** "A peak shows an estimate. Its width helps describe
+  uncertainty." Rewrite as reasoning with connectives and say why the step matters.
+- **Lists and tables in place of explanation.** The author explains one idea at a time in
+  prose and keeps lists for things that are really parallel (the four faces) and for the
+  items of a recipe (see "Presenting code in the text").
+- **Imperative and slogan headings:** "Find the maximum", "Add logs rather than
+  multiply". Headings name the topic as a noun phrase ("Joint distributions and
+  independence", "A simple diagnostic for overdispersion"); a question heading is fine
+  now and then.
+- **Italics for emphasis on ordinary words.** Use bold for a new term and let the
+  sentence carry the emphasis.
+- **Splitting what belongs together.** Ideas introduced as a set get one section, one
+  list, one code block and one composite figure (the four faces), not a numbered
+  subsection each.
+- **Defensive links.** Cite to credit a source, point to a debate or recommend reading,
   not to back up a routine statement.
 
 ### Before and after
 
-The author's own rewrite of the opening of the independence section shows the
-change. Generated:
+Generated:
 
 > Independence is one of those assumptions that makes probability calculations
 > beautifully neat and ecological data rather awkward. Two random variables are
-> **independent** if knowing the value of one does not change the probabilities
-> for the other. Consider germination of two planted seeds.
+> **independent** if knowing the value of one does not change the probabilities for the
+> other. Consider germination of two planted seeds.
 
 Author:
 
-> Two random variables are said to be **independent** if knowledge about one of
-> them does not change the probabilities for the other. Understanding this
-> concept requires understanding joint distributions of multiple random
-> variables. Let's first illustrate it with a simple example involving two
-> binary random variables (for variety, I will use seed germination).
+> Two random variables are said to be **independent** if knowledge about one of them does
+> not change the probabilities for the other. Understanding this concept requires
+> understanding joint distributions of multiple random variables. Let's first illustrate
+> it with a simple example involving two binary random variables (for variety, I will use
+> seed germination).
 
-The quip is gone, the definition comes first, the prerequisite is named, and
-the example is announced as an example in the first person. The author then
-added a joint-probability table with numbers, which the generated text lacked.
+The quip is gone, the definition comes first, the prerequisite is named and the example
+is announced. The author then added a joint-probability table with numbers.
 
 ### Checklist for a revised or new passage
 
@@ -203,337 +128,228 @@ added a joint-probability table with numbers, which the generated text lacked.
 2. Does it say what the concept is for in this book and where it comes back?
 3. Is the mathematics stated correctly and then put in plain words, with a small
    numerical case?
-4. Can any "not Y", "does not establish", or "simulated, not field data"
-   sentence be deleted without losing a point the student needs?
-5. Are there quips, personified data, or slogan-like closing sentences? Remove
-   them.
+4. Can any "not Y", "does not establish" or "simulated, not field data" sentence be
+   deleted without losing a point the student needs?
+5. Are there quips, personified data or slogan-like closing sentences?
 6. Does anything refer to how the text or data were supplied to the writer?
-7. Is every "I" a real choice or view of the author, and is nothing invented on
-   their behalf?
-8. Is each piece of code next to the sentences that explain it, or does the
-   student have to scroll between a long description and a long chunk?
-9. Does the text repeat a number that the chunk above already prints, without
-   comparing it with anything?
+7. Is every "I" a real choice or view of the author, with nothing invented?
+8. Is each piece of code next to the sentences that explain it?
+9. Does the text repeat a number that the chunk above prints, without comparing it with
+   anything?
 
 ## Voice and vocabulary
 
-- Address students as **you** for actions and use **we** for shared reasoning:
-  “We can compare the sample variance with the mean.” Use **I** only for the
-  author's own choices and views, as described in the priority section.
-- Use plain, conversational English. Contractions and questions are appropriate
-  when they help a student follow the reasoning. Avoid impersonal research-paper
-  prose and unexplained technical shorthand.
-- Give each paragraph one main idea. Keep related sentences together; avoid
-  turning every sentence into its own paragraph or every paragraph into a list.
-  Link sentences with plain connectives so the paragraph reads as an argument.
-- Say “model probability”, “model distribution”, and “data generating process”
-  in preference to “theoretical” or “true” values, except in a simulation where
-  the generating parameter is known and that is the point being made.
-- Explain a technical term at first use, preferably through an ecological example.
-  Expand abbreviations such as maximum likelihood estimation (MLE) and independent
-  and identically distributed (i.i.d.) before using them alone.
-- Prefer concrete verbs: calculate, simulate, plot, compare, estimate, explain.
-  Avoid promotional filler such as “unlock”, “leverage”, “delve into”, “powerful
-  tool”, and “it is important to note that”. State the actual point.
-- Avoid “obviously”, “trivially”, and “simply” when they dismiss a step a beginner
-  may find difficult. Do not label a model “best” without specifying the criterion.
-- Use British English throughout: modelling, behaviour, parameterisation,
-  summarise, generalise, randomisation, optimisation. This is an author
-  decision. The author's own chapters mix British and American spellings, and
-  the author has asked for spelling to be corrected, so change American
-  spellings to British when editing any page, including the author's own text.
-  Preserve R identifiers, quoted text, official titles, and dataset names
-  exactly, including `summarize()` if that is the function being discussed.
-- Capitalise the names of distributions everywhere, in prose, headings,
-  captions, and callouts: Binomial, Poisson, Negative Binomial, Normal,
-  LogNormal, Beta, Gamma. This is an author decision. Write “the Binomial
-  distribution”, “a Negative Binomial model”, “Normal errors”. In a sentence-case
-  heading the distribution name keeps its capital: “The Negative Binomial
-  distribution”. Words that are not distribution names stay in lower case
-  (“distribution”, “model”, “density”). Correct lower-case forms when editing a
-  page.
-- Write function names as code, usually with parentheses: `var()`, `optim()`.
-  Write R and RStudio as ordinary proper names; put object and argument names in
-  backticks, such as `seed_count`, `mu`, and `lower.tail`.
+- Plain, conversational English. Contractions and questions are fine when they help.
+  Avoid research-paper prose and unexplained shorthand. One main idea per paragraph; do
+  not turn every sentence into a paragraph or every paragraph into a list.
+- Explain a technical term at first use, preferably through an ecological example, and
+  expand abbreviations (maximum likelihood estimation, MLE; independent and identically
+  distributed, i.i.d.) before using them alone.
+- Prefer concrete verbs: calculate, simulate, plot, compare, estimate, explain. No
+  promotional filler ("unlock", "leverage", "delve into", "powerful tool", "it is
+  important to note that"). Avoid "obviously", "trivially" and "simply" for a step that a
+  beginner may find difficult. Do not call a model "best" without naming the criterion.
+- **British English throughout** (modelling, behaviour, parameterisation, summarise,
+  optimisation). Correct American spellings on any page that you edit, including the
+  author's text. Preserve R identifiers, quoted text, official titles and data set names
+  (`summarize()` stays).
+- **Capitalise distribution names everywhere:** Binomial, Poisson, Negative Binomial,
+  Normal, LogNormal, Beta, Gamma ("the Binomial distribution", "Normal errors", "The
+  Negative Binomial distribution" in a heading). Other words stay in lower case
+  ("distribution", "model", "density"). Correct lower-case forms when editing.
+- Function names as code with parentheses (`var()`, `optim()`); object and argument names
+  in backticks (`seed_count`, `lower.tail`); R and RStudio as ordinary proper names.
 
 ## Explanations and chapter structure
 
-Start every chapter with a section headed `# Introduction`. Its first sentence
-must begin exactly with **“In this chapter, we learn how to...”** and should
-state the chapter's main ecological or statistical purpose before connecting it
-to earlier material. Keep the introduction short: one or two paragraphs that
-say what the chapter covers, how it differs from the previous one, and which
-distributions or examples it uses. Follow it with a section headed
-`# Learning goals`, in the format of Chapter 2: the lead-in “In this chapter,
-we will cover:”, then a list of short topic phrases ending in semicolons
-(“discrete random variables and probability;”, “the assumption of
-independence;”), in the same order as the ideas appear in the chapter. Do not
-use “After studying this chapter, you should be able to:” with a list of
-assessment verbs; the author replaced that format in the probability chapters. A closing
-sentence may name the distributions or tools the chapter practises with and
-point to a supplement. The goals should cover the chapter's actual content
-rather than promising material introduced later. Avoid imposing a fixed length
-or a fixed number of goals.
+Every chapter starts with `# Introduction`, whose first sentence begins exactly with
+**"In this chapter, we learn how to..."** and states the main ecological or statistical
+purpose. Keep it to one or two paragraphs: what the chapter covers, how it differs from
+the previous one, which distributions or examples it uses. Then `# Learning goals`, in
+the format of Chapter 2: the lead-in "In this chapter, we will cover:" and a list of
+short topic phrases ending in semicolons ("the assumption of independence;"), in the
+order of the chapter, covering what the chapter actually contains. Do not use "After
+studying this chapter, you should be able to:" with assessment verbs. A closing sentence
+may name the distributions or tools of the chapter and point to a supplement. Every
+theory chapter ends with `# Summary` (a few short paragraphs, no new material) before
+`# Chapter quiz`; Chapters 6 and 7 still lack one. Keep cross-chapter promises specific
+and check the destination.
 
-Use headings that name the topic as a noun phrase (“Expectations”, “Samples
-and distributions”, “The Poisson distribution”). Avoid imperative or slogan
-headings. Within a distribution section, put the worked case under a subsection
-titled `### Example: ...`.
-
-Introduce the general concept before applying it to a concrete example. Explain
-what the concept means and why it matters, then use an ecological setting to show
-how it works. Do not open a section or subsection with a specific field scenario
-and expect students to infer the general principle from it. Once introduced, reuse
-an example where it helps connect related concepts.
-
-A useful explanation sequence is:
+Introduce the general concept before the concrete example; do not open a section with a
+field scenario and expect students to infer the principle. A useful sequence:
 
 1. State the general concept and the question it helps answer.
 2. Introduce an ecological setting and identify the observational unit.
-3. Define the random variable, its possible values, and model assumptions.
-4. Introduce the relevant equation and explain each new symbol.
+3. Define the random variable, its possible values and the model assumptions.
+4. Introduce the equation and explain each new symbol.
 5. Translate the calculation into short R code.
-6. Interpret the result in ecological terms, including units and limitations.
-   When the code teaches a tool and not an ecological result, say instead how to
-   read its output (see "Presenting code in the text").
+6. Interpret the result in ecological terms, with units and limitations. When the code
+   teaches a tool and not an ecological result, say instead how to read its output.
 
-Reuse an example while developing a concept: seeds within quadrats, seedling
-survival, wildlife detections, or insect counts. The running examples of the
-theory are real data wherever the concept allows it: balsam fir seedling counts
-(`boot::fir`) for a Poisson model, Gentoo penguin flipper length and body mass for
-a Normal model, owl calls for a Negative Binomial model, and salamander counts for
-overdispersion. A hypothetical example is kept where its parameters must be known
-and round (the Binomial seed-survival model, the supplement entries). Do not
-introduce a hypothetical Normal model of tree heights. State whether data are
-simulated, built in, or supplied in a file. Do not present simulation as field
-evidence or invent the provenance of a dataset.
+Reuse an example while a concept is developed. Running examples of the theory are real
+data wherever the concept allows it (`AGENTS.md` lists them); a hypothetical example is
+kept where its parameters must be known and round. When the parameters of a model for
+real data come before estimation has been taught (Chapter 2), give rounded values that
+describe the data well and point to the chapter that explains how they are obtained. Use
+different data for the theory example of a chapter and its exercises (another species or
+group of the same data set is allowed). A data set from an earlier chapter may return
+when the new analysis answers a different question; explain the connection.
 
-When the parameters of a model for real data come before estimation has been taught
-(Chapter 2), give rounded values that describe the data well and point to the chapter
-that explains how such values are obtained, instead of calculating them on the page.
+Within a distribution section, the worked case goes under `### Example: ...`. For a
+distribution, describe its support, parameters, ecological interpretation, mean and
+variance, and R functions, and connect the four faces in the Chapter 2 order: mass or
+density, cumulative probability, quantiles, sampling. Explain parameter conversions and
+do not merely list formulas. Optional detail goes in a footnote or a supplement.
 
-Use different datasets for a chapter's theory example and its practical
-exercises. The practical may use another species or group of the same data set
-(Adelie or Chinstrap penguins when the theory uses Gentoo penguins). A dataset
-from an earlier chapter may return in a later chapter when the new analysis answers
-a different question; explain that connection.
+**Supplement entries for distributions** (`Supplements/distributions.qmd`, `sec-` IDs
+such as `distributions.qmd#sec-negative_binomial`) follow the author's entries (Binomial,
+Poisson, Negative Binomial): summary table; when the distribution is useful and what it
+assumes; the mass or density function with its symbols explained; the mean and variance
+as displayed equations; an `### Example:` that calculates a probability by hand and
+verifies it in R; a figure; a `Practice` callout with a collapsed solution.
 
-For a distribution, describe its support, parameters, ecological interpretation,
-mean and variance, and R functions. Where relevant, connect the four faces in the
-Chapter 2 order: probability mass or density, cumulative probability, quantiles,
-and sampling. Explain useful parameter conversions rather than merely listing
-formulas. Put optional detail in a short footnote or a linked supplement.
+**Supplement entries for deterministic functions**
+(`Supplements/deterministic-functions.qmd`, `sec-fn-` IDs) have: a summary block in
+`aligned` display mathematics (R, shape, domain, range, parameters, value at zero, value
+at infinity, special points, alternative forms); one or two paragraphs on uses, with
+author–year citations and a sentence on whether a mechanistic derivation exists; and the
+formula with a "where" clause and its landmarks derived. They have no example, figure or
+`Practice` callout; do not add them back. A statement about how a function is used must
+rest on Chapter 3 of Bolker's *Ecological Models and Data in R*, which the page names as
+its source and the author trusts, or on a citation that was checked against the
+publication and is in the reference list of the page. Inside display mathematics use
+`\verb|...|` and not `\texttt{...}` for R code that contains `^` or `_`: MathJax refuses
+those characters in `\texttt{}`, and a render without warnings does not show it (look at
+the page in a browser).
 
-Detailed descriptions of distributions belong in `Supplements/distributions.qmd`,
-not in the theory chapters. Chapter 2 uses one distribution as the running
-example for each type of data (the Binomial for discrete data and the Normal for
-continuous data) and links to the supplement entries through their
-`sec-` IDs (for example `distributions.qmd#sec-negative_binomial`). The
-author's entries there (Binomial, Poisson, Negative Binomial) give the order to follow: when the
-distribution is useful and what it assumes; its probability mass or density
-function with the symbols explained; its mean and variance as displayed
-equations; an `### Example:` subsection that calculates a probability by hand
-and then verifies it in R; a figure; and a practice exercise.
-
-Detailed descriptions of deterministic functions belong in
-`Supplements/deterministic-functions.qmd`, with one full entry per function and `sec-fn-`
-IDs, parallel to the distribution entries. The theory of Chapter 5 analyses two
-functions (Michaelis–Menten and Ricker) and links to the rest, and the rules of calculus live in
-`Supplements/calculus.qmd`. An entry has: a summary block in `aligned` display
-mathematics (R, shape, domain, range, parameters, value at zero, value at infinity,
-special points, alternative forms); one or two paragraphs on uses, with author–year
-citations and a sentence on whether a mechanistic derivation exists; and the formula with a
-"where" clause and its landmarks derived. The entries have no `### Example:` subsection,
-figure or `Practice` callout: the author removed them on 7 October 2026, so do not add
-them back. A statement about how a function is used must rest on Chapter 3 of Bolker's
-*Ecological Models and Data in R*, which the page names as its source and which the author
-trusts, or on a citation that was checked against the publication and is in the reference
-list of the page. Use `\verb|...|` and not
-`\texttt{...}` for R code that contains `^` or `_` inside display mathematics, because
-MathJax refuses those characters in `\texttt{}` (a render without warnings does not show
-this; look at the page in a browser).
-
-After the prose has explained a concept, a short note callout may restate the
-definition in one or two sentences for later reference. The callout does not
-replace the explanation.
-
-End every theory chapter with a `# Summary` section, placed before
-`# Chapter quiz`. This is an author decision; Chapters 6 and 7 currently lack
-one and need it added. A summary consolidates the main ideas in a few short paragraphs
-and does not repeat the entire chapter or introduce new material. Keep cross-chapter promises specific and check the destination. For example,
-method of moments belongs to Chapter 3, AIC to Chapter 4, and BIC and
-cross-validation to Chapter 6.
+After the prose has explained a concept, a short note callout may restate the definition
+for later reference. It does not replace the explanation.
 
 ## Presenting code in the text
 
-These rules come from the author's rewrite of the passage that introduces
-`cmb()`, `MakeADFun()` and `optim()` in Chapter 4. They apply to theory pages,
-supplements and the explanatory text of practicals; they matter most where the
-text teaches a procedure in R (a recipe that students will repeat).
+These rules come from the author's rewrite of the passage on `cmb()`, `MakeADFun()` and
+`optim()` in Chapter 4. They apply to theory pages, supplements and the explanatory text
+of practicals, and matter most where the text teaches a recipe that students will repeat.
 
-- **One step, one chunk, next to its explanation.** When a procedure has several
-  steps, write the sentences for the first step, then its chunk, then the
-  sentences for the second step, then its chunk. Do not describe three steps in
-  one long paragraph and put all the code in one chunk below it: the student
-  reads a description of code that is too far away and then has to reread the
-  text to make sense of the code. A step is something that can be named in a
-  clause: define a helper, process the NLL, minimise it, read the results.
-- **Explain before the chunk what the chunk uses and returns.** The arguments of
-  a call and the elements of its result are introduced in the text that precedes
-  the chunk that uses them, so that the comments in the code only have to label
-  the lines.
-- **Keep together what is read as a unit.** A function definition, a loop with
-  its set-up, and a figure with its data stay in one chunk. Split a chunk where a
-  new idea starts, not at every line. Chunks are evaluated in order, so a later
-  chunk may use objects that an earlier one created (see "Markdown and Quarto").
-- **Bullets for the items of a recipe.** When students have to learn what the
-  items are (the arguments that a function needs, the elements that an object
-  returns, the steps of a procedure), put each item in its own bullet: the name in
-  code format first, then a short description. The bullets show how many items
-  there are and what they are called. Keep a list in running prose when the items
-  are only illustrations or reasons and nobody has to study each one. The test is
-  whether the student will later need to find, name or remember each item.
-- **Do not repeat in the text what the chunk prints.** The rendered page shows
-  the output under the code. When the text teaches a tool, say what each element
-  of the output is and how to read it (for example, that `convergence` is zero
-  after a normal stop), and refer to it by name and not by value. Quote a number
-  in the text only when it is used: when the text compares it with another value
-  (the estimate with the method of moments, a hand calculation with R), when it
-  answers a question of an exercise, or when the ecological interpretation of
-  the value is the point of the passage. A quoted number must still agree with
-  the code and the seed (see "Figures and numerical interpretation").
+- **One step, one chunk, next to its explanation.** Sentences for the first step, its
+  chunk, sentences for the second step, its chunk. Do not describe three steps in one
+  paragraph above one long chunk. A step is something that can be named in a clause:
+  define a helper, process the NLL, minimise it, read the results.
+- **Explain before the chunk what it uses and returns.** The arguments of a call and the
+  elements of its result are introduced in the preceding text, so that the comments only
+  label the lines.
+- **Keep together what is read as a unit:** a function definition, a loop with its
+  set-up, a figure with its data. Split where a new idea starts, not at every line.
+- **Bullets for the items of a recipe.** When students must learn what the items are (the
+  arguments of a function, the elements of an object, the steps of a procedure), give
+  each its own bullet: the name in code format, then a short description. Keep running
+  prose when the items are only illustrations or reasons. The test is whether the student
+  will later need to find, name or remember each item.
+- **Do not repeat in the text what the chunk prints.** When teaching a tool, say what
+  each element of the output is and how to read it, by name and not by value. Quote a
+  number only when it is used: compared with another value, answering a question of an
+  exercise, or interpreted ecologically. A quoted number must agree with the code and
+  the seed.
 
 ## Statistical language and notation
 
 | Concept | Required distinction |
 |---|---|
-| Random variable and observation | Use $X$ or $X_i$ for random variables and $x$ or $x_i$ for possible or observed values. |
+| Random variable and observation | $X$ or $X_i$ for random variables, $x$ or $x_i$ for possible or observed values. |
 | Parameter, estimator, estimate | A parameter describes the model; an estimator is a rule applied to random data; an estimate is its value for observed data. Define hats such as $\hat\lambda$. |
-| Mass and density | Discrete values have probability mass. Continuous densities give probabilities through integration over intervals; a density value is not a point probability and may exceed one. |
-| Probability and likelihood | Probability varies possible data for fixed parameters. Likelihood varies parameters for the observed data and is not a probability distribution over parameters. |
-| Likelihood notation | Keep the bar in $P(X=x\mid\theta)$ and $L(\theta\mid x_1,\ldots,x_n)$, and say at first use that it reads "for a given value of" (conditional distributions come in Chapter 7). Write $\ell$ for the log-likelihood and, once the data are fixed, $L(\theta)$ and $\ell(\theta)$. The negative log-likelihood (NLL) is $-\ell$, which `optim()` minimises. Draw likelihood figures on the relative log-likelihood scale, $\ell(\theta)-\ell(\hat\theta)$, because only differences between log-likelihoods are meaningful. |
-| Wald and profile likelihood intervals | The profile likelihood interval (cutoff 1.92 for one parameter and 3.00 for a joint region of two) is the reference method. The Wald interval is the fast approximation: explain it as a quadratic approximation of the log-likelihood, calculate it on the scale that was optimised (the log scale for a positive parameter) and transform the endpoints back. A standard error cannot be transformed back like an endpoint: for a quantity calculated from the parameters, ask for it with `ADREPORT()` and read it from `sdreport()`; TMB applies a correction called the delta method, which Chapter 6 explains. |
-| Number of parameters in AIC | Use $K$, because $k$ is the shape of the Negative Binomial distribution: $\mathrm{AIC}=2K-2\ell(\hat\theta)$. Only differences between models fitted to the same observations, in the same units, are meaningful, and AIC ranks the candidates without showing that the best one describes the data well. |
-| Deterministic functions | Use the generic parameters $a,b,c,d$ for every function, as positions in a formula, and say what each controls (an asymptote or a value at zero, a rate or a half-maximum, a location, a vertical shift). Ecological symbols ($\alpha$ and $H$; $K$, $r$, $n_0$) appear only when a specific parameterisation is discussed. Write $f'(x)$ and $f''(x)$ in running text, $df/dx$ where the variable matters, and $\partial f/\partial a$ for a partial derivative. $\log$ is the natural logarithm. Derive the units of every parameter from the formula: the argument of an exponential or a logarithm has no units, a parameter that multiplies $x$ has the inverse units of $x$, and one that divides $x$ has the units of $x$. |
-| Names of functions | Michaelis–Menten (with an en dash) is the primary name of $ax/(b+x)$. Holling type II is its predator–prey parameterisation, and Monod and Beverton–Holt are named in a footnote. The entry for the saturating exponential has the ID `sec-fn-monomolecular`. |
-| Half-maximum and reparameterisation | The half-maximum is a value of $x$ (units of $x$), at which a saturating function reaches half of its asymptote; half of the asymptote is a value of $y$. A reparameterisation changes the parameters and not the curve: check it by evaluating both forms at the same values of $x$. |
-| Empirical variance and `var()` | `mean((x - mean(x))^2)` uses divisor $n$. `var(x)` uses $n-1$. State which quantity an exercise requests. |
-| Sampling distribution | The distribution of an estimate across repeated hypothetical experiments with the same design and sample size. It is imaginary and never observed. Keep it distinct from the replicates within one experiment. |
-| Exact results and approximations | In finite samples estimators are in general biased and their sampling distribution is unknown. Label exact results (such as the $t$ interval for Normal observations) as special cases, and describe other bias, variance, standard error and interval statements for small samples as approximations that rely on large-sample results or simulation. |
-| Standard deviation and standard error | The first describes variation in observations; the second describes variation in an estimator across hypothetical experiments. |
-| Overdispersion | Variation exceeds that expected under a specified reference model. A variance-to-mean ratio is exploratory and does not identify the ecological cause. |
-| Confidence interval | Explain repeated-sampling coverage. Do not assign a frequentist probability to a fixed parameter lying in an already calculated interval. |
-| Independence | State it as a model assumption. Separate locations or observations do not by themselves establish independence. |
+| Mass and density | Discrete values have probability mass. A density gives probabilities through integration over intervals; its value is not a point probability and may exceed one. |
+| Probability and likelihood | Probability varies the data for fixed parameters. Likelihood varies the parameters for the observed data and is not a probability distribution over parameters. |
+| Likelihood notation | Keep the bar in $P(X=x\mid\theta)$ and $L(\theta\mid x_1,\ldots,x_n)$, and say at first use that it reads "for a given value of". $\ell$ is the log-likelihood; once the data are fixed write $L(\theta)$ and $\ell(\theta)$. The negative log-likelihood (NLL) is $-\ell$. Draw likelihood figures on the relative scale $\ell(\theta)-\ell(\hat\theta)$, because only differences are meaningful. |
+| Wald and profile intervals | The profile likelihood interval (cutoff 1.92 for one parameter, 3.00 for a joint region of two) is the reference method. The Wald interval is the fast approximation: explain it as a quadratic approximation of the log-likelihood, calculate it on the optimised scale and transform the endpoints back. A standard error cannot be transformed back like an endpoint (see "R coding patterns" for `ADREPORT()`). |
+| Number of parameters in AIC | $K$, because $k$ is the shape of the Negative Binomial: $\mathrm{AIC}=2K-2\ell(\hat\theta)$. Only differences between models fitted to the same observations in the same units are meaningful, and AIC ranks candidates without showing that the best one describes the data well. |
+| Deterministic functions | Generic parameters $a,b,c,d$ for every function, as positions in a formula; say what each controls. Ecological symbols ($\alpha$ and $H$; $K$, $r$, $n_0$) only for a specific parameterisation. $f'(x)$ and $f''(x)$ in running text, $df/dx$ where the variable matters, $\partial f/\partial a$ for a partial derivative. $\log$ is the natural logarithm. Derive the units of every parameter from the formula: the argument of an exponential or a logarithm has no units, a parameter that multiplies $x$ has the inverse units of $x$, one that divides $x$ has the units of $x$. |
+| Names of functions | Michaelis–Menten (en dash) is the primary name of $ax/(b+x)$; Holling type II is its predator–prey parameterisation; Monod and Beverton–Holt are named in a footnote. The saturating exponential has the ID `sec-fn-monomolecular`. |
+| Half-maximum and reparameterisation | The half-maximum is a value of $x$ at which a saturating function reaches half of its asymptote (a value of $y$). A reparameterisation changes the parameters and not the curve: check it by evaluating both forms at the same $x$. |
+| Empirical variance and `var()` | `mean((x - mean(x))^2)` divides by $n$, `var(x)` by $n-1$. State which one an exercise requests. |
+| Sampling distribution | The distribution of an estimate across repeated hypothetical experiments with the same design and sample size: imaginary and never observed. Keep it distinct from the replicates (for example quadrats) within one experiment. |
+| Exact results and approximations | In finite samples estimators are in general biased and their sampling distribution is unknown. Label exact results as special cases and other statements for small samples as approximations that rely on large-sample results or simulation. |
+| Standard deviation and standard error | Variation in observations; variation in an estimator across hypothetical experiments. |
+| Overdispersion | Variation exceeds that expected under a stated reference model. A variance-to-mean ratio is exploratory and does not identify the ecological cause. |
+| Confidence interval | Explain repeated-sampling coverage. Do not assign a probability to a fixed parameter lying in a calculated interval. |
+| Independence | A model assumption. Separate locations or observations do not by themselves establish it. |
 
-Use $E[X]$, $\operatorname{Var}(X)$, and
-$X \sim \operatorname{Poisson}(\lambda)$ consistently. Define sample size separately
-from Binomial trial count when both occur. For the Negative Binomial, use mean
-$\mu$ and shape $k$ with $\operatorname{Var}(X)=\mu+\mu^2/k$, mapped to R's `mu`
-and `size`. Explain any alternative parameterisation explicitly. For a Normal
-model written with variance $\sigma^2$, R's `sd` argument takes $\sigma$.
-Use $\sigma^2$ for variance parameters, with descriptive subscripts when a
-model has several variance components, such as $\sigma^2_{\mathrm{group}}$
-and $\sigma^2_{\mathrm{obs}}$. Describe and parameterise these components
-as variances, not precisions; do not use $\tau^2$ for a group variance.
-When a density function or fitting code uses a standard deviation
-$\sigma$, explain that its square is the corresponding model variance.
+Write $E[X]$, $\operatorname{Var}(X)$ and $X \sim \operatorname{Poisson}(\lambda)$. Define
+sample size separately from the Binomial trial count when both occur. The Negative
+Binomial has mean $\mu$ and shape $k$ with $\operatorname{Var}(X)=\mu+\mu^2/k$ (`mu` and
+`size` in R); explain any other parameterisation. Variance parameters are $\sigma^2$,
+with descriptive subscripts for several components ($\sigma^2_{\mathrm{group}}$,
+$\sigma^2_{\mathrm{obs}}$); describe them as variances, not precisions, and do not use
+$\tau^2$. When a density or the fitting code takes a standard deviation $\sigma$ (R's
+`sd`), say that its square is the model variance.
 
-Use “approximately” for rounded results and asymptotic approximations. Describe
-simulation summaries as varying across samples. Do not promise monotonic
-improvement in every realised sample as sample size increases. State the
-conditions behind general claims about estimator performance.
+Use "approximately" for rounded results and asymptotic approximations. Describe
+simulation summaries as varying across samples, and do not promise monotonic improvement
+in every realised sample as sample size grows. State the conditions behind general claims
+about estimators.
 
 ## Units
 
-Write compound units with a slash and not with the word "per": µmol/m²/s, g/day,
-kg/ha, seeds/m², prey/day. This is an author decision. Do not write "µmol per m²
-per second", "g per day" or "kg per ha". The rule applies everywhere a unit is
-attached to a quantity: prose, tables, captions, callouts, mathematics and the axis
-labels in R code.
+Write compound units with a slash and not with "per": µmol/m²/s, g/day, kg/ha, seeds/m²,
+prey/day. This applies wherever a unit is attached to a quantity: prose, tables,
+captions, callouts, mathematics and axis labels.
 
-- Use the symbol of a unit where a common one exists (µmol, g, kg, mm, cm, m, ha, L,
-  mL, s, min) and write the name in full for longer units of time (hour, day, night,
-  week, month, year) and for things that are counted in the numerator (seeds, prey,
-  tadpoles, species). Unit names stay in the singular after the slash: seeds/m²,
-  g/day, cm/year.
-- Put a space between the number and the unit and none around the slashes:
-  90 kg/ha, 18 kg/ha/week.
-- A rate without a unit in the numerator takes the slash as well, directly after the
-  number: $b=0.2$/week, a density of $0.0614$/mm. Where such a unit stands alone (in
-  parentheses, an axis label or a code comment) write 1/day, 1/mm: "the inverse units
-  of $x$ (1/day)", `"Density (1/mm)"`.
-- When the units of a derivative are spelled out as a ratio of two compound units,
-  bracket them, because a row of slashes would be ambiguous: (µmol/g/hour)/(µmol/L),
-  (seeds/night)/(seeds/m²), species/(t/ha/year).
-- A substance follows the unit: 40 µg/L of carbon, 0.8 mg/L of nitrogen.
-- In prose use the characters ² and µ (m², µmol). Inside mathematics set units
-  upright with `\text{}` or `\mathrm{}`, for example `\text{ prey/day}`,
-  `\text{ g/m}^2` and `\text{/day}`. In an axis label write the unit in parentheses
-  after the quantity: `"Nitrogen released (kg/ha)"`.
-- "Per" remains when the denominator is an object or a sampling unit and not a unit
-  of measurement: 2.14 seedlings per quadrat, 4.75 calls per visit, 120 tadpoles per
-  tank, 0.02 days per prey, 0.63 survivors per settler, 9.5 survivors per 0.1 m². It
-  also remains in "per unit of $x$", "per unit of time", "species per percent" and
-  "parts per million", and in ordinary description where no unit is attached to a
-  number or a symbol: "the number of prey that the spider eats per day", "one
-  probability of survival per predator treatment".
+- Use the symbol where a common one exists (µmol, g, kg, mm, cm, m, ha, L, mL, s, min)
+  and the full name for longer units of time (hour, day, night, week, month, year) and
+  for counted things in the numerator (seeds, prey, tadpoles, species). Names stay
+  singular after the slash: seeds/m², cm/year.
+- A space between number and unit, none around slashes: 90 kg/ha, 18 kg/ha/week.
+- A rate without a unit in the numerator takes the slash directly after the number:
+  $b=0.2$/week, $0.0614$/mm. Standing alone (parentheses, axis label, code comment) write
+  1/day, 1/mm: `"Density (1/mm)"`.
+- Bracket a ratio of two compound units: (µmol/g/hour)/(µmol/L), species/(t/ha/year).
+- A substance follows the unit: 40 µg/L of carbon.
+- In prose use the characters ² and µ. Inside mathematics set units upright with
+  `\text{}` or `\mathrm{}` (`\text{ prey/day}`, `\text{ g/m}^2`, `\text{/day}`). In an
+  axis label the unit follows the quantity in parentheses: `"Nitrogen released (kg/ha)"`.
+- "Per" remains when the denominator is an object or sampling unit and not a unit of
+  measurement (2.14 seedlings per quadrat, 4.75 calls per visit, 0.02 days per prey, 9.5
+  survivors per 0.1 m²), in "per unit of $x$", "per unit of time", "species per percent"
+  and "parts per million", and in description without a number or symbol ("the number of
+  prey that the spider eats per day").
 
 ## Markdown and Quarto
 
-- Use ATX headings (`#`, `##`, `###`) in sentence case. Do not skip levels.
-  Let Quarto number sections; retain meaningful exercise numbers and numbered
-  sequences such as the four faces of a distribution.
-- Leave blank lines around paragraphs, lists, code blocks, equations, and divs.
-  Keep ordinary lists out of four-space indentation, which creates code blocks.
-- Use bold for a new term or a short point of emphasis, and italics sparingly.
-  Prefer semantic callouts over new inline colours or HTML styling.
-- Use `$...$` for inline mathematics and `$$` on separate lines for display
-  equations. Use `aligned` for a derivation with several steps. Explain symbols
-  in prose; equations are part of the surrounding sentences.
-- Write the argument of a logarithm in parentheses, as in R: $\log(3)$, $\log(2)/b$,
-  $\log(f(x))=\log(a)-bx$ and $\log(\log(2))$, never $\log 3$ or $\log a$. This is an
-  author decision. It applies to $\log$ and $\ln$ in inline and display mathematics, in
-  prose and in tables. Use `\log\left(...\right)` when the argument is a tall expression
-  such as a fraction, and keep `\log` bare only where the function is named and not
-  applied ("the symbol $\log$ is the natural logarithm"). Write the base of another
-  logarithm as a subscript before the bracket, $\log_{10}(x)$.
-- Use relative `.qmd` links, for example
-  `[Chapter 5](../Chapter_5/Theory.qmd)`. Match actual filename case, including
-  `solution.qmd`, even when the local filesystem accepts different casing.
-- Preserve existing section IDs. Add descriptive `sec-` IDs where a section needs
-  a reference, and refer to it with `@sec-name`. Do not invent destination IDs.
-- Use tables for genuine comparisons and parameter mappings, with units in column
-  labels where applicable. Use numbered lists for exercise tasks and procedures.
-- Save text as UTF-8. Aim for readable source lines of roughly 80–100 characters;
-  do not break links or code just to meet a line-width target.
+- ATX headings in sentence case, without skipping levels. Quarto numbers the sections;
+  keep meaningful exercise numbers.
+- Blank lines around paragraphs, lists, code blocks, equations and divs. No four-space
+  indentation of ordinary lists.
+- Bold for a new term or a short point of emphasis. Prefer callouts over inline colours
+  or HTML styling.
+- `$...$` inline and `$$` on separate lines for display equations; `aligned` for a
+  derivation with several steps. Equations are part of the surrounding sentences.
+- **The argument of a logarithm is in parentheses, as in R:** $\log(3)$, $\log(2)/b$,
+  $\log(f(x))=\log(a)-bx$, never $\log 3$ or $\log a$. This applies to $\log$ and $\ln$
+  everywhere. Use `\log\left(...\right)` around a tall argument, keep `\log` bare only
+  where the function is named and not applied, and write another base as a subscript
+  before the bracket, $\log_{10}(x)$.
+- Relative `.qmd` links, for example `[Chapter 5](../Chapter_5/Theory.qmd)`, with the
+  actual filename case (`solution.qmd`).
+- Preserve existing section IDs. Add descriptive `sec-` IDs where a section needs a
+  reference and refer to it with `@sec-name`. Do not invent destination IDs.
+- Tables for real comparisons and parameter mappings, with units in the column labels.
+  Numbered lists for exercise tasks and procedures.
+- UTF-8, source lines of roughly 80 to 100 characters; do not break links or code to
+  meet the width.
 
-Theory metadata follows Chapters 1 to 5, which contain only a title:
+Theory front matter holds only `title:`. The table of contents and section numbering are
+set once in `_quarto.yml`; do not add per-page `format` or `execute` blocks. Chapters 6
+to 8 still carry them, including a global `eval: false`, and display-only ```` ```r ````
+fences. Before removing such a block, check every chunk: without the global setting,
+chunks are evaluated unless they carry `#| eval: false`. Preserve the other settings of a
+page: practicals use `date: today`, and the Chapter 1 material uses the `wordcount-html`
+extension.
 
-```yaml
----
-title: "Descriptive chapter title"
----
-```
-
-The table of contents and section numbering are set once in `_quarto.yml`. The
-per-page `format` and `execute` blocks have been removed from Chapters 2 to 5;
-Chapters 6 to 8 still carry them, including a global `eval: false`. Do not add
-those blocks to new pages. When removing them from an existing page, check every
-chunk first: without the global setting, chunks are evaluated unless they carry
-`#| eval: false`. Chapters 6 to 8 also still contain display-only ```` ```r ````
-fences, which the rule below replaces.
-
-Preserve the target page's other settings rather than changing them in passing.
-Practicals also use `date: today`; Chapter 1's material uses the installed
-`wordcount-html` extension. Do not remove that setup as an incidental cleanup.
-
-Always use executable Quarto R chunks, written as ```` ```{r}```` rather than
-display-only ```` ```r```` blocks. This applies to code examples that students
-run themselves as well as code that the document evaluates. When code should be
-shown but not run during rendering, keep the executable chunk and set
-`#| eval: false` (or disable evaluation globally with `execute: eval: false`).
-Use chunk options on `#|` lines. A figure chunk that the page evaluates and hides
-looks like this:
+Always use executable chunks (```` ```{r} ````), also for code that students run
+themselves; set `#| eval: false` when the code should be shown but not run. Chunk options
+go on `#|` lines. An evaluated chunk must define its inputs or use an earlier evaluated
+chunk; it cannot rely on a chunk with `eval: false`. Hide plot construction when it
+distracts from the concept and show it when plotting is the lesson. Do not fill practical
+pages with output that students are meant to generate themselves. A hidden figure chunk:
 
 ````markdown
 ```{r}
@@ -546,59 +362,42 @@ plot(count_values, dpois(count_values, lambda = 3), type = "h",
 ```
 ````
 
-An evaluated chunk must define its inputs itself or use an earlier evaluated
-setup chunk. It cannot rely on a preceding example with `eval: false`. Hide plot
-construction when it distracts from the concept; show it when plotting is the
-learning objective. Avoid filling practical pages with precomputed output that
-students are meant to generate and interpret themselves.
-
-Use notes for definitions and warnings for specific misconceptions:
+Callouts: notes for definitions, warnings for specific misconceptions, and the caution
+type only for collapsed boxes that a student can skip:
 
 ```markdown
 ::: {.callout-note title="Probability mass"}
 The probability mass function assigns a probability to each possible count.
 :::
-```
 
-Formal statements that a student can skip go in a collapsed box of the caution
-type, which is used for nothing else in the book:
-
-```markdown
 ::: {.callout-caution collapse="true" icon=false title="Statistical detail: the Cramér–Rao bound"}
 No unbiased estimator has a variance smaller than the inverse of the Fisher
 information.
 :::
 ```
 
-The title always starts with "Statistical detail: " followed by a noun phrase.
-The same box holds computational detail that a student can skip, with a title
-that starts with "Technical detail: " (Chapter 6 uses it for how automatic
-differentiation works: students need to know that RTMB calculates the gradient
-of the NLL accurately, not what a tape is).
-The main text must be complete without the box: nothing outside a box may rely
-on a symbol or result that appears only inside one. Inside the box the full
-rigour stays (the statement, a "where" clause and an "In plain English"
-sentence). Chapter 3 uses these boxes as Chapter 4 does, for the law of large
-numbers, consistency, the bias of the variance estimator and the central limit
-theorem: the main text states each result in plain words. Chapter 4 also opens with a roadmap table after the learning goals
-(step, question, R tool, example) and closes with a "recipe" callout before the
-summary. Later theory chapters may copy both when the chapter is a sequence of
-steps that students carry out.
+The title of a collapsed box starts with "Statistical detail: " (formal results) or
+"Technical detail: " (computational detail, such as how automatic differentiation works),
+followed by a noun phrase. The main text must be complete without the box: it states each
+result in plain words and never relies on a symbol or result that appears only inside
+one. Inside the box the full rigour stays (statement, "where" clause, "In plain English"
+sentence).
+
+Chapter 4 opens with a roadmap table after the learning goals (step, question, R tool,
+example) and closes with a "recipe" callout before the summary. Later theory chapters may
+copy both when the chapter is a sequence of steps that students carry out.
 
 ## Exercises and solution patterns
 
-Give a concrete setting, any necessary data or assumptions, and numbered tasks.
-Progress from calculation to interpretation. Hints can refer to a previously
-taught tool without giving away the answer. Worked solutions should include the
-reasoning, executable code, and an answer in the terms of the question.
+Give a concrete setting, the necessary data or assumptions and numbered tasks that
+progress from calculation to interpretation. Hints may refer to a tool taught earlier
+without giving the answer away. Worked solutions contain the reasoning, executable code
+and an answer in the terms of the question.
 
-Chapter 1 is the only shared practical: put its content in `material.qmd` and
-retain the wrapper's metadata chunk calling
-`quarto::write_yaml_metadata_block(show_solution = TRUE)` for `solution.qmd`
-and `FALSE` for `no_solution.qmd`, followed by
-`{{< include material.qmd >}}`. From Chapter 2 onward, keep each practical
-self-contained: `solution.qmd` and `no_solution.qmd` should each contain their
-relevant text and code. Nested exercises and solutions follow Chapter 1:
+The Chapter 1 wrappers keep the metadata chunk that calls
+`quarto::write_yaml_metadata_block(show_solution = TRUE)` (`FALSE` in `no_solution.qmd`),
+followed by `{{< include material.qmd >}}`. Nested exercises and solutions follow this
+pattern:
 
 ````markdown
 :::::: {.callout-important title="Exercise" collapse="true"}
@@ -623,65 +422,41 @@ one group.
 ::::::
 ````
 
-Keep fence lengths matched and nesting intact. Collapsing a solution alone does
-not hide it from the student version; retain the conditional div. In Chapter 2's
-separate files, retain `# Exercise N: Topic` and `## Solution` as appropriate.
-The first two exercises on its student page are worked solutions, by author
-decision. Do not assume every `no_solution.qmd` must contain no explanatory
-answers at all.
+Keep fence lengths matched and the nesting intact. Collapsing a solution does not hide it
+from the student version; the conditional div does. In the separate files of later
+chapters use `# Exercise N: Topic` and `## Solution`. A `no_solution.qmd` may contain
+worked exercises (`AGENTS.md` lists them).
 
 ## R coding patterns
 
-- Always use `=` for assignment in existing and new course code, including function
-  definitions. This is an explicit author requirement. Use spaces around binary
-  operators and after commas, two spaces for indentation, and double-quoted strings.
-- Prefer beginner-friendly literals in teaching examples. Use `NA` for a missing
-  value and ordinary numeric literals such as `2` rather than `NA_real_`,
-  `NA_integer_`, or `2L`. Use a typed literal only when the distinction is part
-  of the lesson or is needed to demonstrate a specific programming issue.
-- Prefer short, meaningful `snake_case` names. Mathematical names such as `x`, `mu`,
-  and `k` are appropriate when their meaning has just been defined. Avoid extremely
-  long names that make the statistical calculation difficult to read.
-- Name distribution arguments explicitly: `dbinom(x = 15, size = 25, prob = 0.65)`.
-  Separate long calls over several lines. Use `TRUE` and `FALSE`, not `T` and `F`.
-- Plotting follows two rules, by author decision. The author's own figures (the
-  figures of theory pages and supplements) use `ggplot2` in the figure style below.
-  Plots inside exercises (the practicals from Chapter 2 onward, on the student page
-  and in the solutions, and the `Practice` callouts of theory pages and supplements)
-  use simple base R graphics, so that students do not spend their time on
-  visualisation. Details are in "Figures and numerical interpretation". Students may
-  use either base R or `ggplot2` in their own work. Use `package::function()` or
-  load the package explicitly. Explain any newly introduced dependency; do not
-  introduce a framework for a small example.
-- Do not use pipe operators (`|>` or `%>%`) in course code. Functions from packages
-  such as `dplyr` remain appropriate; call them directly, nesting calls when clear or
-  assigning intermediate results to named objects. Prefer transparent steps over
-  long nested expressions. For example, assign the result of `group_by()` to an
-  object, then pass that object to `summarise()`.
-- Set a seed before each reproducible simulation example or batch of repetitions.
-  Do not reset the same seed inside every repetition when independent simulated
-  samples are intended. Explicitly varied seeds are appropriate for the Chapter 3
-  exercise about variation across samples (Exercise 2, asymptotic convergence).
-- Define objects in teaching order and pass data explicitly to functions. Examples
-  must work without objects left in the author's interactive workspace.
-- Use project or document-relative data paths consistent with execution context.
-  Avoid absolute paths and `setwd()` in teaching examples. Do not silently discard
-  missing values; explain any use of `na.rm = TRUE`.
-- Add short, useful comments to code chunks, especially when a chunk introduces
-  a new R operation, simulation step, loop, or plotting decision. Comments can
-  identify inputs, explain the purpose of a group of lines, and point out what
-  the output represents. They should help a beginner read the code without
-  commenting every obvious line. Put the broader statistical lesson in prose.
-  Do not include console prompts in runnable examples; label literal output
-  with a `text` fence when output is needed.
+- **Always `=` for assignment**, including function definitions, in existing and new
+  code. Spaces around binary operators and after commas, two spaces of indentation,
+  double-quoted strings, `TRUE` and `FALSE`.
+- Ordinary literals in teaching examples: `NA` and `2`, not `NA_real_` or `2L`, unless
+  the distinction is the lesson.
+- Short, meaningful `snake_case` names; mathematical names (`x`, `mu`, `k`) when their
+  meaning has just been defined.
+- Name distribution arguments: `dbinom(x = 15, size = 25, prob = 0.65)`. Break long calls
+  over several lines.
+- Use `package::function()` or load the package explicitly. Explain a new dependency and
+  do not introduce a framework for a small example.
+- **No pipes** (`|>`, `%>%`). Call `dplyr` functions directly and assign intermediate
+  results to named objects in preference to long nested expressions.
+- Set a seed before each reproducible simulation or batch of repetitions, not inside
+  every repetition. Explicitly varied seeds are appropriate where variation across
+  samples is the lesson (Chapter 3, Exercise 2).
+- Define objects in teaching order and pass data explicitly to functions; examples must
+  work in a clean workspace. Document-relative data paths, no absolute paths, no
+  `setwd()`. Explain any `na.rm = TRUE`.
+- **Comment the chunks:** short comments that identify inputs, the purpose of a group of
+  lines and new operations, without commenting every obvious line. The statistical
+  lesson goes in the prose. No console prompts; label literal output with a `text` fence.
 
-For maximum likelihood, show the model and assumptions before the implementation.
-Sum log probabilities or densities using `log = TRUE` rather than computing a
-product and then taking its logarithm. Name a negative log-likelihood (NLL) clearly
-and explain that `optim()` minimises it by default. Every NLL of the course from
-Chapter 4 onward is written in the form that RTMB needs: two named lists as
-arguments, the parameters first and the data second, unpacked with `getAll()`. For
-example, for independent Poisson observations:
+### Maximum likelihood with RTMB
+
+Show the model and its assumptions before the implementation. Sum log probabilities with
+`log = TRUE`. From Chapter 4 onward every NLL has the form that RTMB needs: two named
+lists, parameters first and data second, unpacked with `getAll()`:
 
 ```r
 poisson_nll = function(parms, data) {
@@ -704,137 +479,98 @@ fir_obj = MakeADFun(
 fir_fit = optim(par = fir_obj$par, fn = fir_obj$fn, gr = fir_obj$gr, method = "BFGS")
 ```
 
-There is no example that passes a plain NLL function to `optim()`. About
-`MakeADFun()` the text says only that it is a step that processes the NLL so that the
-tools of the course can work with it, and that the details come progressively; `cmb()`
-connects a likelihood to data, so that the same likelihood can be used on another data
-set whose variables have the same names; `obj$gr` is the slope that RTMB also supplies
-for BFGS, and Chapter 6 says how. Do not explain automatic differentiation, tapes or
-lexical scoping before Chapter 6. Introduce the other elements when the text reaches
-the tool that needs them, not in the first NLL: `ADREPORT()` with `sdreport()`,
-`OBS()` with `obj$simulate()`, `TMB::tmbprofile()` with `confint()`, and
-`checkConsistency()`. Name the objects `<model>_obj` (result of `MakeADFun()`),
-`<model>_fit` (`optim()`), `<model>_sd` (`sdreport()`) and `<model>_profile_<par>`
-(`tmbprofile()`), and use `silent = TRUE` in every `MakeADFun()` call.
+- **Every fit goes through `MakeADFun()`**, including the first; no example passes a
+  plain NLL to `optim()`. The text says only that `MakeADFun()` processes the NLL so that
+  the tools of the course can work with it and that details come progressively; that
+  `cmb()` connects a likelihood to data, so that it can be used on another data set with
+  the same variable names; and that `obj$gr` is the slope that RTMB supplies for BFGS
+  (Chapter 6 says how). Do not explain automatic differentiation, tapes or lexical
+  scoping before Chapter 6, do not present `cmb()` as an awkward part of TMB, and do not
+  answer questions that students may not have.
+- **Optimiser:** `optim()` with `method = "BFGS"` and `gr = obj$gr` everywhere, including
+  one-parameter fits and the inner fits of a profile; say once that Chapter 8 explains
+  the method. Never set `reltol`. `silent = TRUE` in every `MakeADFun()` call.
+- **Constraints by transformation only:** the logarithm for positive parameters,
+  `qlogis()` and `plogis()` for probabilities. Say why and report estimates on the
+  ecological scale.
+- **Object names:** `<model>_obj` (`MakeADFun()`), `<model>_fit` (`optim()`),
+  `<model>_sd` (`sdreport()`), `<model>_profile_<par>` (`tmbprofile()`).
+- **Grids:** `for` loops (one for a curve, two nested for a surface) that call `obj$fn()`
+  on the optimised scale, not `sapply()`, `vapply()`, `Vectorize()` or `outer()`. A grid
+  draws curves, surfaces and slices and never estimates. Distinguish a slice from a
+  profile, which refits the other parameters.
+- **By hand once, then the TMB tool.** Each calculation that TMB does is shown once by
+  hand on the simplest case: the Hessian as `fit$hessian[1, 1]` from
+  `optim(..., hessian = TRUE)`; a profile with inner fits that start at the joint
+  estimate; the endpoints of a profile interval with `uniroot()`, its search interval
+  chosen from the plotted curve so that the function changes sign. Then: `sdreport()` for
+  standard errors; `ADREPORT()` for a quantity calculated from the parameters (TMB
+  applies the delta method, which Chapter 6 explains); `TMB::tmbprofile()` with
+  `confint()` (with the prefix, because RTMB does not export it); `OBS()` with
+  `obj$simulate()` for hypothetical experiments; `checkConsistency()`. Introduce each
+  tool where the text needs it, not in the first NLL.
+- **Profiles** are drawn with `ggplot2` from the data frame that `tmbprofile()` returns,
+  on the relative log-likelihood scale; in an exercise, `plot()` of the profile object is
+  allowed.
+- When teaching a complete fit, discuss starting values, convergence, constraints and
+  uncertainty. A converged optimiser does not establish that the model is adequate.
 
-Explain why a transformation is used and report estimates on the ecological scale.
-Discuss starting values, convergence, parameter constraints, and uncertainty when
-teaching a complete fit. An optimiser returning a number does not establish model
-adequacy. Distinguish a likelihood slice from a profile that refits nuisance
-parameters. Introduce these details as their concepts arise, without inserting
-advanced optimisation machinery into early probability lessons.
+### Distribution functions
 
-Use `optim()` with `method = "BFGS"` throughout, including one-parameter fits and
-the inner fits of a profile, pass `gr = obj$gr` from the first fit, and say once
-that Chapter 8 explains the method. Handle constraints by transformation only (the
-logarithm for positive parameters, `qlogis()` and `plogis()` for probabilities).
-Bounds, box-constrained methods, `optimize()`, sensitivity to starting values, local
-maxima, and Hessian problems belong to Chapter 8. Evaluate a likelihood on a grid
-with `for` loops (one loop filling a vector for a curve, two nested loops filling a
-matrix for a surface) that call `obj$fn()` with the parameters on the optimised scale,
-not with `sapply()`, `vapply()`, `Vectorize()`, or `outer()`; a grid draws curves,
-surfaces and slices and never estimates.
-
-Each calculation that TMB already does (standard errors from the Hessian, the delta
-method for derived quantities, likelihood profiles, simulation) is explained and shown
-once by hand on the simplest case, and then done with the TMB tool. By hand, take the
-Hessian of a one-parameter fit as `fit$hessian[1, 1]` from `optim(..., hessian = TRUE)`,
-start each inner fit of a profile at the joint estimate, and find the endpoints of a
-profile likelihood interval with `uniroot()`, choosing the ends of its search interval
-from the plotted curve so that the function has opposite signs there. With TMB, use
-`sdreport()` for standard errors, `ADREPORT()` for a quantity calculated from the
-parameters (TMB applies a correction called the delta method, which Chapter 6
-explains), `TMB::tmbprofile()` with `confint()` for profile intervals, and
-`obj$simulate()` for hypothetical experiments. Write `TMB::tmbprofile()` with the
-prefix, because RTMB does not export it. Draw a profile with `ggplot2` from the data
-frame that `tmbprofile()` returns, on the relative log-likelihood scale; in an exercise,
-`plot()` of the profile object is allowed. Do not set `reltol` in `optim()`.
-
-Distribution functions come from RTMB and RTMBdist everywhere in the course, from
-Chapter 2 onward. Load `library(RTMB)` first and `library(RTMBdist)` second, in a chunk
-with `#| message: false`: both define `dnbinom2()` with different arguments, and the
-course uses the version of RTMBdist (RTMBdist loads RTMB itself, so its version is the
-one that is found whichever order the two calls have; the order keeps the code
-predictable). Write the Negative Binomial in the mean form as
-`dnbinom2(x, mu, size)` (RTMBdist); the form with `size` and `prob`, `dnbinom()`, also
-works in an NLL. A density or probability mass function used in an NLL always comes from
-RTMB or RTMBdist, because the base R versions of some of them fail inside `MakeADFun()`
-(`dnbinom()` with `mu`, `dunif()`). Where RTMB and RTMBdist have no cumulative, quantile
-or random function, base R, MASS or a short hand-written line fills in, and the text says
-so. `RTMBdist::pt()` has no `lower.tail`, so write `stats::pt()` where it is needed.
+From Chapter 2 onward they come from RTMB and RTMBdist. Load `library(RTMB)` first and
+`library(RTMBdist)` second, in a chunk with `#| message: false`: both define `dnbinom2()`
+with different arguments, and the course uses the RTMBdist version,
+`dnbinom2(x, mu, size)` (it is the one found whichever the order; the order keeps the
+code predictable). `dnbinom()` with `size` and `prob` also works in an NLL. A density or
+mass function in an NLL always comes from RTMB or RTMBdist, because some base R versions
+fail inside `MakeADFun()` (`dnbinom()` with `mu`, `dunif()`). Where a cumulative,
+quantile or random function is missing, base R, MASS or a short hand-written line fills
+in and the text says so. `RTMBdist::pt()` has no `lower.tail`; write `stats::pt()`.
 
 ## Figures and numerical interpretation
 
-Give axes descriptive labels and units, and distinguish probability, frequency,
-relative frequency, and density. Use bars or vertical lines for discrete mass,
-steps for cumulative probabilities, and appropriately scaled histograms when
-overlaying continuous densities. Label empirical and theoretical quantities.
+Give axes descriptive labels with units and distinguish probability, frequency, relative
+frequency and density. Use bars or vertical lines for discrete mass, steps for cumulative
+probabilities and density-scaled histograms under a continuous density. Label empirical
+and model quantities. Choose simple figures that answer the question in the text, with
+captions on theory figures and legends for several series. Restore graphics settings
+after `par()`.
 
-### Default style for author-generated figures
+**The author's figures** (theory pages and supplements, including every figure of a
+supplement entry) use `ggplot2` with `theme_classic()`; their code is usually hidden.
 
-Use `ggplot2` for the author's own figures: the rendered figures of theory pages
-and supplements, including the figure of every supplement entry. Apply
-`theme_classic()` unless a different theme has a clear teaching purpose. This is a
-visual convention for the author's figures, not a restriction on students' plotting
-choices. Plots inside exercises follow the next subsection. The Chapter 1 practical
-is the deliberate exception to both: it teaches and compares base R graphics and
-`ggplot2`, so its examples should continue to use both.
+- Raw observations: Okabe–Ito blue (`#0072B2`), normally `alpha = 0.7` and `size = 2`;
+  jitter only when overlap would hide data.
+- Empirical bars, histograms and boxplots: `grey90` fill, `grey40` outline; suppress
+  boxplot outliers when the raw observations are drawn.
+- Fitted distributions and curves: Okabe–Ito vermillion (`#D55E00`), usually
+  `linewidth = 0.8`; the same colour with `alpha = 0.2` for a confidence band. Keep
+  different point, line and fill geometries so that figures work in greyscale.
+- A figure that reports a fitted response shows raw data, fitted curve and uncertainty
+  together where legible, and states the model and the meaning of the uncertainty in the
+  caption or text. A model-reporting example adds a compact inset or table with the
+  formula, estimates and confidence intervals.
+- Transform an axis only when it helps interpretation; state it and keep the units.
 
-Use a restrained, consistent palette:
+**Plots inside exercises** (practicals from Chapter 2 onward, student page and solutions,
+including worked exercises, and the `Practice` callouts of theory pages and supplements)
+use simple base R graphics, so that students do not spend their time on visualisation.
 
-- Plot raw observations in Okabe–Ito blue (`#0072B2`), normally with `alpha = 0.7`
-  and `size = 2`; use jitter only when overlapping observations would conceal the
-  data.
-- Use `grey90` fills and `grey40` outlines for empirical bars, histograms, and
-  boxplots. Suppress boxplot outliers when the raw observations are already drawn.
-- Draw fitted distributions and response curves in Okabe–Ito vermillion (`#D55E00`),
-  usually with `linewidth = 0.8`. Use the same vermillion confidence band with
-  `alpha = 0.2` when showing uncertainty in a fitted mean response. These colours
-  are distinguishable under common red–green colour-vision deficiencies; retain
-  different point, line, and fill geometries so figures also work in greyscale.
-
-For a figure that reports a fitted ecological response, show the raw data, fitted
-curve, and uncertainty together where this remains legible. State the model and
-the meaning of its uncertainty in the caption or surrounding text. When a figure
-is intended as a model-reporting example, include a compact inset or accompanying
-table giving the model formula, parameter estimates, and confidence intervals.
-Transform axes only when this makes the relationship or model easier to interpret;
-state the transformation and keep units in the axis labels.
-
-### Plots inside exercises
-
-Plots that students draw, or that a solution draws for them, use simple base R
-graphics. This is an author decision: the exercises are about the model and its
-interpretation, and students should not spend their time on visualisation. It
-applies to the practicals from Chapter 2 onward (the student page and the solution
-page, including the worked exercises) and to the `Practice` callouts of theory pages
-and supplements.
-
-- Use the functions taught in the Chapter 1 practical: `plot()`, `hist()`,
-  `barplot()`, `curve()`, `lines()`, `points()`, `abline()`, `legend()` and
-  `contour()`. Do not load `ggplot2` or `patchwork` in a practical.
-- Keep a plot to a few lines: one call that draws, at most a few that add to it,
-  with axis labels and units. Leave out themes, custom palettes, annotations and
+- Only the functions of the Chapter 1 practical: `plot()`, `hist()`, `barplot()`,
+  `curve()`, `lines()`, `points()`, `abline()`, `legend()`, `contour()`. Do not load
+  `ggplot2` or `patchwork` in a practical.
+- A few lines per plot, with axis labels and units; no themes, palettes, annotations or
   multi-panel layouts unless the question asks for them.
-- Distinguish series by line type or symbol (`lty`, `pch`) and add a short
-  `legend()` when there is more than one. Colour is optional; where a colour marks
-  the fitted model, use the vermillion of the author's figures (`"#D55E00"`).
-- The code of an exercise plot is shown (it is part of the solution), whereas the
-  code of an author's figure is usually hidden with `#| echo: false`.
+- Distinguish series by `lty` or `pch` with a short `legend()`. Colour is optional; the
+  fitted model may use `"#D55E00"`.
+- The code is shown, because it is part of the solution.
 
-A theory page may also show a short base R call when it teaches a tool that students
-will use in the exercises (`curve()` for a quick look at a function, `contour()` for
-a matrix of log-likelihoods, candidate curves over the data to read starting values).
-The figure that the text then refers to is drawn with `ggplot2`.
+The Chapter 1 practical teaches both systems and keeps both. A theory page may show a
+short base R call when it teaches a tool that students use in the exercises (`curve()`,
+`contour()`, candidate curves over the data); the figure that the text refers to is then
+drawn with `ggplot2`. Students may use either system in their own work.
 
-### General advice
-
-Choose simple, legible figures that answer the question in the text. Use captions
-for rendered theory figures and legends for multiple series. Where practical,
-distinguish series by line type or symbol as well as colour. Restore graphics
-settings after changing them with `par()`.
-
-Retain unrounded values for subsequent calculations and round for presentation.
-Check any numerical result quoted in prose against the actual code and seed.
-Explain what the result means for the ecological question, and distinguish what
-the calculation shows from what the assumed model cannot establish.
+Keep unrounded values for later calculations and round for presentation. Check every
+number quoted in prose against the code and the seed. Say what the result means for the
+ecological question, and separate what the calculation shows from what the model cannot
+establish.
