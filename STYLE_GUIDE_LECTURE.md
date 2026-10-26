@@ -2,41 +2,52 @@
 
 This guide records the conventions of the Chapter 1 lecture
 (`Chapter_1/Lecture/`) so that the lectures of later chapters look and work the same.
-It covers structure, slide content, speaker notes, incremental building, styling and
-files. Prose, notation, British English, units and R conventions come from
-`STYLE_GUIDE.md` and apply to slides and notes alike; they are not repeated here. The
-Chapter 1 lecture is a generated draft awaiting the author's review (`AGENTS.md`), so
-use it as a model of format and never of voice.
+It covers files, structure, slide content, the script, incremental building and styling.
+Prose, notation, British English, units and R conventions come from `STYLE_GUIDE.md` and
+apply to slides and script alike; they are not repeated here. The author revised the
+Chapter 1 slides on 26 October 2026 (shorter text, notes moved out of the slides), so the
+slides are the reference for format and amount of text. The script is generated text that
+the author edited and is never a model of voice (`AGENTS.md`).
 
 ## Files of a lecture
 
 Each lecture lives in `Chapter_N/Lecture/`:
 
-- `lecture.qmd`: the slides (Reveal.js), with speaker notes in each slide.
-- `lecture-script.md`: the same slide text and notes as a readable script, with a
-  timing table. Slides and script carry the same text and are changed together.
-- `lecture-README.md`: how to render, which assets are copies of what, and what the
-  figures show.
+- `lecture.qmd`: the slides (Reveal.js). They carry no speaker notes: the lecturer
+  speaks from the script.
+- `lecture-script.md`: what to say, slide by slide, with the timing table and the
+  provenance of the figures (see "The script").
+- `lecture-script.pdf`: a printout of the script for the lecturer. Generated (Typst);
+  regenerate it after changing the script and never edit it.
 - `lecture.scss`: presentation styling. Copy the Chapter 1 file and keep the class names
   below; do not restyle per lecture.
 - `lecture-assets/`: figures made for the slides (schematics as SVG, copies of chapter
   figures as PNG). Copies of figures from the chapter are unchanged; their code and
   data provenance stay in the chapter's `Theory.qmd`. Refresh copies when the original
-  changes and say so in the README.
-- `lecture.html` is generated (`quarto render Chapter_N/Lecture/lecture.qmd --to
-  revealjs`, from the repository root); never edit it.
+  changes and say so in the script. The author's own diagrams (`ModelCycle.png`,
+  `Estimation.png` in Chapter 1) sit next to `lecture.qmd` and are never edited.
+- `lecture.html` and `.quarto/` are generated (`quarto render
+  Chapter_N/Lecture/lecture.qmd --to revealjs`, from the repository root); never edit
+  them.
+
+There is no separate README: how to render is stated above, and the script says which
+slides use which figure.
 
 ## Size and timing
 
-- Every slide has `data-timing="<seconds>"` (for the speaker view's timer) and, in its
-  notes, a first line **Timing: N minutes · A–B minutes from the start.** The script
-  has the same table (slide, topic, minutes, elapsed time) and ends with the slack row
-  and the total.
-- Time goes to what students must understand: 1 to 2 minutes for title, overview and
-  roadmap slides, 3 to 4 for slides with a figure, an activity or a discussion.
-- The notes of the last slide include "Adjustments during delivery": which slides to
-  shorten first when discussion overruns, which explanations to keep, and where a break
-  fits.
+- Every slide has `data-timing="<seconds>"` (for the speaker view's timer). The slides
+  show no times and have no notes; the script has the table with minutes and elapsed
+  time.
+- **The author sets the length of each lecture** when asking for it (Chapter 1: 60
+  minutes). Never assume a length from an earlier lecture: if the request does not give
+  one, ask before planning slides.
+- Plan the slides to fill the length minus a few minutes of slack for discussion (Chapter
+  1: about 57 minutes of slides and 3 of slack), which appears as its own row of the
+  table. The number of slides follows from the time and not the other way round.
+- Time goes to what students must understand; the Chapter 1 allocation is a guide for
+  proportions: 1 minute for the title and overview
+  slides, 2 for the roadmap slides and the slide that opens the argument, 3 to 4 for
+  slides with a figure, an activity or a discussion.
 
 ## Front matter
 
@@ -44,43 +55,61 @@ Use the Chapter 1 settings: `revealjs` with `theme: [simple, lecture.scss]`,
 `embed-resources: true`, `slide-level: 2`, 1440 × 900, `margin: 0.06`, `center: false`,
 `transition: fade`, `slide-number: c/t`, `navigation-mode: linear`, `hash: true`,
 `history: false`, `incremental: false` (build lists with the classes below, not
-globally), `default-timing: 180`, `show-notes: false`, a footer
-"Ecological modelling and data analysis · Chapter N", `toc: false` and
-`number-sections: false`. `pagetitle` names the chapter.
+globally), `default-timing: 180`, `show-notes: false`, `toc: false` and
+`number-sections: false`. The course name is written in title case, as a title, in
+`pagetitle` ("Chapter N — Ecological Models and Data Analysis"), on the title slide and in
+the footer ("Ecological Models and Data Analysis · Chapter N"). Every other slide title
+is in sentence case.
 
 ## Slide sequence
 
-1. **Title slide:** class `.lecture-title`; a `.subtitle` ("Chapter N · Lecture") and an
-   `.eyebrow` (the course name).
+1. **Title slide:** class `.lecture-title`; the `##` title is the course name, then a
+   `.subtitle` ("Chapter N · Lecture") and an `.eyebrow` with the subject of the chapter
+   ("Introduction and Course Overview").
 2. **Overview of the lecture:** a numbered list of the parts, each a bold keyword and a
-   question ("**Variation:** why do we need probability?").
+   question ("**Estimates and uncertainty:** what can we learn from data?"), in the order
+   of delivery.
 3. The content slides, in the order of the chapter, built on one running example that
-   returns across slides (Chapter 1: the feeding response of a predator).
-4. Roadmap slides when the chapter points forward (tables, at most four or five rows per
-   slide).
-5. **Summary and closing questions** (class `.closing`): a list of the take-home points,
-   a `.takeaway` that strings the key terms, and an `.activity` with the closing
-   questions.
+   returns across slides (Chapter 1: the feeding response of a predator). A lecture may
+   open with a slide that states the problem of the chapter and what it offers, and may
+   show an organising figure early as a map (Chapter 1: the modelling cycle). The summary
+   returns to that figure by speaking about it again, without a new slide.
+4. Roadmap slides when the chapter points forward: tables of at most four rows per
+   slide, titled "Course roadmap: A to B".
+5. **Practical slide** when a practical accompanies the lecture: what it covers, as
+   bold keywords, and a `.takeaway` on how to work with it.
+6. **Summary and closing questions** (class `.closing`): the take-home points, a
+   `.takeaway` that strings the key terms, and an `.activity` with the closing
+   questions as a numbered list.
 
 ## Content of a slide
 
 Slides carry keywords and very short sentences, for students who do not know the course
-yet. The narrative lives in the speaker notes.
+yet. The narrative lives in the script.
 
 - `##` is the slide title, in sentence case, as a noun phrase or a short question
-  ("Parameter uncertainty", "Discussion: which source of variation?"). `###` heads a
-  block inside a slide (columns). No deeper levels.
+  ("Parameter uncertainty"). A discussion slide begins "Discussion: ..." ("Discussion:
+  which source of variation?"). `###` heads a block inside a slide (columns). No deeper
+  levels.
 - At most one idea per slide and roughly four short bullets. A bullet is a bold keyword
-  followed by a few words ("**Band:** uncertainty of the curve, not of the species."),
-  or a fragment of a sentence. No paragraphs on slides.
+  followed by a few words ("**Straight line:** keeps increasing."), or a fragment of a
+  sentence. No paragraphs on slides; a line of the lecture's overview or of a slide may
+  be a question.
+- Terms are written out. A short form ("Obs error", "Process var.") is acceptable only in
+  a list that compares terms defined on the previous slides, and never on the slide that
+  introduces them.
 - Slides do not name things that mean nothing to students yet (for example a package);
-  the notes name them when the moment comes.
+  the script names them when the moment comes.
 - Figures, not text, carry the content of a figure slide; the text beside it says how
-  to read it. Every image has `fig-alt` that describes what it shows, not just what it
-  is.
+  to read it (for a diagram, what the line styles mean). Every image has `fig-alt` that
+  describes what it shows, not just what it is. A `.caption` gives the meaning of colours,
+  bands and numbers in the figure in one short sentence.
 - Use the same terms as the chapter (observation error, process variation, parameter
   uncertainty; "model", not "theory"). Keep the provenance and caveats of data in the
-  notes, once.
+  script, once.
+- A chain of ideas may be written as a takeaway with arrows ("Questions $\rightarrow$
+  Models $\rightarrow$ Parameters $\rightarrow$ Answers"); a string of key terms is
+  separated by ` · `.
 
 ### Boxes
 
@@ -91,12 +120,12 @@ Four kinds of box, all fenced divs, each with a fixed role:
 | `.definition` | A bold term and its definition: "**Parameter:** a quantity that sets a feature of the model." |
 | `.example` | A short numerical or concrete case, inside a column or under a definition. |
 | `.takeaway` | The one sentence or string of keywords that the slide should leave behind. At most one per slide. |
-| `.activity` | A question for the students or a timed task ("**45 seconds:** discuss with a neighbour."). It states the time when the activity is timed. At most one per slide. |
+| `.activity` | A question for the students or a timed task ("**30 seconds:** discuss with a neighbour."). It states the time when the activity is timed. At most one per slide. |
 
 Place the `.takeaway` and `.activity` last on the slide. Other helpers: `.caption`
-(figure caption in small type, with the meaning of colours, bands and axes), `.columns`
-and `.column width="NN%"` for two columns (text and figure 60/40 or 62/38; two figures
-50/50), `.roadmap` on a slide with a table.
+(figure caption in small type), `.columns` and `.column width="NN%"` for two columns
+(two text columns 50/50; text and figure 56/44 to 65/35 with the figure in the larger
+column; two figures 50/50), `.roadmap` on a slide with a table.
 
 ### Slide classes for figures
 
@@ -104,11 +133,12 @@ Add the class to the slide title line, for example `## Title {.figure-slide
 data-timing="240"}`, and the class to the image:
 
 - `.schematic` (image class): a schematic in a 56 to 60% column.
-- `.two-plots`: two figures side by side, each with a heading and a one-line caption.
+- `.two-plots`: two figures side by side, each with a heading and a one-line description
+  of the model (the observations and the fitted model are explained once in the caption).
 - `.figure-slide`: a large figure in a 62 to 65% column with a short list beside it.
 - `.diagram-slide`: the author's own diagrams (`.cycle-diagram`, `.estimation-diagram`
-  on the image).
-- `.dense`, `.with-footline`: available for slides with more text or a footline.
+  on the image). The modelling cycle may stand alone with a caption.
+- `.dense`, `.with-footline`: for slides with more text or a footline; not used so far.
 
 ## Incremental building
 
@@ -116,53 +146,67 @@ Build with Reveal.js fragments, so that students read what the speaker is explai
 The more text or topics on a slide, the more steps.
 
 - **Lists:** wrap a list in `::: {.incremental}` so that its items appear one by one.
-  Applies to bullet and numbered lists of three or more items (overview, summary,
-  keyword lists). Inside a column, the wrapper goes inside the column div.
+  Applies to bullet and numbered lists (overview, summary, keyword lists, the list
+  beside a figure). Inside a column, the wrapper goes inside the column div.
 - **Columns:** each column of a two-column text slide is one fragment (wrap the
   heading and the text in `::: {.fragment}` inside the column, or put `.fragment` on
-  the column). A figure that is the subject of the slide is visible from the start.
+  the column div). On a `.two-plots` slide the first figure is visible from the start and
+  the second column is the fragment. A figure that is the subject of a figure slide is
+  visible from the start.
+- **Explanation beside a diagram:** the lines that say how to read it (for example what
+  solid and dashed arrows mean) are fragments.
 - **Takeaways and activities:** `::: {.takeaway .fragment}` and `::: {.activity
   .fragment}`, so that students think about the question before the answer or the
-  prompt appears. Exception: a timed discussion slide shows its `.activity` from the
-  start, because the task is what the slide is for.
+  prompt appears. Exception: a timed discussion slide shows its `.takeaway` (the labels
+  that students apply) and its `.activity` from the start, because the task is what the
+  slide is for.
 - **Paired boxes:** a `.definition` that follows a list or another definition is a
   fragment.
 - **Not built:** the title slide, a diagram that is walked through live with a pointer
-  (the cycle, the estimation figure), tables (a table cannot be built by row, and
-  roadmap tables are read as a whole), and slides with one short line.
-- Fragments change what is visible and never the text: slides and script stay
-  identical, and the script does not mention fragments.
+  (the cycle), tables (a table cannot be built by row, and roadmap tables are read as a
+  whole), and slides with one short line.
+- Fragments change what is visible and never the text; the script does not mention
+  them.
 
-## Speaker notes
+## The script
 
-Every slide ends with `::: {.notes}` holding, in this order (omit headings that do not
-apply):
+`lecture-script.md` is written for the lecturer to speak from. It has, in this order:
 
-1. **Timing:** as above.
-2. **Speaker notes:** the narrative, in full sentences, written for the lecturer to
-   speak. It follows the chapter, connects the slide to the neighbouring slides by
-   number ("slide 14 looks at that assumption") and to later chapters, states
-   caveats once and gives sources in full when the lecturer may cite them. The slide
-   leaves out what the notes explain.
-3. One delivery block, named for what it is: **Delivery**, **Figure discussion**,
-   **Figure walkthrough**, **Discussion**, **Short activity**, **Check for
-   understanding** or **Transition**. It tells the lecturer which question to ask,
-   what to point at, which answers to accept and how much time it takes ("included in
-   the three minutes").
-4. **Transition:** a sentence that leads to the next slide, where the link is not
-   obvious.
+1. A title (`# Chapter N lecture script: <title>`) and a short opening: that it is a draft
+   for the author's review, the target time set by the author, links to the chapter theory and the
+   practical, that the narrative is here and not on the slides, and which slides use which
+   figure (the author's diagrams, the schematics and the copies of chapter figures, with
+   their slide numbers).
+2. `## Timing and slide sequence`: a table (slide, topic, minutes, elapsed time) with a
+   row for the slack and a row for the total. The topics are the slide titles and the
+   minutes agree with `data-timing`.
+3. One section per slide, `## Slide N — Title`, in the order of the slides. A title and
+   an overview slide that are spoken together may share one section headed "Slides 1 and
+   2". Slide numbers in the script are the numbers of the rendered slides and are updated
+   when slides are added or removed.
+4. `## Adjustments during delivery`: which slides to shorten first when discussion
+   overruns and how much time that recovers, which explanations to keep, and where a
+   break fits.
 
-An activity slide gives its expected answers in the notes. A figure slide says what
-each element is, what the figure cannot show, and where the calculation is taught. Notes
-that mention slide numbers are updated when slides are added or removed, in the script
-and in the README.
+A section is the narrative in full sentences, which follows the chapter, connects the
+slide to the neighbouring slides by number ("slide 14 looks at that assumption") and to
+later chapters, states caveats once and gives sources in full when the lecturer may cite
+them. The slide leaves out what the narrative explains. There are no "On the slide" or
+"Speaker notes" headings and no timing line in a section: the table carries the times.
 
-## The script file
+After the narrative, one bold block named for what it is, where the slide needs it:
+**Delivery**, **Figure walkthrough**, **Figure discussion**, **Discussion**, **Short
+activity**, **Check for understanding** or **Transition**. It tells the lecturer which
+question to ask, what to point at, which answers to accept and how much time it takes
+("included in the four minutes"; "allow about two minutes"). An activity slide gives its
+expected answers ("Discussion and expected answers"). A figure slide says what each
+element is, what the figure cannot show, and where the calculation is taught. A
+**Transition** leads to the next slide where the link is not obvious; the last slide ends
+with a **Final transition** to the next chapter or the practical.
 
-`lecture-script.md` follows the slides one to one: a heading `## Slide N — Title`, then
-**On the slide** (the slide text), **Speaker notes** and the delivery block, with the
-timing table at the top. It states that it is a draft for the author's review, links the
-chapter theory and practical, and lists which figures come from where.
+Where the chapter has the author speaking in the first person, the script keeps the
+chapter's wording or leaves an optional note for the author to fill in; it never writes
+an anecdote or opinion on the author's behalf (`STYLE_GUIDE.md`).
 
 ## Styling
 
@@ -170,20 +214,26 @@ chapter theory and practical, and lists which figures come from where.
 (headings, bold, table headers), mid green `#52836a` (takeaway rule), light green
 `#f0f6f2` and `#dcece5` (box backgrounds, title rule), Okabe–Ito blue `#0072b2`
 (example rule, links) and vermillion `#d55e00` (activity rule), with `#263530` for body
-text and `#52605a` for captions and footer. Use `Segoe UI` at 36 px root size and left-aligned text; no
-animation beyond the fade transition and fragments. Figures on
-slides follow the figure rules of `STYLE_GUIDE.md` (raw observations blue, fitted
-models vermillion); schematics have no numerical scales and no fitted values.
+text and `#52605a` for captions and footer. Use `Segoe UI` at 36 px root size and
+left-aligned text; no animation beyond the fade transition and fragments. The title slide
+has its own rules (`.lecture-title`, `.subtitle`, `.eyebrow`). Figures on slides follow
+the figure rules of `STYLE_GUIDE.md` (raw observations blue, fitted models vermillion);
+schematics have no numerical scales and no fitted values.
 
 ## Checklist for a new lecture
 
-1. Title, overview, content, roadmap (if needed), summary with closing questions.
-2. Slides hold keywords and short bullets, one idea each; the narrative is in the notes.
-3. Boxes use the four classes; takeaway and activity come last, one of each at most.
-4. Lists and columns build with `.incremental` and `.fragment`; diagrams and tables do
+1. The author has given the length of the lecture (otherwise ask), and the timing table
+   adds up to it.
+2. Title, overview, content, roadmap (if needed), practical (if any), summary with
+   closing questions.
+3. Slides hold keywords and short bullets, one idea each; there are no notes in the
+   slides and the narrative is in the script.
+4. Boxes use the four classes; takeaway and activity come last, one of each at most.
+5. Lists and columns build with `.incremental` and `.fragment`; diagrams and tables do
    not.
-5. Every image has descriptive `fig-alt`; copies of chapter figures are unchanged and
-   listed in the README.
-6. Slide numbers in notes, script and README agree with the slide order.
-7. `lecture.qmd` and `lecture-script.md` carry the same text.
-8. Rendered with `quarto render`, and the claim of a render is made only if it ran.
+6. Every image has descriptive `fig-alt`; copies of chapter figures are unchanged and
+   listed in the script.
+7. Slide numbers, titles and times in the script agree with the slides and `data-timing`.
+8. The script has the timing table (with slack and total), one section per slide, a
+   delivery block where needed and the section on adjustments.
+9. Rendered with `quarto render`, and the claim of a render is made only if it ran.
