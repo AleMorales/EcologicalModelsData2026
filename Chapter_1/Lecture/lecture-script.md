@@ -1,19 +1,20 @@
 # Chapter 1 lecture script: Ecological models and data
 
-Draft for the course author's review. **Target: 60 minutes**, including the questions,
-figure discussions and short activities below. Course logistics sit outside this hour.
-The remaining hour of a two-hour session is available for your logistics, a break and
-further questions; no particular allocation of that remaining time is assumed.
+Draft for the course author's review. **Target: 60 minutes**: 57 minutes on 19 slides,
+including the questions, figure discussions and short activities below, and 3 minutes of
+slack for discussion. Course logistics sit outside this hour. The remaining hour of a
+two-hour session is available for your logistics, a break and further questions; no
+particular allocation of that remaining time is assumed.
 
-This script follows [Chapter 1 theory](Theory.qmd), with a short introduction to the
-[R practical](Practicals/material.qmd). It provides text to put on each slide and
-spoken notes to adapt to your delivery. The notes are a speaking guide: the time
-allocations include pointing to figures, taking answers and discussing them, rather
-than sixty minutes of continuous reading.
+This script follows [Chapter 1 theory](../Theory.qmd), with a short introduction to the
+[R practical](../Practicals/material.qmd). It has the same slide text and speaker notes
+as [`lecture.qmd`](lecture.qmd). The slides carry keywords only; the narrative is in the notes. The notes are a speaking guide: the time allocations
+include pointing to figures, taking answers and discussing them.
 
-Your two existing figures are used on slides 15 and 16. Three other slides suggest
-reusing figures already in Chapter 1, rather than making new analyses. No fitting
-code is needed for this lecture.
+Your two existing figures are used on slides 7 (`ModelCycle.png`) and 14
+(`Estimation.png`). Slides 9, 10 and 12 use PNG copies of figures of the chapter, kept in
+`lecture-assets/`, and slides 5 and 6 use the schematics `feeding-response.svg` and `model-components.svg`.
+No fitting code is needed for this lecture.
 
 ## Timing and slide sequence
 
@@ -22,836 +23,540 @@ where you place the logistics in the session.
 
 | Slide | Topic | Minutes | Elapsed time |
 |---|---|---:|---|
-| 1 | The purpose of the course | 2 | 0–2 |
-| 2 | Ecological questions | 3 | 2–5 |
-| 3 | A predator's feeding response | 3 | 5–8 |
-| 4 | The components of a statistical model | 3 | 8–11 |
-| 5 | Why probability matters | 2 | 11–13 |
-| 6 | Observation error | 3 | 13–16 |
-| 7 | Process variation | 3 | 16–19 |
-| 8 | Probability models for ecological observations | 4 | 19–23 |
-| 9 | Explaining some of the variation | 4 | 23–27 |
-| 10 | Parameters and estimates | 3 | 27–30 |
-| 11 | Parameter uncertainty | 4 | 30–34 |
-| 12 | Discussion: three sources of variation and uncertainty | 3 | 34–37 |
-| 13 | Other sources of uncertainty | 1 | 37–38 |
-| 14 | What we want from a statistical analysis | 3 | 38–41 |
-| 15 | The modelling cycle — existing figure | 4 | 41–45 |
-| 16 | Reality, model and data — existing figure | 4 | 45–49 |
-| 17 | Course roadmap: distributions to estimation | 3 | 49–52 |
-| 18 | Course roadmap: ecological response curves | 2 | 52–54 |
-| 19 | The Chapter 1 R practical | 3 | 54–57 |
-| 20 | Summary and closing questions | 3 | 57–60 |
+| 1 | Ecological models and data | 1 | 0–1 |
+| 2 | Overview of the lecture | 1 | 1–2 |
+| 3 | The problem and the purpose of the course | 2 | 2–4 |
+| 4 | Ecological questions | 3 | 4–7 |
+| 5 | A predator's feeding response | 4 | 7–11 |
+| 6 | The components of a statistical model | 3 | 11–14 |
+| 7 | The modelling cycle | 4 | 14–18 |
+| 8 | Observation error and process variation | 4 | 18–22 |
+| 9 | Probability models for ecological observations | 3 | 22–25 |
+| 10 | Explaining some of the variation | 4 | 25–29 |
+| 11 | Parameters and estimates | 3 | 29–32 |
+| 12 | Parameter uncertainty | 4 | 32–36 |
+| 13 | Discussion: which source of variation? | 3 | 36–39 |
+| 14 | Reality, model and data | 4 | 39–43 |
+| 15 | What we want from a statistical analysis | 4 | 43–47 |
+| 16 | Course roadmap: distributions to estimation | 2 | 47–49 |
+| 17 | Course roadmap: response curves to optimisation | 2 | 49–51 |
+| 18 | The Chapter 1 R practical | 3 | 51–54 |
+| 19 | Summary and closing questions | 3 | 54–57 |
+| | Slack for discussion | 3 | 57–60 |
+| | **Total** | **60** | |
 
-## Slide 1 — The purpose of the course
+## Slide 1 — Ecological models and data
 
-**On the slide**
+The lecture has five parts.
 
-**Ecological modelling and data analysis in R**
+First, the kind of question that the course wants to answer and what a model is
+(slides 3 to 6). We use one example throughout, the feeding rate of a predator.
 
-- Ecological knowledge helps us propose models.
-- Probability describes variation in observations.
-- Data help us estimate, compare and check those models.
-- The aim is an answer to an ecological question.
+Second, the modeling cycle, how do we organize our work (slide 7 & 15).
 
-**Speaker notes**
+Third, why observations vary and why we describe that variation with probability
+(slides 8 to 10).
 
-In this chapter, we learn how to connect ecological questions, models and data.
-That connection is the purpose of the whole course.
+Fourth, what the parameters of a model are and why the values that we calculate from
+data are uncertain (slides 11 to 14).
 
-In ecology, we learn models of feeding, growth, survival and responses to the
-environment. In statistics, we learn methods for analysing data. Here we bring
-those two things together. We will use ecological knowledge to propose a model,
-use probability to describe the variation that it leaves unexplained, and use
-data to estimate its parameters.
+Fifth, the chapters of the course and the R practical of this week (slides 16 to 19).
 
-The result should tell us something about the ecological system: how a response
-changes, how large an effect is, or which of several explanations describes the
-data more adequately. We also need to say how uncertain that answer is.
+Today is an overview. You do not need to know how to fit any of the models that
+appear in the examples.
 
-We will build the tools gradually. Today is an overview of the reasoning, so you
-do not need to know how to fit any of the models that appear in the examples.
+## Slide 3 — The problem and the purpose of the course
+
+The purpose of this course is to learn how to use ecological models and statistics
+to answer ecological questions with data.
+
+We learn models in ecology courses: functional responses, growth curves, responses
+to the environment. They often stay theoretical. In experimental research statistics
+dominates, and the statistics that we learn first was developed for factorial
+experiments, linear responses and Normal distributions. Ecological variables do not
+respond linearly to their drivers, they do not follow Normal distributions, and a lot
+of our data do not come from a balanced factorial experiment, because things go wrong
+in the field or the design is not logistically possible.
+
+The proposal of the course is to combine both disciplines. We take the response
+functions of ecological modelling and the distributions that describe how ecological
+variables behave, and we combine them with the same statistical machinery that is
+behind the linear and generalised linear models.
+
+The course has two objectives. The first is to teach likelihood-based inference, in
+theory and in implementation, so that you understand better what tools like `glmmTMB`
+do with your data. The second is to teach how to build non-linear (mixed) models and
+how to apply to them the same type of analysis.
 
 **Delivery**
 
-Allow a brief show of hands: “Who has used an ecological model? Who has analysed
-ecological data?” Use the responses to gauge experience, without turning this
-into a discussion of software.
-
 Optional personal introduction: the chapter contains your account of reading
 Bolker's *Ecological Models and Data in R*. If you want to include it, substitute
-that account for part of these notes, keeping this slide within two minutes.
+that account for part of these notes and keep the slide within two minutes.
 
-## Slide 2 — Ecological questions
+## Slide 4 — Ecological questions
 
-**On the slide**
+The way we ask a question decides what we need from an analysis. “Does temperature
+affect development?” has a yes or no answer. “How does development change across the
+observed temperature range?” names the relationship that we have to describe, and
+asking for an optimum gives a reason to consider a curve that rises and then falls.
 
-| Starting question | A quantitative ecological question |
-|---|---|
-| Does temperature affect development? | How does development change with temperature, and is there an optimum? |
-| Does a treatment affect seedling survival? | How much does survival change, and what might that mean for recruitment? |
+In the same way, a treatment could change seedling survival by a small or a large
+amount, with different consequences for recruitment. We need the size of the change
+and its uncertainty.
 
-**Speaker notes**
+So in this course we give up null hypothesis testing as the main goal of an analysis,
+because the questions that we care about are quantitative. This does not mean
+abandoning linear models; slide 15 comes back to it.
 
-The way we ask a question affects what we need from an analysis. Asking whether
-temperature has an effect gives us a rather broad starting point. Asking how
-development changes across the observed temperature range tells us more clearly
-what relationship we need to describe. Asking whether there is an optimum also
-gives us a reason to consider a curve that can rise and then fall.
-
-Similarly, a treatment could change seedling survival by a small amount or a
-large amount. Those changes could have quite different ecological consequences.
-An analysis that estimates the change and its uncertainty gives us information
-we can use in thinking about recruitment.
-
-A useful habit throughout the course is to finish this sentence: “To answer my
-ecological question, I need to estimate…” That might be a survival probability,
-a maximum feeding rate, or a difference between groups.
+A useful habit is to finish this sentence: “To answer my ecological question, I need
+to estimate…” That might be a probability of survival, a maximum feeding rate or a
+difference between groups.
 
 **Short activity — included in the three minutes**
 
 Give students 30 seconds to suggest a more specific version of “Does food
-availability affect growth?” Take one or two answers. Possible answers include
-the increase in growth at low food availability, the maximum growth rate, or the
-food availability needed to reach a specified growth rate. Accept other answers
-that identify a quantity and a relevant range or comparison.
+availability affect growth?” Take one or two answers. Possible answers: the increase
+in growth at low food availability, the maximum growth rate, or the food availability
+needed to reach a given growth rate. Accept answers that identify a quantity and a
+range or comparison.
 
 **Transition**
 
 Let us use a feeding response to see how such a question guides a model.
 
-## Slide 3 — A predator's feeding response
+## Slide 5 — A predator's feeding response
 
-**On the slide**
+Imagine that we measure the feeding rate of a predator across a range of prey
+densities. We could ask whether prey density has a statistically significant effect.
+More useful questions are: how quickly does feeding increase when prey are scarce?
+Does it reach a maximum? What is that maximum, and how uncertain is the estimate?
 
-**Feeding rate in relation to prey density**
+A straight line might describe part of the observed range, but it cannot keep
+increasing forever. A predator has limited time to search for, capture and handle
+prey. A saturating response curve represents that constraint directly, and its
+parameters describe features of the system that we can discuss and compare among
+studies. Those comparisons only make sense when the model definitions, units,
+organisms and study conditions are similar enough.
 
-- How quickly does feeding increase when prey are scarce?
-- Does feeding rate approach a maximum?
-- What is that maximum, and how uncertain is it?
+We often know something about these shapes from theory, earlier experiments or from
+thinking about how organisms work. Convenience used to be a good reason to fit a
+straight line anyway, because more complicated models were difficult to fit. Modern
+computers remove that limit. The challenge now is whether the model represents the
+ecological relationship reasonably well and whether the data can inform its
+parameters.
 
-**Visual**
+Comparing the values of parameteres across sites, species, treatments or other factors
+is one way to answer ecological questions. Sometimes we will also compare different
+models that are derived from alternative hypothesis. This is how we do statistics when
+we do not have yes/no questions.
 
-Use a simple schematic of a saturating feeding response. Label the horizontal
-axis “Prey density” and the vertical axis “Feeding rate”. Mark the initial rise
-and the plateau. A straight line can be added for comparison. Label the graphic
-“Schematic”, and leave out numerical scales and fitted parameter values.
+## Slide 6 — The components of a statistical model
 
-**Speaker notes**
+A statistical model is a mathematical approximation to the process that produces our
+data. That process includes what happens ecologically and how we observe it.
 
-An ecological response function describes how a response changes with a driver.
-For example, we might describe feeding rate as a function of prey density.
+In the feeding example, one part of the model describes how expected feeding changes
+with prey density. This is a deterministic function, and we use deterministic
+functions to approximate the ecological process that we are most interested in. The
+other part describes the possible observations at each prey density: different
+predators eat different numbers of prey under the same conditions.
 
-At low prey density, a predator spends much of its time searching. As prey become
-more abundant, feeding can increase. But the predator also needs time to capture
-and handle prey, so there is a biological reason to consider a response that
-approaches a maximum.
-
-The shape of the function expresses that ecological idea. Its parameters can
-describe quantities such as the maximum feeding rate and the prey density at
-which feeding reaches half that maximum. We will learn how to analyse functions
-like this in Chapter 5 and fit them to observations in Chapter 6.
-
-A straight line might describe a restricted range of prey densities well. The
-choice depends on the question and the range of conditions we want to describe.
-
-**Figure discussion**
-
-Point to the rise and plateau. Ask: “Where would you want measurements if your
-main question was the maximum feeding rate?” Take an answer, then explain that
-data confined to the rising part of the curve may give little information about
-the plateau. This is an introduction to the connection between a question, a
-model parameter and the data needed to estimate it.
-
-## Slide 4 — The components of a statistical model
-
-**On the slide**
-
-**A model is a mathematical simplification of a data generating process.**
-
-For a fitted response curve, we combine:
-
-- A response function: how the expected response changes.
-- A probability distribution: how observations vary around that response.
-
-**Speaker notes**
-
-A statistical model is a mathematical approximation to the process that
-produces our data. That process includes what happens ecologically and how we
-observe it.
-
-For the feeding example, one part of the model describes how expected feeding
-changes with prey density. Another part describes the possible observations at
-each prey density. Different predators could consume different numbers of prey,
-even under the same experimental conditions.
-
-The response function and the probability distribution therefore do different
-jobs. The first describes a systematic relationship; the second describes the
-variation that remains. We need both if we want to fit a response curve and
-quantify uncertainty.
-
-Some questions only require a probability distribution, for example when we
-describe counts under one set of conditions. We begin with those simpler models
-before adding response functions and differences among groups.
+A statistical model needs at least one stochastic component, that is, a distribution.
+The response function is the part that we add when the question asks for it. Some
+questions need only distributions, for example the counts under one set of
+conditions, and a model can even be made of nested distributions. The course starts
+with those models and adds response functions and groups later.
 
 **Delivery**
 
-Return to the schematic on slide 3, or reveal a few illustrative points around
-the curve. Ask students to identify which component describes the curve and
-which describes the scatter. Keep this conceptual; distribution names and
-equations come later.
+The figure is the curve of slide 5 with hypothetical observations added: several
+predators at each of seven prey densities. Ask students which component describes
+the curve and which describes the scatter. Point to one prey density and note that
+the predators differ although the conditions are the same. Keep this conceptual;
+distribution names and equations come later.
 
-## Slide 5 — Why probability matters
+## Slide 7 — The modelling cycle
 
-**On the slide**
+This figure is the map of the course. Ecological modelling begins with a research
+question, but it does not move in a straight line from question to answer. Each
+result may send us back to the question, the data or the model.
 
-**Probability helps us describe:**
+The three boxes on the right are the three parts of the work, with the chapters
+where we learn each tool.
 
-- Observation error.
-- Process variation.
-- Uncertainty about parameters and predictions.
+Model: we express an ecological idea as a model that can generate the kind of data
+that we observe. We choose a probability distribution (Chapter 2), describe how its
+parameters change with continuous predictors (Chapters 5 and 6) and how they vary
+across groups such as location, species or treatment (Chapter 7).
 
-**Speaker notes**
+Estimation: given a model and data, we estimate the parameter values that make the
+model most compatible with the observations. Chapter 3 introduces estimates, their
+sampling variation and confidence intervals. Chapter 4 develops maximum likelihood,
+Chapter 8 deals with the technical difficulties of finding the optimum, and Chapter 7
+covers the marginal likelihood that hierarchical models need.
 
-For this course, we use probability as a tool for describing unexplained
-variation and the uncertainty that follows from it.
+Model comparison and answer: more than one model may be plausible. Chapter 4
+introduces the Akaike information criterion, AIC, to compare fitted candidate
+models. Chapter 6 adds other information criteria and cross-validation, checks how
+well the models describe the data and interprets the parameters in terms of the question.
+We compare fitted candidates; we do not assign probabilities to models.
 
-There are several reasons why our observations differ. We may record an
-ecological quantity imperfectly. Organisms and environments may differ in ways
-that our model does not explain. And because the data vary, the parameter values
-we estimate from them are uncertain.
+Estimation has not been explained yet. Every box gets its own slide in the next half
+hour, and the figure returns in the summary.
 
-These ideas are related, but it helps to distinguish them. An imperfect count,
-a difference between organisms, and uncertainty about an estimated mean are
-three different things. We will look at each in turn.
+**Figure walkthrough — included in the four minutes**
 
-The formal probability language comes in Chapter 2. Today we are establishing
-what we need that language for.
+Trace question, model, data, estimation and answer with a pointer, then the loop
+through model comparison. Ask: “Suppose our fitted curve still rises at the highest
+prey density that we measured. What might we revisit?” Accept extending the
+measurements, reconsidering the candidate functions, or restricting the claim to the
+observed range.
 
-## Slide 6 — Observation error
+## Slide 8 — Observation error and process variation
 
-**On the slide**
+We use probability as a tool to describe unexplained variation and the uncertainty
+that follows from it. There are three sources to keep apart: observation error,
+process variation and parameter uncertainty. This slide defines the first two;
+slides 11 and 12 take up the third.
 
-**Observation error:** a difference between what happens and what we record.
+Observation error is the difference between what happens and what we record. We may
+miss an individual or count it twice, instruments never give perfect readings, and
+protocols are not followed perfectly. In the hypothetical case, twenty insects are on
+the plant and we record sixteen. Observation error changes the data that we analyse
+and leaves the ecological reality as it was. How the observations are collected
+matters for the probability model, and repeated observations under the same
+conditions help to characterise the error.
 
-- Individuals missed or counted twice.
-- Instrument readings with limited precision.
-- Differences in how a protocol is carried out.
+Process variation, also called process error or stochasticity, is variation in the
+ecological reality that the deterministic part of the model does not explain. It is
+still there with perfect measurements. “Error” does not mean that somebody made a
+mistake. The slide lists four reasons: the environment and drivers that we did not
+measure, differences among individuals, chance in births and deaths, and nearby or
+repeated observations that resemble each other. The chapter adds the non-linear
+effects and interactions that a model simplifies away.
 
-**Speaker notes**
+Unexplained is not the same as random. Persi Diaconis of Stanford University built a
+model that predicts coin flips, provided that the initial conditions are measured
+accurately enough. Process variation is therefore relative to the model and to the
+information that we have.
 
-Observation error concerns the recording process. An animal can be present
-without being detected, a count can include the same individual twice, or an
-instrument can give a reading that differs from the quantity being measured.
-
-For a hypothetical example, suppose twenty insects are present on a plant but
-we record sixteen. The difference belongs to the observation process. The
-number actually present has not changed because we missed some insects.
-
-The protocol matters. A survey carried out for longer, with a different observer,
-or under different visibility conditions may have different observation error.
-So choosing a probability model involves thinking about how the observations
-were collected as well as what the numbers look like.
-
-Repeated observations of the same underlying situation can help us investigate
-measurement variation, provided that the situation itself stays sufficiently
-stable. The design determines what we can learn about the observation process.
-
-**Discussion**
-
-Ask for one example of observation error from students' own field or laboratory
-experience. Use it to identify the quantity of interest and the recording step
-where error could enter.
-
-## Slide 7 — Process variation
-
-**On the slide**
-
-**Process variation:** ecological variation left unexplained by the model.
-
-- Environmental differences and unmeasured drivers.
-- Differences among individuals.
-- Demographic events such as survival and reproduction.
-- Ecological relationships simplified by the model.
-
-It remains even with perfect observations.
-
-**Speaker notes**
-
-Process variation concerns the ecological system itself. Two plants can have
-different insect abundances even if we count both perfectly. They may differ in
-size, condition, exposure to predators or local environment.
-
-We call this process variation, or process error, when the model leaves those
-differences unexplained. The word “error” here does not mean that someone made
-a mistake. It describes a difference between what the model explains and what
-the system does.
-
-Some variation comes from chance events, such as whether an individual survives.
-Some comes from factors that could be measured or represented in a more detailed
-model. If we add an informative predictor, part of what was previously
-unexplained may become explained.
-
-That is why unexplained variation does not necessarily mean that a process is
-fundamentally unpredictable. It is variation relative to the information and
-model we currently have.
+A recorded value often reflects both sources. Simple models describe their combined
+variation with one distribution. When the data have groups, hierarchical models (also
+called mixed or multilevel models) can separate them, or at least estimate a good
+part of the process variation. That is Chapter 7.
 
 **Discussion**
 
-Ask: “If we counted every insect perfectly, would all plants have the same
-count?” Take a reason for the answer and relate it to one of the listed sources.
+Ask the question on the slide and take one reason for the answer. Relate it to one
+of the four items on the right.
 
-## Slide 8 — Probability models for ecological observations
+## Slide 9 — Probability models for ecological observations
 
-**On the slide**
+A probability distribution describes the possible values of an observation and how
+probability is allocated to them.
 
-**Different kinds of observations need different probability models.**
+The two panels show why we need several distributions. Insect counts are whole
+numbers that start at zero. Body mass is a positive continuous quantity, and here it
+is strongly skewed: many small values and a few much larger ones. The grey bars
+summarise the observations and the orange marks or curve show a fitted model, a
+Negative Binomial distribution on the left and a LogNormal on the right. We will
+seldom use the Normal distribution in this course.
 
-- Insect counts: discrete, non-negative values.
-- Animal body masses: positive continuous measurements.
-- The sampling and measurement procedures also matter.
+The vertical axes differ. For counts we assign a probability to each possible count.
+For a continuous measurement, probability is an area under a density curve over an
+interval. Chapter 2 develops that distinction.
 
-**Visual**
+**Figure discussion — included in the three minutes**
 
-Reuse the two-panel Chapter 1 figure labelled `fig-observation-error` in
-[Theory.qmd](Theory.qmd): pooled `InsectSprays` counts with a Negative Binomial
-model, and `Animals` body masses with a LogNormal model. Preserve the body-mass
-selection used in that figure (values no greater than 2000 kg). No fitting code
-or numerical parameter table is needed on this slide.
+Ask students to identify the observations and the model in each panel. Then ask:
+“Could an insect count be negative? Could it be 3.5?” A model should respect the
+possible values of the quantity that it describes. Do not start a detailed comparison
+of distributions.
 
-**Speaker notes**
+## Slide 10 — Explaining some of the variation
 
-A probability distribution describes the possible values of an observation
-and how probability is allocated to them.
+These are the insect counts of the previous slide. The plot now shows what the
+pooled plot hid: the plants were sprayed with different products.
 
-These two panels illustrate why we need several distributions. Insect counts
-are whole numbers starting at zero. Body mass is a positive continuous quantity,
-and in this example the observed values are strongly skewed: many are relatively
-small and a few are much larger.
+There is variation among the sprays and within each spray. The variation among
+sprays is process variation, because we do not expect our counts to have errors that
+depend on the spray: the sprays changed how many insects were on the plants.
 
-The grey bars summarise the observations. The coloured marks or curve show a
-fitted probability model. The distributions used here are called Negative
-Binomial and LogNormal. You will meet them in the course; there is no need to
-memorise their formulae today.
+“Explained” and “unexplained” always refer to a model. For the pooled model of the
+previous slide, the differences among sprays are unexplained process variation. For
+a model that includes spray, they are explained. The variation within each spray
+remains, and it contains process variation among plants and observation error. The
+figure cannot tell us how much there is of each.
 
-There is also a distinction between the panels' vertical axes. For counts we
-can assign probability to each possible count. For a continuous measurement,
-probability is represented by area under a density curve over an interval. We
-will develop that distinction in Chapter 2.
-
-These plots describe observed variation. A fitted distribution alone does not
-separate the contribution of measurement error from ecological differences.
-We need information about the study and its design to investigate that.
-
-**Figure discussion — allow about two minutes**
-
-Ask students to identify the observed values and the model description in each
-panel. Then ask: “Could an insect count be negative? Could it be 3.5?” Use the
-answers to explain that a model should respect the possible values of the
-quantity it describes. Avoid starting a detailed comparison of distributions.
-
-## Slide 9 — Explaining some of the variation
-
-**On the slide**
-
-**The same insect counts, with spray treatment revealed**
-
-- Pooled counts combine several treatments.
-- Treatment helps explain differences in counts.
-- Variation remains within each treatment.
-
-**Visual**
-
-Reuse Chapter 1's pooled and treatment-specific insect-count figure, labelled
-`fig-process-error`. Reveal “All data” first and then treatments A–F if convenient.
-
-**Speaker notes**
-
-An informative predictor can help explain variation that was previously
-unexplained. Here we return to the same insect counts, but now include a piece
-of information that was hidden in the previous plot: the spray treatment.
-
-Pooling all counts puts differences among treatments together with differences
-within treatments. Once we separate the groups, we can see that their typical
-counts differ. Treatment is therefore a candidate explanatory variable for a
-model of these observations.
-
-There is still variation within each treatment. That could include ecological
-differences among experimental units and observation error. The figure does
-not determine their separate contributions.
-
-This is the connection to more detailed models. We can describe how a response
-changes with a predictor, or how parameters vary among groups, while retaining
-a probability distribution for the remaining variation.
+This is how the models of the course grow: we describe how a response changes with
+a predictor (Chapter 6) or how parameters vary among groups (Chapter 7), and we keep
+a probability distribution for the variation that remains.
 
 **Figure discussion — allow about two minutes**
 
-Ask: “What information do we lose when we put every count in one group?” Then
-ask: “What variation remains after we account for treatment?” Point to the
-between-group pattern and within-group spread as students answer. Describe
-the visible differences without making a new significance claim.
+Ask the question on the slide. If there is time, ask: “What variation remains after
+we account for spray?” Point to the differences among groups and to the spread
+within each group. Describe what is visible without making a significance claim.
 
 **Transition**
 
 Once we propose a model, we still have to determine its parameter values.
 
-## Slide 10 — Parameters and estimates
-
-**On the slide**
-
-**Parameter:** a quantity that determines a feature of the model.
-
-Examples:
-
-- A mean count.
-- A probability of survival.
-- A maximum feeding rate.
-
-**Estimate:** a value calculated from the observed data.
-
-**Speaker notes**
+## Slide 11 — Parameters and estimates
 
 A parameter is a quantity that determines a feature of the model. A model for
-survival may have a parameter describing the probability of survival. A feeding
-response may have a parameter describing its maximum rate. A probability model
-may also have parameters that describe how much observations vary.
+survival has a parameter for the probability of survival. A feeding response has a
+parameter for its maximum rate. A distribution also has parameters that describe how
+much the observations vary.
 
-Once we choose the model, we use data to estimate those quantities. The model
-parameter and the estimate play different roles: the parameter belongs to the
-mathematical model, while the estimate is the value we obtain by applying an
-estimation procedure to the observations.
+The parameter belongs to the model. The estimate is the value that we obtain when we
+apply an estimation procedure to the observations, and a different procedure can
+give a different value. To estimate, we treat the data as if they were a random
+sample from the model; slide 14 looks at that assumption.
 
-Another sample from the same study design would generally give a different
-estimate. That is the reason we need to study estimation procedures and
-quantify uncertainty, rather than report a fitted value alone.
+Another sample from the same study design would give a different estimate. This is
+the third source, parameter uncertainty, and it is the reason why we report more
+than a fitted value.
 
-In Chapter 3 we introduce that reasoning through samples and repeated
-hypothetical experiments. Chapter 4 develops maximum likelihood, the estimation
-method used through the rest of the course.
+Chapter 3 introduces this reasoning with samples and repeated hypothetical
+experiments. Chapter 4 develops maximum likelihood, the estimation method of the
+rest of the course.
 
 **Check for understanding**
 
-Point back to the feeding curve: “Which feature could be controlled by a
-parameter?” Take one answer, then ask what data would help estimate it.
+Point back to the feeding curve: “Which feature could be controlled by a parameter?”
+Take one answer, then ask what data would help to estimate it.
 
-## Slide 11 — Parameter uncertainty
+## Slide 12 — Parameter uncertainty
 
-**On the slide**
+The same model is compatible with different samples of data, because of the
+variation that the model does not explain. Turn this around: with the data fixed,
+several models are compatible with that sample, and each corresponds to different
+values of the parameters. That we do not know exactly which values to use is what we
+call uncertainty.
 
-**Parameter uncertainty arises because finite samples vary.**
+The points are the body mass and brain mass of 28 species of land animals, on
+logarithmic axes because the sizes cover a wide range. The line is a fitted
+saturating response and the band is an approximate 95% confidence interval around
+the fitted mean response. The band is not where we expect individual species to lie.
+It shows that several similar curves are compatible with these data.
 
-- Several nearby parameter values can be compatible with the observations.
-- We report estimates with uncertainty.
-- Uncertainty about a mean response differs from variation among observations.
+Three of the 28 species are dinosaurs (*Diplodocus*, *Triceratops* and
+*Brachiosaurus*) with very large bodies and small brains. The levelling-off of the
+curve at large body masses comes from them.
 
-**Visual**
-
-Reuse the body-mass/brain-mass plot labelled `fig-parameter-uncertainty` in
-Chapter 1. Keep the axes and their logarithmic scales visible. Retain the model
-information if legible, but do not teach the fitting calculation or read out all
-the estimates. The points include all 28 species, including three dinosaurs.
-
-**Speaker notes**
-
-Parameter uncertainty concerns how precisely the data allow us to determine
-the quantities in our model. Because samples vary, several similar response
-curves may be compatible with one observed dataset.
-
-Here the points represent body mass and brain mass for different species. Both
-axes use logarithms because the measurements cover a wide range of sizes. The
-line describes the fitted mean response, and the shaded band shows approximate
-95% confidence intervals for that mean response at the displayed body masses.
-
-The spread of the points and the shaded band represent different things. The
-points show differences among observed species. The band represents uncertainty
-about the estimated mean relationship. We should not expect it to contain 95%
-of the individual species.
-
-There is an ecological qualification to this example: three of the species are
-dinosaurs with very large bodies and relatively small brains. They strongly
-influence the apparent levelling-off. Which organisms we include can affect
-the relationship we describe.
-
-We will use frequentist methods for uncertainty in this course. Their
-interpretation depends on what would happen across repeated hypothetical
-samples; Chapters 3 and 4 explain that in detail.
+There are two formal definitions of parameter uncertainty, the frequentist and the
+Bayesian. For large samples and simple models they differ little. For small data
+sets the Bayesian way can be superior, but it is sensitive to the prior assumptions
+that complement the data. We keep to the frequentist interpretation, with two things
+to remember: our statements of uncertainty are approximate when we have little data,
+and Bayesian methods are rising in popularity. The book is meant as a bridge to them.
 
 **Figure discussion — allow about two minutes**
 
-Ask: “What does a point represent? What does the line represent? What does
-the band represent?” Give students time to distinguish all three before
-continuing. Keep the discussion on interpretation rather than calculating
-confidence intervals.
+Ask: “What does a point represent? What does the line represent? What does the band
+represent?” Give students time to separate the three. Keep to interpretation; the
+calculation of confidence intervals comes in Chapters 3 and 4.
 
-## Slide 12 — Discussion: variation and uncertainty
+## Slide 13 — Discussion: which source of variation?
 
-**On the slide**
 
-**Which concept is illustrated in each case?**
+Case 1: the animals are the same and the records differ. This is observation error.
 
-1. Two observers record different counts of the same animals at the same moment.
-2. Perfect counts show different abundances on two plants with the same treatment.
-3. Repeating a study gives a different estimate of mean abundance.
+Case 2: say aloud that the model has only spray as a predictor; the slide leaves it
+out. The counts are the true ones, so nothing was recorded wrongly. Relative to that model the difference is process
+variation. It would become explained variation if we measured, say, plant size and
+added it to the model.
 
-Observation error · Process variation · Parameter uncertainty
+Case 3: what changes is the estimate from a study. This is parameter uncertainty.
+Each study may contain many observations; the variation here is among the estimates
+of repeated studies.
 
-**Activity — three minutes in total**
+All three occur in one analysis. We separate them to be clear about what a
+distribution or a statement of uncertainty describes.
 
-Give students 45 seconds to think or discuss with a neighbour. Spend about
-90 seconds taking answers, then use the remaining time for the explanation below.
+## Slide 14 — Reality, model and data
 
-**Speaker notes / answers**
+This figure zooms into the estimation box of the cycle. With the cycle on slide 7,
+it is one of the two figures of the chapter.
 
-In the first case, the underlying set of animals is the same. The difference
-is in what the observers record, so this illustrates observation error.
+The data generating process is everything in a study that can affect the data that
+we collect: the ecological processes, the experimental protocols and the measurement
+procedures. For the feeding experiment it includes encounters with prey, capture,
+handling, differences among predators and how feeding is recorded. The model is a
+mathematical approximation to that process, and its parameters give it the
+flexibility to match different possible processes.
 
-In the second case, perfect observation still leaves a difference between the
-plants. Relative to a model that only includes treatment, that is process
-variation. We might explain some of it by measuring additional plant or
-environmental characteristics.
+For the purpose of estimation we treat the data as if they were a random sample from
+the model. In reality they come from the data generating process and not from the
+model. We need the assumption to develop the statistical procedures: it links the
+parameter values to the data sets that we could have observed.
 
-In the third case, the quantity that changes is the estimate from a study.
-That illustrates why the estimated mean has uncertainty. Each study can contain
-many observations, but the variation here is between estimates from repeated
-studies.
+A parameter can be estimated with many procedures. Frequentist statistics studies
+how a procedure behaves across repeated hypothetical samples: whether the estimates
+are too high or too low on average (bias), how much they vary, and how often their
+intervals cover the parameter. Chapters 3 and 4 develop this.
 
-All three can occur in one analysis. We distinguish them so that we can be clear
-about what a probability distribution or an uncertainty statement describes.
-
-## Slide 13 — Other sources of uncertainty
-
-**On the slide**
-
-Wider modelling applications also involve uncertainty about:
-
-- Initial conditions and future environmental inputs.
-- Candidate models and future scenarios.
-- Numerical approximations.
-
-**This course focuses on observations, fitted response curves and their uncertainty.**
-
-**Speaker notes**
-
-There are other applications of probability in ecological modelling. We may be
-uncertain about the starting state of a system, future rainfall or which model
-to use. Alternative future scenarios and numerical approximations also affect
-predictions.
-
-These issues matter particularly when modelling change through time. This course
-focuses on analysing ecological observations and fitting response curves, so we
-will not develop dynamical or forecasting methods. We will compare candidate
-models and learn to describe uncertainty in the relationships we estimate.
-
-## Slide 14 — What we want from a statistical analysis
-
-**On the slide**
-
-**A useful ecological analysis asks:**
-
-- How large is the response, and what shape does it have?
-- How uncertain are the estimates?
-- Which plausible models describe the data more adequately?
-- Does the fitted model capture the features we need to explain?
-
-Linear, generalised linear and mixed models remain useful where they suit the question.
-
-**Speaker notes**
-
-Many of us first encounter statistics through linear models, analysis of variance
-and tests of whether a coefficient differs from zero. Those methods remain useful.
-The course gives us a way to make the ecological relationship and probability
-assumptions explicit, including when a familiar model is an appropriate choice.
-
-A p-value addresses a particular test under a set of assumptions. It does not
-give us the size of an effect, the shape of a response or the precision of an
-estimated ecological quantity. A large p-value can also occur when the data are
-too limited or variable to resolve a response clearly.
-
-For the feeding example, we want to estimate how the response rises and where it
-levels off. We then need uncertainty, a comparison with plausible alternatives,
-and checks of how adequately the model describes the observations.
-
-Modern numerical methods let us fit a wider range of models. Ecological judgement
-is still needed to decide which relationships are meaningful and whether the
-data contain enough information to estimate them.
-
-**Discussion**
-
-Ask: “If I tell you that prey density has a statistically significant effect,
-which of our questions about the feeding curve are still unanswered?” Refer to
-slide 3 and take two answers.
-
-## Slide 15 — The modelling cycle
-
-**On the slide**
-
-Use your existing **ecological modelling cycle** figure (`ModelCycle.png`).
-Let the figure occupy most of the slide. A short title is enough.
-
-**Speaker notes**
-
-This figure puts the ideas together. We begin with an ecological question and
-use what we know about the system to decide what data and models are relevant.
-
-Follow the cycle. We propose a model that can describe the observations, combine
-it with data to estimate parameters, and interpret the result in terms of the
-question. Often more than one model is plausible, so comparison is part of the
-analysis as well.
-
-For the feeding example, the question could be the maximum feeding rate. We need
-observations across suitable prey densities, a candidate response function, and
-a probability distribution for feeding observations. Fitting gives estimates
-and uncertainty. Comparison and checking help us judge how useful that
-description is.
-
-The arrows can lead us back. We may find that the data give little information
-about the maximum, that another response shape is plausible, or that a feature
-of the study needs to be represented in the model. The result can therefore
-change the next experiment or the next model we consider.
-
-The chapter numbers show where we develop the tools. We will return to that
-roadmap shortly; for now, follow the reasoning around the cycle.
-
-**Figure walkthrough — included in the four minutes**
-
-Trace the question, data, model, estimation and answer with a pointer. Then ask:
-“Suppose our fitted curve still rises at the highest prey density we measured.
-What might we revisit?” Accept extending the measurements, reconsidering the
-candidate functions, or narrowing the claim to the observed range. Explain that
-the appropriate response depends on the evidence and the ecological question.
-
-## Slide 16 — Reality, model and data
-
-**On the slide**
-
-Use your existing **relationship between reality, model and data** figure
-(`Estimation.png`). Preserve the distinction between solid and dashed arrows.
-
-**Speaker notes**
-
-This second figure looks more closely at estimation. The data generating process
-includes the ecological events, experimental procedures and measurements that
-produce the observations. Our model is a mathematical approximation to that
-process.
-
-For the feeding experiment, the real process includes prey encounters, capture,
-handling, differences among predators, and how feeding is recorded. The model
-retains the features that we think are relevant to the question and feasible
-to estimate from the data.
-
-To develop an estimation procedure, we treat the observations as if they were
-a random sample from the model. That assumption provides a mathematical link
-between parameter values and possible datasets. We can then use the observed
-sample to calculate estimates.
-
-We also ask how the procedure would behave across repeated hypothetical samples:
-whether estimates tend to be systematically high or low, how much they vary, and
-how well their intervals describe uncertainty. That is the frequentist reasoning
-developed in Chapters 3 and 4.
-
-Maximum likelihood is our main estimation method. Informally, it selects
-parameter values that make the observed data most compatible with the specified
-probability model. We will define that precisely when we reach Chapter 4.
+We use maximum likelihood, the most general procedure. Informally, it selects the
+parameter values that make the model most compatible with the observed data.
+Chapter 4 defines it.
 
 **Figure walkthrough**
 
-Follow the solid arrows, then the dashed arrows, using the actual labels in your
-figure. Explain that the dashed relationships are approximate statistical
-relationships assumed for estimation. Ask students where a missed insect or
-an imperfect instrument belongs in the diagram: it belongs in the real
-observation process that helps generate the data.
+Follow the solid arrows, then the dashed arrows, with the labels of the figure. Ask
+where a missed insect or an imperfect instrument belongs in the diagram: in the data
+generating process, which includes how we observe.
 
-## Slide 17 — Course roadmap: distributions to estimation
+## Slide 15 — What we want from a statistical analysis
 
-**On the slide**
+Most of us first learn statistics through linear models and ANOVA, and later perhaps
+generalised linear and mixed models. They are useful tools and you should not throw
+them away. But they are often taught as if the challenge were to choose the right
+formula, check a few assumptions and see whether a coefficient differs from zero.
+That is not always the question that we care about.
 
-| Chapter | Main question |
-|---|---|
-| 1. Ecological models and data | How do questions, models and data connect? R foundations in the practical. |
-| 2. Probability distributions | What observations can a model produce, and with what probabilities? |
-| 3. From samples to estimates | What can a finite sample tell us, and how do estimates vary? |
-| 4. Maximum likelihood estimation | How do we estimate parameters, quantify uncertainty and compare models? |
+A small p-value is rarely the end of an ecological analysis, or its main goal. A
+test against a zero effect does not tell us whether the effect is large enough to
+matter, what shape the response has or how precisely we know it. “Nothing happens”
+is often not even a plausible ecological model: we usually choose among several ways
+in which something might happen. And a large p-value often says more about the size
+of the experiment or survey than about the effect. For the debate, the chapter
+recommends Wasserstein, Schirm and Lazar (2019), “Moving to a world beyond
+‘p < 0.05’”, *The American Statistician* 73(sup1), 1–19.
 
-**Speaker notes**
+The approach of the course is to make the choices explicit: a response function, a
+probability model for the observations, estimates with uncertainty, a comparison of
+plausible candidates and a check of the fit. The aim is the simplest model that
+answers the question. If that is a linear model with Normal errors, we use it,
+because we choose to and not because we have to.
 
-The first part of the course develops the probability and estimation tools.
-Chapter 2 begins with distributions: what values an observation can take, how
-probabilities are described, and how to simulate observations. We use a Binomial
-model for seed survival and a Normal model for penguin measurements, alongside
-other ecological examples.
+Two limits of scope. Probability also describes uncertainty about initial
+conditions, inputs such as future rainfall, scenarios and numerical error. These
+matter for dynamical and forecasting models, which the course does not cover. And we
+compare candidate models without assigning probabilities to them.
 
-Chapter 3 changes the direction of the question. We have a sample and want to
-learn about unknown parameters. We investigate how samples and estimates vary
-and what that means for uncertainty.
+Stating the model, estimating with uncertainty and checking the fit are also useful
+habits when models inform decisions, although this course is about analysing data
+and not about forecasting.
 
-Chapter 4 introduces maximum likelihood. We write the probability model
-explicitly, estimate its parameters, calculate uncertainty and begin comparing
-candidate models with the Akaike information criterion, or AIC.
+**Discussion**
 
-The R tools are introduced as we need them. Probability calculations use RTMB
-and RTMBdist from Chapter 2, and fitting uses RTMB with numerical optimisation
-from Chapter 4. You do not need to understand those packages today.
+Ask: “If I tell you that prey density has a statistically significant effect, which
+of our questions about the feeding curve are still unanswered?” Refer to slide 5 and
+take two answers.
 
-**Delivery**
+## Slide 16 — Course roadmap: distributions to estimation
 
-Use one sentence per row first, then explain the change from generating possible
-observations in Chapter 2 to estimating unknown quantities in Chapters 3 and 4.
-Do not expand this into a list of every distribution or uncertainty method.
+One sentence per row.
 
-## Slide 18 — Course roadmap: ecological response curves
+Chapter 2: what values an observation can take and with what probabilities, with a
+Binomial model for seed survival and a Normal model for penguin flipper lengths.
 
-**On the slide**
+Chapter 3 changes the direction of the question: we have a sample and want to learn
+about unknown parameters, so we study how samples and estimates vary.
 
-| Chapter | Main question |
-|---|---|
-| 5. Deterministic functions in ecology | Which functions describe plausible ecological relationships? |
-| 6. Fitting ecological response curves | How do we combine functions and distributions, fit, compare and check models? |
-| 7. Grouped ecological response curves | How do we describe differences among groups and repeated observations? |
-| 8. Numerical optimisation | How do we diagnose and address difficult numerical fits? |
+Chapter 4: maximum likelihood, with the uncertainty of the estimates and a first
+comparison of models with AIC.
 
-**Speaker notes**
-
-Chapter 5 develops the ecological response functions. We study their shapes,
-the meaning and units of their parameters, and how ecological reasoning helps
-us choose candidates. That chapter studies the functions themselves; fitting
-them comes next.
-
-Chapter 6 brings those functions together with the probability distributions
-and estimation methods. We fit ecological response curves, compare candidates,
-check their fit and interpret their parameters and uncertainty.
-
-Chapter 7 extends the approach to groups and repeated observations. We learn
-how to describe shared relationships and variation among groups.
-
-Chapter 8 deals with the numerical difficulties that can arise when fitting
-models. It helps us understand and diagnose the searches that our fitting
-tools perform.
-
-The detailed roadmap in Chapter 1 is a reference you can return to as you work
-through the course. Today, the main connection to remember is that functions,
-probability distributions and data come together in a fitted ecological model.
-
-## Slide 19 — The Chapter 1 R practical
-
-**On the slide**
-
-**R skills we will use throughout the course**
-
-- Scripts and projects: keep an analysis reproducible and organised.
-- Vectors, matrices, lists and data frames: store and work with data and results.
-- Plots: inspect observations and model descriptions.
-- Functions and loops: express models and repeat calculations.
-
-**In the practical:** run the examples, attempt the exercises and explain the results.
-
-**Speaker notes**
-
-The Chapter 1 practical develops the R skills that make this workflow possible.
-R is the language we use for calculations, and RStudio helps us write and
-organise the work.
-
-We will store commands in scripts so that we can rerun an analysis. We will
-learn how to store observations, select and summarise data, and make plots.
-Writing functions lets us express a model or a calculation once and use it for
-different inputs. Loops let us repeat operations, which becomes useful when
-we simulate studies later in the course.
-
-Work through the tutorial in order and run the examples yourself. When you
-change a line, try to predict what will happen before you run it. If a result
-surprises you, that is something to investigate.
-
-The practical also includes package installation and finding help. AI can help
-explain a concept or debug a command, but use it in a way that develops your
-understanding. You should still be able to explain what your code does and what
-its result means ecologically.
+The R tools arrive when we need them: the distribution functions of the packages
+RTMB and RTMBdist from Chapter 2, and fitting with RTMB and `optim()` from Chapter 4.
 
 **Delivery**
 
-Open the practical briefly, or show a screenshot of its contents, to make clear
-where students will practise. Point out the sections on scripts, functions and
-exercises. Keep installation, schedules and assessment details in your logistics
-segment. A live coding demonstration is optional; it should replace part of
-this slide's three minutes rather than extend the lecture.
+Stress the change from Chapter 2 (known parameters, possible observations) to
+Chapters 3 and 4 (observed data, unknown parameters). Do not list every distribution
+or method.
 
-## Slide 20 — Summary and closing questions
+## Slide 17 — Course roadmap: response curves to optimisation
 
-**On the slide**
+One sentence per row.
 
-- An ecological question guides the model and the data we need.
-- Probability describes observation error and unexplained process variation.
-- Estimates need uncertainty and ecological interpretation.
-- Fitting, comparison and checking form an iterative modelling cycle.
+Chapter 5: the response functions themselves, their shapes and the meaning and units
+of their parameters, without fitting.
 
-**Closing questions**
+Chapter 6: functions, distributions and maximum likelihood together, in a complete
+analysis that fits, compares, checks and interprets.
 
-1. Why does a feeding response curve need a probability model for observations?
-2. How does variation among observations differ from uncertainty about a parameter?
+Chapter 7: groups and repeated observations, with hierarchical models.
 
-**Speaker notes**
+Chapter 8: how the numerical searches work and what to do when a fit is difficult.
 
-The course connects ecological knowledge with statistical analysis. We use a
-model to express a relationship and a probability distribution to describe
-variation in the observations. We then use data to estimate the parameters,
-describe their uncertainty, compare plausible alternatives and check the fit.
+The supplement on formula-based methods describes `glmmTMB`, which uses the same
+techniques as the course, with a formula that writes the likelihood for you. This
+closes the loop with the first objective of slide 3.
 
-Throughout that process, we return to the ecological question. An estimate
-becomes useful when we understand what it measures, its units, its uncertainty
-and how it helps answer that question.
+The detailed roadmap in the chapter is a reference to return to while you work
+through the course.
 
-Before we finish, let us check the two distinctions on the slide.
+## Slide 18 — The Chapter 1 R practical
+
+The Chapter 1 practical teaches the R skills that the rest of the course uses. R is
+the language for the calculations and RStudio helps us to write and organise the
+work.
+
+We store commands in scripts so that an analysis can be run again. We learn how to
+store observations, select and summarise data and make plots. Functions let us write
+a model or a calculation once and use it for different inputs. Loops repeat
+operations, which we need when we simulate studies later in the course.
+
+Work through the tutorial in order and run the examples yourself. When you change a
+line, predict what will happen before you run it.
+
+The practical also covers the installation of packages, finding help and the use of
+AI. You may use AI as a tutor: to translate the material, explain concepts, provide
+examples and fix bugs in your code. If it writes the solutions before you have
+tried, you will not learn the material. AI tools make mistakes and you are
+responsible for your work, so you must be able to explain what your code does and
+what its result means ecologically.
+
+**Delivery**
+
+Open the practical briefly, or show a screenshot of its contents, and point out the
+sections on scripts, functions and exercises. Keep installation, schedules and
+assessment for the logistics segment. A live demonstration is optional and replaces
+part of the three minutes of this slide.
+
+## Slide 19 — Summary and closing questions
+
+
+Go back to slide 7 and show the cycle again; no new slide is needed. We started from
+a question, expressed an ecological idea as a response function with a probability
+distribution, and saw what estimation assumes and why estimates are uncertain.
+Comparison and checking send us back around the cycle until the answer is useful for
+the question.
+
+An estimate is useful when we know what it measures, its units and its uncertainty.
+
+Return to this slide for the two closing questions.
 
 **Discussion and expected answers — allow about two minutes**
 
-For question 1: the curve describes an expected relationship, while observations
-at the same prey density can differ. A probability model represents that
-variation and provides the basis for estimation and uncertainty.
+Question 1: the curve describes the expected response, and observations at the same
+prey density differ. A probability model represents that variation, and estimation
+and uncertainty are built on it.
 
-For question 2: variation among observations concerns differences in the data,
-including process variation and observation error. Parameter uncertainty
-concerns how precisely a sample lets us determine a model quantity; repeated
-hypothetical studies generally produce different estimates.
+Question 2: variation among observations is in the data and contains process
+variation and observation error. Parameter uncertainty is about how precisely a
+sample determines a quantity of the model; repeated hypothetical studies give
+different estimates.
 
 **Final transition**
 
-The next step is to learn the R tools in the practical and the probability
-language in Chapter 2. Those are the foundations for writing and fitting the
-models that will answer our ecological questions.
+The next steps are the R tools of the practical and the probability language of
+Chapter 2.
 
 ## Adjustments during delivery
 
-If discussion runs long, keep the sequence but shorten slides 13, 17 and 18.
-Slide 13 can become one spoken sentence, and the two roadmap slides can be
-shown together with a brief explanation of the progression. This recovers
-roughly three minutes. Preserve the distinction between variation and parameter
-uncertainty and the explanation of the two modelling figures.
+The slides take 57 minutes and leave 3 minutes of slack for discussion. If
+discussion runs longer, use the slack first and then shorten slides 16 and 17 to one
+spoken sentence each, which recovers about three minutes. Keep the distinction
+between variation and parameter uncertainty and the explanation of the two figures
+(slides 7 and 14).
 
-If you prefer a break within the Chapter 1 content, place it after slide 12
-(37 minutes of content). The break is additional to the sixty-minute script.
+If you prefer a break within the Chapter 1 content, place it after slide 13
+(39 minutes of content). The break is additional to the hour.
 
-If time remains in the wider session, return to the feeding example and ask
-students to propose an experiment: what they would measure, which prey densities
-they would include, and what observation problems they would anticipate. This
-extends the modelling-cycle discussion without introducing a new method.
-
-## Source and preparation notes
-
-- Slides 1–4 and 14 draw on “Overview of the book” and “Why standard statistics
-  are not enough” in [Chapter 1 theory](Theory.qmd).
-- Slides 5–13 draw on “Why probability matters in ecological research” and its
-  subsections. The figure labels in slides 8, 9 and 11 identify the existing
-  figures to reuse from the rendered chapter. Their construction code is not
-  part of the lecture.
-- Slides 15–16 use your two existing figures and the accompanying modelling-cycle
-  explanation.
-- Slides 17–18 condense the course roadmap. Package timing follows the author's
-  7 October 2026 RTMB decisions in [AGENTS.md](../AGENTS.md), which supersede the
-  older software descriptions still present in the Chapter 1 roadmap.
-- Slide 19 draws on the learning outcomes and learning advice in the
-  [Chapter 1 practical](Practicals/material.qmd). It introduces that tutorial;
-  teaching all its programming content would require a separate practical session.
-
-Preparation requires your existing two figures, the three chapter figure
-displays described above (one has two panels), and optionally the schematic on
-slide 3. Suggested questions and hypothetical examples are teaching prompts,
-not new empirical results. The lecture is a draft and has not been marked as
-reviewed course material.
+If time remains in the wider session, return to the feeding example and ask students
+to propose an experiment: what they would measure, which prey densities they would
+include and which observation problems they expect.

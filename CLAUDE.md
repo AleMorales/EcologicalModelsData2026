@@ -17,6 +17,11 @@ Edit those files, not this one, when a convention changes.
   target page, its practical or theory counterpart, and `_quarto.yml` when the
   change touches navigation or layout. This is the "Read before working" step in
   `AGENTS.md`; it is not satisfied by the imports.
+- For lecture slides (`Chapter_N/Lecture/`: `lecture.qmd`, `lecture-script.md`,
+  `lecture-README.md`, `lecture.scss`), read `STYLE_GUIDE_LECTURE.md` first. It is not
+  imported above because it only matters for lectures. It covers slide format, speaker
+  notes, timing, incremental building and styling; prose, notation and R rules still come
+  from `STYLE_GUIDE.md`. Edit that file when a lecture convention changes.
 - Use Read, Edit, Grep and Glob for files. Do not edit generated HTML, cache
   files, or vendored extensions.
 - Run focused R or Quarto checks only when R and Quarto are available. Never
