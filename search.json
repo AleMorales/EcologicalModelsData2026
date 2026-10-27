@@ -37,7 +37,7 @@
     "href": "Supplements/canned.html#linear-models",
     "title": "Formula-based methods",
     "section": "5.1 Linear models",
-    "text": "5.1 Linear models\nA linear model describes independent Normal observations whose mean is a linear predictor. For a continuous predictor \\(x_i\\) and a two-level factor encoded as \\(z_i\\in\\{0,1\\}\\), we can write\n\\[\nY_i\\sim\\operatorname{Normal}(\\mu_i,\\sigma^2),\\qquad\n\\mu_i=a+b x_i+c z_i,\n\\]\nwhere \\(a\\) is the intercept for the reference level, \\(b\\) is the common slope, \\(c\\) is the difference between levels at the same value of \\(x_i\\), and \\(\\sigma^2\\) is the residual variance. The family gaussian(link = \"identity\") specifies this observation model.\nWe return to the Gentoo penguins of Chapters 2 and 3, now asking how expected body mass varies with flipper length and sex. The built-in penguins data require R 4.5.0 or later. We remove birds missing any of these three measurements and choose females as the reference level. Subtracting 217 mm from flipper length puts the intercept at a length within the observed range:\n\n# Select the Gentoo penguins.\ndata(penguins, package = \"datasets\")\ngentoo = penguins[penguins$species == \"Gentoo\", ]\n# Count incomplete records before excluding them.\nkeep = complete.cases(gentoo[, c(\"body_mass\", \"flipper_len\", \"sex\")])\nsum(!keep)\n\n[1] 5\n\ngentoo = gentoo[keep, ]\n# Make females the reference level and centre flipper length at 217 mm.\ngentoo$sex = relevel(factor(gentoo$sex), ref = \"female\")\ngentoo$flipper_mm = gentoo$flipper_len - 217\n\nThe formula requests a common slope and a difference between sexes. We fit the model and read its estimates and standard errors from the conditional coefficient table:\n\n# Normal linear model: a common slope and a difference between sexes.\npenguin_fit = glmmTMB(\n  body_mass ~ flipper_mm + sex,\n  data = gentoo,\n  family = gaussian(link = \"identity\")\n)\n# Estimates and standard errors of the coefficients.\nsummary(penguin_fit)$coefficients$cond[, c(\"Estimate\", \"Std. Error\")]\n\n             Estimate Std. Error\n(Intercept) 4780.6257  42.119209\nflipper_mm    23.4991   5.158875\nsexmale      597.5017  67.682242\n\n\nThe intercept is the estimated mean body mass (g) of a female with a flipper length of 217 mm. The slope gives the change in expected mass (g/mm), holding sex constant, and sexmale gives the male–female difference (g) at the same flipper length. The model treats birds as independent conditional on these predictors. Adding an interaction, flipper_mm * sex, would allow the slopes to differ between sexes.",
+    "text": "5.1 Linear models\nA linear model describes independent Normal observations whose mean is a linear predictor. For a continuous predictor \\(x_i\\) and a two-level factor encoded as \\(z_i\\in\\{0,1\\}\\), we can write\n\\[\nY_i\\sim\\operatorname{Normal}(\\mu_i,\\sigma^2),\\qquad\n\\mu_i=a+b x_i+c z_i,\n\\]\nwhere \\(a\\) is the intercept for the reference level, \\(b\\) is the common slope, \\(c\\) is the difference between levels at the same value of \\(x_i\\), and \\(\\sigma^2\\) is the residual variance. The family gaussian(link = \"identity\") specifies this observation model.\nWe return to the Gentoo penguins of Chapters 2 and 3, now asking how expected body mass varies with flipper length and sex. The built-in penguins data require R 4.5.0 or later. We remove birds missing any of these three measurements and choose females as the reference level. Subtracting 217 mm from flipper length puts the intercept at a length within the observed range:\n\n# Select the Gentoo penguins.\ndata(penguins, package = \"datasets\")\ngentoo = penguins[penguins$species == \"Gentoo\", ]\n# Count incomplete records before excluding them.\nkeep = complete.cases(gentoo[, c(\"body_mass\", \"flipper_len\", \"sex\")])\nsum(!keep)\n\n[1] 5\n\ngentoo = gentoo[keep, ]\n# Make females the reference level and centre flipper length at 217 mm.\ngentoo$sex = relevel(factor(gentoo$sex), ref = \"female\")\ngentoo$flipper_mm = gentoo$flipper_len - 217\n\nThe formula requests a common slope and a difference between sexes. We fit the model and read its estimates and standard errors from the conditional coefficient table:\n\n# Normal linear model: a common slope and a difference between sexes.\npenguin_fit = glmmTMB(\n  body_mass ~ flipper_mm + sex,\n  data = gentoo,\n  family = gaussian(link = \"identity\")\n)\n# Estimates and standard errors of the coefficients.\nsummary(penguin_fit)$coefficients$cond[, c(\"Estimate\", \"Std. Error\")]\n\n             Estimate Std. Error\n(Intercept) 4780.6257  42.119208\nflipper_mm    23.4991   5.158875\nsexmale      597.5017  67.682241\n\n\nThe intercept is the estimated mean body mass (g) of a female with a flipper length of 217 mm. The slope gives the change in expected mass (g/mm), holding sex constant, and sexmale gives the male–female difference (g) at the same flipper length. The model treats birds as independent conditional on these predictors. Adding an interaction, flipper_mm * sex, would allow the slopes to differ between sexes.",
     "crumbs": [
       "Supplements",
       "Formula-based methods"
@@ -81,7 +81,7 @@
     "href": "Supplements/canned.html#standard-errors-and-profile-likelihood-intervals",
     "title": "Formula-based methods",
     "section": "7.1 Standard errors and profile likelihood intervals",
-    "text": "7.1 Standard errors and profile likelihood intervals\nThe uncertainty calculations are those of Chapter 4. summary() reports approximate standard errors, and vcov(fit)$cond returns the covariance matrix of the conditional fixed-effect estimates. For intervals, confint() defaults to the Wald approximation; we request the reference method explicitly with method = \"profile\". The argument parm = \"beta_\" selects the fixed effects. For the penguins:\n\n# Wald intervals, then profile likelihood intervals, for the coefficients.\nconfint(penguin_fit, parm = \"beta_\", method = \"wald\")\n\n                 2.5 %     97.5 %  Estimate\n(Intercept) 4698.07360 4863.17786 4780.6257\nflipper_mm    13.38789   33.61031   23.4991\nsexmale      464.84696  730.15647  597.5017\n\nconfint(penguin_fit, parm = \"beta_\", method = \"profile\")\n\n                2.5 %     97.5 %\n(Intercept) 4697.3310 4863.84854\nflipper_mm    13.2970   33.69252\nsexmale      463.6531  731.23364\n\n\nFor mixed models, the profiles use the marginal likelihood. For example, we can profile the among-site standard deviation with parm = \"theta_\". This example has only a random intercept, so the profiled parameter is its log standard deviation. We transform the endpoints back, then square them to express the interval for the variance:\n\n# Profile likelihood interval of the log standard deviation among sites.\nsite_log_sd_interval = confint(\n  salamander_fit, parm = \"theta_\", method = \"profile\"\n)\n# Transform the endpoints to the variance.\nexp(site_log_sd_interval)^2\n\n                   2.5 %    97.5 %\ntheta_1|site.1 0.1062695 0.7617656\n\n\nThe scales returned for variance parameters depend on the interval method; see the interval documentation. As in Chapter 4, transforming interval endpoints is different from calculating the standard error of a transformed quantity.",
+    "text": "7.1 Standard errors and profile likelihood intervals\nThe uncertainty calculations are those of Chapter 4. summary() reports approximate standard errors, and vcov(fit)$cond returns the covariance matrix of the conditional fixed-effect estimates. For intervals, confint() defaults to the Wald approximation; we request the reference method explicitly with method = \"profile\". The argument parm = \"beta_\" selects the fixed effects. For the penguins:\n\n# Wald intervals, then profile likelihood intervals, for the coefficients.\nconfint(penguin_fit, parm = \"beta_\", method = \"wald\")\n\n                2.5 %     97.5 %  Estimate\n(Intercept) 4698.0736 4863.17786 4780.6257\nflipper_mm    13.3879   33.61031   23.4991\nsexmale      464.8469  730.15641  597.5017\n\nconfint(penguin_fit, parm = \"beta_\", method = \"profile\")\n\n                2.5 %     97.5 %\n(Intercept) 4697.3310 4863.84854\nflipper_mm    13.2970   33.69252\nsexmale      463.6531  731.23364\n\n\nFor mixed models, the profiles use the marginal likelihood. For example, we can profile the among-site standard deviation with parm = \"theta_\". This example has only a random intercept, so the profiled parameter is its log standard deviation. We transform the endpoints back, then square them to express the interval for the variance:\n\n# Profile likelihood interval of the log standard deviation among sites.\nsite_log_sd_interval = confint(\n  salamander_fit, parm = \"theta_\", method = \"profile\"\n)\n# Transform the endpoints to the variance.\nexp(site_log_sd_interval)^2\n\n                   2.5 %    97.5 %\ntheta_1|site.1 0.1062695 0.7617656\n\n\nThe scales returned for variance parameters depend on the interval method; see the interval documentation. As in Chapter 4, transforming interval endpoints is different from calculating the standard error of a transformed quantity.",
     "crumbs": [
       "Supplements",
       "Formula-based methods"
@@ -2225,7 +2225,7 @@
     "href": "Chapter_2/Lecture/lecture.html#probabilities-of-counts",
     "title": "Ecological Models and Data Analysis",
     "section": "Probabilities of counts",
-    "text": "Probabilities of counts\n\n\n\n\n\n\\(x\\)\n\\(P(X = x)\\)\n\n\n\n\n0\n0.05\n\n\n1\n0.15\n\n\n2\n0.30\n\n\n3\n0.30\n\n\n4\n0.20\n\n\n\n\n\\[\n\\sum_{\\forall x} P(X = x) = 1\n\\]\n\nAt least three seeds: \\(P(X \\geq 3) = 0.30 + 0.20 = 0.50\\)\n\n\n\nWhat is \\(P(X \\leq 1)\\)?",
+    "text": "Probabilities of counts\n\n\n\n\n\n\\(x\\)\n\\(P(X = x)\\)\n\n\n\n\n0\n0.05\n\n\n1\n0.15\n\n\n2\n0.30\n\n\n3\n0.30\n\n\n4\n0.20\n\n\n\n\n\n\nProbabilities between 0 and 1\nProbabilities add up to 1\nProbability set = sum of individual probabilities\n\n\n\nAt least three seeds: \\(P(X \\geq 3) = P(X = 3) + P(X = 4) = 0.50\\)\n\n\n\\[\n\\sum_{\\forall x} P(X = x) = 1\n\\]\n\n\n\nWhat is \\(P(X \\leq 1)\\)?",
     "crumbs": [
       "Slides",
       "Chapter 2"
@@ -2236,18 +2236,18 @@
     "href": "Chapter_2/Lecture/lecture.html#what-do-these-probabilities-mean",
     "title": "Ecological Models and Data Analysis",
     "section": "What do these probabilities mean?",
-    "text": "What do these probabilities mean?\n\n\n\nEpistemic\n\nHow certain are we about one prediction?\nKnowledge about the system.\n\n\n\n\nAleatoric\n\nRelative frequency across replications.\nMeasurement error, variation in ecological systems.\n\n\n\n\nThis course: probability as relative frequency (frequentist).",
+    "text": "What do these probabilities mean?\n\n\n\nAleatoric - Frequentist\n\nRelative frequency across replications.\nObservation error, process variation, parameter estimates.\n\n\n\n\nEpistemic - Bayesian\n\nHow certain are we about any unobserved value?\nPredictions, parameter estimates, latent variables.\n\n\n\n\nThis course: probability as relative frequency (frequentist).",
     "crumbs": [
       "Slides",
       "Chapter 2"
     ]
   },
   {
-    "objectID": "Chapter_2/Lecture/lecture.html#the-binomial-distribution",
-    "href": "Chapter_2/Lecture/lecture.html#the-binomial-distribution",
+    "objectID": "Chapter_2/Lecture/lecture.html#the-binomial-distribution---probability-mass",
+    "href": "Chapter_2/Lecture/lecture.html#the-binomial-distribution---probability-mass",
     "title": "Ecological Models and Data Analysis",
-    "section": "The Binomial distribution",
-    "text": "The Binomial distribution\n\\[\nP(X = x) = \\binom{n}{x} p^x (1 - p)^{n - x}\n\\]\n\nFixed number of events: \\(n\\) seeds.\nTwo values: survives (1) or not (0).\nSame probability: \\(p\\) for every seed.\n\n\n\\(n = 4\\), \\(p = 0.4\\): \\(P(X = 2) = 6 \\times 0.16 \\times 0.36 \\approx 0.35\\)",
+    "section": "The Binomial distribution - Probability mass",
+    "text": "The Binomial distribution - Probability mass\n\\[\nP(X = x) = \\binom{n}{x} p^x (1 - p)^{n - x}\n\\]\n\nMaximum number of items: \\(n\\) seeds.\nTwo outcomes per item: survives (1) or not (0).\nSame probability per item: \\(p\\) for every individual seed.\n\n\n\\(n = 4\\), \\(p = 0.4\\): \\(P(X = 2) = 6 \\times 0.16 \\times 0.36 \\approx 0.35\\)",
     "crumbs": [
       "Slides",
       "Chapter 2"
@@ -2258,7 +2258,7 @@
     "href": "Chapter_2/Lecture/lecture.html#the-four-faces-of-a-distribution",
     "title": "Ecological Models and Data Analysis",
     "section": "The four faces of a distribution",
-    "text": "The four faces of a distribution\n\n\n\n\n\nMass: \\(P(X = x)\\).\nCumulative probability: \\(P(X \\leq x)\\).\nQuantile: the inverse.\nRandom sampler: simulated data.\n\n\n\nVermillion: the model. Grey: 20 simulated quadrats. Dashed: the cutoff at 2 seeds.",
+    "text": "The four faces of a distribution\n\n\n\n\n\nMass: \\(P(X = x)\\).\nCumulative probability: \\(P(X \\leq x)\\).\nQuantile: the inverse of cumulative probability.\nRandom sampler: simulate possible samples.\n\n\n\nVermillion: the model. Grey: 20 simulated quadrats. Dashed: the cutoff at 2 seeds.",
     "crumbs": [
       "Slides",
       "Chapter 2"
@@ -2320,11 +2320,11 @@
     ]
   },
   {
-    "objectID": "Chapter_2/Lecture/lecture.html#the-normal-distribution",
-    "href": "Chapter_2/Lecture/lecture.html#the-normal-distribution",
+    "objectID": "Chapter_2/Lecture/lecture.html#the-normal-distribution---probability-density",
+    "href": "Chapter_2/Lecture/lecture.html#the-normal-distribution---probability-density",
     "title": "Ecological Models and Data Analysis",
-    "section": "The Normal distribution",
-    "text": "The Normal distribution\n\\[\nf_X(x) = \\frac{1}{\\sigma\\sqrt{2\\pi}} \\exp\\left[-\\frac{(x - \\mu)^2}{2\\sigma^2}\\right]\n\\]\n\n\\(\\mu\\): the mean, sets the centre.\n\\(\\sigma\\): the standard deviation, sets the spread.\n\n\nFlipper length: \\(\\mu = 217\\) mm, \\(\\sigma = 6.5\\) mm (rounded values that describe the 123 penguins).",
+    "section": "The Normal distribution - Probability density",
+    "text": "The Normal distribution - Probability density\n\\[\nf_X(x) = \\frac{1}{\\sigma\\sqrt{2\\pi}} \\exp\\left[-\\frac{(x - \\mu)^2}{2\\sigma^2}\\right]\n\\]\n\n\\(\\mu\\): the mean, sets the centre.\n\\(\\sigma\\): the standard deviation, sets the spread.\n\n\nFlipper length: \\(\\mu = 217\\) mm, \\(\\sigma = 6.5\\) mm (rounded values that describe the 123 penguins).",
     "crumbs": [
       "Slides",
       "Chapter 2"
@@ -2346,7 +2346,7 @@
     "href": "Chapter_2/Lecture/lecture.html#the-four-faces-of-the-normal-distribution",
     "title": "Ecological Models and Data Analysis",
     "section": "The four faces of the Normal distribution",
-    "text": "The four faces of the Normal distribution\n\n\n\n\n\nDensity: probability as area.\nCumulative probability: smooth.\nQuantile: the exact inverse.\nSample: the 123 measured penguins.\n\n\n\nVermillion: the model. Grey: the measured flipper lengths.",
+    "text": "The four faces of the Normal distribution\n\n\n\n\n\nDensity: probability as area.\nCumulative probability: smooth.\nQuantile: the inverse of cumulative probability.\nRandom sampler: simulate possible samples.\n\n\n\nVermillion: the model. Grey: the measured flipper lengths.",
     "crumbs": [
       "Slides",
       "Chapter 2"
@@ -2408,11 +2408,11 @@
     ]
   },
   {
-    "objectID": "Chapter_2/Lecture/lecture.html#the-joint-distribution-of-two-measurements",
-    "href": "Chapter_2/Lecture/lecture.html#the-joint-distribution-of-two-measurements",
+    "objectID": "Chapter_2/Lecture/lecture.html#continuous-joint-distribution",
+    "href": "Chapter_2/Lecture/lecture.html#continuous-joint-distribution",
     "title": "Ecological Models and Data Analysis",
-    "section": "The joint distribution of two measurements",
-    "text": "The joint distribution of two measurements\n\n\n\n\n\nContours: equal joint density.\nTilted: correlation 0.7.\nAbove both means: 0.25 if independent, about 0.37 here.\n\n\n\nBlue: the 123 penguins. Vermillion: contours of the model.",
+    "section": "Continuous joint distribution",
+    "text": "Continuous joint distribution\n\n\n\n\n\nContours: equal joint density.\nMultivariate distribution: marginal + dependence structure.\nParameters: mean, std devs, corr\nTilted: correlation of 0.7.\nProbability above mean: 0.25 if independent, about 0.37 here.\n\n\n\nBlue: the 123 penguins. Vermillion: contours of the model (Multivariate Normal).",
     "crumbs": [
       "Slides",
       "Chapter 2"
@@ -2423,7 +2423,7 @@
     "href": "Chapter_2/Lecture/lecture.html#independent-and-identically-distributed",
     "title": "Ecological Models and Data Analysis",
     "section": "Independent and identically distributed",
-    "text": "Independent and identically distributed\n\ni.i.d.: independent and identically distributed.\n\n\nIdentically distributed: the same distribution.\nIndependent: a separate assumption.\n\n\nTwo seeds with \\(p = 0.3\\): 0.49, 0.21, 0.21, 0.09.\n\n\nThe basis of estimation in Chapters 3 and 4.",
+    "text": "Independent and identically distributed\n\ni.i.d.: independent and identically distributed.\n\n\nIdentically distributed: the same distribution.\nIndependent: a separate assumption.\n\n\n\n\n\nTwo seeds\n\\(x_1 = 0\\)\n\\(x_1 = 1\\)\nMarginal \\(X_2\\)\n\n\n\n\n\\(x_2 = 0\\)\n\\(0.7 \\times 0.7 = 0.49\\)\n\\(0.7 \\times 0.3 = 0.21\\)\n0.7\n\n\n\\(x_2 = 1\\)\n\\(0.3 \\times 0.7 = 0.21\\)\n\\(0.3 \\times 0.3 = 0.09\\)\n0.3\n\n\nMarginal \\(X_1\\)\n0.7\n0.3\n1\n\n\n\n\n\nThe basis of estimation in Chapters 3 and 4.",
     "crumbs": [
       "Slides",
       "Chapter 2"
@@ -2456,7 +2456,7 @@
     "href": "Chapter_2/Lecture/lecture.html#variance-and-standard-deviation",
     "title": "Ecological Models and Data Analysis",
     "section": "Variance and standard deviation",
-    "text": "Variance and standard deviation\n\\[\n\\operatorname{Var}(X) = E[(X - E[X])^2]\n\\]\n\nVariance: the expected squared distance from the mean.\nStandard deviation: \\(\\sqrt{\\operatorname{Var}(X)}\\), in the units of \\(X\\).\n\n\nFlipper model: 42.25 mm², standard deviation 6.5 mm (the parameter \\(\\sigma\\)). Seed model: mean 1.6, variance 0.96 (not parameters).",
+    "text": "Variance and standard deviation\n\\[\n\\operatorname{Var}(X) = E[(X - E[X])^2]\n\\]\n\nVariance: the expected squared distance from the mean.\nStandard deviation: \\(\\sqrt{\\operatorname{Var}(X)}\\), in the units of \\(X\\).\n\n\nFlipper model: 42.25 mm², standard deviation 6.5 mm (the parameter \\(\\sigma\\)).\nSeed model: mean 1.6, variance 0.96 (not parameters).",
     "crumbs": [
       "Slides",
       "Chapter 2"
