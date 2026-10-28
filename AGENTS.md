@@ -330,6 +330,13 @@ glossary.
   figure of the Chapter 3 theory and the two starting-value figures of the Chapter 5
   theory (base R, `plot()` with `curve()`).
 - The glossary was updated for RTMB.
+- **Numbered practice callouts** (author's decision, issue 8): the `Practice` callouts of
+  the theory pages of Chapters 2 to 5 are numbered per page ("Practice 3"), so that
+  students' scripts and the lectures can refer to them; the chapter number is not shown
+  on the page and is added by hand when a reference must be unique across the book. The
+  supplements and Chapters 6 to 8 are not numbered yet. The Chapter 2 lecture (slides,
+  script and handoff) names the callouts by number; `lecture-script.pdf` was not
+  regenerated. The pattern is in `STYLE_GUIDE.md`.
 
 ## Teaching scope and progression
 
