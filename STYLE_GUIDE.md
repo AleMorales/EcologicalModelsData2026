@@ -383,6 +383,20 @@ result in plain words and never relies on a symbol or result that appears only i
 one. Inside the box the full rigour stays (statement, "where" clause, "In plain English"
 sentence).
 
+**`Practice` callouts on the theory pages of Chapters 2 to 5 are numbered by Quarto.**
+Each has an ID with the prefix `imp-` and a title without "Practice: ", because
+`_quarto.yml` sets the label of numbered important callouts to "Practice":
+
+```markdown
+:::: {#imp-orchid-fruit-set .callout-important title="orchid fruit set"}
+```
+
+The page shows "Practice 1: orchid fruit set"; the numbers restart on each page and
+follow the order of the callouts, so adding or removing one renumbers the rest. Refer to
+a callout in the text with `@imp-orchid-fruit-set`, which prints "Practice 1", and not by
+its title. Give the `imp-` prefix to no other callout, or it is numbered as a practice.
+The supplements and Chapters 6 to 8 keep unnumbered titles.
+
 Chapter 4 opens with a roadmap table after the learning goals (step, question, R tool,
 example) and closes with a "recipe" callout before the summary. Later theory chapters may
 copy both when the chapter is a sequence of steps that students carry out.
