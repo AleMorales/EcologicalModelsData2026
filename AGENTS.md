@@ -86,6 +86,7 @@ them. All dates are in 2026.
 | `Chapter_1/Lecture/` (`lecture.qmd`, `lecture-script.md`) | Generated draft of a 60-minute lecture on the chapter (19 slides). The author sets the length of each lecture; when a request does not give it, ask (see `STYLE_GUIDE_LECTURE.md`). The author revised the slides on 26 October (they are the reference for format and amount of text); the script awaits review. Slides carry keywords for students new to the course and no speaker notes; the narrative is only in the script (author's decision), so slide numbers, titles and times in the script are changed together with the slides. The README was removed. Never a model of voice |
 | `Chapter_2/Lecture/` | Generated draft: 90 minutes of slides (33 slides) plus 40 minutes of live demos from the chapter's code and `Practice` callouts, in three blocks with two breaks of 10 minutes (150 minutes). Slides and script await review. Never a model of voice |
 | `Chapter_3/Lecture/` | Generated draft: a session of 150 minutes with 34 slides (125 minutes, 5 of slack) in three blocks with two breaks of 10 minutes. No live demos (author's decision of 30 October, because the slides of the Chapter 2 lecture took longer than planned): the author decides during the lecture whether to run code, and the script lists the chunks that fit, all visible on the chapter and practical pages, with no typed code. Slides and script await review. Never a model of voice |
+| `Chapter_4/Lecture_1/`, `Chapter_4/Lecture_2/` | Planned on 30 October, not built: two lectures of 150 minutes each, one per part of the chapter. The plan and the author's decisions are in `Chapter_4/lecture-handoff.md` |
 | `Chapter_2/Theory.qmd` | Approved, then partly rewritten. **Primary reference for voice in technical chapters** (author's sections not rewritten): "Discrete probability distributions", the discrete parts of "Joint distributions" and "Expectations and central moments", "Choosing a distribution", and the parts of "Overdispersion" that were not rewritten. Drafts: see Chapter 2 below |
 | Chapter 2 practical | Approved. Exercises 1 (seedlings), 3 (`InsectSprays`) and 4 (Negative Binomial) are the author's work and the primary reference for exercises, worked reasoning and interpretation. Exercises 5 and 6 generated, then approved. Worked Exercise 2 is a draft |
 | `Chapter_3/Theory.qmd` | Approved, then rewritten: a draft. The opening `# Samples and distributions` was the author's text and is no longer a reference for voice |
@@ -168,6 +169,13 @@ another species of the data set of its theory (Chinstrap in Chapter 2, Adelie in
   and the solution reports the standard error of each simulated bias. Exercise 4 (mean
   body mass and coverage, LogNormal model): Wald intervals only; the $t$ interval appears
   only in a footnote of the theory. The solution page restates the tasks of each exercise.
+
+### Lectures
+
+From Chapter 3 onward lectures have no live demos (author's decision of 30 October); only
+the Chapter 2 lecture keeps them. Slides state the general definition, rule or property
+and then the result for the example, never the example alone (author's decision of 30
+October). The rules are in `STYLE_GUIDE_LECTURE.md`.
 
 ### `Supplements/distributions.qmd`
 
