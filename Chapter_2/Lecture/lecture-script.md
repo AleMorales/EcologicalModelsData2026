@@ -292,7 +292,7 @@ of a distribution" and run the chunks with me.
    sequence**, and that a **seed** sets its starting state. Run `set.seed(42)` followed
    by the `rbinom()` line twice, then the pair again: the same seed gives the same
    counts. Set the seed once at the start of a script or before a simulation.
-5. **Practice: orchid fruit set (5 minutes); by minute 7, start here.** Give students 2
+5. **Practice 1: orchid fruit set (5 minutes); by minute 7, start here.** Give students 2
    minutes to try questions 1 to 5 of the callout, then solve it live with the chunk of
    the solution. Point out the answers: the support is 0 to 6; `dbinom()` gives about
    0.23 and `pbinom()` about 0.89; the 0.75 quantile is 4, although the cumulative
@@ -303,7 +303,7 @@ of a distribution" and run the chunks with me.
 
 **If the demo runs late**
 
-Skip step 3 (the number was already shown on slide 7), and solve the orchid practice
+Skip step 3 (the number was already shown on slide 7), and solve Practice 1
 live without the student attempt.
 
 Break (10 minutes).
@@ -331,7 +331,7 @@ variation among penguins.
 
 **Short activity — included in the three minutes**
 
-Ask the question on the slide (the chapter's "Practice: measuring a flipper"). Expected
+Ask the question on the slide (the chapter's "Practice 2: measuring a flipper"). Expected
 answers: lengths between 220.5 mm and 221.5 mm are recorded as 221 mm; under a
 continuous distribution $P(X = 221) = 0$, but the interval from 220.5 to 221.5 mm has a
 positive probability. The next slide explains why.
@@ -478,8 +478,8 @@ We now run the continuous part of the chapter. Open the sections "Mass and densi
    `qnorm(p = 0.95, mean = 217, sd = 6.5)` (227.7 mm), which the chapter gives in the
    text. Point out that the first argument of `pnorm()` is a length and of `qnorm()` a
    probability.
-4. **Practice: measuring a flipper (1 minute).** Recall the answer from slide 12; no code.
-5. **Practice: a flipper length threshold (4 minutes); by minute 8, start here.** Give
+4. **Practice 2: measuring a flipper (1 minute).** Recall the answer from slide 12; no code.
+5. **Practice 3: a flipper length threshold (4 minutes); by minute 8, start here.** Give
    students 1 to 2 minutes to try it, then run the chunk of the solution. The probability
    of a length above 225 mm is approximately 0.109 (about 11%); the length that marks the
    lower 10% is approximately 208.7 mm. Ask students to say each result in words.
@@ -736,11 +736,11 @@ the salamanders. Open the sections "Expectations and central moments" and
 3. **The dispersion ratio (3 minutes); by minute 7, start here.** Run the two chunks of
    "A simple diagnostic for overdispersion": 48 counts, then the mean (2.21), the variance
    (4.98) and the ratio (about 2.3). Recall the caveat of slide 29 in one sentence.
-4. **Practice: fruit set on orchid plants (5 minutes); by minute 10, start here.** Give
+4. **Practice 4: fruit set on orchid plants (5 minutes); by minute 10, start here.** Give
    students 2 minutes to try it, then run the chunk of the solution: a mean of 9.6 and a
    variance of 3.84 fruits. For question 3, flowers on the same plant may share
    physiological conditions or pollinator visits.
-5. **Practice: variation in orchid stem counts (1 minute), if time allows.** The ratio is
+5. **Practice 5: variation in orchid stem counts (1 minute), if time allows.** The ratio is
    $12/3 = 4$: more variation than a Poisson model with the same mean, and the ratio
    alone cannot identify the cause.
 
@@ -813,7 +813,7 @@ overruns, use the slack first, then shorten in this order:
   numbers): about one and a half minutes.
 - Slide 31 to one sentence (Chapter 3 reverses the question): about one and a half
   minutes.
-- The second `Practice` callout of Demo 3 (orchid stem counts): one minute; the other
+- The second `Practice` callout of Demo 3 (Practice 5, orchid stem counts): one minute; the other
   demo cuts are listed in each demo section.
 
 Keep the explanations of mass against density (slides 13 and 15), independence as an

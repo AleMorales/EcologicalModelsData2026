@@ -104,9 +104,9 @@ script's table shows the two parts separately (see "Timing table").
 
 | Demo | Minutes | Chapter material, in this order |
 |---|---:|---|
-| 1. Discrete distributions | 12 | Loading RTMB and RTMBdist; the four `*binom()` calls of "The four faces of a distribution"; checking $P(X = 2)$ from slide 7 with `dbinom()`; `set.seed()` and `rbinom()` (pseudo-random numbers and seeds are explained here, from the chapter's two paragraphs); "Practice: orchid fruit set" |
-| 2. Continuous distributions | 12 | Loading `penguins` and keeping the Gentoo penguins; `dnorm()` at 217 mm, in mm and in cm ("Mass and density"); the `pnorm()` difference, `lower.tail = FALSE` and `qnorm()` ("The four faces of a continuous distribution"); "Practice: measuring a flipper" (brief) and "Practice: a flipper length threshold" |
-| 3. Expectations and overdispersion | 16 | Mean and variance of the seed model as weighted sums; `integrate()` for the mean and variance of the flipper model, with the reason for finite limits; the salamander counts and the dispersion ratio ("A simple diagnostic for overdispersion"); "Practice: fruit set on orchid plants" and, if time allows, "Practice: variation in orchid stem counts" |
+| 1. Discrete distributions | 12 | Loading RTMB and RTMBdist; the four `*binom()` calls of "The four faces of a distribution"; checking $P(X = 2)$ from slide 7 with `dbinom()`; `set.seed()` and `rbinom()` (pseudo-random numbers and seeds are explained here, from the chapter's two paragraphs); "Practice 1: orchid fruit set" |
+| 2. Continuous distributions | 12 | Loading `penguins` and keeping the Gentoo penguins; `dnorm()` at 217 mm, in mm and in cm ("Mass and density"); the `pnorm()` difference, `lower.tail = FALSE` and `qnorm()` ("The four faces of a continuous distribution"); "Practice 2: measuring a flipper" (brief) and "Practice 3: a flipper length threshold" |
+| 3. Expectations and overdispersion | 16 | Mean and variance of the seed model as weighted sums; `integrate()` for the mean and variance of the flipper model, with the reason for finite limits; the salamander counts and the dispersion ratio ("A simple diagnostic for overdispersion"); "Practice 4: fruit set on orchid plants" and, if time allows, "Practice 5: variation in orchid stem counts" |
 
 In the script, each demo section says which chunks to run and in which order, what to
 point out in the output, when to let students try a `Practice` callout first (1 to 2
@@ -227,7 +227,7 @@ follows the chapter section named in brackets.
 12. **Continuous random variables**: `.definition`; the 123 Gentoo penguins, flipper
     length in mm; infinitely many values between 217 and 218 mm; records rounded to the
     nearest mm. Activity (fragment): a flipper recorded as 221 mm: which lengths could it
-    be, and is $P(X = 221) > 0$? (Practice "measuring a flipper"; answers in the script.)
+    be, and is $P(X = 221) > 0$? (Practice 2, "measuring a flipper"; answers in the script.)
     Data provenance (Gorman, Williams and Fraser 2014; R 4.5.0) in the script only.
 13. **Probability density**: equation $P(a < X \leq b) = \int_a^b f_X(x)\,dx$; bullets:
     area under the curve; $f_X(x) \geq 0$ and total area 1; endpoints do not matter.
@@ -393,7 +393,7 @@ with these additions:
 - **Breaks:** after the sections of slides 11 and 19, a short line "Break (10 minutes)".
 - **Adjustments during delivery:** what to shorten first (for example slide 6 to one
   sentence, slide 23 merged into speech on slide 21, the second `Practice` callout of
-  Demo 3, slide 31 to one sentence), how much each recovers, and which explanations to
+  Demo 3 (Practice 5), slide 31 to one sentence), how much each recovers, and which explanations to
   keep (mass vs density, independence as an assumption, the dispersion ratio as
   description).
 

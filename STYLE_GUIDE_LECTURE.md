@@ -95,8 +95,9 @@ is in sentence case.
    and a `.demo` box that names the chapter sections to open ("**Follow along:**
    Chapter 2, *The four faces of a distribution*"). A demo uses the code chunks and
    `Practice` callouts of the chapter, not new scripts, and its instructions are only in
-   the script. A demo may end with the worked exercise of the practical page, run from
-   that page, when it joins the topics of the blocks; the `.demo` box then names it too.
+   the script. Slides, script and handoff name a `Practice` callout by its number on the
+   theory page and its title, as the page shows it: "Practice 1: orchid fruit set" in the
+   script, "Practice 1 (orchid fruit set)" in a task on a slide.
 5. Roadmap slides when the chapter points forward: tables of at most four rows per
    slide, titled "Course roadmap: A to B".
 6. **Practical slide** when a practical accompanies the lecture: what it covers, as
