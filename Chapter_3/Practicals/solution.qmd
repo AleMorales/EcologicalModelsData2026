@@ -186,7 +186,7 @@ with this model.
 
 With a single sample we cannot tell how far an estimate is from the parameter, because the
 parameter is unknown. To study the behaviour of an estimator we can simulate hypothetical
-experiments from a model whose parameters we know. Here we use the estimates from the
+samples from a model whose parameters we know. Here we use the estimates from the
 observed trees as the parameters of that model (a plug-in estimate, as for the standard
 error in [Standard errors](../Theory.qmd#sec-standard_errors)). The simulation then shows how the estimators would behave if
 the fitted model had generated the data. The results approximate the behaviour of the
@@ -196,9 +196,9 @@ to the parameters.
 1. Load the data with `data(trees, package = "datasets")`. Estimate $\mu$ by method of
    moments. Estimate $\sigma^2$ in two ways: as the variance of the empirical distribution
    (i.e. with $n$ in the denominator) and with `var()` (i.e., with $n-1$ in the denominator).
-2. Set seed 434 and simulate 2,000 hypothetical experiments, each with 31 trees from a Normal
+2. Set seed 434 and simulate 2,000 hypothetical samples, each of 31 trees from a Normal
    model whose mean and variance are the method-of-moments estimates of question 1. For each
-   experiment, calculate both variance estimates. Compare their average values and simulated
+   sample, calculate both variance estimates. Compare their average values and simulated
    biases with the variance that you used to simulate.
 3. Calculate the mean squared error of each variance estimator in the simulation. Does
    knowing which estimator is unbiased, by itself, tell you which has the smaller mean
@@ -240,18 +240,18 @@ closer to the unknown variance of the model.
 ### Question 2
 
 We now use the estimates of question 1 as the parameters of the model that generates the
-hypothetical experiments. In this simulation, the "true" mean is `mu_hat` and the "true"
+hypothetical samples. In this simulation, the "true" mean is `mu_hat` and the "true"
 variance is `variance_mm`, which is the value that the estimates are compared with. Note
 that `rnorm()` takes the standard deviation, so we pass the square root of the variance.
-Each hypothetical experiment simulates 31 trees and returns a pair of variance estimates.
+Each hypothetical sample has 31 trees and returns a pair of variance estimates.
 
 ```{r}
 set.seed(seed = 434)
-n_experiments = 2000
+n_samples = 2000
 
-# Each run simulates one experiment of 31 trees and returns both variance estimates.
+# Each run simulates one sample of 31 trees and returns both variance estimates.
 variance_estimates = replicate(
-  n = n_experiments,
+  n = n_samples,
   expr = {
     heights = rnorm(
       n = n_trees, mean = mu_hat, sd = sqrt(variance_mm)
@@ -264,7 +264,7 @@ variance_estimates = replicate(
   }
 )
 
-# Average of each estimator across experiments and its simulated bias.
+# Average of each estimator across samples and its simulated bias.
 average_variance = rowMeans(variance_estimates)
 simulated_bias = average_variance - variance_mm
 
@@ -282,21 +282,21 @@ $-39.29/31 = -1.27$ ft². The estimator from `var()` averages approximately 38.8
 a simulated bias of $-0.48$ ft² rather than exactly zero.
 
 The differences from the expected values are due to the finite number of hypothetical
-experiments: each average is itself an estimate, and it would change with another seed. We
+samples: each average is itself an estimate, and it would change with another seed. We
 can calculate how much such an average varies. The standard error of the average of 2,000
 estimates is the standard deviation of those estimates divided by $\sqrt{2000}$ (see
 [Standard errors](../Theory.qmd#sec-standard_errors)), and the simulated bias has the same
 standard error because it only subtracts a constant:
 
 ```{r}
-# Standard deviation of each estimator across the hypothetical experiments.
+# Standard deviation of each estimator across the hypothetical samples.
 sd_estimates = c(
   method_of_moments = sd(variance_estimates["method_of_moments", ]),
   with_var = sd(variance_estimates["with_var", ])
 )
 
 # Standard error of each average, and therefore of each simulated bias.
-se_simulated_bias = sd_estimates / sqrt(n_experiments)
+se_simulated_bias = sd_estimates / sqrt(n_samples)
 se_simulated_bias
 
 # Distance between the simulated and the expected bias, in standard errors.
@@ -307,7 +307,7 @@ expected_bias = c(method_of_moments = -variance_mm / n_trees, with_var = 0)
 The standard error is approximately 0.22 ft² for the method-of-moments estimator and
 0.23 ft² for `var()`. So both simulated biases are about two standard errors (2.1) below
 their expected values. A deviation of this size is unusual, but it is still within what
-2,000 experiments can produce, and a simulation with more experiments would come closer to
+2,000 samples can produce, and a simulation with more samples would come closer to
 the expected values. The simulation shows the bias of the
 estimators for the fitted model; the real model has an unknown variance that is probably
 somewhat different from 39.29 ft², so the bias of the real estimators will also differ.
@@ -316,7 +316,7 @@ somewhat different from 39.29 ft², so the bias of the real estimators will also
 
 The mean squared error (MSE) of an estimator is the average squared distance between its
 estimates and the parameter. It includes both the variance of the estimator across
-experiments and its squared bias. We calculate it from the same simulated estimates:
+samples and its squared bias. We calculate it from the same simulated estimates:
 
 ```{r}
 # Average squared distance between each estimate and the variance used to simulate.
@@ -327,7 +327,7 @@ simulated_mse
 The method-of-moments estimator has a simulated MSE of approximately 101.1 ft⁴, compared
 with approximately 105.0 ft⁴ for `var()` (the units are feet to the fourth power because the
 estimates are squared feet). So the estimator from `var()` is unbiased but has the larger
-MSE, because the method-of-moments estimator varies less across experiments by more than
+MSE, because the method-of-moments estimator varies less across samples by more than
 enough to compensate for its bias. Knowing that one estimator is unbiased does not, by
 itself, tell us which has the smaller MSE.
 
@@ -342,14 +342,14 @@ calculate approximate 95% Wald confidence intervals for the mean mass (see
 [Confidence intervals](../Theory.qmd#sec-confidence_intervals)) and check how often they
 contain it.
 
-1. Calculate the model mean and median mass in grams. Set seed 443, simulate one study of 12
+1. Calculate the model mean and median mass in grams. Set seed 443, simulate one sample of 12
    animals, and calculate its sample mean, sample median, and estimated standard error of the
    sample mean (`sd(mass) / sqrt(n)`).
-2. For this study, calculate a 95% Wald interval for the **original-scale mean mass** using
+2. For this sample, calculate a 95% Wald interval for the **original-scale mean mass** using
    `qnorm()`. Interpret the interval. Why is its coverage only approximate for these
    LogNormal masses?
-3. Set seed 444. Simulate 2,000 studies of 12 animals and 2,000 studies of 100 animals.
-   Calculate the Wald interval for every study and find the fraction of intervals that
+3. Set seed 444. Simulate 2,000 samples of 12 animals and 2,000 samples of 100 animals.
+   Calculate the Wald interval for every sample and find the fraction of intervals that
    contain the model mean at each sample size. Compare the fractions with 0.95 and explain
    why coverage might change with sample size.
 4. State one reason why coverage in this simulation does not prove that the same procedure
@@ -375,7 +375,7 @@ c(median_g = true_median, mean_g = true_mean)
 ```
 
 The model median is 30 g and the model mean is approximately 41.3 g. Next, we simulate one
-study of 12 animals. For i.i.d. observations $\operatorname{Var}(\overline X)=
+sample of 12 animals. For i.i.d. observations $\operatorname{Var}(\overline X)=
 \operatorname{Var}(X_i)/n$, so we estimate the standard error of the sample mean as
 $s/\sqrt n$, where $s$ is the standard deviation calculated by `sd()`.
 
@@ -400,7 +400,7 @@ c(
 
 The sample mean is approximately 34.4 g and the sample median approximately 25.4 g, both below
 the model values. The estimated standard error is approximately 9.2 g. It describes the
-variation of the sample mean across hypothetical experiments with 12 animals each, whereas the
+variation of the sample mean across hypothetical samples of 12 animals each, whereas the
 standard deviation of the 12 masses describes the variation among individual animals and does
 not decrease when more animals are measured.
 
@@ -423,9 +423,9 @@ mass_interval
 
 The interval runs from approximately 16.3 to 52.4 g. It is a range of candidate values for the
 **mean mass in grams** and does not describe the spread of individual masses. The 95% refers
-to the procedure: if we repeated the study many times and calculated an interval from each
-sample in this way, about 95% of the intervals would contain the model mean, provided that
-the sampling distribution of the sample mean is approximately Normal. Here the interval
+to the procedure: if we had many hypothetical samples of 12 animals and calculated an
+interval from each in this way, about 95% of the intervals would contain the model mean,
+provided that the sampling distribution of the sample mean is approximately Normal. Here the interval
 contains the model mean of 41.3 g, which we know only because we simulated the data.
 
 LogNormal masses are skewed to the right, so with only 12 animals the sampling distribution of
@@ -434,16 +434,16 @@ interval is therefore only approximate, and we check it by simulation.
 
 ### Question 3
 
-For each simulated study, we calculate a new interval and record whether it contains the model
+For each simulated sample, we calculate a new interval and record whether it contains the model
 mean. The fraction of `TRUE` values is the simulated coverage.
 
 ```{r}
 # Simulated coverage of the 95% Wald interval for a given number of animals.
-coverage_for_size = function(n_animals, n_studies = 2000) {
+coverage_for_size = function(n_animals, n_samples = 2000) {
   covered = replicate(
-    n = n_studies,
+    n = n_samples,
     expr = {
-      # One hypothetical study: simulate masses and calculate the interval.
+      # One hypothetical sample: simulate masses and calculate the interval.
       mass = rlnorm(
         n = n_animals,
         meanlog = mass_meanlog, sdlog = mass_sdlog
@@ -468,7 +468,7 @@ simulated_coverage
 ```
 
 The simulated coverage is approximately 0.864 for 12 animals and 0.924 for 100 animals, both
-below the nominal 0.95. These fractions depend on the seed: with 2,000 studies, the
+below the nominal 0.95. These fractions depend on the seed: with 2,000 samples, the
 simulation error of a coverage near 0.9 is approximately 0.007. With 12 animals, a sample that
 lacks the few very large masses has both a small sample mean and a small estimated standard
 error. Its interval is then too narrow and lies below the model mean, which is how most of

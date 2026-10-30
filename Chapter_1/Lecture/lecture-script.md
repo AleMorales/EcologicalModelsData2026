@@ -319,8 +319,7 @@ Another sample from the same study design would give a different estimate. This 
 the third source, parameter uncertainty, and it is the reason why we report more
 than a fitted value.
 
-Chapter 3 introduces this reasoning with samples and repeated hypothetical
-experiments. Chapter 4 develops maximum likelihood, the estimation method of the
+Chapter 3 introduces this reasoning with repeated hypothetical samples. Chapter 4 develops maximum likelihood, the estimation method of the
 rest of the course.
 
 **Check for understanding**
@@ -369,9 +368,9 @@ out. The counts are the true ones, so nothing was recorded wrongly. Relative to 
 variation. It would become explained variation if we measured, say, plant size and
 added it to the model.
 
-Case 3: what changes is the estimate from a study. This is parameter uncertainty.
-Each study may contain many observations; the variation here is among the estimates
-of repeated studies.
+Case 3: what changes is the estimate from one sample to another. This is parameter
+uncertainty. Each sample may contain many observations; the variation here is among the
+estimates of hypothetical samples.
 
 All three occur in one analysis. We separate them to be clear about what a
 distribution or a statement of uncertainty describes.
@@ -538,7 +537,7 @@ and uncertainty are built on it.
 
 Question 2: variation among observations is in the data and contains process
 variation and observation error. Parameter uncertainty is about how precisely a
-sample determines a quantity of the model; repeated hypothetical studies give
+sample determines a quantity of the model; repeated hypothetical samples give
 different estimates.
 
 **Final transition**
