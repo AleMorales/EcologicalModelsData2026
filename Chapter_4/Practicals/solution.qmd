@@ -808,7 +808,7 @@ contours are cut by the edges of the grid). The reason is the same as for the pa
 `size` and `prob` of the Negative Binomial distribution in the theory. The data determine
 the mean volume $k/r$ well, so a higher value of $k$ can be compensated by a higher value
 of $r$ that keeps the mean close to 30 ft³, with little loss of likelihood. The tilt means
-that the estimates of the two parameters depend on each other: a hypothetical experiment
+that the estimates of the two parameters depend on each other: a hypothetical sample
 that overestimates the shape would tend to overestimate the rate too.
 
 ### Question 3
@@ -1094,12 +1094,12 @@ corresponds to a difference of 0.25 between their maximum log-likelihoods. These
 hardly distinguish a Gamma model from a LogNormal model for the body mass of Adelie
 penguins.
 
-# Exercise 5: Estimators and intervals across hypothetical experiments
+# Exercise 5: Estimators and intervals across hypothetical samples
 
 This exercise is extra practice. With a single sample we cannot tell how far an estimate
 is from the parameter, or whether a confidence interval contains it, because the parameter
 is unknown. As in Exercise 3 of the Chapter 3 practical, we can study the behaviour of an
-estimator by simulating hypothetical experiments from a model whose parameters we know.
+estimator by simulating hypothetical samples from a model whose parameters we know.
 Here we use the maximum likelihood estimates of Exercise 4 as the parameters of that model.
 The simulation then shows how the estimators and the intervals would behave if the fitted
 Gamma model had generated the data (see
@@ -1111,23 +1111,23 @@ is given below the questions with three gaps, which you fill in.
 1. For the shape $k$ of the Gamma model fitted to the tree volumes, calculate a 95% Wald
    interval (on the log scale, with the endpoints transformed back) with the standard
    error from `sdreport()`. Compare it with the profile likelihood interval of Exercise 4.
-2. Complete the first gap of the function `simulate_gamma_experiments()` below. Set seed
-   801 and simulate 2,000 hypothetical experiments, each with 31 trees from a Gamma model
+2. Complete the first gap of the function `simulate_gamma_samples()` below. Set seed
+   801 and simulate 2,000 hypothetical samples, each of 31 trees from a Gamma model
    whose shape and rate are the maximum likelihood estimates of Exercise 4. For each
-   experiment, the function estimates the shape by the method of moments and by maximum
+   sample, the function estimates the shape by the method of moments and by maximum
    likelihood (the fit starts at a shape of 1 and at the rate that gives the mean of the
    simulated sample, as in question 4 of Exercise 4). Compare the mean, the standard
    deviation and the mean squared error of the two estimators with the shape that you used
    to simulate. Tip: the function has the sample size, the shape and the rate as arguments
    because you will need it again in question 4.
-3. Complete the second and the third gap, which record for each experiment whether the
+3. Complete the second and the third gap, which record for each sample whether the
    Wald interval and the profile likelihood interval for the shape contain the shape that
    you used to simulate, and calculate the coverage of both intervals. Hint: you do not
    need `tmbprofile()` inside the simulation. A profile likelihood interval contains a
    value whenever the profile log-likelihood at that value is within
    `qchisq(p = 0.95, df = 1) / 2` of the maximum log-likelihood, so one extra fit with the
    shape fixed at that value is enough.
-4. Set seed 802 and repeat questions 2 and 3 with experiments of 151 penguins from the
+4. Set seed 802 and repeat questions 2 and 3 with samples of 151 penguins from the
    Gamma model fitted to the body masses in grams. How do the bias and the coverage change?
    The two simulations differ in the sample size and in the model. How can you check which
    of the two explains the change? Do it, without resetting the seed.
@@ -1136,35 +1136,35 @@ is given below the questions with three gaps, which you fill in.
 
 The function below needs `gamma_nll()` from Exercise 4, the helper `cmb()`, and the objects
 `critical_value` and `cutoff` (the critical value of the standard Normal distribution and
-the cutoff of the relative log-likelihood for a 95% interval). It draws every experiment
+the cutoff of the relative log-likelihood for a 95% interval). It draws every sample
 with the function `simulate()` of an object that has placeholder data of the right length,
-as in the theory, and stores the results of every experiment in one row of a data frame.
+as in the theory, and stores the results of every sample in one row of a data frame.
 In each gap, replace `NA` by your own code. The lines that follow a gap use the names of
 the objects that the gap creates, so keep those names.
 
 ```{r}
 #| eval: false
-# One simulation of hypothetical experiments from a Gamma model whose parameters we know.
-# For each experiment: the maximum likelihood and the method-of-moments estimates of the
+# One simulation of hypothetical samples from a Gamma model whose parameters we know.
+# For each sample: the maximum likelihood and the method-of-moments estimates of the
 # shape, and whether the Wald interval (log scale) and the profile interval contain the
 # shape that was used to simulate.
-simulate_gamma_experiments = function(n_obs, shape, rate, n_experiments) {
+simulate_gamma_samples = function(n_obs, shape, rate, n_samples) {
   results = data.frame(
-    shape_ml = rep(NA, times = n_experiments),
-    shape_mom = rep(NA, times = n_experiments),
-    wald_covered = rep(NA, times = n_experiments),
-    profile_covered = rep(NA, times = n_experiments),
-    converged = rep(NA, times = n_experiments)
+    shape_ml = rep(NA, times = n_samples),
+    shape_mom = rep(NA, times = n_samples),
+    wald_covered = rep(NA, times = n_samples),
+    profile_covered = rep(NA, times = n_samples),
+    converged = rep(NA, times = n_samples)
   )
-  # An object with placeholder data of the right length, from which the experiments are
+  # An object with placeholder data of the right length, from which the samples are
   # simulated: the values of the data are not used.
   placeholder_obj = MakeADFun(
     cmb(gamma_nll, list(x = rep(0, times = n_obs))),
     list(log_shape = 0, log_rate = 0),
     silent = TRUE
   )
-  for (e in seq_len(n_experiments)) {
-    # One hypothetical experiment (simulate() takes the parameters on the log scale) and
+  for (i in seq_len(n_samples)) {
+    # One hypothetical sample (simulate() takes the parameters on the log scale) and
     # its method-of-moments estimate of the shape.
     x = placeholder_obj$simulate(log(c(shape, rate)))$x
     x_mean = mean(x)
@@ -1200,11 +1200,11 @@ simulate_gamma_experiments = function(n_obs, shape, rate, n_experiments) {
     fixed_fit = NA
     profile_covered = NA
 
-    results$shape_ml[e] = shape_ml
-    results$shape_mom[e] = shape_mom
-    results$wald_covered[e] = wald_covered
-    results$profile_covered[e] = profile_covered
-    results$converged[e] = fit$convergence == 0 && fixed_fit$convergence == 0
+    results$shape_ml[i] = shape_ml
+    results$shape_mom[i] = shape_mom
+    results$wald_covered[i] = wald_covered
+    results$profile_covered[i] = profile_covered
+    results$converged[i] = fit$convergence == 0 && fixed_fit$convergence == 0
   }
   results
 }
@@ -1246,34 +1246,34 @@ for.
 ### Question 2
 
 Here is the skeleton with its three gaps filled in, and a second function that summarises
-the results. For each experiment the first function draws the measurements with
+the results. For each sample the first function draws the measurements with
 `simulate()`, calculates the method-of-moments estimate of the shape and fits the model by
 maximum likelihood like the data, with `cmb()`, `MakeADFun()` and `optim()` (gap 1). It
 also records what question 3 asks for (gaps 2 and 3) and whether the fits stopped
-normally. The results are stored in a data frame with one row per experiment:
+normally. The results are stored in a data frame with one row per sample:
 
 ```{r}
-# One simulation of hypothetical experiments from a Gamma model whose parameters we know.
-# For each experiment: the maximum likelihood and the method-of-moments estimates of the
+# One simulation of hypothetical samples from a Gamma model whose parameters we know.
+# For each sample: the maximum likelihood and the method-of-moments estimates of the
 # shape, and whether the Wald interval (log scale) and the profile interval contain the
 # shape that was used to simulate.
-simulate_gamma_experiments = function(n_obs, shape, rate, n_experiments) {
+simulate_gamma_samples = function(n_obs, shape, rate, n_samples) {
   results = data.frame(
-    shape_ml = rep(NA, times = n_experiments),
-    shape_mom = rep(NA, times = n_experiments),
-    wald_covered = rep(NA, times = n_experiments),
-    profile_covered = rep(NA, times = n_experiments),
-    converged = rep(NA, times = n_experiments)
+    shape_ml = rep(NA, times = n_samples),
+    shape_mom = rep(NA, times = n_samples),
+    wald_covered = rep(NA, times = n_samples),
+    profile_covered = rep(NA, times = n_samples),
+    converged = rep(NA, times = n_samples)
   )
-  # An object with placeholder data of the right length, from which the experiments are
+  # An object with placeholder data of the right length, from which the samples are
   # simulated: the values of the data are not used.
   placeholder_obj = MakeADFun(
     cmb(gamma_nll, list(x = rep(0, times = n_obs))),
     list(log_shape = 0, log_rate = 0),
     silent = TRUE
   )
-  for (e in seq_len(n_experiments)) {
-    # One hypothetical experiment (simulate() takes the parameters on the log scale) and
+  for (i in seq_len(n_samples)) {
+    # One hypothetical sample (simulate() takes the parameters on the log scale) and
     # its method-of-moments estimate of the shape.
     x = placeholder_obj$simulate(log(c(shape, rate)))$x
     x_mean = mean(x)
@@ -1309,18 +1309,18 @@ simulate_gamma_experiments = function(n_obs, shape, rate, n_experiments) {
     fixed_fit = optim(par = fixed_obj$par, fn = fixed_obj$fn, gr = fixed_obj$gr, method = "BFGS")
     profile_covered = fit$value - fixed_fit$value >= -cutoff
 
-    results$shape_ml[e] = shape_ml
-    results$shape_mom[e] = shape_mom
-    results$wald_covered[e] = wald_covered
-    results$profile_covered[e] = profile_covered
-    results$converged[e] = fit$convergence == 0 && fixed_fit$convergence == 0
+    results$shape_ml[i] = shape_ml
+    results$shape_mom[i] = shape_mom
+    results$wald_covered[i] = wald_covered
+    results$profile_covered[i] = profile_covered
+    results$converged[i] = fit$convergence == 0 && fixed_fit$convergence == 0
   }
   results
 }
 
 # Mean, standard deviation and mean squared error of both estimators of the shape,
-# coverage of both intervals, and the number of experiments in which a fit failed.
-summarise_experiments = function(results, shape) {
+# coverage of both intervals, and the number of samples in which a fit failed.
+summarise_samples = function(results, shape) {
   data.frame(
     mean_ml = mean(results$shape_ml),
     sd_ml = sd(results$shape_ml),
@@ -1334,30 +1334,30 @@ summarise_experiments = function(results, shape) {
   )
 }
 
-# 2,000 hypothetical experiments of 31 trees from the Gamma model fitted to the volumes.
+# 2,000 hypothetical samples of 31 trees from the Gamma model fitted to the volumes.
 set.seed(seed = 801)
-n_experiments = 2000
-trees_31 = simulate_gamma_experiments(
+n_samples = 2000
+trees_31 = simulate_gamma_samples(
   n_obs = n_trees,
   shape = shape_volume,
   rate = rate_volume,
-  n_experiments = n_experiments
+  n_samples = n_samples
 )
-summarise_experiments(results = trees_31, shape = shape_volume)
+summarise_samples(results = trees_31, shape = shape_volume)
 
 # Relative bias of both estimators, and the median of the maximum likelihood estimates.
 c(ml = mean(trees_31$shape_ml), mom = mean(trees_31$shape_mom)) / shape_volume - 1
 median(trees_31$shape_ml)
 ```
 
-The shape used to simulate is 3.89. Across the 2,000 hypothetical experiments, the maximum
+The shape used to simulate is 3.89. Across the 2,000 hypothetical samples, the maximum
 likelihood estimates have a mean of 4.33, a standard deviation of 1.20 and a mean squared
 error (MSE) of 1.63. The method-of-moments estimates have a mean of 4.43, a standard
 deviation of 1.30 and an MSE of 1.99. No fit failed. So with 31 trees both estimators are
 biased upwards, by 11% and 14%, and the MLE is the better of the two: it has the smaller
 bias, the smaller standard deviation and the smaller MSE. The median of the maximum
 likelihood estimates is 4.13, below their mean, because their sampling distribution is
-skewed to the right. These summaries are themselves estimates from 2,000 experiments and
+skewed to the right. These summaries are themselves estimates from 2,000 samples and
 they change somewhat with the seed, in particular the standard deviations, which are
 sensitive to a few very large estimates.
 
@@ -1369,15 +1369,15 @@ exactly when the estimate of $\log k$ is within $z_{0.975}$ standard errors of i
 profile likelihood interval we followed the hint. One extra fit with the shape fixed at the
 value used to simulate gives the profile log-likelihood at that value, and the interval
 contains it when the difference from the maximum log-likelihood is above $-1.92$. The
-coverage is the fraction of experiments in which each check is `TRUE`:
+coverage is the fraction of samples in which each check is `TRUE`:
 
 ```{r}
-# Coverage of the two intervals, from the experiments of question 2.
+# Coverage of the two intervals, from the samples of question 2.
 c(wald = mean(trees_31$wald_covered), profile = mean(trees_31$profile_covered))
 ```
 
 The coverage is 0.931 for the Wald interval and 0.939 for the profile likelihood interval.
-A coverage simulated with 2,000 experiments has a standard error of about 0.005
+A coverage simulated with 2,000 samples has a standard error of about 0.005
 ($\sqrt{0.94\times 0.06/2000}$), so both are below the nominal 0.95 by two standard errors
 or more. With 31 trees both intervals are approximations, and they contain the shape
 slightly less often than their confidence level states. The profile likelihood interval is
@@ -1392,28 +1392,28 @@ the sample size of the penguins. If the sample size explains the change, 151 tre
 behave like 151 penguins and unlike 31 trees:
 
 ```{r}
-# 2,000 hypothetical experiments of 151 penguins from the Gamma model fitted in Exercise 4
+# 2,000 hypothetical samples of 151 penguins from the Gamma model fitted in Exercise 4
 # (in grams), and of 151 trees from the model fitted to the tree volumes, to separate the
 # effect of the sample size from the effect of the model.
 set.seed(seed = 802)
-penguins_151 = simulate_gamma_experiments(
+penguins_151 = simulate_gamma_samples(
   n_obs = n_penguins,
   shape = shape_penguin,
   rate = rate_penguin_g,
-  n_experiments = n_experiments
+  n_samples = n_samples
 )
-trees_151 = simulate_gamma_experiments(
+trees_151 = simulate_gamma_samples(
   n_obs = n_penguins,
   shape = shape_volume,
   rate = rate_volume,
-  n_experiments = n_experiments
+  n_samples = n_samples
 )
 
 # Summary of the three simulations.
 rbind(
-  "31 trees" = summarise_experiments(results = trees_31, shape = shape_volume),
-  "151 penguins" = summarise_experiments(results = penguins_151, shape = shape_penguin),
-  "151 trees" = summarise_experiments(results = trees_151, shape = shape_volume)
+  "31 trees" = summarise_samples(results = trees_31, shape = shape_volume),
+  "151 penguins" = summarise_samples(results = penguins_151, shape = shape_penguin),
+  "151 trees" = summarise_samples(results = trees_151, shape = shape_volume)
 )
 
 # Relative bias of the maximum likelihood estimator of the shape in each simulation.

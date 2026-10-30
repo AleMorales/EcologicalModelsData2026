@@ -57,7 +57,12 @@ and adds an honest aside when one is useful.
 - **Model, not truth.** "Model probability", "model distribution" and "data generating
   process", not "theoretical", "true" or "population" (except in a simulation where the
   known generating parameter is the point). Data are "treated as if they were a random
-  sample from the model".
+  sample from the model". Repeated-sampling arguments speak of **hypothetical samples**
+  (other realisations of the data generating process, with the same design and sample
+  size), never of hypothetical or repeated "experiments" or "studies": much ecological
+  data is observational, and what counts as one sample is set by the data analysed, not
+  by a field campaign (author's decision; footnote in Chapter 3, "Sampling
+  distributions"). A real study that reports a result stays a study.
 - **Register.** Chapter 1 is the only personal, candid chapter (personal history,
   rhetorical questions, opinion on p-values). From Chapter 2 onward the tone is more
   formal: the same person, but mostly definitions, equations, examples and signposts. Do
@@ -266,9 +271,9 @@ of practicals, and matter most where the text teaches a recipe that students wil
 | Names of functions | Michaelis–Menten (en dash) is the primary name of $ax/(b+x)$; Holling type II is its predator–prey parameterisation; Monod and Beverton–Holt are named in a footnote. The saturating exponential has the ID `sec-fn-monomolecular`. |
 | Half-maximum and reparameterisation | The half-maximum is a value of $x$ at which a saturating function reaches half of its asymptote (a value of $y$). A reparameterisation changes the parameters and not the curve: check it by evaluating both forms at the same $x$. |
 | Empirical variance and `var()` | `mean((x - mean(x))^2)` divides by $n$, `var(x)` by $n-1$. State which one an exercise requests. |
-| Sampling distribution | The distribution of an estimate across repeated hypothetical experiments with the same design and sample size: imaginary and never observed. Keep it distinct from the replicates (for example quadrats) within one experiment. |
+| Sampling distribution | The distribution of an estimate across repeated hypothetical samples with the same design and sample size: imaginary and never observed. Keep it distinct from the replicates (for example quadrats) within one sample. |
 | Exact results and approximations | In finite samples estimators are in general biased and their sampling distribution is unknown. Label exact results as special cases and other statements for small samples as approximations that rely on large-sample results or simulation. |
-| Standard deviation and standard error | Variation in observations; variation in an estimator across hypothetical experiments. |
+| Standard deviation and standard error | Variation in observations; variation in an estimator across hypothetical samples. |
 | Overdispersion | Variation exceeds that expected under a stated reference model. A variance-to-mean ratio is exploratory and does not identify the ecological cause. |
 | Confidence interval | Explain repeated-sampling coverage. Do not assign a probability to a fixed parameter lying in a calculated interval. |
 | Independence | A model assumption. Separate locations or observations do not by themselves establish it. |
@@ -521,7 +526,7 @@ fir_fit = optim(par = fir_obj$par, fn = fir_obj$fn, gr = fir_obj$gr, method = "B
   standard errors; `ADREPORT()` for a quantity calculated from the parameters (TMB
   applies the delta method, which Chapter 6 explains); `TMB::tmbprofile()` with
   `confint()` (with the prefix, because RTMB does not export it); `OBS()` with
-  `obj$simulate()` for hypothetical experiments; `checkConsistency()`. Introduce each
+  `obj$simulate()` for hypothetical samples; `checkConsistency()`. Introduce each
   tool where the text needs it, not in the first NLL.
 - **Profiles** are drawn with `ggplot2` from the data frame that `tmbprofile()` returns,
   on the relative log-likelihood scale; in an exercise, `plot()` of the profile object is

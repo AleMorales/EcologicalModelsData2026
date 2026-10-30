@@ -65,6 +65,19 @@ them. All dates are in 2026.
   Supplements, practicals and Chapters 5 to 8 have not been checked against that rule.
 - **12 October:** parentheses around the argument of a logarithm were applied to
   `Supplements/deterministic-functions.qmd`; other pages have not been checked.
+- **29 October:** the author replaced "hypothetical experiments" by "hypothetical samples"
+  (realisations of the data generating process) in repeated-sampling arguments (rule in
+  `STYLE_GUIDE.md`). Chapter 3 (theory, practical, lecture and its figures) was converted;
+  a footnote in "Sampling distributions" says why the course avoids "experiment", and a
+  sentence says that field campaigns analysed together form one sample. The rest of the
+  book followed the same day: Chapter 4 (theory and practical, including code names), the
+  Chapter 1 roadmap, the Chapter 1 lecture, Chapter 6, `Supplements/canned.qmd` and the
+  glossary (which gained an entry "Hypothetical sample"). Real experiments keep the word
+  (the reed frog experiments, the seed survival example of Chapter 2, aleatoric
+  probability as replications of "the same experiment or observation protocol"). The new
+  wording awaits the author's check. On the author's instruction, the definition of the
+  data generating process in "The modelling cycle" of Chapter 1 now reads "in an
+  experiment, a survey or any other study".
 
 | Material | Status and use |
 |---|---|
@@ -72,6 +85,7 @@ them. All dates are in 2026.
 | `Chapter_1/Theory.qmd` | Approved, author's text. Reference for voice in its essay register only (see `STYLE_GUIDE.md`). Generated on the author's instruction and awaiting check: the two course objectives in "Overview of the book" and the roadmap entry "Supplement: Formula-based methods" |
 | `Chapter_1/Lecture/` (`lecture.qmd`, `lecture-script.md`) | Generated draft of a 60-minute lecture on the chapter (19 slides). The author sets the length of each lecture; when a request does not give it, ask (see `STYLE_GUIDE_LECTURE.md`). The author revised the slides on 26 October (they are the reference for format and amount of text); the script awaits review. Slides carry keywords for students new to the course and no speaker notes; the narrative is only in the script (author's decision), so slide numbers, titles and times in the script are changed together with the slides. The README was removed. Never a model of voice |
 | `Chapter_2/Lecture/` | Generated draft: 90 minutes of slides (33 slides) plus 40 minutes of live demos from the chapter's code and `Practice` callouts, in three blocks with two breaks of 10 minutes (150 minutes). Slides and script await review. Never a model of voice |
+| `Chapter_3/Lecture/` | Generated draft: a session of 150 minutes with 34 slides (125 minutes, 5 of slack) in three blocks with two breaks of 10 minutes. No live demos (author's decision of 30 October, because the slides of the Chapter 2 lecture took longer than planned): the author decides during the lecture whether to run code, and the script lists the chunks that fit, all visible on the chapter and practical pages, with no typed code. Slides and script await review. Never a model of voice |
 | `Chapter_2/Theory.qmd` | Approved, then partly rewritten. **Primary reference for voice in technical chapters** (author's sections not rewritten): "Discrete probability distributions", the discrete parts of "Joint distributions" and "Expectations and central moments", "Choosing a distribution", and the parts of "Overdispersion" that were not rewritten. Drafts: see Chapter 2 below |
 | Chapter 2 practical | Approved. Exercises 1 (seedlings), 3 (`InsectSprays`) and 4 (Negative Binomial) are the author's work and the primary reference for exercises, worked reasoning and interpretation. Exercises 5 and 6 generated, then approved. Worked Exercise 2 is a draft |
 | `Chapter_3/Theory.qmd` | Approved, then rewritten: a draft. The opening `# Samples and distributions` was the author's text and is no longer a reference for voice |
@@ -140,12 +154,17 @@ another species of the data set of its theory (Chinstrap in Chapter 2, Adelie in
   is not flat). Agreement of the empirical distribution with the model does not show
   independence. The sentence that a sample "does not have a mean or a variance" was
   softened.
+- "Consistency and asymptotic normality" presents asymptotic normality as the general
+  behaviour of most estimators (author's instruction of 30 October), with the central limit
+  theorem as its name for the mean; method-of-moments estimators follow from the theorem
+  applied to the moments plus a smooth function (delta method in Chapter 6), and Chapter 4
+  gives the result for maximum likelihood. The new wording awaits the author's check.
 - Practical. Exercise 1: `Owls` from `glmmTMB` (`data(Owls, package = "glmmTMB")`),
   satiated nestlings and female parents, Negative Binomial model, method-of-moments
   estimates. Exercise 2 (asymptotic convergence): Beta model for the fraction of leaf
   area eaten (a = 2, b = 6), seeds 123 and 11, 22, 33, 44. Exercise 3: `Height` (ft) of
   `trees` (31 trees, Normal model); method-of-moments estimates, then 2,000 plug-in
-  experiments of 31 trees with seed 434 (the term parametric bootstrap is not introduced),
+  samples of 31 trees with seed 434 (the term parametric bootstrap is not introduced),
   and the solution reports the standard error of each simulated bias. Exercise 4 (mean
   body mass and coverage, LogNormal model): Wald intervals only; the $t$ interval appears
   only in a footnote of the theory. The solution page restates the tasks of each exercise.
@@ -216,14 +235,14 @@ another species of the data set of its theory (Chinstrap in Chapter 2, Adelie in
   expectations, which do not pass through non-linear functions (Jensen's inequality).
   The difference in units is not the reason (author's correction).
 - **Simulation:** data are marked with `OBS()`, `obj$simulate()` draws each hypothetical
-  experiment and a visible loop refits. Coverage simulations use one extra fit at the
-  generating value, not `tmbprofile()` in every experiment. `checkConsistency()` appears
+  sample and a visible loop refits. Coverage simulations use one extra fit at the
+  generating value, not `tmbprofile()` in every sample. `checkConsistency()` appears
   once, with `estimate = TRUE` and the bias calculated from the refitted estimates; its
   p-value is not interpreted (awaits the author's confirmation).
 - **The gap in $k$:** the recipe callout explains the gap between the method-of-moments
   and maximum likelihood estimates of $k$ (the model is an approximation and no pair of
   values reproduces the mean, the variance and the fraction of zeros; in none of 2,000
-  simulated experiments does the gap reach the observed 0.27). "Efficiency" keeps the
+  simulated samples does the gap reach the observed 0.27). "Efficiency" keeps the
   general comparison of precision and does not claim to explain it.
 - **Statistical detail boxes:** the derivation of the Poisson estimator, Wilks' theorem,
   the cutoff for a joint region, consistency, the Cramér–Rao bound, the Kullback–Leibler
@@ -244,7 +263,7 @@ another species of the data set of its theory (Chinstrap in Chapter 2, Adelie in
   confirmation). Exercise 2: one profile by hand (inner fits fixed with `map`) checked
   with `tmbprofile()`. Exercise 3: students write `my_dzipois()` by hand and verify it
   against `dzipois()`. Exercises 3 to 5 use only the TMB tools. Exercises 1 to 4 are the
-  core; Exercise 5 is extra practice with a skeleton of `simulate_gamma_experiments()`
+  core; Exercise 5 is extra practice with a skeleton of `simulate_gamma_samples()`
   (three gaps). The Gamma fits start at shape 1 and rate $1/\bar x$, because from the
   method-of-moments estimates they stop one step from the maximum without `reltol`; the
   solution says why (awaits confirmation).

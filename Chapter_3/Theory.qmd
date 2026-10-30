@@ -20,7 +20,7 @@ parameters of the model that we use to describe them.
 The chapter has two parts. First we look at how samples and distributions are related,
 through relative frequencies and the empirical distribution of a sample, both for counts
 and for continuous measurements. We then define estimators and study how their estimates
-vary across repeated hypothetical experiments, which leads to standard errors and
+vary across repeated hypothetical samples, which leads to standard errors and
 confidence intervals. The examples of the chapter are real data. For counts we use the
 number of balsam fir seedlings in 50 quadrats, which we describe with a Poisson model. For
 continuous measurements we use the flipper lengths of the Gentoo penguins of Chapter 2,
@@ -53,7 +53,7 @@ So far we have been working with mathematical models: we calculate probabilities
 expectations of distributions. But in research we collect limited, often noisy, samples of
 data and want to generalise from these observations to the broader context in which they
 were collected. As discussed in Chapter 1, we use statistical models as approximations for the
-data generating process. This means that we treat the observations from our experiments as
+data generating process. This means that we treat the observations that we collect as
 if they were random samples from our statistical model. In this section we learn in more
 detail about this relationship as it will be the basis for the rest of this
 chapter.
@@ -314,7 +314,7 @@ to build intuition], a sample whose empirical distribution matches well the mode
 distribution will generate reasonable estimates of the model's parameters with relatively
 low uncertainty. In this we would say that the "sample is representative" of the process we
 are trying to model. This is why it is crucial to avoid introducing biases in the way we
-collect data from experiment (motivating procedures such as randomisation).
+collect data (motivating procedures such as randomisation).
 
 Like any distribution, an empirical distribution has a cumulative function: the fraction
 of observations at or below each count. When comparing the empirical and model cumulative
@@ -494,8 +494,8 @@ observations are independent, which remains an assumption.
 Note that in practice we can never verify this relationship as we will never have infinite
 samples and for any finite size there can be deviations. But it does mean that the larger the
 sample, the better we can judge if we have a good model (@fig-ecdf-poisson). Also, larger
-samples are more **stable**, meaning that there will be less variation across hypothetical repetitions of the experiment,
-which will increase our confidence (reduce our uncertainty) in the results (we cover this
+samples are more **stable**, meaning that there will be less variation across hypothetical
+samples of the same size, which will increase our confidence (reduce our uncertainty) in the results (we cover this
 in more detail in @sec-sampling_distribution).
 
 ```{r}
@@ -999,7 +999,7 @@ not change the probabilities for the others. The parameter $\lambda$ is unknown.
 ::: {.callout-note title="Parameter, estimator, and estimate"}
 A **parameter** is a fixed, unknown quantity that defines the model distribution, such as
 $\lambda$. An **estimator** is a rule applied to a random sample, so its result varies
-across hypothetical experiments. An **estimate** is the number obtained by applying that rule to one
+across hypothetical samples. An **estimate** is the number obtained by applying that rule to one
 particular sample.
 :::
 
@@ -1075,62 +1075,73 @@ seedlings per quadrat.
 # Sampling distributions {#sec-sampling_distribution}
 
 The **sampling distribution** of an estimator is the distribution of its estimates across
-repeated hypothetical experiments. Each hypothetical experiment repeats the whole data
-collection with the same design and sample size, on the same model, and gives a new sample
-and therefore a new estimate. It tells us how much an estimate could have changed if we had
-repeated the experiment, so we will use it to quantify the uncertainty in an estimate
-(@sec-standard_errors and @sec-confidence_intervals). The sampling distribution is an
-imaginary construct: in a real study we carry out the experiment once, obtain one estimate,
-and never observe the sampling distribution itself.
+repeated hypothetical samples. A hypothetical sample is another sample that the data
+generating process could have produced. The design and the sample size are part of that
+process, so every hypothetical sample has the same design and sample size as the data,
+and each gives a new estimate. Because we treat the data as if they were a random sample
+from the model (@sec-samples), we obtain hypothetical samples by sampling from the
+model.^[Many statistics textbooks call each of these hypothetical samples an
+**experiment**, and speak of repeating the experiment. We avoid that term for two reasons.
+First, much ecological data does not come from experiments but from observational studies
+such as surveys and monitoring campaigns. Second, an experiment is usually understood as a
+unit fixed in time and space, whereas what counts as one sample depends only on the data
+that we analyse: it may combine several field experiments or use part of one.] The
+sampling distribution tells us how much an estimate could have changed if the data
+generating process had produced another sample, so we will use it to quantify the
+uncertainty in an estimate (@sec-standard_errors and @sec-confidence_intervals). It is an
+imaginary construct: in a real study we observe one realisation of the data generating
+process, obtain one estimate, and never observe the sampling distribution itself.
 
 ::: {.callout-note title="Sampling distribution"}
-The distribution of the estimates of an estimator across repeated hypothetical experiments
+The distribution of the estimates of an estimator across repeated hypothetical samples
 with the same design and sample size.
 :::
 
 Note that there are two distributions and two kinds of repetition involved. Within one
-experiment, the quadrats are the replicates, and the Poisson distribution describes the
-variation of the counts across them. Between experiments, the sampling distribution of
-$\hat\lambda$ describes the variation of the mean of the $n$ quadrats of an experiment
-across hypothetical experiments. Adding quadrats to an experiment increases $n$; it does
-not repeat the experiment.
+sample, the quadrats are the replicates, and the Poisson distribution describes the
+variation of the counts across them. Between samples, the sampling distribution of
+$\hat\lambda$ describes the variation of the mean of the $n$ quadrats of a sample across
+hypothetical samples. Adding quadrats to a sample increases $n$; it does not produce
+another sample. In the same way, if the quadrats had been counted in two field campaigns
+and we analysed all the counts together, they would form one sample: a single realisation
+of a data generating process that includes both campaigns.
 
-With real data we only have one experiment, so we cannot observe the sampling distribution.
+With real data we only have one sample, so we cannot observe the sampling distribution.
 For a finite sample its shape is in general unknown, except in special cases where it can
 be derived mathematically. The general way to study it is a simulation, where we choose the
-parameter of the model and carry out as many hypothetical experiments as we want. Let's assume a Poisson
-model with $\lambda=2.14$ (the estimate from the fir seedlings) and an experiment with 50
-quadrats, as in the data, and carry out 2,000 hypothetical experiments. For each one we
-calculate the estimate of $\lambda$. We repeat the experiment with `replicate()`, which
-evaluates an expression (`expr`) a number of times (`n`) and collects the results in a
-vector. Here the expression simulates the counts of one experiment and returns their mean:
+parameter of the model and draw as many hypothetical samples as we want. Let's assume a
+Poisson model with $\lambda=2.14$ (the estimate from the fir seedlings) and samples of 50
+quadrats, as in the data, and draw 2,000 hypothetical samples. For each one we calculate
+the estimate of $\lambda$. We repeat the sampling with `replicate()`, which evaluates an
+expression (`expr`) a number of times (`n`) and collects the results in a vector. Here the
+expression simulates the counts of one sample and returns their mean:
 
 ```{r}
-# Parameter of the model, quadrats per experiment and number of hypothetical experiments.
+# Parameter of the model, quadrats per sample and number of hypothetical samples.
 set.seed(seed = 401)
 true_lambda = 2.14
 n_quadrats = 50
-n_experiments = 2000
+n_samples = 2000
 
-# Each run simulates one experiment with 50 quadrats and returns its estimate of lambda.
+# Each run simulates one sample of 50 quadrats and returns its estimate of lambda.
 lambda_estimates = replicate(
-  n = n_experiments,
+  n = n_samples,
   expr = mean(rpois(n = n_quadrats, lambda = true_lambda))
 )
 ```
 
-The vector `lambda_estimates` holds one estimate per hypothetical experiment. We summarise
+The vector `lambda_estimates` holds one estimate per hypothetical sample. We summarise
 it with its mean and its standard deviation:
 
 ```{r}
-# Mean and standard deviation of the 2,000 estimates (one per hypothetical experiment).
+# Mean and standard deviation of the 2,000 estimates (one per hypothetical sample).
 mean(lambda_estimates)
 sd(lambda_estimates)
 ```
 
 The mean of the estimates is close to the parameter that we gave to the simulation, and
 their standard deviation (approximately 0.205 seedlings per quadrat) measures how much the
-estimate changes from one experiment to the next; we use both values below. The
+estimate changes from one sample to the next; we use both values below. The
 distribution of the estimates, which approximates the sampling
 distribution of $\hat\lambda$, is shown in @fig-sampling_distribution. The horizontal axis
 is a mean count per quadrat, which is why its values are not restricted to integers.
@@ -1138,7 +1149,7 @@ is a mean count per quadrat, which is why its values are not restricted to integ
 ```{r}
 #| echo: false
 #| label: fig-sampling_distribution
-#| fig-cap: "Estimates of the mean seedling count from 2,000 simulated hypothetical experiments with 50 quadrats each. The vertical line is the value of the parameter used in the simulation."
+#| fig-cap: "Estimates of the mean seedling count from 2,000 simulated hypothetical samples of 50 quadrats each. The vertical line is the value of the parameter used in the simulation."
 # Plot the simulated sampling distribution and mark the parameter of the model.
 ggplot(data.frame(estimate = lambda_estimates), aes(x = estimate)) +
   geom_histogram(
@@ -1188,7 +1199,7 @@ $$
 
 In other words, the variance of the estimator decreases as the sample size grows. The
 variance of the counts in individual quadrats remains $\lambda$; what decreases is the
-variation among the means of hypothetical experiments. We can compare these results with
+variation among the means of hypothetical samples. We can compare these results with
 the simulation:
 
 ```{r}
@@ -1202,7 +1213,7 @@ c(
 
 The simulated bias is close to zero (approximately $0.001$) and the simulated variance
 (approximately $0.0419$) is close to $2.14/50 \approx 0.0428$. They do not match exactly because
-2,000 hypothetical experiments are still a finite sample of repetitions (i.e., with this
+2,000 hypothetical samples are still a finite number of repetitions (i.e., with this
 simulation we are approximating the true sampling distribution, all the asymptotic
 properties we described before still hold).
 
@@ -1296,18 +1307,18 @@ estimated_se
 ```
 
 The estimated standard error is approximately 0.21 seedlings per quadrat. That is, across
-hypothetical experiments with 50 quadrats each, we would expect the estimates of $\lambda$
+hypothetical samples of 50 quadrats each, we would expect the estimates of $\lambda$
 to vary with a standard deviation of about 0.21 seedlings per quadrat. It is the same value
 as in the simulation because we gave the simulation the estimate as its parameter. This calculation
 relies on the Poisson model: if the counts are overdispersed with respect to the Poisson
 distribution (see [Chapter 2](../Chapter_2/Theory.qmd#sec-discrete_distributions)), this
-formula will underestimate the variation across hypothetical experiments.
+formula will underestimate the variation across hypothetical samples.
 
 ::: {.callout-warning title="Standard deviation and standard error"}
 These two terms are often confused. The **standard deviation** describes the variation
 among the observations (here, the counts in individual quadrats). For our 50 quadrats
 `sd(seedling_counts)` is approximately 1.55 seedlings per quadrat. The **standard error**
-describes the variation of an estimate across hypothetical experiments (here, 0.21
+describes the variation of an estimate across hypothetical samples (here, 0.21
 seedlings per quadrat for the mean). A larger sample reduces the standard error, but it does not reduce
 the standard deviation of the observations.
 :::
@@ -1331,9 +1342,9 @@ $\sqrt{2.14}\approx 1.46$ seedlings per quadrat.
 # Confidence intervals {#sec-confidence_intervals}
 
 A **confidence interval** is a range of values for a parameter, calculated from a sample
-with a procedure whose behaviour across repeated hypothetical experiments we can describe,
+with a procedure whose behaviour across repeated hypothetical samples we can describe,
 exactly in special cases and approximately in general. The
-**confidence level** (e.g., 95%) is the fraction of hypothetical experiments for which the
+**confidence level** (e.g., 95%) is the fraction of hypothetical samples for which the
 interval calculated with that procedure would contain the parameter. We will use confidence intervals to report
 the uncertainty of parameter estimates in the rest of the course.
 
@@ -1372,9 +1383,9 @@ in individual quadrats.
 
 ::: {.callout-note title="What 95% confidence means"}
 The parameter is fixed and the interval is random: its endpoints change from one
-hypothetical experiment to the next. If we repeated the experiment many times and
-calculated an interval from each sample with the same procedure, about 95% of those
-intervals would contain the parameter. Once an
+hypothetical sample to the next. If we had many hypothetical samples and calculated an
+interval from each with the same procedure, about 95% of those intervals would contain the
+parameter. Once an
 interval has been calculated, it either contains the parameter or it does not, so we do not
 say that the parameter has a probability of 95% of being inside it.
 :::
@@ -1382,21 +1393,21 @@ say that the parameter has a probability of 95% of being inside it.
 To see this in action, visit [https://logarithmic.net/2017/dance/](https://logarithmic.net/2017/dance/)
 and watch the "dance of the confidence intervals".^[The "dance of the confidence intervals"
 is a visual metaphor created by the statistician Geoff Cumming to describe how sample
-estimates and their corresponding intervals bounce, shift, and vary when an experiment is
-repeated multiple times.] @fig-dance_ci shows a static version for the Poisson model of
+estimates and their corresponding intervals bounce, shift, and vary from one sample to the
+next.] @fig-dance_ci shows a static version for the Poisson model of
 seedling counts, with the sampling distribution of the estimate at the top and the estimates
-and 95% intervals of 20 hypothetical experiments below it.
+and 95% intervals of 20 hypothetical samples below it.
 
 ```{r}
 #| echo: false
 #| label: fig-dance_ci
 #| fig-width: 7
 #| fig-height: 6
-#| fig-cap: "Dance of the confidence intervals for a Poisson model with a mean of 2.14 seedlings per quadrat. Top: simulated sampling distribution of the estimated mean for experiments with 50 quadrats (2,000 hypothetical experiments). Bottom: estimates (points) and 95% Wald intervals (lines) for 20 hypothetical experiments. The dashed line is the parameter of the model and the interval in vermillion does not contain it."
+#| fig-cap: "Dance of the confidence intervals for a Poisson model with a mean of 2.14 seedlings per quadrat. Top: simulated sampling distribution of the estimated mean for samples of 50 quadrats (2,000 hypothetical samples). Bottom: estimates (points) and 95% Wald intervals (lines) for 20 hypothetical samples. The dashed line is the parameter of the model and the interval in vermillion does not contain it."
 library(patchwork)
 
-# Simulate 20 hypothetical experiments and calculate a 95% Wald interval for each.
-# The parameter, quadrats per experiment and 2,000 estimates come from the simulation above.
+# Simulate 20 hypothetical samples and calculate a 95% Wald interval for each.
+# The parameter, quadrats per sample and 2,000 estimates come from the simulation above.
 set.seed(seed = 1)
 n_shown = 20
 critical_value = qnorm(p = 0.975)
@@ -1406,7 +1417,7 @@ shown_estimates = replicate(
 )
 shown_se = sqrt(shown_estimates / n_quadrats)
 intervals = data.frame(
-  experiment = seq_len(length.out = n_shown),
+  sample_number = seq_len(length.out = n_shown),
   estimate = shown_estimates,
   lower = shown_estimates - critical_value * shown_se,
   upper = shown_estimates + critical_value * shown_se
@@ -1438,8 +1449,8 @@ sampling_panel = ggplot(data.frame(estimate = lambda_estimates), aes(x = estimat
     axis.line.x = element_blank()
   )
 
-# Bottom panel: one estimate and interval for each hypothetical experiment.
-interval_panel = ggplot(intervals, aes(y = experiment, colour = contains)) +
+# Bottom panel: one estimate and interval for each hypothetical sample.
+interval_panel = ggplot(intervals, aes(y = sample_number, colour = contains)) +
   geom_vline(xintercept = true_lambda, linetype = "dashed", colour = "grey40") +
   geom_linerange(aes(xmin = lower, xmax = upper), linewidth = 0.6) +
   geom_point(aes(x = estimate), size = 2) +
@@ -1449,7 +1460,7 @@ interval_panel = ggplot(intervals, aes(y = experiment, colour = contains)) +
   ) +
   scale_y_reverse() +
   coord_cartesian(xlim = c(1.2, 3.1)) +
-  labs(x = "Estimated seedlings per quadrat", y = "Hypothetical experiment") +
+  labs(x = "Estimated seedlings per quadrat", y = "Hypothetical sample") +
   theme_classic() +
   theme(
     axis.text.y = element_blank(),
@@ -1463,27 +1474,27 @@ sampling_panel / interval_panel + plot_layout(heights = c(1, 3))
 
 ## Coverage checked by simulation
 
-The fraction of hypothetical experiments for which the interval actually contains the parameter is
+The fraction of hypothetical samples for which the interval actually contains the parameter is
 called the **coverage** of the procedure. The Wald interval relies on an approximation (and
 on a plug-in standard error), so its coverage may differ from the confidence level that we
 intended. We can check this with a simulation, where we know $\lambda$. For each simulated
-experiment we calculate the interval and record whether it contains the parameter. The
+sample we calculate the interval and record whether it contains the parameter. The
 expression that `replicate()` repeats now has several lines, so we write it between braces,
 and its last line is the value of each run (`TRUE` or `FALSE`):
 
 ```{r}
-# Parameter of the model, quadrats per experiment and number of hypothetical experiments.
+# Parameter of the model, quadrats per sample and number of hypothetical samples.
 set.seed(seed = 402)
 true_lambda = 2.14
 n_quadrats = 50
-n_experiments = 2000
+n_samples = 2000
 critical_value = qnorm(p = 0.975)
 
-# Each run returns TRUE if the interval of that experiment contains lambda.
+# Each run returns TRUE if the interval of that sample contains lambda.
 covered = replicate(
-  n = n_experiments,
+  n = n_samples,
   expr = {
-    # Simulate one experiment and calculate its estimate and standard error.
+    # Simulate one sample and calculate its estimate and standard error.
     counts = rpois(n = n_quadrats, lambda = true_lambda)
     estimate = mean(counts)
     se = sqrt(estimate / n_quadrats)
@@ -1495,7 +1506,7 @@ covered = replicate(
 )
 ```
 
-The coverage is the fraction of experiments in which the result is `TRUE`. R counts `TRUE`
+The coverage is the fraction of samples in which the result is `TRUE`. R counts `TRUE`
 as one and `FALSE` as zero, so `mean()` calculates that fraction:
 
 ```{r}
@@ -1516,7 +1527,7 @@ the 95% refer to? Which assumptions would you check before using this interval?
 
 ::: {.callout-tip title="Solution" collapse="true"}
 
-The 95% refers to the coverage of the procedure across hypothetical experiments: about 95% of the
+The 95% refers to the coverage of the procedure across hypothetical samples: about 95% of the
 intervals calculated in this way would contain the parameter. For a Wald interval based on
 a Poisson model, we would check whether the counts can be treated as i.i.d. Poisson
 (e.g., whether they are overdispersed) and whether the sample is large enough for the
@@ -1601,7 +1612,7 @@ where $s^2$ denotes the estimator calculated by `var()`, which divides the sum o
 deviations by $n-1$. The bias of the method-of-moments estimator is therefore
 $E[\widehat{\sigma^2}_{\mathrm{MM}}]-\sigma^2=-\sigma^2/n$.
 
-In plain English, across hypothetical experiments the method-of-moments estimates of the
+In plain English, across hypothetical samples the method-of-moments estimates of the
 variance are on average too small by the variance divided by the sample size, and the
 estimates of `var()` are on average equal to the variance of the model.
 
@@ -1643,7 +1654,7 @@ $$
 P\left(\left|\hat\theta_n - \theta\right| \ge \varepsilon\right)=0,
 $$
 
-where the probability is taken over the hypothetical experiments with a sample of size $n$.
+where the probability is taken over the hypothetical samples of size $n$.
 
 In plain English, however small the margin that we choose, the chance that the estimate
 misses the parameter by that margin or more becomes small as the sample grows.
@@ -1653,14 +1664,29 @@ The standard error tells us how fast an estimator approaches the parameter. For 
 of Poisson counts it is $\sqrt{\lambda/n}$, so we need a sample four times larger to halve
 the standard error.
 
-Large samples have a second consequence. The mean of $n$ i.i.d. observations from a
+Large samples have a second consequence. As the sample grows, the sampling distribution of
+most estimators approaches a Normal distribution centred on the parameter, **regardless of
+the distribution of the individual observations**. An estimator with this behaviour is said
+to be **asymptotically normal**. That is, for sufficiently large $n$,
+
+$$
+\hat\theta \overset{\mathrm{approx}}{\sim}
+\operatorname{Normal}\left(\theta,\operatorname{SE}(\hat\theta)^2\right),
+$$
+
+where $\operatorname{SE}(\hat\theta)$ is the standard error of the estimator. Note that this
+is a general behaviour of estimators and not a special feature of the mean of a
+sample.^[The general statement needs conditions. The estimators of this chapter need
+moments that are finite (the variance of the observations for the mean, their fourth moment
+for the variance). There are also exceptions: the largest observation as an estimator of the
+upper limit of a Uniform distribution is not asymptotically normal, and neither is an
+estimator of a parameter that lies on the boundary of its range.]
+
+For the mean, the result has its own name. The mean of $n$ i.i.d. observations from a
 distribution with finite variance has a sampling distribution that approaches a Normal
-distribution as $n$ grows, **regardless of the distribution of the individual observations**.
-This result is the **central limit theorem**, and an estimator with this behaviour is said
-to be **asymptotically normal** (in [Chapter 4](../Chapter_4/Theory.qmd) we will generalise
-this result to other parameters besides the mean). For the mean of Poisson counts, the
-approximating Normal distribution has the parameter $\lambda$ as its mean and the standard
-error $\sqrt{\lambda/n}$ as its standard deviation.
+distribution as $n$ grows, and this is the **central limit theorem**. For the mean of Poisson
+counts, the approximating Normal distribution has the parameter $\lambda$ as its mean and the
+standard error $\sqrt{\lambda/n}$ as its standard deviation.
 
 ::: {.callout-caution collapse="true" icon=false title="Statistical detail: the central limit theorem"}
 Let $X_1,\ldots,X_n$ be i.i.d. observations from a distribution with mean $\mu$ and finite
@@ -1687,14 +1713,31 @@ $$
 $$
 :::
 
-This is the justification for the Wald interval in @sec-confidence_intervals. How large
-$n$ needs to be depends on the model. In @fig-asymptotic_normality the sampling
+Other method-of-moments estimators behave in the same way, and the central limit theorem
+helps to explain why. The moments of the empirical distribution are themselves means of
+i.i.d. quantities (the mean of the $X_i$, the mean of the $X_i^2$), so the theorem applies to
+each of them. The estimate of a parameter is then calculated from these moments with a
+smooth function, and in a large sample the moments vary so little that the function is
+nearly a straight line over that range, which preserves the Normal shape
+([Chapter 6](../Chapter_6/Theory.qmd#sec-delta-method) explains this as the delta method).
+So the method-of-moments estimator of the variance of the Normal model is also asymptotically
+normal, and so are the estimators of the Negative Binomial model that you will calculate in
+the practical. In [Chapter 4](../Chapter_4/Theory.qmd) we will see the same result for
+maximum likelihood estimators, together with a way to calculate their standard errors.
+
+Asymptotic normality is the justification for the Wald interval in
+@sec-confidence_intervals, and because it is a general behaviour the same interval can be
+used with estimators other than the mean. How large $n$ needs to be depends on the model and
+on the estimator. In @fig-asymptotic_normality the sampling
 distribution of $\hat\lambda$ for samples of 5 quadrats is discrete (the mean of five
 counts can only change in steps of $0.2$, so each bar is one possible value) and
 slightly asymmetric, with a longer tail to the right, whereas for 100 quadrats the Normal
 approximation is close. Note that the counts in individual
 quadrats still follow a Poisson distribution in both cases; it is the distribution of their
-mean that approaches a Normal distribution.
+mean that approaches a Normal distribution. For the estimator, consider Normal observations:
+the sampling distribution of their mean is exactly Normal at any sample size, whereas that of
+the method-of-moments estimator of the variance has a skewness of approximately 1.4 for 5
+observations and is still slightly skewed for 123 (approximately 0.26).
 
 ```{r}
 #| echo: false
@@ -1796,18 +1839,20 @@ size grows.
 An estimator is a rule that calculates a value for a parameter from a sample, and an
 estimate is its result for one sample. The method of moments constructs estimators by
 equating moments of the model to moments of the empirical distribution. The sampling
-distribution of an estimator describes how its estimates vary across repeated hypothetical experiments. Its
+distribution of an estimator describes how its estimates vary across repeated hypothetical
+samples, each another realisation of the data generating process. Its
 mean determines the bias, its standard deviation is the standard error, and the mean
 squared error combines both. Most estimators are biased in finite samples, and exact
 formulas for their sampling distribution exist only in special cases, so in general we
 rely on large-sample results or on simulation.
 
 A confidence interval is calculated with a procedure that contains the parameter in a
-given fraction of hypothetical experiments (its coverage). The intended coverage is
-only approximately achieved in general. Wald intervals rely on the asymptotic
-normality of the estimator. Simulation allows us to check bias, standard errors and coverage, because we
-know the parameters that generated the samples. All these properties are derived under the
-assumed model.
+given fraction of hypothetical samples (its coverage). The intended coverage is
+only approximately achieved in general. Wald intervals rely on the asymptotic normality of
+the estimator, a behaviour that most estimators share and that for the mean of a sample is
+the central limit theorem. Simulation allows us to check bias, standard errors and coverage,
+because we know the parameters that generated the samples. All these properties are derived
+under the assumed model.
 
 In [Chapter 4](../Chapter_4/Theory.qmd) we introduce maximum likelihood, a general method
 of estimation that we will use in the rest of the course. The estimators will change, but
@@ -1898,7 +1943,7 @@ estimates vary considerably. Is the estimator biased? Is its variance zero?
 ::: {.callout-tip title="Answer" collapse="true"}
 
 It is unbiased, because the mean of its sampling distribution equals the parameter. Its
-variance is larger than zero, because its estimates vary across hypothetical experiments.
+variance is larger than zero, because its estimates vary across hypothetical samples.
 
 :::
 ::::
@@ -1923,7 +1968,7 @@ lying inside it? Explain what the 95% describes.
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-No. The 95% describes the procedure: across hypothetical experiments, about 95% of the intervals
+No. The 95% describes the procedure: across hypothetical samples, about 95% of the intervals
 calculated in this way contain the parameter (if the coverage of the procedure equals its
 confidence level). The parameter is fixed, so one calculated interval either contains it or
 it does not.
@@ -1957,7 +2002,7 @@ No. In a finite sample an estimator is in general biased, and the shape of its s
 distribution is unknown, except in special cases where it can be derived exactly (such as the
 mean of Normal observations). The standard error and the confidence interval are
 approximations that rely on large-sample results, so with 15 observations they may be
-unreliable. We can simulate many hypothetical experiments of the same size from the assumed
+unreliable. We can simulate many hypothetical samples of the same size from the assumed
 model with known parameters, and calculate the bias, the standard deviation of the estimates
 and the coverage of the interval, as we did for the Wald interval.
 

@@ -53,6 +53,12 @@ slides use which figure.
   demo), so that the speaker view tracks the whole session; the script's table shows the
   two parts ("1 + 12"). A break is a row of the table without a slide number, and the
   line under the table totals slides, slack, demos and breaks.
+- **Pace in delivery:** slides take longer than the allocation below suggests. In the
+  Chapter 2 lecture, the 90 minutes planned for slides left no time for most of the 40
+  minutes of demos, so the Chapter 3 lecture gives the same 150-minute session to its 34
+  slides alone: about 3.7 minutes per slide (125 minutes, 5 of slack, two breaks of 10)
+  and no demo slides. The author decides during such a lecture whether to run code, and
+  the script's "Adjustments during delivery" lists the chunks that fit.
 - Time goes to what students must understand; the Chapter 1 allocation is a guide for
   proportions: 1 minute for the title and overview
   slides, 2 for the roadmap slides and the slide that opens the argument, 3 to 4 for
@@ -141,6 +147,11 @@ Five kinds of box, all fenced divs, each with a fixed role:
 | `.activity` | A question for the students or a timed task ("**30 seconds:** discuss with a neighbour."). It states the time when the activity is timed. At most one per slide. |
 | `.demo` | On a live demo slide only: the chapter sections that students open to follow along. The stylesheet adds a small "Live demo" label. |
 
+A `Practice` callout of the chapter without code may be the `.activity` of the slide that
+teaches its concept, shortened to its question; the script gives the chapter's solution as
+the expected answer. `Practice` callouts with a calculation or code belong in the demos, or
+in the list of code to run in a lecture without demos.
+
 Place the `.takeaway` and `.activity` last on the slide. Other helpers: `.caption`
 (figure caption in small type), `.columns` and `.column width="NN%"` for two columns
 (two text columns 50/50; text and figure 56/44 to 65/35 with the figure in the larger
@@ -154,7 +165,11 @@ data-timing="240"}`, and the class to the image:
 - `.schematic` (image class): a schematic in a 56 to 60% column.
 - `.two-plots`: two figures side by side, each with a heading and a one-line description
   of the model (the observations and the fitted model are explained once in the caption).
-- `.figure-slide`: a large figure in a 62 to 65% column with a short list beside it.
+- `.figure-slide`: a large figure in a 62 to 65% column with a short list beside it. A
+  wide figure of several panels may instead take the full width of the slide, without
+  columns, with the caption and a short list (or an equation beside the list, in two
+  columns) below it. Reveal.js shrinks such a figure to the height left by the text, so
+  keep each line below it to one line and check the slide at full size.
 - `.diagram-slide`: the author's own diagrams (`.cycle-diagram`, `.estimation-diagram`
   on the image). The modelling cycle may stand alone with a caption.
 - `.dense`, `.with-footline`: for slides with more text or a footline; not used so far.
@@ -212,8 +227,9 @@ The more text or topics on a slide, the more steps.
    2". Slide numbers in the script are the numbers of the rendered slides and are updated
    when slides are added or removed.
 4. `## Adjustments during delivery`: which slides to shorten first when discussion
-   overruns and how much time that recovers, which explanations to keep, and where a
-   break fits.
+   overruns and how much time that recovers, which explanations to keep, where a break
+   fits and, in a lecture without demos, the code to run if time is left (the visible
+   chunks of the chapter and the practical, by block).
 
 The section of a live demo slide has the narrative of its one-minute introduction and
 then a **Live demo** block: the steps in order with the chapter chunks to run, what to

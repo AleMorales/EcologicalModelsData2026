@@ -5,7 +5,7 @@ date: today
 
 Exercise 1 uses a laboratory experiment on the survival of tadpoles, Exercises 2 and 3 use
 field counts of glacier lily seedlings, and Exercise 4 uses measurements of trees and of
-penguins that come with R. Exercise 5 simulates hypothetical experiments from the models
+penguins that come with R. Exercise 5 simulates hypothetical samples from the models
 fitted in Exercise 4. Exercises 1 to 4 are the core of the practical and Exercise 5 is extra
 practice. The data of Exercises 1 to 3 are in the package `emdbook`. Work through the first
 example before trying the remaining exercises. The ideas and notation are introduced in the
@@ -645,12 +645,12 @@ in grams. In both cases we assume that the observations are i.i.d.
    masses with `dlnorm()`, in grams and in kilograms, and compare it with the Gamma model
    using AIC and AICc. Does the comparison depend on the units?
 
-# Exercise 5: Estimators and intervals across hypothetical experiments
+# Exercise 5: Estimators and intervals across hypothetical samples
 
 This exercise is extra practice. With a single sample we cannot tell how far an estimate
 is from the parameter, or whether a confidence interval contains it, because the parameter
 is unknown. As in Exercise 3 of the Chapter 3 practical, we can study the behaviour of an
-estimator by simulating hypothetical experiments from a model whose parameters we know.
+estimator by simulating hypothetical samples from a model whose parameters we know.
 Here we use the maximum likelihood estimates of Exercise 4 as the parameters of that model.
 The simulation then shows how the estimators and the intervals would behave if the fitted
 Gamma model had generated the data (see
@@ -662,23 +662,23 @@ is given below the questions with three gaps, which you fill in.
 1. For the shape $k$ of the Gamma model fitted to the tree volumes, calculate a 95% Wald
    interval (on the log scale, with the endpoints transformed back) with the standard
    error from `sdreport()`. Compare it with the profile likelihood interval of Exercise 4.
-2. Complete the first gap of the function `simulate_gamma_experiments()` below. Set seed
-   801 and simulate 2,000 hypothetical experiments, each with 31 trees from a Gamma model
+2. Complete the first gap of the function `simulate_gamma_samples()` below. Set seed
+   801 and simulate 2,000 hypothetical samples, each of 31 trees from a Gamma model
    whose shape and rate are the maximum likelihood estimates of Exercise 4. For each
-   experiment, the function estimates the shape by the method of moments and by maximum
+   sample, the function estimates the shape by the method of moments and by maximum
    likelihood (the fit starts at a shape of 1 and at the rate that gives the mean of the
    simulated sample, as in question 4 of Exercise 4). Compare the mean, the standard
    deviation and the mean squared error of the two estimators with the shape that you used
    to simulate. Tip: the function has the sample size, the shape and the rate as arguments
    because you will need it again in question 4.
-3. Complete the second and the third gap, which record for each experiment whether the
+3. Complete the second and the third gap, which record for each sample whether the
    Wald interval and the profile likelihood interval for the shape contain the shape that
    you used to simulate, and calculate the coverage of both intervals. Hint: you do not
    need `tmbprofile()` inside the simulation. A profile likelihood interval contains a
    value whenever the profile log-likelihood at that value is within
    `qchisq(p = 0.95, df = 1) / 2` of the maximum log-likelihood, so one extra fit with the
    shape fixed at that value is enough.
-4. Set seed 802 and repeat questions 2 and 3 with experiments of 151 penguins from the
+4. Set seed 802 and repeat questions 2 and 3 with samples of 151 penguins from the
    Gamma model fitted to the body masses in grams. How do the bias and the coverage change?
    The two simulations differ in the sample size and in the model. How can you check which
    of the two explains the change? Do it, without resetting the seed.
@@ -687,35 +687,35 @@ is given below the questions with three gaps, which you fill in.
 
 The function below needs `gamma_nll()` from Exercise 4, the helper `cmb()`, and the objects
 `critical_value` and `cutoff` (the critical value of the standard Normal distribution and
-the cutoff of the relative log-likelihood for a 95% interval). It draws every experiment
+the cutoff of the relative log-likelihood for a 95% interval). It draws every sample
 with the function `simulate()` of an object that has placeholder data of the right length,
-as in the theory, and stores the results of every experiment in one row of a data frame.
+as in the theory, and stores the results of every sample in one row of a data frame.
 In each gap, replace `NA` by your own code. The lines that follow a gap use the names of
 the objects that the gap creates, so keep those names.
 
 ```{r}
 #| eval: false
-# One simulation of hypothetical experiments from a Gamma model whose parameters we know.
-# For each experiment: the maximum likelihood and the method-of-moments estimates of the
+# One simulation of hypothetical samples from a Gamma model whose parameters we know.
+# For each sample: the maximum likelihood and the method-of-moments estimates of the
 # shape, and whether the Wald interval (log scale) and the profile interval contain the
 # shape that was used to simulate.
-simulate_gamma_experiments = function(n_obs, shape, rate, n_experiments) {
+simulate_gamma_samples = function(n_obs, shape, rate, n_samples) {
   results = data.frame(
-    shape_ml = rep(NA, times = n_experiments),
-    shape_mom = rep(NA, times = n_experiments),
-    wald_covered = rep(NA, times = n_experiments),
-    profile_covered = rep(NA, times = n_experiments),
-    converged = rep(NA, times = n_experiments)
+    shape_ml = rep(NA, times = n_samples),
+    shape_mom = rep(NA, times = n_samples),
+    wald_covered = rep(NA, times = n_samples),
+    profile_covered = rep(NA, times = n_samples),
+    converged = rep(NA, times = n_samples)
   )
-  # An object with placeholder data of the right length, from which the experiments are
+  # An object with placeholder data of the right length, from which the samples are
   # simulated: the values of the data are not used.
   placeholder_obj = MakeADFun(
     cmb(gamma_nll, list(x = rep(0, times = n_obs))),
     list(log_shape = 0, log_rate = 0),
     silent = TRUE
   )
-  for (e in seq_len(n_experiments)) {
-    # One hypothetical experiment (simulate() takes the parameters on the log scale) and
+  for (i in seq_len(n_samples)) {
+    # One hypothetical sample (simulate() takes the parameters on the log scale) and
     # its method-of-moments estimate of the shape.
     x = placeholder_obj$simulate(log(c(shape, rate)))$x
     x_mean = mean(x)
@@ -751,11 +751,11 @@ simulate_gamma_experiments = function(n_obs, shape, rate, n_experiments) {
     fixed_fit = NA
     profile_covered = NA
 
-    results$shape_ml[e] = shape_ml
-    results$shape_mom[e] = shape_mom
-    results$wald_covered[e] = wald_covered
-    results$profile_covered[e] = profile_covered
-    results$converged[e] = fit$convergence == 0 && fixed_fit$convergence == 0
+    results$shape_ml[i] = shape_ml
+    results$shape_mom[i] = shape_mom
+    results$wald_covered[i] = wald_covered
+    results$profile_covered[i] = profile_covered
+    results$converged[i] = fit$convergence == 0 && fixed_fit$convergence == 0
   }
   results
 }
