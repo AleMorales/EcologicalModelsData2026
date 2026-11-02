@@ -19,8 +19,8 @@ Each lecture lives in `Chapter_N/Lecture/`:
   provenance of the figures (see "The script").
 - `lecture-script.pdf`: a printout of the script for the lecturer. Generated (Typst);
   regenerate it after changing the script and never edit it.
-- `lecture.scss`: presentation styling. Copy the Chapter 2 file (the Chapter 1 file plus
-  the rules for live demos) and keep the class names below; do not restyle per lecture.
+- `lecture.scss`: presentation styling. Copy the Chapter 3 file and keep the class names
+  below; do not restyle per lecture. Its demo rules are only used by the Chapter 2 lecture.
 - `lecture-assets/`: figures made for the slides (schematics as SVG, copies of chapter
   figures as PNG). Copies of figures from the chapter are unchanged; their code and
   data provenance stay in the chapter's `Theory.qmd`. Refresh copies when the original
@@ -37,6 +37,11 @@ Each lecture lives in `Chapter_N/Lecture/`:
 There is no separate README: how to render is stated above, and the script says which
 slides use which figure.
 
+A chapter with two lectures has two folders, `Chapter_N/Lecture_1/` and
+`Chapter_N/Lecture_2/`, each with the files above. A figure that both lectures use has a
+copy in each `lecture-assets/`. The subtitle, footer and `pagetitle` name the lecture
+("Chapter N · Lecture 1"), and the second lecture opens with a short recap of the first.
+
 ## Size and timing
 
 - Every slide has `data-timing="<seconds>"` (for the speaker view's timer). The slides
@@ -48,17 +53,17 @@ slides use which figure.
 - Plan the slides to fill the length minus a few minutes of slack for discussion (Chapter
   1: about 57 minutes of slides and 3 of slack), which appears as its own row of the
   table. The number of slides follows from the time and not the other way round.
-- **Live demos and breaks** are outside the length that the author sets for the slides.
-  A demo slide's `data-timing` includes its demo (one minute of introduction plus the
-  demo), so that the speaker view tracks the whole session; the script's table shows the
-  two parts ("1 + 12"). A break is a row of the table without a slide number, and the
-  line under the table totals slides, slack, demos and breaks.
+- **No live demos.** Lectures from Chapter 3 onward have no live demos and no demo slides
+  (author's decision). The author decides during the lecture whether to run code, and the
+  script's "Adjustments during delivery" lists the chunks that fit. Only the Chapter 2
+  lecture has demos; there a demo slide's `data-timing` includes its demo and the table of
+  the script shows the two parts ("1 + 12").
+- **Breaks** are rows of the table without a slide number, and the line under the table
+  totals slides, slack and breaks.
 - **Pace in delivery:** slides take longer than the allocation below suggests. In the
   Chapter 2 lecture, the 90 minutes planned for slides left no time for most of the 40
   minutes of demos, so the Chapter 3 lecture gives the same 150-minute session to its 34
-  slides alone: about 3.7 minutes per slide (125 minutes, 5 of slack, two breaks of 10)
-  and no demo slides. The author decides during such a lecture whether to run code, and
-  the script's "Adjustments during delivery" lists the chunks that fit.
+  slides alone: about 3.7 minutes per slide (125 minutes, 5 of slack, two breaks of 10).
 - Time goes to what students must understand; the Chapter 1 allocation is a guide for
   proportions: 1 minute for the title and overview
   slides, 2 for the roadmap slides and the slide that opens the argument, 3 to 4 for
@@ -89,15 +94,10 @@ is in sentence case.
    open with a slide that states the problem of the chapter and what it offers, and may
    show an organising figure early as a map (Chapter 1: the modelling cycle). The summary
    returns to that figure by speaking about it again, without a new slide.
-4. **Live demo slides** when the author runs R during the lecture: one slide titled
-   "Live demo: <topic>" at the end of the block that it practises (class `.demo-slide`),
-   with an incremental list of 3 or 4 tasks, each a short phrase naming what is run,
-   and a `.demo` box that names the chapter sections to open ("**Follow along:**
-   Chapter 2, *The four faces of a distribution*"). A demo uses the code chunks and
-   `Practice` callouts of the chapter, not new scripts, and its instructions are only in
-   the script. Slides, script and handoff name a `Practice` callout by its number on the
-   theory page and its title, as the page shows it: "Practice 1: orchid fruit set" in the
-   script, "Practice 1 (orchid fruit set)" in a task on a slide.
+4. **Practice slides** where a `Practice` callout of the chapter is a calculation (see
+   "Boxes"): one slide titled as the page shows the callout ("Practice 1: orchid fruit
+   set"), at the point of the chapter where the callout stands. Slides, script and handoff
+   name a `Practice` callout by its number on the theory page and its title.
 5. Roadmap slides when the chapter points forward: tables of at most four rows per
    slide, titled "Course roadmap: A to B".
 6. **Practical slide** when a practical accompanies the lecture: what it covers, as
@@ -110,6 +110,25 @@ is in sentence case.
 
 Slides carry keywords and very short sentences, for students who do not know the course
 yet. The narrative lives in the script.
+
+**General statement first (author's rule).** Every content slide states the general
+definition, rule or property, in general terms and symbols ($\theta$, $\ell$, $n$, "a
+positive parameter"), and then shows what it gives for the example. The author has had to
+rewrite slides that showed only an example.
+
+- The title names the concept and not the example.
+- Results of the example come last, normally in an `.example` box. Numbers of the example
+  do not appear in the bullets; they may also go in the caption of a figure or the comments
+  of a code chunk.
+- Beside a figure of the example, the bullets say what such a figure shows in general and
+  how to read it. The caption and the `.example` box carry the specifics.
+- On a code slide, the bullets give the general items of the recipe (what each function
+  takes and returns) and the chunk shows them on the example.
+- Test: with the `.example` box, the caption and the code comments covered, the slide must
+  still teach the concept. Title, overview, activity, discussion, roadmap and practical
+  slides are exempt.
+
+Other rules:
 
 - `##` is the slide title, in sentence case, as a noun phrase or a short question
   ("Parameter uncertainty"). A discussion slide begins "Discussion: ..." ("Discussion:
@@ -137,7 +156,7 @@ yet. The narrative lives in the script.
 
 ### Boxes
 
-Five kinds of box, all fenced divs, each with a fixed role:
+Four kinds of box, all fenced divs, each with a fixed role:
 
 | Class | Use |
 |---|---|
@@ -145,12 +164,13 @@ Five kinds of box, all fenced divs, each with a fixed role:
 | `.example` | A short numerical or concrete case, inside a column or under a definition. |
 | `.takeaway` | The one sentence or string of keywords that the slide should leave behind. At most one per slide. |
 | `.activity` | A question for the students or a timed task ("**30 seconds:** discuss with a neighbour."). It states the time when the activity is timed. At most one per slide. |
-| `.demo` | On a live demo slide only: the chapter sections that students open to follow along. The stylesheet adds a small "Live demo" label. |
 
 A `Practice` callout of the chapter without code may be the `.activity` of the slide that
 teaches its concept, shortened to its question; the script gives the chapter's solution as
-the expected answer. `Practice` callouts with a calculation or code belong in the demos, or
-in the list of code to run in a lecture without demos.
+the expected answer. A callout that is a calculation on paper, or with R as a calculator,
+is its own Practice slide: the task in an `.activity` that states the time (2 or 3
+minutes), visible from the start, with the chapter's solution in the script. A callout that
+needs more code goes in the script's list of code to run.
 
 Place the `.takeaway` and `.activity` last on the slide. Other helpers: `.caption`
 (figure caption in small type), `.columns` and `.column width="NN%"` for two columns
@@ -173,7 +193,6 @@ data-timing="240"}`, and the class to the image:
 - `.diagram-slide`: the author's own diagrams (`.cycle-diagram`, `.estimation-diagram`
   on the image). The modelling cycle may stand alone with a caption.
 - `.dense`, `.with-footline`: for slides with more text or a footline; not used so far.
-- `.demo-slide`: a live demo slide (see "Slide sequence").
 
 ### Code on slides
 
@@ -228,15 +247,11 @@ The more text or topics on a slide, the more steps.
    when slides are added or removed.
 4. `## Adjustments during delivery`: which slides to shorten first when discussion
    overruns and how much time that recovers, which explanations to keep, where a break
-   fits and, in a lecture without demos, the code to run if time is left (the visible
-   chunks of the chapter and the practical, by block).
+   fits and the code to run if time is left (the visible chunks of the chapter and the
+   practical, by block; no typed code).
 
-The section of a live demo slide has the narrative of its one-minute introduction and
-then a **Live demo** block: the steps in order with the chapter chunks to run, what to
-point out in the output, the `Practice` callouts that students try first (1 to 2 minutes)
-before they are solved live, time checkpoints ("by minute 6, start here"), code only
-where the chapter has none, and what to drop when the demo runs late. A break is a
-single line ("Break (10 minutes).") after the section of the slide that precedes it.
+A break is a single line ("Break (10 minutes).") after the section of the slide that
+precedes it.
 
 A section is the narrative in full sentences, which follows the chapter, connects the
 slide to the neighbouring slides by number ("slide 14 looks at that assumption") and to
@@ -263,8 +278,7 @@ an anecdote or opinion on the author's behalf (`STYLE_GUIDE.md`).
 `lecture.scss` holds all of it. Colours are the course palette: dark green `#164c43`
 (headings, bold, table headers), mid green `#52836a` (takeaway rule), light green
 `#f0f6f2` and `#dcece5` (box backgrounds, title rule), Okabe–Ito blue `#0072b2`
-(example rule, links) and vermillion `#d55e00` (activity rule; the `.demo` box has a dark
-green rule), with `#263530` for body
+(example rule, links) and vermillion `#d55e00` (activity rule), with `#263530` for body
 text and `#52605a` for captions and footer. Use `Segoe UI` at 36 px root size and
 left-aligned text; no animation beyond the fade transition and fragments. The title slide
 has its own rules (`.lecture-title`, `.subtitle`, `.eyebrow`). Figures on slides follow
@@ -277,14 +291,19 @@ schematics have no numerical scales and no fitted values.
    adds up to it.
 2. Title, overview, content, roadmap (if needed), practical (if any), summary with
    closing questions.
-3. Slides hold keywords and short bullets, one idea each; there are no notes in the
+3. Every content slide passes the test of "General statement first".
+4. Slides hold keywords and short bullets, one idea each; there are no notes in the
    slides and the narrative is in the script.
-4. Boxes use the five classes; takeaway and activity come last, one of each at most.
-5. Lists and columns build with `.incremental` and `.fragment`; diagrams and tables do
+5. Boxes use the four classes; takeaway and activity come last, one of each at most.
+6. Lists and columns build with `.incremental` and `.fragment`; diagrams and tables do
    not.
-6. Every image has descriptive `fig-alt`; copies of chapter figures are unchanged and
+7. Every image has descriptive `fig-alt`; copies of chapter figures are unchanged and
    listed in the script.
-7. Slide numbers, titles and times in the script agree with the slides and `data-timing`.
-8. The script has the timing table (with slack and total), one section per slide, a
+8. Slide numbers, titles and times in the script agree with the slides and `data-timing`.
+9. The script has the timing table (with slack and total), one section per slide, a
    delivery block where needed and the section on adjustments.
-9. Rendered with `quarto render`, and the claim of a render is made only if it ran.
+10. Rendered with `quarto render`, and the claim of a render is made only if it ran.
+11. Every slide was looked at in full, at 1440 × 900 with all fragments showing, because
+    a slide that is too long runs into the footer without any warning. Open
+    `lecture.html?fragments=false#/N` (N counts from 0), in a browser or as a headless
+    Edge or Chrome screenshot.

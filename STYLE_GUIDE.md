@@ -162,6 +162,15 @@ is announced. The author then added a joint-probability table with numbers.
   Normal, LogNormal, Beta, Gamma ("the Binomial distribution", "Normal errors", "The
   Negative Binomial distribution" in a heading). Other words stay in lower case
   ("distribution", "model", "density"). Correct lower-case forms when editing.
+- **Likelihood profile**, never "profile likelihood" (also "likelihood profile interval"):
+  the course uses profiles to draw the likelihood and to calculate confidence intervals.
+  Do not introduce "nuisance parameter"; say that a profile re-estimates "the other
+  parameters".
+- **Parameterisation:** say "with this parameterisation" or "in the parameterisation with
+  $k$ and $p$", not "in these parameters" or "in R's own parameters". Distribution
+  functions are those of RTMB and RTMBdist (`dnbinom2()` takes `mu` and `size`, `dnbinom()`
+  takes `size` and `prob`); mention base R only where the text really means it, and do not
+  call a parameterisation "R's default".
 - Function names as code with parentheses (`var()`, `optim()`); object and argument names
   in backticks (`seed_count`, `lower.tail`); R and RStudio as ordinary proper names.
 
@@ -265,7 +274,7 @@ of practicals, and matter most where the text teaches a recipe that students wil
 | Mass and density | Discrete values have probability mass. A density gives probabilities through integration over intervals; its value is not a point probability and may exceed one. |
 | Probability and likelihood | Probability varies the data for fixed parameters. Likelihood varies the parameters for the observed data and is not a probability distribution over parameters. |
 | Likelihood notation | Keep the bar in $P(X=x\mid\theta)$ and $L(\theta\mid x_1,\ldots,x_n)$, and say at first use that it reads "for a given value of". $\ell$ is the log-likelihood; once the data are fixed write $L(\theta)$ and $\ell(\theta)$. The negative log-likelihood (NLL) is $-\ell$. Draw likelihood figures on the relative scale $\ell(\theta)-\ell(\hat\theta)$, because only differences are meaningful. |
-| Wald and profile intervals | The profile likelihood interval (cutoff 1.92 for one parameter, 3.00 for a joint region of two) is the reference method. The Wald interval is the fast approximation: explain it as a quadratic approximation of the log-likelihood, calculate it on the optimised scale and transform the endpoints back. A standard error cannot be transformed back like an endpoint (see "R coding patterns" for `ADREPORT()`). |
+| Wald and profile intervals | The likelihood profile interval (cutoff 1.92 for one parameter, 3.00 for a joint region of two) is the reference method. The Wald interval is the fast approximation: explain it as a quadratic approximation of the log-likelihood, calculate it on the optimised scale and transform the endpoints back. A standard error cannot be transformed back like an endpoint (see "R coding patterns" for `ADREPORT()`). |
 | Number of parameters in AIC | $K$, because $k$ is the shape of the Negative Binomial: $\mathrm{AIC}=2K-2\ell(\hat\theta)$. Only differences between models fitted to the same observations in the same units are meaningful, and AIC ranks candidates without showing that the best one describes the data well. |
 | Deterministic functions | Generic parameters $a,b,c,d$ for every function, as positions in a formula; say what each controls. Ecological symbols ($\alpha$ and $H$; $K$, $r$, $n_0$) only for a specific parameterisation. $f'(x)$ and $f''(x)$ in running text, $df/dx$ where the variable matters, $\partial f/\partial a$ for a partial derivative. $\log$ is the natural logarithm. Derive the units of every parameter from the formula: the argument of an exponential or a logarithm has no units, a parameter that multiplies $x$ has the inverse units of $x$, one that divides $x$ has the units of $x$. |
 | Names of functions | Michaelis–Menten (en dash) is the primary name of $ax/(b+x)$; Holling type II is its predator–prey parameterisation; Monod and Beverton–Holt are named in a footnote. The saturating exponential has the ID `sec-fn-monomolecular`. |
@@ -455,6 +464,13 @@ worked exercises (`AGENTS.md` lists them).
   the distinction is the lesson.
 - Short, meaningful `snake_case` names; mathematical names (`x`, `mu`, `k`) when their
   meaning has just been defined.
+- **Names of estimates.** Method-of-moments estimates computed from a sample carry the
+  suffix `_mom` (`mu_mom`, `var_mom`, `k_mom`) and maximum likelihood estimates `_mle`
+  (`mu_mle`, `k_mle`), so that the two are never confused; `var` and not `variance` in
+  names (`var_mom`, `sim_var`). Name the log-likelihood of a model after the model
+  (`loglik_nb`, `loglik_poisson`), and label the elements of a vector that compares models
+  by the model (`c(negative_binomial = loglik_nb, poisson = loglik_poisson)`); the
+  method (`mle`, `mom`) labels a comparison of estimators of one model.
 - Name distribution arguments: `dbinom(x = 15, size = 25, prob = 0.65)`. Break long calls
   over several lines.
 - Use `package::function()` or load the package explicitly. Explain a new dependency and
