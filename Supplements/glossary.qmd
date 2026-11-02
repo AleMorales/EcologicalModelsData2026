@@ -279,12 +279,19 @@ us to fit a model on a transformed scale (e.g., the logarithm of a positive para
 to report the estimates on the original scale. Invariance carries over the estimate but not
 unbiasedness.
 
+- **Jensen's inequality**: $E[g(X)]\ge g(E[X])$ if $g$ is a convex function and
+$E[g(X)]\le g(E[X])$ if $g$ is concave, so the curvature decides the sign of the difference. In
+plain English, the mean of a transformed variable is not the transformation of the mean, and
+this holds in general for non-linear functions. A variance is a kind of mean and a standard
+error is its square root, so a standard error cannot be back-transformed by applying the
+function to it. See also delta method.
+
 - **Joint confidence region**: A region of the parameter space calculated so that, across
 repeated hypothetical samples, it contains the combination of parameter values that
 generated the data with a given frequency. For two parameters, an approximate 95% region
 contains the combinations whose relative log-likelihood is above $-3.00$ (half the 0.95
 quantile of a chi-squared distribution with two degrees of freedom). It extends beyond the
-profile likelihood interval of each parameter, because capturing two parameters at once is
+likelihood profile interval of each parameter, because capturing two parameters at once is
 more demanding than capturing one.
 
 - **Joint distribution**: The distribution of two or more random variables together. It
@@ -323,9 +330,27 @@ It is not a probability distribution for the parameter: it does not add up or in
 one over the parameter values. We use it to compare parameter values, and the value that
 the data support best is the maximum likelihood estimate.
 
+- **Likelihood profile**: The maximum log-likelihood reached for each value of a parameter of
+interest, when the other parameters are re-estimated for every value,
+$$
+\ell_{\mathrm{prof}}(\theta_1) = \max_{\theta_2}\,\ell(\theta_1,\theta_2).
+$$
+In this course the re-estimation is done with `optim()`, one value at a time or with
+`TMB::tmbprofile()`. A profile does not depend on how the other parameters are written,
+whereas a slice does.
+
+- **Likelihood profile interval**: An approximate confidence interval that contains all the
+values of a parameter whose relative profile log-likelihood is above $-1.92$ (half the 0.95
+quantile of a chi-squared distribution with one degree of freedom). It follows from Wilks'
+theorem. It does not depend on the scale of the parameter and it follows the asymmetry of
+the likelihood, which is why it is the reference method of this book. Its endpoints are
+found with `uniroot()` or with `confint()` applied to the result of `TMB::tmbprofile()`. For a
+model with one parameter it is simply called the likelihood
+interval.
+
 - **Likelihood slice**: The log-likelihood as a function of one parameter, with the other
 parameters fixed at one value, normally their estimates. A slice needs no optimisation, but
-it treats the other parameters as known, so it is narrower than the profile likelihood
+it treats the other parameters as known, so it is narrower than the likelihood profile
 unless the estimates of the parameters do not depend on each other.
 
 - **Limit**: The value that a function approaches as its input approaches a given value,
@@ -421,11 +446,6 @@ by fixing one of the parameters of the other at a particular value. The Michaeli
 function is nested in the Hassell function, which has a third parameter $c$, and is
 recovered when $c=1$. Nested functions are the usual candidates in a comparison of models.
 
-- **Nuisance parameter**: A parameter that is needed to define the model but is not the one
-that the question is about. Which parameter is of interest and which is a nuisance depends
-on the question. A profile likelihood re-estimates the nuisance parameters for every value of
-the parameter of interest.
-
 - **`OBS()`**: A function of RTMB that is called inside a negative log-likelihood to mark a
 data variable as an observation. It makes it possible to simulate the data: the function
 `simulate()` of the object made by `MakeADFun()` replaces every marked variable with values
@@ -480,24 +500,6 @@ integration from the probability density function.
 possible value of a discrete random variable. The probabilities of all possible values add
 up to one, and the probability of any set of values is obtained by adding the individual
 probabilities.
-
-- **Profile likelihood**: The maximum log-likelihood reached for each value of a parameter of
-interest, when the nuisance parameters are re-estimated for every value,
-$$
-\ell_{\mathrm{prof}}(\theta_1) = \max_{\theta_2}\,\ell(\theta_1,\theta_2).
-$$
-In this course the re-estimation is done with `optim()`, one value at a time or with
-`TMB::tmbprofile()`. A profile does not depend on how the nuisance parameters are written,
-whereas a slice does.
-
-- **Profile likelihood interval**: An approximate confidence interval that contains all the
-values of a parameter whose relative profile log-likelihood is above $-1.92$ (half the 0.95
-quantile of a chi-squared distribution with one degree of freedom). It follows from Wilks'
-theorem. It does not depend on the scale of the parameter and it follows the asymmetry of
-the likelihood, which is why it is the reference method of this book. Its endpoints are
-found with `uniroot()` or with `confint()` applied to the result of `TMB::tmbprofile()`. For a
-model with one parameter it is simply called the likelihood
-interval.
 
 - **Pseudo-random sequence**: A sequence of numbers generated by a deterministic algorithm
 and designed to have the mathematical properties needed for random sampling. It is what
@@ -596,10 +598,10 @@ distributions, the support can be unconstrained (any real value), positive (any 
 zero) or constrained (any value within a range).
 
 - **`TMB::tmbprofile()`**: A function of the package TMB (written with its prefix, because
-RTMB does not export it) that calculates the profile likelihood of one parameter of an
+RTMB does not export it) that calculates the likelihood profile of one parameter of an
 object made by `MakeADFun()`: for each value of the parameter it re-estimates the others. It
 returns a data frame of values of the parameter and of the negative log-likelihood, and
-`confint()` of the result gives the endpoints of the profile likelihood interval.
+`confint()` of the result gives the endpoints of the likelihood profile interval.
 
 - **Unimodal function**: A function that rises to a single maximum and declines after it
 (a hump-shaped function), as the Ricker function does.
@@ -628,7 +630,7 @@ standard error, which `ADREPORT()` provides through the delta method.
 - **Wilks' theorem**: In large samples, twice the difference between the maximum
 log-likelihood and the profile log-likelihood at the parameter value that generated the data
 approximately follows a chi-squared distribution, with as many degrees of freedom as the
-number of parameters that are fixed. It is the basis of profile likelihood intervals and of
+number of parameters that are fixed. It is the basis of likelihood profile intervals and of
 joint confidence regions.
 
 - **Zero-inflated distribution**: A mixture of two processes: with probability $p_0$ the

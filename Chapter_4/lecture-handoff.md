@@ -122,11 +122,11 @@ example number slip into a bullet.
 - **Hypothetical samples**, never "experiments". "Model probability", "the parameter used to
   simulate". Chapter 3's slides use "true" in quotation marks; these lectures follow the
   chapter's wording instead.
-- **"Maximum likelihood estimate" and MLE:** expand at first use. Write "profile likelihood
+- **"Maximum likelihood estimate" and MLE:** expand at first use. Write "likelihood profile
   interval" on slides; "likelihood interval" only where the chapter contrasts it for the
   one-parameter case.
 - **Terms:** Fisher information, observed information, Hessian, Wald interval, quadratic
-  approximation, relative log-likelihood, nuisance parameter, inner fits, parameterisation,
+  approximation, relative log-likelihood, inner fits, parameterisation,
   invariance. $K$ for the number of parameters in AIC, because $k$ is the shape.
 - **Units:** "seedlings per quadrat" and "calls per visit" (a sampling unit keeps "per").
 - **Slide 4 of Lecture 1 and the summaries** say what the concepts are for in this book.
@@ -406,13 +406,13 @@ slide equal its `data-timing` in seconds.
 31. **Slices and profiles:**
     - General: `.definition` slice: fix the other parameters, normally at their estimates.
       `.definition` profile: re-estimate them for every value of the parameter of interest.
-      Equation $\ell_{\mathrm{prof}}(\theta_1)=\max_{\theta_2}\ell(\theta_1,\theta_2)$. Bullet:
-      **nuisance parameters** are the ones re-estimated; which they are depends on the question.
+      Equation $\ell_{\mathrm{prof}}(\theta_1)=\max_{\theta_2}\ell(\theta_1,\theta_2)$. No term
+      is introduced for the parameters that are re-estimated.
     - Example: `.example`: $\ell(k,\hat p)$ is a slice; $\max_p\ell(k,p)$ is the profile of $k$.
 32. **Slice against profile** (`.figure-slide`, full width, `slice-profile.png`):
     - General, below the figure: both pass through the MLE; the profile is never below the
       slice; a slice treats the other parameters as known, so it is narrower; the profile does
-      not depend on how the nuisance parameter is written.
+      not depend on how the other parameter is written.
     - Example: range of $k$ within 1.92 units: slice 0.26 to 0.41, profile 0.24 to 0.45.
       Caption: left, contours with the slice (dashed) and the ridge (solid); right, the two
       curves.
@@ -458,13 +458,13 @@ Uncertainty, Properties and Model Comparison". `pagetitle` and footer as in Lect
 | 7 | Fisher information | 5 | 13–18 |
 | 8 | The Hessian matrix | 4 | 18–22 |
 | 9 | From the Hessian to standard errors in R | 3 | 22–25 |
-| 10 | Transformed parameters | 5 | 25–30 |
+| 10 | Back-transforming a standard error | 5 | 25–30 |
 | 11 | A Wald interval depends on the scale | 4 | 30–34 |
 | 12 | `sdreport()` and `ADREPORT()` | 4 | 34–38 |
 | 13 | Practice 3: an interval from the log scale | 4 | 38–42 |
 | | Break | 10 | 42–52 |
-| 14 | Profile likelihood intervals | 5 | 52–57 |
-| 15 | Reading a profile likelihood interval | 4 | 57–61 |
+| 14 | Likelihood profile intervals | 5 | 52–57 |
+| 15 | Reading a likelihood profile interval | 4 | 57–61 |
 | 16 | `tmbprofile()` and `confint()` | 3 | 61–64 |
 | 17 | Intervals and sample size | 4 | 64–68 |
 | 18 | Profile intervals with several parameters | 5 | 68–73 |
@@ -496,7 +496,7 @@ Check: slides 125 (blocks of 42, 35 and 48) + slack 5 + breaks 20 = 150.
 
 1. **Title** (`.lecture-title`).
 2. **Overview of the lecture:** standard errors (how precise is an estimate?); Wald intervals
-   (what do we get from the curvature?); profile likelihood intervals (which values do the data
+   (what do we get from the curvature?); likelihood profile intervals (which values do the data
    support?); coverage (do the intervals do what they promise?); properties (why does the method
    work, and when does it fail?); model comparison (which model do the data support?); the
    practical (what comes next?).
@@ -511,7 +511,7 @@ Check: slides 125 (blocks of 42, 35 and 48) + slack 5 + breaks 20 = 150.
      k\approx0.33$.
 5. **Uncertainty from the likelihood** (two columns, each a fragment):
    - General: *Wald interval:* the curvature of the log-likelihood at its maximum; asymptotic
-     normality; fast; what software usually reports. *Profile likelihood interval:* the whole
+     normality; fast; what software usually reports. *Likelihood profile interval:* the whole
      shape around the maximum; the reference method; many fits. Takeaway: both work for any
      model fitted with `optim()`, without a formula for the variance.
 6. **Asymptotic normality of the MLE** [Standard errors and Wald intervals, note callout]:
@@ -549,25 +549,34 @@ Check: slides 125 (blocks of 42, 35 and 48) + slack 5 + breaks 20 = 150.
    - Example: owl chunks (`hessian = TRUE`, `solve()`, `sqrt(diag())`), with values in comments
      (0.165 for $\log(k)$; take the other from R). Note: standard errors of $\log(\mu)$ and
      $\log(k)$, not of $\mu$ and $k$.
-10. **Transformed parameters** [Constrained and unconstrained parameters]:
-    - General: the Hessian gives the standard error on the scale that was optimised. Two columns
-      or bullets: *Endpoints can be transformed back:* the transformation is increasing, so the
-      interval contains the parameter in the same hypothetical samples and coverage is kept. *A
-      standard error cannot:* it is built from expectations, which do not pass through
-      non-linear functions (Jensen's inequality); the correction is the **delta method**
-      (Chapter 6).
-    - Example: ten quadrats: 0.213 on the log scale; `exp()` of it gives about 1.24, which is
-      wrong; 0.213 × 2.2 gives 0.47, the standard error of $\hat\lambda$.
+10. **Back-transforming a standard error** [Constrained and unconstrained parameters]:
+    - General: the Hessian gives the standard error on the scale that was optimised. Two columns:
+      *Jensen's inequality:* for a non-linear $g$, $E[g(X)]\neq g(E[X])$; a standard error is the
+      square root of a variance and a variance is a kind of mean, so we cannot apply $g$ to it.
+      *The delta method:* $\widehat{\operatorname{SE}}(g(\hat\theta))\approx
+      |g'(\hat\theta)|\,\widehat{\operatorname{SE}}(\hat\theta)$, with the first derivative at
+      the estimate, so each transformation has its own correction; it corrects to some extent
+      (Chapter 6); TMB applies it for us with `ADREPORT()`.
+    - Example: ten quadrats: 0.47 on the original scale, 0.213 on the log scale; `exp(0.213)`
+      gives 1.24, very wrong; only for $\exp$ is the slope the estimate $\hat\lambda$, and
+      2.2 × 0.213 gives 0.47.
     - Script: the author corrected this argument: the difference in units is not the reason.
-      Footnote on Jensen and the delta method as an optional explanation.
-11. **A Wald interval depends on the scale** (`.figure-slide`, new `wald-parabolas.png`):
+      The problem exists for any non-linear function; convexity or concavity only decides the
+      sign. Multiplying by the estimate is not general (a probability on the logit scale takes
+      $\hat p(1-\hat p)$). No details of the delta method; the worked case of Jensen's inequality
+      (values 0 and 2) is in the chapter.
+11. **A Wald interval depends on the scale** (`.figure-slide`, new `wald-parabolas.png`)
+    [Wald intervals on the original and log scales]:
     - General: equation
       $\ell(\theta)-\ell(\hat\theta)\approx-(\theta-\hat\theta)^2/(2\,\widehat{\operatorname{SE}}(\hat\theta)^2)$.
       Bullets: a Wald interval replaces the log-likelihood by a parabola; good when the curve is
       close to a parabola on that scale; so calculate it on the optimised scale and transform
-      the endpoints; this keeps a positive parameter positive and captures asymmetry.
+      the endpoints, which keeps the coverage; this keeps a positive parameter positive and
+      captures asymmetry.
     - Example: ten quadrats: 1.28 to 3.12 on the original scale; 1.45 to 3.34 from the log
       scale. Caption explains the lines.
+    - Script: why the coverage is kept: the transformation is increasing, so the interval
+      contains the parameter in the same hypothetical samples.
 12. **`sdreport()` and `ADREPORT()`** (code):
     - General: bullets: `sdreport(obj)` after the fit calculates the Hessian and reads the
       estimates from the object; `summary()` gives a row per parameter, with `Estimate` and
@@ -585,9 +594,9 @@ Check: slides 125 (blocks of 42, 35 and 48) + slack 5 + breaks 20 = 150.
     estimate?
     - Script: solution: 1.9 to 3.3 around 2.5. The break follows.
 
-### Block 2: profile likelihood intervals and coverage
+### Block 2: likelihood profile intervals and coverage
 
-14. **Profile likelihood intervals:**
+14. **Likelihood profile intervals:**
     - General: `.definition` from the note callout: all the values whose relative profile
       log-likelihood is within 1.92 units of the maximum; the other parameters are re-estimated
       for each value. Bullets: 1.92 is half the 0.95 quantile of a chi-squared distribution with
@@ -596,7 +605,7 @@ Check: slides 125 (blocks of 42, 35 and 48) + slack 5 + breaks 20 = 150.
       about 95% of hypothetical samples fall within the cutoff.
     - Example: `qchisq(p = 0.95, df = 1) / 2` in one line of code.
     - Script: the box on Wilks' theorem; no likelihood ratio test (footnote).
-15. **Reading a profile likelihood interval** (`.figure-slide`, new `three-intervals.png`):
+15. **Reading a likelihood profile interval** (`.figure-slide`, new `three-intervals.png`):
     - General: bullets: the interval follows the shape of the curve, so it need not be
       symmetric; it does not depend on the scale; idea of **inner fits**: move the parameter,
       re-estimate the others, record the NLL, find the two crossings of the cutoff.

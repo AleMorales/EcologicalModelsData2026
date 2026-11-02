@@ -41,7 +41,7 @@ Maximum Likelihood Estimation: Uncertainty, Properties and Model Comparison
 ::: {.incremental}
 1. **Standard errors:** how precise is an estimate?
 2. **Wald intervals:** what do we get from the curvature?
-3. **Profile likelihood intervals:** which values do the data support?
+3. **Likelihood profile intervals:** which values do the data support?
 4. **Coverage:** do the intervals do what they promise?
 5. **Properties:** why does the method work, and when does it fail?
 6. **Model comparison:** which model do the data support?
@@ -86,7 +86,7 @@ The curvature of the log-likelihood at its maximum, and asymptotic normality. Fa
 software usually reports.
 :::
 ::: {.column .fragment width="50%"}
-### Profile likelihood interval
+### Likelihood profile interval
 
 The whole shape around the maximum. The reference method; it needs many fits.
 :::
@@ -192,28 +192,33 @@ sqrt(diag(owl_covariance))  # log_mu: 0.164, log_k: 0.165
 Standard errors of $\log(\mu)$ and $\log(k)$, not of $\mu$ and $k$.
 :::
 
-## Transformed parameters {data-timing="300"}
+## Back-transforming a standard error {data-timing="300"}
 
 The Hessian gives the standard error on the scale that was optimised.
 
 :::: {.columns}
 ::: {.column .fragment width="50%"}
-### Endpoints can be transformed back
+### Jensen's inequality
 
-The transformation is increasing, so the interval contains the parameter in the same
-hypothetical samples: coverage is kept.
+For a non-linear $g$: $E[g(X)]\neq g(E[X])$.
+
+A standard error is the square root of a variance, and a variance is a kind of mean. So
+we cannot apply $g$ to it.
 :::
 ::: {.column .fragment width="50%"}
-### A standard error cannot
+### The delta method
 
-It is built from expectations, which do not pass through non-linear functions (Jensen's
-inequality). The correction is the **delta method** (Chapter 6).
+$\widehat{\operatorname{SE}}(g(\hat\theta))\approx
+\left|g'(\hat\theta)\right|\,\widehat{\operatorname{SE}}(\hat\theta)$
+
+The first derivative at the estimate, so each transformation has its own correction. It
+corrects to some extent (Chapter 6). TMB applies it for us: `ADREPORT()`.
 :::
 ::::
 
 ::: {.example .fragment}
-Ten quadrats: 0.213 on the log scale. Its `exp()` is about 1.24, which is wrong;
-$0.213\times2.2$ gives 0.47, the standard error of $\hat\lambda$.
+Ten quadrats: 0.47 on the original scale, 0.213 on the log scale. `exp(0.213)` gives 1.24,
+very wrong. Only for $\exp$ is the slope the estimate $\hat\lambda$: $2.2\times0.213$ gives 0.47.
 :::
 
 ## A Wald interval depends on the scale {.figure-slide data-timing="240"}
@@ -231,7 +236,7 @@ $$
 ::: {.incremental}
 - **Wald interval:** replaces the log-likelihood by a parabola.
 - **Good:** if close to a parabola on that scale.
-- **Optimised scale:** calculate it there, then transform the endpoints.
+- **Optimised scale:** calculate it there; transforming the endpoints keeps the coverage.
 - **Positive parameter:** stays positive, and asymmetry is captured.
 :::
 
@@ -301,10 +306,10 @@ per lizard, and `sdreport()` reports a standard error of 0.141.
 2. Why is it not symmetric around the estimate?
 :::
 
-## Profile likelihood intervals {data-timing="300"}
+## Likelihood profile intervals {data-timing="300"}
 
 ::: {.definition}
-**Profile likelihood interval:** all the values whose relative profile log-likelihood is
+**Likelihood profile interval:** all the values whose relative profile log-likelihood is
 within 1.92 units of the maximum; the other parameters are re-estimated for each value.
 :::
 
@@ -322,7 +327,7 @@ within 1.92 units of the maximum; the other parameters are re-estimated for each
 qchisq(p = 0.95, df = 1) / 2  # 1.92
 ```
 
-## Reading a profile likelihood interval {.figure-slide data-timing="240"}
+## Reading a likelihood profile interval {.figure-slide data-timing="240"}
 
 :::: {.columns}
 ::: {.column width="58%"}
@@ -390,11 +395,11 @@ exp(confint(owl_profile_k))
 
 :::: {.columns}
 ::: {.column width="54%"}
-![](lecture-assets/profile-interval.png){fig-alt="Relative profile log-likelihood of the mean number of calls per visit for the owl data as a solid vermillion curve, with the quadratic approximation on the original scale as a dashed curve. Both reach zero near 4.75. To the right of the estimate the profile falls more slowly than the parabola, and to the left it falls faster. A horizontal grey line marks -1.92, and dotted vertical lines mark the endpoints of the profile likelihood interval at about 3.49 and 6.68."}
+![](lecture-assets/profile-interval.png){fig-alt="Relative profile log-likelihood of the mean number of calls per visit for the owl data as a solid vermillion curve, with the quadratic approximation on the original scale as a dashed curve. Both reach zero near 4.75. To the right of the estimate the profile falls more slowly than the parabola, and to the left it falls faster. A horizontal grey line marks -1.92, and dotted vertical lines mark the endpoints of the likelihood profile interval at about 3.49 and 6.68."}
 
 ::: {.caption}
 Solid: the profile. Dashed: the parabola on the original scale. Horizontal line: $-1.92$.
-Vertical lines: the profile likelihood interval.
+Vertical lines: the likelihood profile interval.
 :::
 :::
 ::: {.column width="46%"}
@@ -422,7 +427,7 @@ cutoff; 3.00 for two parameters (half the 0.95 quantile with two degrees of free
 
 :::: {.columns}
 ::: {.column width="50%"}
-![](lecture-assets/joint-region.png){fig-alt="Contours of the relative log-likelihood of the owl data in the mean and the shape, with a vermillion contour at -3.00 around a vermillion circle at the estimate. Dark segments along the axes show the profile likelihood intervals of the two parameters, from about 3.49 to 6.68 for the mean and from about 0.235 to 0.451 for the shape. The vermillion contour extends beyond both segments."}
+![](lecture-assets/joint-region.png){fig-alt="Contours of the relative log-likelihood of the owl data in the mean and the shape, with a vermillion contour at -3.00 around a vermillion circle at the estimate. Dark segments along the axes show the likelihood profile intervals of the two parameters, from about 3.49 to 6.68 for the mean and from about 0.235 to 0.451 for the shape. The vermillion contour extends beyond both segments."}
 :::
 ::: {.column width="50%"}
 ::: {.incremental}
@@ -482,7 +487,7 @@ owl_obj$simulate(owl_fit$par)$calls[1:20]
 ::::
 
 ::: {.caption}
-Dashed line: the nominal level. Likelihood: the profile likelihood interval. Poisson: Wald
+Dashed line: the nominal level. Likelihood: the likelihood profile interval. Poisson: Wald
 on the original scale. Negative Binomial: Wald from the log scale.
 :::
 
@@ -706,7 +711,7 @@ $-230.4$.
 4. **Minimise it:** `optim()`, `method = "BFGS"`, check `convergence`.
 5. **Transform back:** compare the fitted model with the data.
 6. **Standard errors and Wald intervals:** `sdreport()`, `ADREPORT()`.
-7. **Profile likelihood intervals:** `TMB::tmbprofile()`, `confint()`.
+7. **Likelihood profile intervals:** `TMB::tmbprofile()`, `confint()`.
 8. **Compare the candidates:** AIC.
 :::
 

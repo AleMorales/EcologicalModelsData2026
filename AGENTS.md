@@ -226,11 +226,13 @@ October). The rules are in `STYLE_GUIDE_LECTURE.md`.
   and BFGS treats this as a failed step (harmless when the fit converges, an error when
   the starting values give `NaN`); what to try; Chapter 8 explains the rest.
 - **Standard errors and Wald intervals** (6.1; draft): "Fisher information" (observed
-  information, Wald interval on the original scale), "The Hessian matrix"
-  (`optim(hessian = TRUE)`, `solve()`, `diag()`, `sqrt()`; Poisson fit, then the owl
-  model by hand), "Constrained and unconstrained parameters" (standard errors of
-  $\hat\lambda$ and $\log(\hat\lambda)$ compared on the Poisson example) and "Automation
-  with TMB" (`sdreport()`, `ADREPORT()`, the interval table of the owl model). The
+  information), "The Hessian matrix" (`optim(hessian = TRUE)`, `solve()`, `diag()`,
+  `sqrt()`; Poisson fit, then the owl model by hand), "Constrained and unconstrained
+  parameters" (standard errors of $\hat\lambda$ and $\log(\hat\lambda)$ compared on the
+  Poisson example, `exp()` of a standard error shown to be wrong, Jensen's inequality, the
+  delta method), "Wald intervals on the original and log scales" (both intervals of the ten
+  quadrats, the quadratic approximation) and "Automation with TMB" (`sdreport()`,
+  `ADREPORT()`, the interval table of the owl model). The
   by-hand owl fit comes before the NLL with `ADREPORT(k)`, which is fitted again.
 - **Profile intervals** (6.3; draft): "One parameter" (`uniroot()`), "Two parameters"
   (profile of $k$ on a grid of inner fits), "Automation with TMB" (`tmbprofile()` with
@@ -241,7 +243,16 @@ October). The rules are in `STYLE_GUIDE_LECTURE.md`.
 - **Back-transformation:** endpoints can be transformed because the logarithm is
   increasing, so coverage is kept. A standard error cannot, because it is built from
   expectations, which do not pass through non-linear functions (Jensen's inequality).
-  The difference in units is not the reason (author's correction).
+  The difference in units is not the reason (author's correction). The main text explains
+  this briefly (author's decision of 2 November, replacing a footnote): the chunk compares
+  only `original_scale`, `log_scale` and `exp_of_se`; the delta method is named as the
+  correction that uses the first derivative at the estimate, shown only as the multiplication
+  by $\hat\lambda$ on the Poisson example, and its explanation stays in Chapter 6. Jensen's
+  inequality is presented for non-linear functions in general, with convexity or concavity
+  only deciding the sign. The text says that the multiplication by the estimate is specific
+  to this example and not general (another transformation has another slope), and that TMB
+  applies the delta method internally through `ADREPORT()`. The new wording awaits the
+  author's check.
 - **Simulation:** data are marked with `OBS()`, `obj$simulate()` draws each hypothetical
   sample and a visible loop refits. Coverage simulations use one extra fit at the
   generating value, not `tmbprofile()` in every sample. `checkConsistency()` appears
