@@ -45,7 +45,8 @@ Maximum Likelihood Estimation: the Method
 4. **The fit in R:** how do we find it numerically?
 5. **Transformations:** how do we keep a parameter within its range?
 6. **Several parameters:** what does the likelihood say about one of them?
-7. **The practical:** what do we try next?
+7. **A profile in R:** how does TMB calculate one?
+8. **The practical:** what do we try next?
 :::
 
 ## Where we are: the modelling cycle {.diagram-slide data-timing="60"}
@@ -83,7 +84,7 @@ Same concepts (estimator, sampling distribution, standard error, confidence inte
 different estimator: the method of the rest of the course.
 :::
 
-## The likelihood function {data-timing="300"}
+## The likelihood function {data-timing="240"}
 
 ::: {.definition}
 **Likelihood:** the joint probability of the observed sample, read as a function of the
@@ -136,7 +137,9 @@ A parameter value under which the sample is more probable is better supported by
 ::: {.incremental}
 - **Each observation:** contributes its probability.
 - **The contributions:** are multiplied.
-- **Parameter values:** are compared through their likelihoods.
+- **Two parameter values:** compared by the ratio of their likelihoods, how many times more
+  probable the sample is under one than under the other.
+- **Its value:** means nothing by itself; only comparisons for the same data.
 :::
 
 ::: {.example .fragment}
@@ -152,19 +155,6 @@ $$
 
 0.0249 at $\lambda=1$ and 0.0099 at $\lambda=2$: about 2.5 times more probable under a mean
 of 1.
-:::
-
-## The value of a likelihood {data-timing="180"}
-
-::: {.incremental}
-- **Every observation:** multiplies the likelihood by a probability below one.
-- **Its value:** depends on the number of observations and means nothing by itself.
-- **What we use:** comparisons between parameter values, for the same data.
-:::
-
-::: {.example .fragment}
-All 50 quadrats: $4.2\times10^{-50}$ at $\lambda=1$ and $1.3\times10^{-39}$ at $\lambda=2$,
-so about $3\times10^{10}$ times more probable under a mean of 2.
 :::
 
 ## A likelihood is not the probability of a parameter value {data-timing="240"}
@@ -210,6 +200,8 @@ $$
 - **The product:** becomes a sum.
 - **The logarithm:** is increasing, so the maximum is at the same value.
 - **Products of many probabilities:** fall below what the computer can represent.
+- **Continuous data:** densities have units, so a log-likelihood can be positive and
+  changes with the units; differences do not.
 :::
 
 ::: {.example .fragment}
@@ -239,19 +231,6 @@ sum(dpois(x = seedling_counts, lambda = 2, log = TRUE))
 log(prod(dpois(x = seedling_counts, lambda = 2)))
 ```
 
-## Continuous data {data-timing="180"}
-
-::: {.incremental}
-- **The contributions:** densities, which have units and can exceed one.
-- **A log-likelihood:** can be positive, and its value changes with the units.
-- **Differences** between parameter values, or models, do not change.
-:::
-
-::: {.example .fragment}
-Body masses from grams to kilograms: every density is multiplied by 1,000, and the
-log-likelihood of $n$ masses increases by $n\log(1000)$.
-:::
-
 ## Practice 1: crab burrows {data-timing="300"}
 
 ::: {.activity}
@@ -265,7 +244,7 @@ Three plots on a mudflat contain 3, 1 and 2 crab burrows; the counts are i.i.d. 
 3. Which of the two values is better supported by the data?
 :::
 
-## The maximum likelihood estimator {data-timing="240"}
+## The maximum likelihood estimator {data-timing="300"}
 
 ::: {.definition}
 **Maximum likelihood estimator (MLE):** the value of the parameter for which the likelihood
@@ -281,15 +260,8 @@ $$
 ::: {.incremental}
 - **$\arg\max$:** the location of the maximum; $\max$ gives its height.
 - **MLE:** stands for both the estimator and the estimate.
-:::
-
-## Closed-form solutions {data-timing="180"}
-
-::: {.incremental}
-- **At the maximum:** the slope of the log-likelihood is zero.
-- **Closed form:** differentiate, set to zero, solve.
-- **Only a few models:** otherwise the equations cannot be solved with algebra.
-- **All the others:** we search numerically.
+- **Closed form:** the slope of $\ell$ is zero at the maximum; solving for it works for only
+  a few models, so in general we search numerically.
 :::
 
 ::: {.example .fragment}
@@ -297,7 +269,7 @@ Poisson: $\hat\lambda=\overline x$, 2.14 seedlings per quadrat, which is also th
 method-of-moments estimate.
 :::
 
-## The likelihood curve {.figure-slide data-timing="300"}
+## The likelihood curve {.figure-slide data-timing="240"}
 
 :::: {.columns}
 ::: {.column width="58%"}
@@ -425,7 +397,7 @@ fir_lambda_fit$value        # NLL at the estimate
 fir_lambda_fit$convergence  # 0: a normal stop
 ```
 
-## Constraints and transformations {data-timing="300"}
+## Constraints and transformations {data-timing="240"}
 
 ::: {.definition}
 **Constraint:** a restriction on the values that a parameter can take.
@@ -547,7 +519,7 @@ exp(owl_fit$par)
 :::
 ::::
 
-## Checking the fitted model {.figure-slide data-timing="240"}
+## Checking the fitted model {.figure-slide data-timing="180"}
 
 :::: {.columns}
 ::: {.column width="66%"}
@@ -594,7 +566,7 @@ $\mu$ and $k$: the best $\mu$ is the sample mean for every $k$.
 Grey: contours of the relative log-likelihood. Vermillion circle: the MLE.
 :::
 
-## Parameterisation {.figure-slide data-timing="300"}
+## Parameterisation {.figure-slide data-timing="240"}
 
 :::: {.columns}
 ::: {.column width="56%"}
@@ -607,9 +579,10 @@ Grey: contours of the relative log-likelihood. Vermillion circle: the MLE.
 
 ::: {.incremental}
 - **Same:** maximum and fitted model.
-- **Different:** shape of the surface.
+- **Different:** shape of the surface, which also matters for the optimiser (Chapter 8).
 - **Tilted contours:** estimates that depend on each other.
-- **In this course:** the mean, where possible.
+- **In this course:** the mean where possible, because later models let it change with
+  covariates.
 :::
 
 ::: {.example .fragment}
@@ -619,7 +592,7 @@ goes with a larger $p$.
 :::
 ::::
 
-## Slices and profiles {data-timing="240"}
+## Slices and profiles {data-timing="180"}
 
 ::: {.definition}
 **Slice:** fix the other parameters, normally at their estimates.
@@ -640,7 +613,7 @@ Shape $k$ and probability $p$: $\ell(k,\hat p)$ is a slice; $\max_p\,\ell(k,p)$ 
 profile of $k$.
 :::
 
-## Slice against profile {.figure-slide data-timing="300"}
+## Slice against profile {.figure-slide data-timing="240"}
 
 ![](lecture-assets/slice-profile.png){fig-alt="Two panels for the shape k of the owl model. Left: tilted contours in k and p, with a dashed vermillion horizontal line for the slice at the estimate of p and a solid vermillion line along the ridge of the surface for the profile; both pass through the vermillion circle of the estimate. Right: relative log-likelihood against k, with the slice as a dashed curve and the profile as a solid curve; both reach zero at about 0.33, the profile is above the slice everywhere else, and a horizontal line marks -1.92."}
 
@@ -653,7 +626,9 @@ Left: contours with the slice (dashed) and the ridge (solid). Right: the two cur
 ::: {.incremental}
 - **Both:** pass through the MLE; the profile is never below.
 - **A slice:** treats the others as known, so it is narrower.
-- **The profile:** the same however the others are written.
+- **The profile:** does not depend on the parameterisation.
+- **Untilted contours:** the slice and the profile coincide.
+- **Use:** profiles for intervals, slices for a quick look.
 :::
 :::
 ::: {.column width="32%"}
@@ -666,21 +641,19 @@ $k$ within 1.92 units: slice 0.26 to 0.41, profile 0.24 to 0.45.
 ::: {style="height: 45px;"}
 :::
 
-## Discussion: slice or profile? {data-timing="180"}
+## Live demo: a likelihood profile in R {.demo-slide data-timing="1080"}
 
 ::: {.incremental}
-1. $k$ varies with $p$ fixed at its estimate.
-2. $k$ varies with $p$ re-estimated at each value.
-3. What the data would say about $k$ if we knew $p$ exactly.
-4. A curve that takes into account that $p$ is estimated from the same data.
+1. **The fit:** a parameterisation with tilted contours; the same maximum.
+2. **The surface:** contours from a grid of `obj$fn()`.
+3. **A slice:** the other parameter fixed at its estimate.
+4. **The profile:** `TMB::tmbprofile()` re-estimates the other parameter at every value.
+5. **Both curves:** relative log-likelihood, with the cutoff of a 95% interval.
 :::
 
-::: {.takeaway}
-Slice · Profile
-:::
-
-::: {.activity}
-**1 minute:** decide with a neighbour.
+::: {.demo}
+**Script:** `demo-profile.R`, sections 1 to 5 (the owl model with $k$ and $p$; it draws the
+figure of "Slice against profile").
 :::
 
 ## The Chapter 4 R practical: first part {data-timing="120"}
@@ -704,7 +677,8 @@ Leave standard errors and the joint region for after Lecture 2. Try, then check.
 - The MLE is the value with the highest likelihood, found with `optim()`.
 - Transformations keep parameters in range, and invariance carries the estimate back.
 - Several parameters: a surface whose shape depends on the parameterisation.
-- Slices fix the other parameters and profiles re-estimate them.
+- Slices fix the other parameters; profiles re-estimate them, and `TMB::tmbprofile()`
+  calculates them for us.
 :::
 
 ::: {.takeaway .fragment}

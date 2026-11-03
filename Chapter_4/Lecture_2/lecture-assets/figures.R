@@ -39,16 +39,16 @@ lambda_hat_ten = mean(ten_counts)
 # Connect a likelihood to a data set.
 cmb = function(f, d) function(p) f(p, d)
 
-# Negative log-likelihood on the log scale: log_lambda can take any real value
-# and exp() turns it into a positive mean.
+# The Poisson NLL on the log scale, with ADREPORT(lambda) as in the chapter.
 poisson_nll = function(parms, data) {
   getAll(parms, data)
-  # Transform the parameter to the original scale.
   lambda = exp(log_lambda)
+  # Ask for the standard error of lambda itself.
+  ADREPORT(lambda)
   -sum(dpois(x = counts, lambda = lambda, log = TRUE))
 }
 
-# The likelihood connected to the counts of the first ten quadrats, fitted with the Hessian.
+# The likelihood connected to the counts of the first ten quadrats, and its fit.
 fir_ten_obj = MakeADFun(
   cmb(poisson_nll, list(counts = ten_counts)),
   list(log_lambda = log(1)),
@@ -56,15 +56,15 @@ fir_ten_obj = MakeADFun(
 )
 fir_ten_fit = optim(
   par = fir_ten_obj$par, fn = fir_ten_obj$fn, gr = fir_ten_obj$gr,
-  method = "BFGS", hessian = TRUE
+  method = "BFGS"
 )
 stopifnot(fir_ten_fit$convergence == 0)
 
-# Standard errors of the estimate of lambda (observed information of the ten quadrats)
-# and of the estimate of log(lambda) (Hessian of the fit).
-observed_information = sum(ten_counts) / lambda_hat_ten^2
-standard_error = sqrt(1 / observed_information)
-se_log_lambda = sqrt(1 / fir_ten_fit$hessian[1, 1])
+# Standard errors of the estimate of lambda (row of ADREPORT()) and of the estimate of
+# log(lambda), from sdreport().
+fir_ten_summary = summary(sdreport(fir_ten_obj))
+standard_error = fir_ten_summary["lambda", "Std. Error"]
+se_log_lambda = fir_ten_summary["log_lambda", "Std. Error"]
 
 # Log-likelihoods at the two estimates, and the Wald and profile cutoffs.
 loglik_lambda_hat_ten = sum(dpois(x = ten_counts, lambda = lambda_hat_ten, log = TRUE))
@@ -116,8 +116,8 @@ ggsave(
 )
 
 # ---------------------------------------------------------------------------
-# Slide 11: wald-parabolas.png (new; 7 x 5) and
-# Slide 15: three-intervals.png (new; 7 x 5), from one block of code
+# Slide 10: wald-parabolas.png (new; 7 x 5) and
+# Slide 13: three-intervals.png (new; 7 x 5), from one block of code
 # ---------------------------------------------------------------------------
 
 # Fine grid for the curves, because the parabolas are drawn over a wide range.
@@ -315,7 +315,7 @@ owl_interval_k = exp(confint(owl_profile_k))
 owl_interval_mu = exp(confint(owl_profile_mu))
 
 # ---------------------------------------------------------------------------
-# Slide 18: profile-interval.png (copy of fig-profile_interval; 7 x 5)
+# Slide 15: profile-interval.png (copy of fig-profile_interval; 7 x 5)
 # ---------------------------------------------------------------------------
 
 # The profile of mu over a wider range than the default of tmbprofile() (ytol is the
@@ -360,7 +360,7 @@ ggsave(
 )
 
 # ---------------------------------------------------------------------------
-# Slide 19: joint-region.png (copy of fig-joint_region; 7 x 5)
+# Slide 16: joint-region.png (copy of fig-joint_region; 7 x 5)
 # ---------------------------------------------------------------------------
 
 # Cutoff for a joint region of two parameters: half the 95% quantile of a chi-squared
@@ -435,7 +435,7 @@ owl_obj = MakeADFun(
 owl_fit = optim(par = owl_obj$par, fn = owl_obj$fn, gr = owl_obj$gr, method = "BFGS")
 
 # ---------------------------------------------------------------------------
-# Slide 21: coverage.png (copy of fig-coverage; 9 x 4). Seeds 701 and 702.
+# Slide 18: coverage.png (copy of fig-coverage; 9 x 4). Seeds 701 and 702.
 # ---------------------------------------------------------------------------
 
 # Poisson model: coverage of the Wald interval on the original scale and of the
@@ -559,7 +559,7 @@ ggsave(
 )
 
 # ---------------------------------------------------------------------------
-# Slide 24: sampling-distribution-k.png (copy of fig-sampling_distribution_k; 9 x 4).
+# sampling-distribution-k.png (copy of fig-sampling_distribution_k; 9 x 4; not on a slide).
 # Seed 601.
 # ---------------------------------------------------------------------------
 
@@ -569,7 +569,7 @@ set.seed(seed = 601)
 n_samples = 2000
 visit_sizes = c(20, 122, 500)
 sim_k_ml = matrix(NA, nrow = n_samples, ncol = length(visit_sizes))
-sim_k_mom = matrix(NA, nrow = n_samples, ncol = length(visit_sizes))
+sim_samples = list()
 for (s in seq_along(visit_sizes)) {
   # Placeholder data of the right length: the values are not used.
   placeholder_obj = MakeADFun(
@@ -577,22 +577,17 @@ for (s in seq_along(visit_sizes)) {
     list(log_mu = 0, log_k = 0),
     silent = TRUE
   )
+  # One row per hypothetical sample.
+  sim_samples[[s]] = matrix(NA, nrow = n_samples, ncol = visit_sizes[s])
   for (i in seq_len(n_samples)) {
     # One hypothetical sample at the estimates for the owls.
     sim_calls = placeholder_obj$simulate(owl_fit$par)$calls
+    sim_samples[[s]][i, ] = sim_calls
 
-    # Method of moments: k exists only when the variance is larger than the mean.
-    sim_mu = mean(sim_calls)
-    sim_variance = mean((sim_calls - sim_mu)^2)
-    if (sim_variance > sim_mu) {
-      sim_k_mom[i, s] = sim_mu^2 / (sim_variance - sim_mu)
-    }
-
-    # Maximum likelihood, starting from the method-of-moments estimates (or k = 1).
-    k_start = ifelse(is.na(sim_k_mom[i, s]), 1, sim_k_mom[i, s])
+    # Maximum likelihood, starting from log(mu) = 0 and log(k) = 0.
     sim_obj = MakeADFun(
       cmb(nb_nll, list(calls = sim_calls)),
-      list(log_mu = log(sim_mu), log_k = log(k_start)),
+      list(log_mu = 0, log_k = 0),
       silent = TRUE
     )
     sim_fit = optim(par = sim_obj$par, fn = sim_obj$fn, gr = sim_obj$gr, method = "BFGS")

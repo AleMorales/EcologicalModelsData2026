@@ -68,9 +68,22 @@ example number slip into a bullet.
 - Two lectures, one per part of the chapter. **Lecture 1:** the likelihood, estimation, several
   parameters (up to the end of "Slices and profiles"). **Lecture 2:** uncertainty, properties,
   model comparison (from "Uncertainty from the likelihood").
-- **Each is a session of 150 minutes:** 125 of slides, 5 of slack, two breaks of 10, three
-  blocks. The session takes 35 slides in Lecture 1 and 36 in Lecture 2.
-- **No live demos.** The script lists visible chunks that the author may run if time is left.
+- **Each is a session of 150 minutes:** two breaks of 10 and three blocks. Lecture 1 has 32
+  slides (125 minutes, 5 of slack); Lecture 2 has 30 slides (118 minutes, 12 of slack) since
+  its standard errors were condensed on 3 November (author's decision: keep 150 minutes and
+  add slack). Each lecture has one live demo.
+- **One live demo per lecture** (author's decision of 3 November, replacing "no live
+  demos"): 18 minutes (2 at the slide, 16 in R) from a standalone script in the lecture
+  folder. Lecture 1, slide 30, `demo-profile.R`: the owl model with $k$ and $p$ (author's
+  decision of 3 November, because there the slice and the profile differ), in five sections
+  that match the slide: the fit, the surface, the slice of $k$, its profile with
+  `TMB::tmbprofile()`, and both panels of the chapter's slice and profile figure in base R,
+  with the ranges of $k$ within 1.92 units. No profile is calculated by hand (as in the
+  chapter). It runs in about 5 seconds.
+  Lecture 2, slide 25, `demo-properties.R`: one hypothetical sample with `obj$simulate()`,
+  the chapter's simulation (seed 601, 2,000 samples of 20, 122 and 500 visits, about 75
+  seconds), then consistency, histograms, the standard error, efficiency and bias. Both run
+  in a clean session and reproduce the chapter's numbers (checked in R 4.6.1 on 3 November).
 - **Folders:** `Chapter_4/Lecture_1/` and `Chapter_4/Lecture_2/`, each with `lecture.qmd`,
   `lecture-script.md`, `lecture-script.pdf`, `lecture.scss` (unchanged copy of the Chapter 3
   file) and `lecture-assets/` (with its own `figures.R`).
@@ -81,15 +94,16 @@ example number slip into a bullet.
 
 **Content**
 
-- **Code:** about five code slides per lecture, listed below. The chapter's by-hand routes
-  `uniroot()` and the profile loop with `map` do not get code on slides: the slide explains the
-  idea of inner fits, and the script points to the chapter. `checkConsistency()` stays on a
-  slide (Lecture 2, slide 26), without its p-value.
+- **Code:** about five code slides per lecture, listed below. The chapter calculates no
+  profile by hand (no `uniroot()`, no loop with `map`): the slides explain the idea of inner
+  fits, and `tmbprofile()` does them. `checkConsistency()` is not used
+  (removed from the chapter and from Lecture 2, slide 26, on 3 November).
 - **Mathematics:** the equations of the chapter's main text only. Wilks' theorem, the Cramér–Rao
   bound and the Kullback–Leibler divergence are named and stated in words, with no equation; the
   derivation of the Poisson estimator stays in the chapter's box. The script points to the
   "Statistical detail" boxes.
-- **Misspecified models:** one slide. The gap in $k$ and its simulation go in the script.
+- **Misspecified models:** one slide, general only (author's decision of 3 November): no owl
+  example on the slide or in the script (no implied variance, gap in $k$ or count of nests).
 - **`Practice` callouts:** all four are timed Practice slides (`STYLE_GUIDE_LECTURE.md`). In the
   order of the page: Practice 1 (crab burrows), 2 (back to the ecological scale), 3 (an interval
   from the log scale), 4 (waiting for a pollinator).
@@ -97,22 +111,31 @@ example number slip into a bullet.
   testing in disguise) has its own short slide, "Using AIC". The script keeps the wording of the
   chapter and adds no opinion.
 - **Covariance:** a bullet and an example on the Hessian slide, with no slide of its own.
-- **Magnusson's interactive page:** an optional minute within Lecture 1, slide 29, in the script
-  only. It is not named on the slide; the static figure is the fallback.
+- **Magnusson's interactive page:** an optional minute within Lecture 1, slide 26 (the
+  likelihood surface), in the script only. It is not named on the slide; the static figure is the fallback.
 
 **Choices I made within those decisions (the author may overrule them in review)**
 
-- Lecture 1 has no roadmap slide; its last slides point to Lecture 2. Lecture 2 has a one-minute
-  roadmap.
+- Neither lecture has a roadmap slide (Lecture 2's was cut on 3 November to make room for the
+  demo); the last slides point forward in speech.
 - Lecture 2 opens with a recap (steps 1 to 5 of the recipe) and closes with the full recipe.
-- Two discussion slides per lecture, built as in Chapter 3.
+- One discussion slide per lecture since 3 November (probability or likelihood; Wald or
+  profile): the demos replace "slice or profile?" and "which property?", whose questions the
+  script may ask during the demo.
 - The "Three intervals" figure was approved by the author; it is made in two stages from one
   block of code (`wald-parabolas.png`, `three-intervals.png`), so that slide 11 of Lecture 2
   does not show the profile interval before slide 14 defines it.
-- **Lecture 2 is denser than Chapter 3** (3.5 minutes per slide against 3.7). If the author
-  finds it too dense in review, cut in this order: slide 34 (roadmap), slide 30 (AICc into a
-  bullet on slide 29), slide 17 (into the script of slide 15), slide 20 (into the script of
-  slide 21).
+- **Cuts of 3 November for the demos** (the slides now hold the result; numbers are the old
+  ones of the tables below). Lecture 1: slide 8 (the value of a likelihood) became a bullet on
+  slide 7, slide 13 (continuous data) a bullet on slide 11, slide 16 (closed-form solutions) a
+  bullet and the example on slide 15, and slide 33 (discussion) was replaced by the demo.
+  Lecture 2: slide 17 (intervals and sample size) became a bullet on slide 15, slides 23 and
+  24 merged into "Consistency and asymptotic normality" (the figure
+  `sampling-distribution-k.png` is no longer on a slide; the demo draws the histograms), slide
+  28 (discussion) was replaced by the demo, slide 30 (AICc) became a bullet on slide 29, and
+  slide 34 (roadmap) was cut. Several slides lost a minute. The script carries the numbers
+  that left the slides (the 50-quadrat likelihoods, $n\log(1000)$, the table of intervals for
+  10 and 50 quadrats).
 
 ## Rules for wording and notation
 
@@ -134,6 +157,8 @@ example number slip into a bullet.
   becomes neutral. Add no anecdote or opinion for the author.
 - **Hidden code:** the $k,p$ fit, the slice and profile curves and the coverage simulation are
   hidden in the chapter, so they are not on the slides and not in the script's code to run.
+  The $k,p$ fit, its surface, the slice and the profile of $k$ (with `tmbprofile()`) are
+  shown in `demo-profile.R` on the author's request.
 
 ## Lecture 1: slide sequence and timing
 
@@ -141,50 +166,51 @@ Title slide: subtitle "Chapter 4 · Lecture 1", eyebrow "Maximum Likelihood Esti
 Method". `pagetitle`: "Chapter 4, Lecture 1 — Ecological Models and Data Analysis". Footer:
 "Ecological Models and Data Analysis · Chapter 4 · Lecture 1".
 
+Current sequence (3 November). The specifications below keep the numbers of the Phase 1 plan;
+"Cuts of 3 November" under "Author's decisions" says where the content of the removed slides
+went.
+
 | Slide | Title | Min | Elapsed |
 |---|---|---:|---|
 | 1 | Ecological Models and Data Analysis (title) | 1 | 0–1 |
 | 2 | Overview of the lecture | 2 | 1–3 |
 | 3 | Where we are: the modelling cycle | 1 | 3–4 |
 | 4 | From the method of moments to maximum likelihood | 2 | 4–6 |
-| 5 | The likelihood function | 5 | 6–11 |
-| 6 | Probability and likelihood | 3 | 11–14 |
-| 7 | A likelihood by hand | 4 | 14–18 |
-| 8 | The value of a likelihood | 3 | 18–21 |
-| 9 | A likelihood is not the probability of a parameter value | 4 | 21–25 |
-| 10 | Discussion: probability or likelihood? | 3 | 25–28 |
-| 11 | The log-likelihood | 4 | 28–32 |
-| 12 | Log-likelihoods in R | 3 | 32–35 |
-| 13 | Continuous data | 3 | 35–38 |
-| 14 | Practice 1: crab burrows | 5 | 38–43 |
-| | Break | 10 | 43–53 |
-| 15 | The maximum likelihood estimator | 4 | 53–57 |
-| 16 | Closed-form solutions | 3 | 57–60 |
-| 17 | The likelihood curve | 5 | 60–65 |
-| 18 | Numerical optimisation | 3 | 65–68 |
-| 19 | The negative log-likelihood in R | 4 | 68–72 |
-| 20 | From the negative log-likelihood to a fit | 3 | 72–75 |
-| 21 | A fit in R | 5 | 75–80 |
-| 22 | The result of `optim()` | 3 | 80–83 |
-| 23 | Constraints and transformations | 5 | 83–88 |
-| 24 | Invariance | 4 | 88–92 |
-| 25 | Practice 2: back to the ecological scale | 3 | 92–95 |
-| | Break | 10 | 95–105 |
-| 26 | Models with several parameters | 4 | 105–109 |
-| 27 | A fit with two parameters in R | 5 | 109–114 |
-| 28 | Checking the fitted model | 4 | 114–118 |
-| 29 | The likelihood surface | 4 | 118–122 |
-| 30 | Parameterisation | 5 | 122–127 |
-| 31 | Slices and profiles | 4 | 127–131 |
-| 32 | Slice against profile | 5 | 131–136 |
-| 33 | Discussion: slice or profile? | 3 | 136–139 |
-| 34 | The Chapter 4 R practical: first part | 2 | 139–141 |
-| 35 | Summary and closing questions | 4 | 141–145 |
+| 5 | The likelihood function | 4 | 6–10 |
+| 6 | Probability and likelihood | 3 | 10–13 |
+| 7 | A likelihood by hand | 4 | 13–17 |
+| 8 | A likelihood is not the probability of a parameter value | 4 | 17–21 |
+| 9 | Discussion: probability or likelihood? | 3 | 21–24 |
+| 10 | The log-likelihood | 4 | 24–28 |
+| 11 | Log-likelihoods in R | 3 | 28–31 |
+| 12 | Practice 1: crab burrows | 5 | 31–36 |
+| | Break | 10 | 36–46 |
+| 13 | The maximum likelihood estimator | 5 | 46–51 |
+| 14 | The likelihood curve | 4 | 51–55 |
+| 15 | Numerical optimisation | 3 | 55–58 |
+| 16 | The negative log-likelihood in R | 4 | 58–62 |
+| 17 | From the negative log-likelihood to a fit | 3 | 62–65 |
+| 18 | A fit in R | 5 | 65–70 |
+| 19 | The result of `optim()` | 3 | 70–73 |
+| 20 | Constraints and transformations | 4 | 73–77 |
+| 21 | Invariance | 4 | 77–81 |
+| 22 | Practice 2: back to the ecological scale | 3 | 81–84 |
+| 23 | Models with several parameters | 4 | 84–88 |
+| 24 | A fit with two parameters in R | 5 | 88–93 |
+| | Break | 10 | 93–103 |
+| 25 | Checking the fitted model | 3 | 103–106 |
+| 26 | The likelihood surface | 4 | 106–110 |
+| 27 | Parameterisation | 4 | 110–114 |
+| 28 | Slices and profiles | 3 | 114–117 |
+| 29 | Slice against profile | 4 | 117–121 |
+| 30 | Live demo: a likelihood profile in R | 2 + 16 | 121–139 |
+| 31 | The Chapter 4 R practical: first part | 2 | 139–141 |
+| 32 | Summary and closing questions | 4 | 141–145 |
 | | Slack for discussion | 5 | 145–150 |
 | | **Total** | **150** | |
 
-Check: slides 125 (blocks of 43, 42 and 40) + slack 5 + breaks 20 = 150. The minutes of each
-slide equal its `data-timing` in seconds.
+Check: slides 125 (blocks of 36, 47 and 42, the demo included) + slack 5 + breaks 20 = 150.
+The minutes of each slide equal its `data-timing` in seconds.
 
 ### Block 1: the likelihood
 
@@ -368,7 +394,7 @@ slide equal its `data-timing` in seconds.
     - Example: `Owls`: 122 visits, mean 4.75 calls per visit, variance 42.3; $X_i \sim
       \operatorname{NegBin}(\mu,k)$, $\operatorname{Var}(X_i)=\mu+\mu^2/k$.
     - Script: Roulin and Bersier (2007), the data of the Chapter 3 practical, once; females and
-      satiated nestlings; i.i.d. is a simplification (24 nests; Lecture 2 and Chapter 7).
+      satiated nestlings; i.i.d. is a simplification (visits to the same nest; Chapter 7).
 27. **A fit with two parameters in R** (code):
     - General: bullets: one list element per parameter; every constrained parameter transformed;
       starting values from the method of moments.
@@ -447,6 +473,10 @@ Title slide: subtitle "Chapter 4 · Lecture 2", eyebrow "Maximum Likelihood Esti
 Uncertainty, Properties and Model Comparison". `pagetitle` and footer as in Lecture 1 with
 "Lecture 2".
 
+Current sequence (3 November, after the chapter's "Standard errors and Wald intervals" was
+condensed); the specifications of Block 1 below use these numbers; Blocks 2 and 3 keep the
+numbers of the Phase 1 plan.
+
 | Slide | Title | Min | Elapsed |
 |---|---|---:|---|
 | 1 | Ecological Models and Data Analysis (title) | 1 | 0–1 |
@@ -455,42 +485,39 @@ Uncertainty, Properties and Model Comparison". `pagetitle` and footer as in Lect
 | 4 | Recap: the steps of a fit | 2 | 4–6 |
 | 5 | Uncertainty from the likelihood | 3 | 6–9 |
 | 6 | Asymptotic normality of the MLE | 4 | 9–13 |
-| 7 | Fisher information | 5 | 13–18 |
-| 8 | The Hessian matrix | 4 | 18–22 |
-| 9 | From the Hessian to standard errors in R | 3 | 22–25 |
-| 10 | Back-transforming a standard error | 5 | 25–30 |
-| 11 | A Wald interval depends on the scale | 4 | 30–34 |
-| 12 | `sdreport()` and `ADREPORT()` | 4 | 34–38 |
-| 13 | Practice 3: an interval from the log scale | 4 | 38–42 |
-| | Break | 10 | 42–52 |
-| 14 | Likelihood profile intervals | 5 | 52–57 |
-| 15 | Reading a likelihood profile interval | 4 | 57–61 |
-| 16 | `tmbprofile()` and `confint()` | 3 | 61–64 |
-| 17 | Intervals and sample size | 4 | 64–68 |
-| 18 | Profile intervals with several parameters | 5 | 68–73 |
-| 19 | Joint confidence regions | 4 | 73–77 |
-| 20 | Simulating from a fitted model | 3 | 77–80 |
-| 21 | Coverage of Wald and profile intervals | 4 | 80–84 |
-| 22 | Discussion: Wald or profile? | 3 | 84–87 |
-| | Break | 10 | 87–97 |
-| 23 | Consistency | 4 | 97–101 |
-| 24 | Asymptotic normality in a simulation | 4 | 101–105 |
-| 25 | Efficiency | 4 | 105–109 |
-| 26 | Bias in finite samples | 4 | 109–113 |
-| 27 | Misspecified models | 4 | 113–117 |
-| 28 | Discussion: which property? | 3 | 117–120 |
-| 29 | The Akaike information criterion | 5 | 120–125 |
-| 30 | Corrected AIC | 3 | 125–128 |
-| 31 | Using AIC | 3 | 128–131 |
-| 32 | Practice 4: waiting for a pollinator | 4 | 131–135 |
-| 33 | A recipe for a fit | 3 | 135–138 |
-| 34 | Course roadmap: from likelihood to response curves | 1 | 138–139 |
-| 35 | The Chapter 4 R practical | 2 | 139–141 |
-| 36 | Summary and closing questions | 4 | 141–145 |
-| | Slack for discussion | 5 | 145–150 |
+| 7 | Curvature and standard errors | 4 | 13–17 |
+| 8 | `sdreport()`: standard errors and correlations | 4 | 17–21 |
+| 9 | Back-transforming a standard error | 5 | 21–26 |
+| 10 | A Wald interval depends on the scale | 4 | 26–30 |
+| 11 | Practice 3: an interval from the log scale | 4 | 30–34 |
+| | Break | 10 | 34–44 |
+| 12 | Likelihood profile intervals | 4 | 44–48 |
+| 13 | Reading a likelihood profile interval | 5 | 48–53 |
+| 14 | `tmbprofile()` and `confint()` | 2 | 53–55 |
+| 15 | Profile intervals with several parameters | 4 | 55–59 |
+| 16 | Joint confidence regions | 4 | 59–63 |
+| 17 | Simulating from a fitted model | 3 | 63–66 |
+| 18 | Coverage of Wald and profile intervals | 4 | 66–70 |
+| 19 | Discussion: Wald or profile? | 3 | 70–73 |
+| 20 | Consistency and asymptotic normality | 5 | 73–78 |
+| 21 | Efficiency | 4 | 78–82 |
+| 22 | Bias in finite samples | 4 | 82–86 |
+| | Break | 10 | 86–96 |
+| 23 | Live demo: properties by simulation | 2 + 16 | 96–114 |
+| 24 | Misspecified models | 4 | 114–118 |
+| 25 | The Akaike information criterion | 6 | 118–124 |
+| 26 | Using AIC | 3 | 124–127 |
+| 27 | Practice 4: waiting for a pollinator | 4 | 127–131 |
+| 28 | A recipe for a fit | 2 | 131–133 |
+| 29 | The Chapter 4 R practical | 2 | 133–135 |
+| 30 | Summary and closing questions | 3 | 135–138 |
+| | Slack for discussion | 12 | 138–150 |
 | | **Total** | **150** | |
 
-Check: slides 125 (blocks of 42, 35 and 48) + slack 5 + breaks 20 = 150.
+Check: slides 118 (blocks of 34, 42 and 42, the demo included) + slack 12 + breaks 20 = 150.
+The break before the demo lets the lecturer open R and run section 0 of the script. The slack
+grew from 5 to 12 minutes when slides 6 to 12 of the Phase 1 plan were condensed into five
+(author's decision of 3 November: keep 150 minutes and add slack).
 
 ### Block 1: standard errors and Wald intervals
 
@@ -514,81 +541,63 @@ Check: slides 125 (blocks of 42, 35 and 48) + slack 5 + breaks 20 = 150.
      normality; fast; what software usually reports. *Likelihood profile interval:* the whole
      shape around the maximum; the reference method; many fits. Takeaway: both work for any
      model fitted with `optim()`, without a formula for the variance.
-6. **Asymptotic normality of the MLE** [Standard errors and Wald intervals, note callout]:
-   - General: equation $\hat\theta \overset{\mathrm{approx}}{\sim} \operatorname{Normal}(\theta,
-     1/\mathcal I(\theta))$ for sufficiently large $n$. Bullets: **Fisher information**
-     $\mathcal I(\theta)$: what the sample contains about $\theta$; more information, a narrower
-     bell; regularity conditions in keywords (not on the boundary of its range; support does not
-     depend on the parameter; smooth log-likelihood; number of parameters does not grow with
-     $n$).
+6. **Asymptotic normality of the MLE** [Standard errors and Wald intervals]:
+   - General: equation $\hat\theta \overset{\mathrm{approx}}{\sim}
+     \operatorname{Normal}(\theta,\operatorname{SE}(\hat\theta)^2)$ for sufficiently large $n$.
+     Bullets: several parameters: a multivariate Normal (Chapter 2) with a covariance matrix;
+     Wald interval $\hat\theta\pm1.96\,\widehat{\operatorname{SE}}(\hat\theta)$, as in Chapter 3;
+     regularity conditions in keywords.
    - Example: Poisson mean: $\operatorname{Normal}(\lambda,\lambda/n)$, the result of Chapter 3.
    - Script: Chapter 3 ended by announcing this; history (Fisher 1922, 1925; Wald 1943; Cramér
-     1946) as an optional remark. The simulation of slide 24 examines the claim.
-7. **Fisher information** (`.figure-slide`, new `curvature-information.png`; equation above the
-   columns):
-   - General: equation $\hat{\mathcal I}=-\ell''(\hat\theta)$,
-     $\widehat{\operatorname{Var}}(\hat\theta)=1/\hat{\mathcal I}$,
-     $\widehat{\operatorname{SE}}(\hat\theta)=1/\sqrt{\hat{\mathcal I}}$. Bullets: **observed
-     information** measures curvature at the maximum; sharp: the data discriminate, small
-     variance; flat: many values almost equally supported, large variance.
-   - Example: Poisson $\hat{\mathcal I}=n/\hat\lambda$: 10 quadrats, standard error 0.47; 50
-     quadrats, 0.207 seedlings per quadrat (Chapter 3's value). Caption explains the two curves.
-   - Script: the calculation by hand, expected against observed information (footnote), the Wald
-     interval of the ten quadrats (1.28 to 3.12).
-8. **The Hessian matrix:**
-   - General: `.definition` Hessian: the matrix of second derivatives. Bullets: the Hessian of
-     the NLL at the estimates is the observed information matrix; its inverse holds variances
-     (diagonal) and covariances (off-diagonal); `optim(hessian = TRUE)` returns it for the
-     parameters it searched over. Bullet: tilted contours correspond to correlated estimates;
-     `cov2cor()`.
-   - Example: correlation of the estimates: $\log(\mu)$ and $\log(k)$ about 0; $\log(k)$ and
+     1946) as an optional remark. The simulation of the demo examines the claim.
+7. **Curvature and standard errors** (`.figure-slide`, `curvature-information.png`; the parabola
+   equation above the columns) [Curvature and standard errors]:
+   - General: bullets: in a large sample the log-likelihood near its maximum is close to a
+     parabola; falls slowly: low curvature, many values supported, large standard error; one
+     parameter: standard error $=1/\sqrt{\text{curvature}}$; several: the curvatures give the
+     covariance matrix.
+   - Example: standard error of $\hat\lambda$: ten quadrats 0.47; 50 quadrats 0.207 seedlings
+     per quadrat. Caption explains the two curves.
+   - Script: the two approximations (Normal sampling distribution, parabola) go together; the
+     Wald interval replaces the log-likelihood by the parabola. Fisher information, observed
+     information and the Hessian are only in the chapter's statistical detail boxes: mention
+     them by name at most, with the Poisson case $n/\hat\lambda$ as an optional remark.
+8. **`sdreport()`: standard errors and correlations** (code) [Standard errors with TMB]:
+   - General: bullets: `sdreport(obj)` after the fit, the curvature at the estimates;
+     `summary()`, a row per parameter with `Estimate` and `Std. Error`, on the optimised scale;
+     `cov.fixed`, the covariance matrix, and `cov2cor()`, the correlations; tilted contours,
+     correlated estimates.
+   - Example: owl chunk (`sdreport()`, `summary()`, `cov2cor()`) with values in comments;
+     correlations: $\log(\mu)$ and $\log(k)$ about 0; $\log(k)$ and
      $\operatorname{logit}(p)$ 0.71, the tilt of the surface in Lecture 1.
-9. **From the Hessian to standard errors in R** (code):
-   - General: bullets: `solve()`, the inverse; `diag()`, the variances; `sqrt()`, the standard
-     errors.
-   - Example: owl chunks (`hessian = TRUE`, `solve()`, `sqrt(diag())`), with values in comments
-     (0.165 for $\log(k)$; take the other from R). Note: standard errors of $\log(\mu)$ and
-     $\log(k)$, not of $\mu$ and $k$.
-10. **Back-transforming a standard error** [Constrained and unconstrained parameters]:
-    - General: the Hessian gives the standard error on the scale that was optimised. Two columns:
-      *Jensen's inequality:* for a non-linear $g$, $E[g(X)]\neq g(E[X])$; a standard error is the
-      square root of a variance and a variance is a kind of mean, so we cannot apply $g$ to it.
-      *The delta method:* $\widehat{\operatorname{SE}}(g(\hat\theta))\approx
-      |g'(\hat\theta)|\,\widehat{\operatorname{SE}}(\hat\theta)$, with the first derivative at
-      the estimate, so each transformation has its own correction; it corrects to some extent
-      (Chapter 6); TMB applies it for us with `ADREPORT()`.
-    - Example: ten quadrats: 0.47 on the original scale, 0.213 on the log scale; `exp(0.213)`
-      gives 1.24, very wrong; only for $\exp$ is the slope the estimate $\hat\lambda$, and
-      2.2 × 0.213 gives 0.47.
-    - Script: the author corrected this argument: the difference in units is not the reason.
-      The problem exists for any non-linear function; convexity or concavity only decides the
-      sign. Multiplying by the estimate is not general (a probability on the logit scale takes
-      $\hat p(1-\hat p)$). No details of the delta method; the worked case of Jensen's inequality
-      (values 0 and 2) is in the chapter.
-11. **A Wald interval depends on the scale** (`.figure-slide`, new `wald-parabolas.png`)
+9. **Back-transforming a standard error** [Standard errors on the original scale]:
+   - General: `sdreport()` gives the standard error on the scale that was optimised. Two
+     columns: *A non-linear function and an average:* $E[g(X)]\neq g(E[X])$; a variance is an
+     average and a standard error its square root, so applying $g$ gives no standard error;
+     estimates and endpoints are values and transform. *The delta method:* treats $g$ as a
+     straight line near the estimate, an approximation (Chapter 6); `ADREPORT(k)` in the NLL adds
+     a row to `sdreport()`. Takeaway: transform estimates and endpoints; for a standard error on
+     the new scale, use `ADREPORT()`.
+   - Example: ten quadrats: 0.213 on the log scale; `exp(0.213)` gives 1.24, but the standard
+     error of $\hat\lambda$ is 0.47; owls: $\hat k=0.327$, standard error 0.054.
+   - Script: the author's wording (3 November): `exp()` of a standard error is not a biased
+     standard error, it is no standard error at all; the delta method approximates the standard
+     error on the new scale and does not remove a bias. The difference in units is not the
+     reason. Jensen's inequality, the worked case (values 0 and 2) and the delta method formula
+     with the log and logit cases are in the chapter's boxes. The object must be fitted again
+     after `ADREPORT()` is added to the NLL.
+10. **A Wald interval depends on the scale** (`.figure-slide`, `wald-parabolas.png`)
     [Wald intervals on the original and log scales]:
-    - General: equation
-      $\ell(\theta)-\ell(\hat\theta)\approx-(\theta-\hat\theta)^2/(2\,\widehat{\operatorname{SE}}(\hat\theta)^2)$.
-      Bullets: a Wald interval replaces the log-likelihood by a parabola; good when the curve is
-      close to a parabola on that scale; so calculate it on the optimised scale and transform
-      the endpoints, which keeps the coverage; this keeps a positive parameter positive and
-      captures asymmetry.
+    - General: bullets: a Wald interval replaces the log-likelihood by a parabola; an
+      unconstrained parameter is closer to Normal, so calculate it on the optimised scale; an
+      increasing transformation of the endpoints keeps the coverage; a positive parameter stays
+      positive and asymmetry is captured.
     - Example: ten quadrats: 1.28 to 3.12 on the original scale; 1.45 to 3.34 from the log
-      scale. Caption explains the lines.
+      scale; owls, $k$: 0.221 to 0.434 on the original scale, 0.237 to 0.453 from the log scale.
+      Caption explains the lines.
     - Script: why the coverage is kept: the transformation is increasing, so the interval
       contains the parameter in the same hypothetical samples.
-12. **`sdreport()` and `ADREPORT()`** (code):
-    - General: bullets: `sdreport(obj)` after the fit calculates the Hessian and reads the
-      estimates from the object; `summary()` gives a row per parameter, with `Estimate` and
-      `Std. Error`, on the optimised scale; `ADREPORT()` inside the NLL adds a row for a
-      quantity calculated from the parameters (TMB applies the delta method).
-    - Example: `nb_nll` with `ADREPORT(k)`, `sdreport()`, `summary()`, with results in comments:
-      $\hat k\approx0.327$, standard error 0.054 ($0.327\times0.165$). Below or in the script:
-      Wald intervals 3.45 to 6.55 for $\mu$, 0.237 to 0.453 for $k$ from the log scale, 0.221 to
-      0.434 on the original scale.
-    - Script: from here on this is what we use. The object must be fitted again after changing
-      the NLL.
-13. **Practice 3: an interval from the log scale** (Practice slide; "**2 minutes:** R as a
+11. **Practice 3: an interval from the log scale** (Practice slide; "**2 minutes:** R as a
     calculator"): `par = 0.92` for the logarithm of the mean ticks per lizard, standard error
     0.141; calculate a 95% Wald interval for the mean; why is it not symmetric around the
     estimate?
@@ -696,24 +705,20 @@ Check: slides 125 (blocks of 42, 35 and 48) + slack 5 + breaks 20 = 150.
 26. **Bias in finite samples:**
     - General: bullets: MLEs are in general biased in finite samples; the bias shrinks as the
       sample grows, faster than the standard error; for a small sample, these properties are
-      approximations: check by simulation; `checkConsistency(obj, n, estimate = TRUE)` simulates
-      samples at the estimates and fits each of them.
-    - Example: relative bias of $\hat k$: 21%, 2.6% and 0.6% for 20, 122 and 500 visits; short
-      chunk with seed 801: `checkConsistency()` gives 3.0% for 122 visits.
-    - Script: the two numbers come from different sets of 2,000 samples. No mention of its
-      p-value on the slide; one sentence in the script: it reports one, and we do not use it.
-      The bias corrections footnote (REML is not yet in Chapter 7: check before citing).
+      approximations; check by simulation: simulate hypothetical samples from the fit, refit
+      each, compare the mean of the estimates with the value used to simulate. No code.
+    - Example: relative bias of $\hat k$: 21%, 2.6% and 0.6% for 20, 122 and 500 visits.
+    - Script: the numbers come from the simulation of slide 23 (seed 601), the visible loop of
+      the chapter. The bias corrections footnote (REML is not yet in Chapter 7: check before
+      citing).
 27. **Misspecified models** [Misspecified models]:
     - General: `.definition` misspecified: the model does not contain the distribution of the
       data generating process, for any parameter values. Bullets: the MLE converges to the
       values that bring the model closest to that process (the Kullback–Leibler divergence,
       named only); the fit is the best approximation that the model offers; standard errors and
       intervals become approximations.
-    - Example: owls: implied variance 74, sample 42; zeros 41% against 44%; 122 visits from 24
-      nests.
-    - Script: the gap in $k$ (0.60 against 0.33; no simulated sample reaches 0.27, largest 0.23;
-      method of moments implies 27% zeros): two different compromises. This section may be
-      skipped at a first reading of the chapter; Chapter 7 handles nests.
+    - No example box (author's decision of 3 November): the slide stays general.
+    - Script: this section may be skipped at a first reading of the chapter.
 28. **Discussion: which property?** (timed): for example: none of 2,000 estimates from 500
     visits misses $k$ by 0.1; a histogram of estimates that has become bell-shaped; one method
     needs 2.5 times the visits of another; a mean estimate 21% too high with 20 visits. Takeaway
@@ -791,12 +796,11 @@ Do not invent code, and keep names and arguments. The code follows the `STYLE_GU
 | 1, 22 | `$par`, `$value`, `$convergence` |
 | 1, 23 | `exp(log_lambda)` in the NLL, `exp(fir_fit$par)` |
 | 1, 27 | Two-parameter `nb_nll` and its fit |
-| 2, 9 | `hessian = TRUE`, `solve()`, `sqrt(diag())` |
-| 2, 12 | `ADREPORT(k)`, `sdreport()`, `summary()` |
+| 2, 8 | `sdreport()`, `summary()`, `cov2cor()` |
+| 2, 9 | `ADREPORT(k)` (inline) |
 | 2, 14 | `qchisq()` (one line) |
 | 2, 16 | `TMB::tmbprofile()`, `confint()` |
 | 2, 20 | `OBS()`, `obj$simulate()` |
-| 2, 26 | `checkConsistency()` (a short chunk) |
 
 ## Figures
 
@@ -816,7 +820,7 @@ root and writes into its own `lecture-assets/`.
 | `surface-size-prob.png` | 1, 30 | **Copy** of `fig-surface_size_prob` (7 × 5) |
 | `slice-profile.png` | 1, 32 | **Copy** of `fig-slice_profile` (10 × 4.5; patchwork) |
 | `curvature-information.png` | 2, 7 | **New.** `ggplot2`, `theme_classic()`. Relative log-likelihood against $\lambda$ for the first ten quadrats and for all 50 on one axis (grid `seq(0.8, 5, by = 0.05)`, `ylim` −8 to 0). Both curves vermillion with `linewidth = 0.8`, separated by `linetype`, legend on top. Axis labels as `fig-likelihood_curve` |
-| `wald-parabolas.png` | 2, 11 | **New.** Ten quadrats: solid curve; dashed parabola on the original scale, $-(\lambda-\hat\lambda)^2/(2\,\mathrm{SE}^2)$; dotted parabola from the log scale, $-(\log(\lambda)-\log(\hat\lambda))^2/(2\,\mathrm{SE}_{\log}^2)$; horizontal line at −1.92 in `grey40`. Same axis as above, `ylim` −6 to 0. Standard errors calculated in the code, not typed |
+| `wald-parabolas.png` | 2, 10 | **New.** Ten quadrats: solid curve; dashed parabola on the original scale, $-(\lambda-\hat\lambda)^2/(2\,\mathrm{SE}^2)$; dotted parabola from the log scale, $-(\log(\lambda)-\log(\hat\lambda))^2/(2\,\mathrm{SE}_{\log}^2)$; horizontal line at −1.92 in `grey40`. Same axis as above, `ylim` −6 to 0. Standard errors from `sdreport()` with `ADREPORT(lambda)`, as in the chapter, not typed |
 | `three-intervals.png` | 2, 15 | **New.** The same figure with the three intervals added as labelled horizontal segments below the cutoff ("Wald, original scale", "Wald, log scale", "Profile"), endpoints calculated in the code (`uniroot()` for the profile) |
 | `profile-interval.png` | 2, 18 | **Copy** of `fig-profile_interval` (7 × 5) |
 | `joint-region.png` | 2, 19 | **Copy** of `fig-joint_region` (7 × 5) |
@@ -907,8 +911,8 @@ the slides and whether to commit first. Do not write the scripts.
    list of edits). Ask if a correction looks specific to one slide.
 3. Write both `lecture-script.md` in the format of `STYLE_GUIDE_LECTURE.md` ("The script"),
    using the **Script** notes above and the chapter for the narrative.
-   - Opening: draft for the author's review; 150 minutes (125 of slides, 5 of slack, 2 breaks of
-     10); no live demos; links to the theory and the practical; which slides use which figure,
+   - Opening: draft for the author's review; 150 minutes (Lecture 1: 125 of slides and 5 of
+     slack; Lecture 2: 118 and 12; 2 breaks of 10); one live demo; links to the theory and the practical; which slides use which figure,
      with `figures.R`. Lecture 2 links to Lecture 1.
    - Timing table: columns Slide, Topic, Minutes, Elapsed time, with breaks, slack and total.
    - The narrative states the general rule first, in full sentences, and then the example, as
@@ -918,23 +922,22 @@ the slides and whether to commit first. Do not write the scripts.
    - Practice and discussion slides give expected answers and say how long to wait. Practice
      slides are not solved by running code.
    - No first-person anecdote or opinion for the author.
-4. **Adjustments during delivery.** Lecture 1: shorten slide 3 to a sentence; slide 8 into
-   speech on slide 7; slide 13 to one sentence; slide 22 to its bullets; slide 28 to the figure.
-   Keep: probability against likelihood (6, 9), the steps of a fit (19 to 22), slice against
-   profile (31, 32). Lecture 2: see the order of cuts under "Author's decisions"; keep endpoints
-   against standard errors (10), what the profile interval is (14, 15), and that AIC ranks
-   without judging (31). State the minutes that each recovers.
-5. **If time is left: code to run** (visible chunks only, no typed code):
-   - Lecture 1: after slide 14, the likelihood and log-likelihood chunks and the Practice 1
-     code; after slide 25, the fir fit and the Practice 2 code; after slide 33, the owl fit, the
-     zero-probability chunk and the surface loop with `contour()`.
-   - Lecture 2: after slide 13, Hessian and `sdreport()` chunks and the Practice 3 code; after
-     slide 22, `tmbprofile()` chunks and the table of intervals; after slide 28, nothing that
-     simulates: the simulation with seed 601 and `checkConsistency()` take minutes. Say so. The
-     AIC table can run.
-   - Say which chunks must run first (packages, `fir`, `Owls`, `cmb()`) and to keep one R
-     session open across the breaks. In Lecture 2, the objects of Lecture 1 must be created
-     again.
+4. **Adjustments during delivery** (slide numbers of the current tables). The demos are kept
+   whole; if one overruns, it takes the slack first. Lecture 1: shorten slide 3 to a
+   sentence; slide 19 to its bullets; slide 25 to the figure; section 3 of the demo (the
+   second parameterisation) can be shown only as its plot. Keep: probability against
+   likelihood (6, 8), the steps of a fit (16 to 19), slice against profile (28, 29). Lecture
+   2: shorten slide 14 to its bullets and slide 24 to the definition; in the demo, show only
+   the histograms and the table of efficiency. Keep endpoints against standard errors (9),
+   what the profile interval is (12, 13), and that AIC ranks without judging (26). State the
+   minutes that each recovers.
+5. **Live demos:** a section per demo slide (Lecture 1, slide 30; Lecture 2, slide 23) that
+   walks through the script by section: what to say before running each section, what to
+   point at in the output, which question of the removed discussion slides to ask (slice or
+   profile?; which property?), and the numbers to expect. Say to open R and run section 0
+   during the preceding break (Lecture 2) or slide 29 (Lecture 1), and that section 3 of
+   `demo-properties.R` runs for about 75 seconds, so explain the loop while it runs. No other
+   code is run live.
 6. **PDFs:** regenerate `lecture-script.pdf` for each lecture with Typst, as for Chapter 3
    (`quarto render lecture-script.md --to typst`; confirm it first). If that fails, say so.
 7. **Status:** replace the row of `Chapter_4/Lecture_1/`, `Chapter_4/Lecture_2/` in the table of
@@ -955,3 +958,26 @@ Each phase or step adds one line: date, what is done, what is next.
   full-width figure stretches to the bottom of the slide, so the text below it reaches the footer
   unless a spacer div follows it (slide 32 of Lecture 1, slide 24 of Lecture 2). Next: the
   author's review, then Phase 2.
+- 3 November 2026: audit of both decks for "the main points stand on the slide"
+  (`STYLE_GUIDE_LECTURE.md`). General points from the Script notes and the chapter were
+  moved onto Lecture 1, slides 7, 30 and 32, and Lecture 2, slides 7, 11, 18, 21 and 25
+  (new takeaways on 21 and 25); the example boxes of 21 and 25 were shortened to make room.
+  Where the slides now differ from the specifications above, the slides hold. Lecture 2,
+  slide 26: `checkConsistency()` and its chunk replaced by a general bullet on checking bias
+  by simulation (author's decision).
+- 3 November 2026: one live demo of 18 minutes per lecture (author's decision): slides
+  "Live demo: a likelihood profile in R" (Lecture 1, slide 30) and "Live demo: properties by
+  simulation" (Lecture 2, slide 25), with `demo-profile.R` and `demo-properties.R` in the
+  lecture folders, both run in a clean session in R 4.6.1 (11 and 80 seconds; numbers agree
+  with the chapter). Slides were merged or cut to keep 125 minutes (see "Cuts of 3 November");
+  both decks rendered and every changed slide was inspected at 1440 × 900. Next: the
+  author's review, then Phase 2.
+- 3 November 2026: the chapter's "Standard errors and Wald intervals" was condensed (Fisher
+  information, the Hessian, Jensen's inequality and the delta method moved to statistical
+  detail boxes; no standard error by hand in the main text). Lecture 2, slides 6 to 12 of that
+  morning became five slides (6 to 10): "The Hessian matrix", "From the Hessian to standard
+  errors in R" and "`sdreport()` and `ADREPORT()`" were removed or merged, "Fisher
+  information" became "Curvature and standard errors" and "`sdreport()`: standard errors and
+  correlations" is new. 30 slides, 118 minutes, 12 of slack. `figures.R` now takes the two
+  standard errors from `sdreport()` (same values, PNGs unchanged). The deck rendered and slides
+  6 to 10 were inspected at 1440 × 900.

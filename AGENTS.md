@@ -78,6 +78,19 @@ them. All dates are in 2026.
   wording awaits the author's check. On the author's instruction, the definition of the
   data generating process in "The modelling cycle" of Chapter 1 now reads "in an
   experiment, a survey or any other study".
+- **3 November:** on the author's request, the Chapter 4 theory was simplified so that the
+  examples serve the general principles (see "Chapter 4" below). The rewritten sections
+  are drafts awaiting the author's review; the Chapter 4 lecture slides and the lecture
+  handoff were not updated and no longer match the chapter in places. The same day,
+  likelihood profiles calculated by hand were removed from the theory and the practical
+  (see "Chapter 4" below), and from Lecture 1: `demo-profile.R` uses the owl model with
+  $k$ and $p$, where the slice and the profile differ, and draws the chapter's figure of
+  both (author's decision); the overview, demo slide and summary follow it. Later that day,
+  on the author's request, "Standard errors and Wald intervals" was condensed: the main text
+  keeps the principles and `sdreport()`/`ADREPORT()`, and Fisher information, the Hessian,
+  Jensen's inequality and the delta method moved to statistical detail boxes (see "Chapter
+  4" below). Lecture 2 (slides 6 to 10), its handoff, `figures.R`, the learning goals,
+  roadmap, summary and quiz question 7 follow it.
 
 | Material | Status and use |
 |---|---|
@@ -86,7 +99,7 @@ them. All dates are in 2026.
 | `Chapter_1/Lecture/` (`lecture.qmd`, `lecture-script.md`) | Generated draft of a 60-minute lecture on the chapter (19 slides). The author sets the length of each lecture; when a request does not give it, ask (see `STYLE_GUIDE_LECTURE.md`). The author revised the slides on 26 October (they are the reference for format and amount of text); the script awaits review. Slides carry keywords for students new to the course and no speaker notes; the narrative is only in the script (author's decision), so slide numbers, titles and times in the script are changed together with the slides. The README was removed. Never a model of voice |
 | `Chapter_2/Lecture/` | Generated draft: 90 minutes of slides (33 slides) plus 40 minutes of live demos from the chapter's code and `Practice` callouts, in three blocks with two breaks of 10 minutes (150 minutes). Slides and script await review. Never a model of voice |
 | `Chapter_3/Lecture/` | Generated draft: a session of 150 minutes with 34 slides (125 minutes, 5 of slack) in three blocks with two breaks of 10 minutes. No live demos (author's decision of 30 October, because the slides of the Chapter 2 lecture took longer than planned): the author decides during the lecture whether to run code, and the script lists the chunks that fit, all visible on the chapter and practical pages, with no typed code. Slides and script await review. Never a model of voice |
-| `Chapter_4/Lecture_1/`, `Chapter_4/Lecture_2/` | Planned on 30 October, not built: two lectures of 150 minutes each, one per part of the chapter. The plan and the author's decisions are in `Chapter_4/lecture-handoff.md` |
+| `Chapter_4/Lecture_1/`, `Chapter_4/Lecture_2/` | Generated draft slides of two lectures of 150 minutes, one per part of the chapter (32 slides in Lecture 1 and 30 in Lecture 2, which has 12 minutes of slack instead of 5; each includes one live demo of 18 minutes with its standalone R script, checked in R); the scripts are not written. The plan and the author's decisions are in `Chapter_4/lecture-handoff.md`. Never a model of voice |
 | `Chapter_2/Theory.qmd` | Approved, then partly rewritten. **Primary reference for voice in technical chapters** (author's sections not rewritten): "Discrete probability distributions", the discrete parts of "Joint distributions" and "Expectations and central moments", "Choosing a distribution", and the parts of "Overdispersion" that were not rewritten. Drafts: see Chapter 2 below |
 | Chapter 2 practical | Approved. Exercises 1 (seedlings), 3 (`InsectSprays`) and 4 (Negative Binomial) are the author's work and the primary reference for exercises, worked reasoning and interpretation. Exercises 5 and 6 generated, then approved. Worked Exercise 2 is a draft |
 | `Chapter_3/Theory.qmd` | Approved, then rewritten: a draft. The opening `# Samples and distributions` was the author's text and is no longer a reference for voice |
@@ -172,10 +185,12 @@ another species of the data set of its theory (Chinstrap in Chapter 2, Adelie in
 
 ### Lectures
 
-From Chapter 3 onward lectures have no live demos (author's decision of 30 October); only
-the Chapter 2 lecture keeps them. Slides state the general definition, rule or property
+The Chapter 3 lecture has no live demos (author's decision of 30 October); the Chapter 2
+lecture has three, and each Chapter 4 lecture has one of 18 minutes from a standalone
+script, `demo-profile.R` and `demo-properties.R` (author's decision of 3 November). Slides state the general definition, rule or property
 and then the result for the example, never the example alone (author's decision of 30
-October). The rules are in `STYLE_GUIDE_LECTURE.md`.
+October), and the main takeaways stand on the slide, not only in the script (author's
+decision of 3 November). The rules are in `STYLE_GUIDE_LECTURE.md`.
 
 ### `Supplements/distributions.qmd`
 
@@ -204,86 +219,129 @@ October). The rules are in `STYLE_GUIDE_LECTURE.md`.
 
 ### Chapter 4
 
+- **Principles over examples** (author's decision of 3 November): the examples serve the
+  general statements and must not become case studies. The chapter was simplified that
+  day (3,215 to about 2,740 source lines): details of the Poisson and Negative Binomial
+  distributions, repeated calculations and numbers that do not support a general point
+  were removed. Do not add such detail back, and keep the chapter from growing.
 - **Structure:** two parts presented in the introduction and in the roadmap table,
   without "Part" headings. Part 1: likelihood, estimation, several parameters. Part 2:
   uncertainty (standard errors, Wald and profile intervals, joint regions, coverage),
-  properties of estimators (each told from a simulation first), AIC. A "recipe for a fit"
-  callout closes the chapter before the summary. No `<!-- AUTHOR: ... -->` comments
-  remain; do not add first-person opinion on the author's behalf. The author's passage on
-  `cmb()`, `MakeADFun()` and `optim()` is not to be touched.
-- **Examples:** the 50 fir counts (estimation uses all 50; the likelihood curve and the
-  three intervals use the first ten quadrats, where the asymmetry is visible, and are
-  repeated for the 50) and the owl data. The Normal model appears only in footnotes and
-  in the callout on the interactive likelihood page.
+  properties of estimators, AIC. The order stays (author's decision of 3 November:
+  students know the properties from Chapter 3). A "recipe for a fit" callout closes the
+  chapter before the summary. Do not add first-person opinion on the author's behalf.
+- **Examples:** the 50 fir counts (estimation uses all 50; the likelihood curve, the
+  standard error and the three intervals use the first ten quadrats, where the asymmetry
+  is visible; the result for the 50 is one sentence each, the intervals from a hidden
+  chunk) and the owl data. The Normal model appears only in footnotes and in the callout
+  on the interactive likelihood page.
 - **Estimation:** `optim()` is the only method (the closed-form Poisson estimator is
-  stated, its derivation is in a box). The method of moments appears only as a source of
-  starting values and in "Efficiency". The code of the $k$, $p$ parameterisation and of
-  the slice and profile curves of the owl model is hidden and kept in the source. The
-  first derivative points to `Supplements/calculus.qmd`. One warning callout covers the
-  clash between `RTMBdist::dnbinom2(x, mu, size)` and `RTMB::dnbinom2(x, mu, var)`.
+  stated, its derivation is in a box). The method of moments appears only as the starting
+  values of the owl fit and in "Efficiency". The first derivative points to
+  `Supplements/calculus.qmd`. One warning callout covers the clash between
+  `RTMBdist::dnbinom2(x, mu, size)` and `RTMB::dnbinom2(x, mu, var)`. "The fitted model"
+  is one paragraph with the figure of fitted probabilities; the Poisson log-likelihood is
+  calculated in the AIC section.
+- **Parameterisation, slices and profiles:** one section with one composite figure
+  (contours in $k$ and $p$ with the slice and the path of the profile; slice and profile
+  curves). The $k$, $p$ fit is hidden code and returns only in one line of "Covariance
+  between estimates". Slices and profiles are defined in general symbols
+  ($\theta_1$, $\theta_2$).
 - **Failed fits:** a note callout at the end of "Constraints and transformations": check
   `convergence`; `fn` returns `NaN` without a warning where the NLL cannot be calculated
   and BFGS treats this as a failed step (harmless when the fit converges, an error when
   the starting values give `NaN`); what to try; Chapter 8 explains the rest.
-- **Standard errors and Wald intervals** (6.1; draft): "Fisher information" (observed
-  information), "The Hessian matrix" (`optim(hessian = TRUE)`, `solve()`, `diag()`,
-  `sqrt()`; Poisson fit, then the owl model by hand), "Constrained and unconstrained
-  parameters" (standard errors of $\hat\lambda$ and $\log(\hat\lambda)$ compared on the
-  Poisson example, `exp()` of a standard error shown to be wrong, Jensen's inequality, the
-  delta method), "Wald intervals on the original and log scales" (both intervals of the ten
-  quadrats, the quadratic approximation) and "Automation with TMB" (`sdreport()`,
-  `ADREPORT()`, the interval table of the owl model). The
-  by-hand owl fit comes before the NLL with `ADREPORT(k)`, which is fitted again.
-- **Profile intervals** (6.3; draft): "One parameter" (`uniroot()`), "Two parameters"
-  (profile of $k$ on a grid of inner fits), "Automation with TMB" (`tmbprofile()` with
-  `confint()`). The text says that in practice students use the TMB functions.
-- **Owl $k$:** three intervals are shown: Wald on the original scale (from `ADREPORT()`),
-  Wald on the log scale with the endpoints transformed back (recommended) and profile
-  (reference).
+- **Standard errors and Wald intervals** (draft, condensed on the author's request of 3
+  November): the main text states the ideas and uses no calculation by hand. The opening
+  gives asymptotic normality, for several parameters a multivariate Normal with a
+  covariance matrix (links to Chapter 2 and `distributions.qmd#sec-multivariate_normal`).
+  "Curvature and standard errors" (`#sec-curvature`): the log-likelihood near its maximum
+  is approximately a parabola (degree two in each parameter); a slower fall (lower
+  curvature) gives a larger standard error; for one parameter the standard error is one
+  over the square root of the curvature; the curvatures give the covariance matrix; an
+  asymmetric log-likelihood makes the Wald interval less accurate. "Standard errors with
+  TMB" (`sdreport()` on the ten quadrats and the owls, `cov.fixed` and `cov2cor()` in both
+  parameterisations; the former "Covariance between estimates" is merged here), "Standard
+  errors on the original scale" (see "Back-transformation") and "Wald intervals on the
+  original and log scales" (the ten quadrats from the rows of `ADREPORT(lambda)`; the owl
+  intervals). Four statistical detail boxes, mathematics only and no R chunk (author's
+  decision): Fisher information (observed and expected, the Poisson case $n/\hat\lambda$
+  by hand), the Hessian matrix (the $2\times2$ matrix, its inverse, 22 and 0.213 for the ten
+  quadrats; `optim(hessian = TRUE)` and `solve()` named), Jensen's inequality (with the
+  values 0 and 2), the delta method (formula, log and logit cases). The Poisson NLL gains
+  `ADREPORT(lambda)` in this section, as the owl NLL gains `ADREPORT(k)`. Quiz question 7
+  gives curvatures, not Hessians. The rewritten text awaits the author's review.
+- **Profile intervals** (draft): no profile or interval endpoint is calculated by hand,
+  in the theory or the practical (author's decision of 3 November, because it takes too
+  long and TMB gives the same result): no loop of inner fits with `map`, no `uniroot()`.
+  The section explains the two steps (profile with inner fits, crossings of the cutoff) in
+  words and introduces `tmbprofile()` and `confint()`; then "One parameter" (the ten
+  quadrats, with the 50 in a hidden chunk) and "Two parameters" (the owls). The hidden
+  code of the slice and profile figure uses `tmbprofile()` with `ytol = 10`, and draws the
+  path of the profile from $p=k/(k+\hat\mu)$, because the MLE of the mean is the sample
+  mean for every $k$. `uniroot()` is introduced in Chapter 5, where it finds a special
+  point of the Ricker function. `fig-profile_interval` draws the ten-quadrat
+  log-likelihood with its parabola and the cutoff, and the text says that the Wald interval
+  on the original scale is where the parabola crosses $-1.92$ ($z_{0.975}^2/2=1.92$).
+- **Owl intervals:** one table with the profile and log-scale Wald intervals of $\mu$ and
+  $k$ and the Wald interval of $k$ on the original scale (from `ADREPORT()`).
 - **Back-transformation:** endpoints can be transformed because the logarithm is
-  increasing, so coverage is kept. A standard error cannot, because it is built from
-  expectations, which do not pass through non-linear functions (Jensen's inequality).
-  The difference in units is not the reason (author's correction). The main text explains
-  this briefly (author's decision of 2 November, replacing a footnote): the chunk compares
-  only `original_scale`, `log_scale` and `exp_of_se`; the delta method is named as the
-  correction that uses the first derivative at the estimate, shown only as the multiplication
-  by $\hat\lambda$ on the Poisson example, and its explanation stays in Chapter 6. Jensen's
-  inequality is presented for non-linear functions in general, with convexity or concavity
-  only deciding the sign. The text says that the multiplication by the estimate is specific
-  to this example and not general (another transformation has another slope), and that TMB
-  applies the delta method internally through `ADREPORT()`. The new wording awaits the
-  author's check.
+  increasing, so coverage is kept. A standard error cannot, because a variance is an
+  average and a non-linear function does not pass through an average; the main text
+  explains this conceptually and Jensen's inequality is a box. The difference in units is
+  not the reason (author's correction). Wording (author's decision of 3 November): `exp()`
+  of a standard error is no standard error at all, not a "biased" one; the delta method
+  approximates the standard error on the new scale by treating the transformation as a
+  straight line near the estimate (an approximation, widely used), it does not remove a
+  bias, and TMB applies it through `ADREPORT()`; Chapter 6 explains it.
 - **Simulation:** data are marked with `OBS()`, `obj$simulate()` draws each hypothetical
-  sample and a visible loop refits. Coverage simulations use one extra fit at the
-  generating value, not `tmbprofile()` in every sample. `checkConsistency()` appears
-  once, with `estimate = TRUE` and the bias calculated from the refitted estimates; its
-  p-value is not interpreted (awaits the author's confirmation).
-- **The gap in $k$:** the recipe callout explains the gap between the method-of-moments
-  and maximum likelihood estimates of $k$ (the model is an approximation and no pair of
-  values reproduces the mean, the variance and the fraction of zeros; in none of 2,000
-  simulated samples does the gap reach the observed 0.27). "Efficiency" keeps the
-  general comparison of precision and does not claim to explain it.
-- **Statistical detail boxes:** the derivation of the Poisson estimator, Wilks' theorem,
-  the cutoff for a joint region, consistency, the Cramér–Rao bound, the Kullback–Leibler
-  divergence.
+  sample and a visible loop refits. The hidden coverage simulation of the theory checks
+  the profile interval with one extra fit at the generating value, not `tmbprofile()` in
+  every sample; the practical simulates the coverage of the Wald interval only (see
+  below). `checkConsistency()` is not used
+  (removed on 3 November; the bias comes from the visible loop). "Coverage checked by
+  simulation" closes with a note callout (author's decision of 3 November): the course
+  prefers likelihood profile intervals because their coverage in small samples tends to be
+  closer to 95%, at the cost of many optimisations; a Wald interval on the log scale is
+  the fast approximation.
+- **Properties:** short, because Chapter 3 defines consistency, asymptotic normality,
+  bias and MSE. One simulation; sections "Consistency and asymptotic normality",
+  "Efficiency" (standard deviation and MSE only), "Bias in finite samples" and
+  "Misspecified models". The simulation fits every sample from `log_mu = 0`, `log_k = 0`
+  and keeps the samples; the method-of-moments estimates are calculated from them in their
+  own chunk in "Efficiency" (`#sec-efficiency`; author's decision of 3 November, so that
+  students do not think a fit needs method-of-moments starting values). The numbers did
+  not change. `demo-properties.R` and the copy in `figures.R` follow it.
+- **Owl example kept light** (author's decisions of 3 November): the chapter does not
+  explain why the Negative Binomial model may not fit the owls. "Misspecified models" is
+  general only: no implied variance, no gap between the method-of-moments and maximum
+  likelihood estimates of $k$, no count of nests. The gap is mentioned once, where the fit
+  is reported, as the difference between two estimators. Do not add such detail back.
+- **Statistical detail boxes:** the derivation of the Poisson estimator, Fisher information,
+  the Hessian matrix, Jensen's inequality, the delta method, Wilks' theorem,
+  the cutoff for a joint region, why maximum likelihood estimators are consistent, the
+  Cramér–Rao bound, the Kullback–Leibler divergence.
 - **Model comparison:** AIC (`#sec-aic`) with AICc, presented as an approximation for the
   non-linear, non-Normal models of the course that is nevertheless common in the
   literature. The practical reports AICc next to AIC wherever it compares models.
 - **Practice callouts:** four remain ("crab burrows", back to the ecological scale, an
   interval from the log scale, waiting for a pollinator).
-- **Length:** the chapter should not grow. It has 3,146 source lines against 2,857 before
-  the RTMB rewrite, so this is not met.
 - **Practical:** reed frog tadpole survival (`emdbook::ReedfrogPred`), glacier lily
   seedlings (`emdbook::Lily_sum`), black cherry volume (`trees`), Adelie body mass
-  (`penguins`). Exercise 1 is worked on the student page and shows both routes (by hand,
-  then `sdreport()` and `tmbprofile()`); its question 6 compares one probability of
+  (`penguins`). Exercise 1 is worked on the student page and shows both routes for the
+  standard error (the Hessian by hand, then `sdreport()`); it is the only place in the
+  chapter where the Hessian is taken from `optim()` (author's decision of 3 November); its
+  likelihood interval comes
+  from `tmbprofile()` only. Its question 6 compares one probability of
   survival for all 48 tanks with one per predator treatment (AIC, AICc, and the
   difference with its standard error from `ADREPORT()` and a Wald interval; awaits
-  confirmation). Exercise 2: one profile by hand (inner fits fixed with `map`) checked
-  with `tmbprofile()`. Exercise 3: students write `my_dzipois()` by hand and verify it
+  confirmation). Exercise 2: the profile interval of $k$ with `tmbprofile()`, compared
+  with the Wald interval. Exercise 3: students write `my_dzipois()` by hand and verify it
   against `dzipois()`. Exercises 3 to 5 use only the TMB tools. Exercises 1 to 4 are the
   core; Exercise 5 is extra practice with a skeleton of `simulate_gamma_samples()`
-  (three gaps). The Gamma fits start at shape 1 and rate $1/\bar x$, because from the
+  (two gaps). It simulates the coverage of the Wald interval only, because the profile
+  interval would need `tmbprofile()` in every sample (author's decision of 3 November; the
+  question says so). The Gamma fits start at shape 1 and rate $1/\bar x$, because from the
   method-of-moments estimates they stop one step from the maximum without `reltol`; the
   solution says why (awaits confirmation).
 

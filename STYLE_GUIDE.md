@@ -525,6 +525,13 @@ fir_fit = optim(par = fir_obj$par, fn = fir_obj$fn, gr = fir_obj$gr, method = "B
 - **Optimiser:** `optim()` with `method = "BFGS"` and `gr = obj$gr` everywhere, including
   one-parameter fits and the inner fits of a profile; say once that Chapter 8 explains
   the method. Never set `reltol`. `silent = TRUE` in every `MakeADFun()` call.
+- **Starting values are simple.** Any values from which the optimiser reaches the maximum
+  will do; method-of-moments estimates are one possible choice, never a required step
+  before a fit. In a simulation, fit every hypothetical sample from fixed starting values
+  (for example the values of the placeholder object, 0 on the transformed scale), not from
+  estimates calculated in each sample. When a simulation also compares estimators, keep the
+  samples and calculate the other estimator in its own chunk, where the comparison is made
+  (author's decision of 3 November; Chapter 4, "Efficiency").
 - **Constraints by transformation only:** the logarithm for positive parameters,
   `qlogis()` and `plogis()` for probabilities. Say why and report estimates on the
   ecological scale.
@@ -534,15 +541,23 @@ fir_fit = optim(par = fir_obj$par, fn = fir_obj$fn, gr = fir_obj$gr, method = "B
   on the optimised scale, not `sapply()`, `vapply()`, `Vectorize()` or `outer()`. A grid
   draws curves, surfaces and slices and never estimates. Distinguish a slice from a
   profile, which refits the other parameters.
-- **By hand once, then the TMB tool.** Each calculation that TMB does is shown once by
-  hand on the simplest case: the Hessian as `fit$hessian[1, 1]` from
-  `optim(..., hessian = TRUE)`; a profile with inner fits that start at the joint
-  estimate; the endpoints of a profile interval with `uniroot()`, its search interval
-  chosen from the plotted curve so that the function changes sign. Then: `sdreport()` for
-  standard errors; `ADREPORT()` for a quantity calculated from the parameters (TMB
-  applies the delta method, which Chapter 6 explains); `TMB::tmbprofile()` with
-  `confint()` (with the prefix, because RTMB does not export it); `OBS()` with
-  `obj$simulate()` for hypothetical samples; `checkConsistency()`. Introduce each
+- **By hand once, then the TMB tool.** In the theory, standard errors come from
+  `sdreport()` directly; the observed information, the Hessian, Jensen's inequality and the
+  delta method appear only as mathematics in statistical-detail boxes, without R chunks
+  (author's decision of 3 November). The Hessian is taken by hand once, in the Chapter 4
+  practical (Exercise 1), as `fit$hessian[1, 1]` from `optim(..., hessian = TRUE)`, and
+  compared with `sdreport()`. A back-transformed standard error is not called "biased": a
+  non-linear function does not pass through an average, so `exp()` of a standard error is
+  no standard error, and the delta method approximates the standard error on the new scale
+  (it does not remove a bias). Likelihood profiles and
+  their intervals are never calculated by hand (no loop of inner fits with `map`, no
+  `uniroot()` for the endpoints; author's decision of 3 November): the text explains the
+  profile and its cutoff, and `TMB::tmbprofile()` with `confint()` does the calculation
+  (with the prefix, because RTMB does not export it). Then: `sdreport()` for standard
+  errors; `ADREPORT()` for a quantity calculated from the parameters (TMB applies the
+  delta method, which Chapter 6 explains); `OBS()` with
+  `obj$simulate()` for hypothetical samples (the course does not use
+  `checkConsistency()`). Introduce each
   tool where the text needs it, not in the first NLL.
 - **Profiles** are drawn with `ggplot2` from the data frame that `tmbprofile()` returns,
   on the relative log-likelihood scale; in an exercise, `plot()` of the profile object is

@@ -12,26 +12,22 @@ library(ggplot2)
 
 In this chapter, we learn how to estimate the parameters of a model and their uncertainty
 by maximum likelihood. In [Chapter 3](../Chapter_3/Theory.qmd) we estimated parameters with
-the method of moments, which only uses the mean and the variance of a sample. Maximum likelihood uses the
-probability that the model assigns to every observation, and it applies to any model for
-which we can write a probability mass or density function. This is why it is the method of
-estimation in the rest of the course. The concepts of Chapter 3 (estimator, sampling
-distribution, standard error and confidence interval) remain the same; we now apply them to
-a different estimator.
+the method of moments, which only uses the mean and the variance of a sample. Maximum
+likelihood uses the probability that the model assigns to every observation, and it applies
+to any model for which we can write a probability mass or density function. This is why it
+is the method of estimation in the rest of the course. The concepts of Chapter 3
+(estimator, sampling distribution, standard error and confidence interval) remain the same;
+we now apply them to a different estimator.
 
-The chapter uses two examples. The first is the counts of balsam fir seedlings in 50
-quadrats of Chapter 3, under a Poisson model, so that we can compare every result with
-Chapter 3. Where the shape of the likelihood matters we also use the first ten of those
-quadrats, as a smaller sample from the same data. The second is the number of calls made
-by barn owl nestlings, the field data of the Chapter 3 practical (the data set `Owls` of
-the package `glmmTMB`), under a Negative Binomial model with two parameters. The chapter
-ends with the use of information criteria to compare different models fitted to the same data.
-
-The chapter has two parts. The first part builds the method: the likelihood function,
-maximum likelihood estimation with `optim()` and the package RTMB, and models with
-several parameters. The
-second part is about what we can say once a model is fitted: the uncertainty of the
-estimates, the properties of maximum likelihood estimators and the comparison of models.
+The chapter has two parts. The first builds the method: the likelihood function, maximum
+likelihood estimation with `optim()` and the package RTMB, and models with several
+parameters. The second is about what we can say once a model is fitted: the uncertainty of
+the estimates, the properties of maximum likelihood estimators and the comparison of models
+with information criteria. Two examples run through the chapter. The first is the counts of
+balsam fir seedlings in 50 quadrats of Chapter 3, under a Poisson model, of which we also use
+the first ten quadrats where the shape of the likelihood matters. The second is the number of
+calls made by barn owl nestlings, the field data of the Chapter 3 practical, under a
+Negative Binomial model with two parameters.
 
 # Learning goals
 
@@ -41,7 +37,7 @@ In this chapter, we will cover:
 - maximum likelihood estimation by numerical optimisation;
 - constraints on parameters and transformations;
 - likelihood surfaces, slices and profiles for models with several parameters;
-- Fisher information, standard errors and Wald intervals;
+- standard errors from the curvature of the log-likelihood, and Wald intervals;
 - likelihood profile intervals and joint confidence regions;
 - the properties of maximum likelihood estimators in large and small samples;
 - the comparison of models with the Akaike information criterion.
@@ -61,9 +57,9 @@ it answers, the R tools that we use for it and the example on which we show it.
 | The likelihood | How probable are the data for a given value of the parameter? | `dpois(..., log = TRUE)`, `sum()` | Fir seedlings |
 | Estimation | Which value of the parameter makes the data most probable? | NLL with `getAll()`, `cmb()`, `MakeADFun()`, `optim()` | Fir seedlings |
 | Transformations | How do we keep a parameter within its range? | `exp()`, `plogis()` | Fir seedlings |
-| Several parameters | What does the likelihood look like, and what does it say about one parameter? | `dnbinom2()`, `for` loops with `obj$fn()`, `contour()`, profiles | Owls |
+| Several parameters | What does the likelihood look like, and what does it say about one parameter? | `dnbinom2()`, `for` loops with `obj$fn()`, `contour()` | Owls |
 | **Part 2** | | | |
-| Standard errors | How precise is the estimate? | The Hessian by hand, then `sdreport()` and `ADREPORT()` | Fir seedlings and owls |
+| Standard errors | How precise is the estimate? | `sdreport()` and `ADREPORT()` | Fir seedlings and owls |
 | Confidence intervals | Which parameter values do the data support? | Wald interval on the fitted scale; profile with `TMB::tmbprofile()` and `confint()` | Fir seedlings and owls |
 | Properties | Why does the method work, and when does it fail? | Simulation with `obj$simulate()` | Owls |
 | Model comparison | Which of two models is better supported by the data? | AIC | Owls |
@@ -101,11 +97,11 @@ This is the formula of a joint distribution from Chapter 2. What changes is what
 fixed. In Chapter 2 we fixed the parameters and calculated the probability of different
 possible samples. Now the sample has been observed, so $x_1,\ldots,x_n$ are fixed numbers,
 and we look at how the probability of that sample changes as we vary $\theta$. A parameter
-value under which the observed sample is more probable is better supported by the data,
-that is the crucial idea behind likelihood.^[Fisher introduced the maximum likelihood method in 1912, in a
-paper that he wrote as an undergraduate student and in which he called it an "absolute
-criterion". He introduced the word likelihood in 1921, to keep this quantity apart from a
-probability, and the name "maximum likelihood" in 1922, in the paper that set out the
+value under which the observed sample is more probable is better supported by the data;
+that is the crucial idea behind likelihood.^[Fisher introduced the maximum likelihood method
+in 1912, in a paper that he wrote as an undergraduate student and in which he called it an
+"absolute criterion". He introduced the word likelihood in 1921, to keep this quantity apart
+from a probability, and the name "maximum likelihood" in 1922, in the paper that set out the
 theory of the method. Choosing the parameter value under which the observations are most
 probable had been anticipated in the eighteenth and early nineteenth centuries by Lambert,
 Daniel Bernoulli and Gauss, although without a reasoned defence of the method. If you want
@@ -176,34 +172,30 @@ prod(dpois(x = seedling_counts, lambda = 1))
 prod(dpois(x = seedling_counts, lambda = 2))
 ```
 
-With the 50 counts the order is reversed: the likelihood is approximately
-$4.2\times10^{-50}$ for $\lambda=1$ and $1.3\times10^{-39}$ for $\lambda=2$. That is, the
-whole sample is about $3\times10^{10}$ times more probable under a mean of 2 than under a
-mean of 1, so 50 quadrats discriminate between these two values far more strongly than
-three.
-Note how small both numbers are. Every observation multiplies the likelihood by a
-probability smaller than one, so **its value depends on the number of observations and has
-no meaning by itself**. What we use is the comparison between the likelihoods of different
-parameter values for the same data.
+With the 50 counts the order is reversed: the whole sample is about $3\times10^{10}$ times
+more probable under a mean of 2 than under a mean of 1, so 50 quadrats discriminate between
+these two values far more strongly than three. Note how small both numbers are. Every
+observation multiplies the likelihood by a probability smaller than one, so **its value
+depends on the number of observations and has no meaning by itself**. What we use is the
+comparison between the likelihoods of different parameter values for the same data.
 
 A likelihood is calculated from probabilities but it is not a probability distribution for
 the parameter, for two reasons:
 
-1. We work with aleatoric probability ([Chapter 2](../Chapter_2/Theory.qmd)): probabilities describe how
-the data or estimates vary across hypothetical samples, while the parameter of the model is a
-fixed quantity^[The likelihood is also at the core of Bayesian inference. There it is multiplied
-by a prior distribution, which describes what is known about the parameter before seeing
-the data, and the product is rescaled to give a probability distribution for the parameter
-(the posterior distribution). [Chapter 1](../Chapter_1/Theory.qmd) explains why this book
-stays with the Frequentist interpretation.]. So in the model there is no variation or error
-about $\lambda$ to which a probability
-could refer.
+1. We work with aleatoric probability ([Chapter 2](../Chapter_2/Theory.qmd)): probabilities
+   describe how the data or estimates vary across hypothetical samples, while the parameter
+   of the model is a fixed quantity.^[The likelihood is also at the core of Bayesian
+   inference. There it is multiplied by a prior distribution, which describes what is known
+   about the parameter before seeing the data, and the product is rescaled to give a
+   probability distribution for the parameter (the posterior distribution).
+   [Chapter 1](../Chapter_1/Theory.qmd) explains why this book stays with the Frequentist
+   interpretation.] So in the model there is no variation or error about $\lambda$ to which
+   a probability could refer.
 
-2. For a fixed $\lambda$ the probabilities of all the
-possible samples add up to one, but nothing forces the likelihoods of all the possible
-values of $\lambda$ to do so for a fixed sample. For the 50 counts, the area under the
-likelihood across all the possible values of $\lambda$ is approximately
-$8.7\times10^{-40}$, which is very far from one.
+2. For a fixed $\lambda$ the probabilities of all the possible samples add up to one, but
+   nothing forces the likelihoods of all the possible values of $\lambda$ to do so for a
+   fixed sample. For the 50 counts, the area under the likelihood across all the possible
+   values of $\lambda$ is approximately $8.7\times10^{-40}$, which is very far from one.
 
 ```{r}
 #| include: false
@@ -214,10 +206,6 @@ $8.7\times10^{-40}$, which is very far from one.
 poisson_likelihood = function(lambda, counts) {
   exp(-length(counts) * lambda + sum(counts) * log(lambda) - sum(lfactorial(counts)))
 }
-
-# Check that it gives the same likelihood as the product of probabilities.
-poisson_likelihood(lambda = 2, counts = seedling_counts)
-prod(dpois(x = seedling_counts, lambda = 2))
 
 # Area under the likelihood across all possible values of lambda. The likelihood is
 # tiny, so the default absolute tolerance is too coarse: we set it to zero and ask
@@ -230,35 +218,26 @@ integrate(
   rel.tol = 1e-8,
   abs.tol = 0
 )
-
-# The integral has a closed form, which confirms the numerical result:
-# (sum of counts)! / n^(sum of counts + 1) / product of the factorials of the counts.
-exp(
-  lgamma(sum(seedling_counts) + 1) -
-    (sum(seedling_counts) + 1) * log(n_quadrats) -
-    sum(lfactorial(seedling_counts))
-)
 ```
 
 ::: {.callout-warning title="A likelihood is not the probability of a parameter value"}
 The likelihood $L(\theta\mid x_1,\ldots,x_n)$ is the probability (or density) of the
 observed data for a given value of the parameter, read as a function of the parameter. It
-does not add up or integrate to one over the values of the parameter, so it does not tell
-us how probable a parameter value is. We use it to compare parameter values: the data are
-better supported by the value with the higher likelihood.
+does not tell us how probable a parameter value is. We use it to compare parameter values:
+the data are better supported by the value with the higher likelihood.
 :::
 
 ## The log-likelihood
 
-The likelihood of 50 counts is already of the order of $10^{-39}$. With a larger sample the
-product can become smaller than the smallest positive number that the computer can
-represent, and R then returns zero. For this reason, and because sums are easier to work
-with than products, we use the **log-likelihood**, the natural logarithm of the likelihood:
+With a larger sample the product of probabilities can become smaller than the smallest
+positive number that the computer can represent, and R then returns zero. For this reason,
+and because sums are easier to work with than products, we use the **log-likelihood**, the
+natural logarithm of the likelihood:
 
 $$
 \ell(\theta\mid x_1,\ldots,x_n)
-= \log L(\theta\mid x_1,\ldots,x_n)
-= \sum_{i=1}^{n}\log P(X_i=x_i\mid\theta).
+= \log\left(L(\theta\mid x_1,\ldots,x_n)\right)
+= \sum_{i=1}^{n}\log\left(P(X_i=x_i\mid\theta)\right).
 $$
 
 The logarithm turns the product into a sum. It is an increasing function, so a parameter
@@ -269,19 +248,8 @@ $L(\theta)$ and $\ell(\theta)$ for short.
 In R, all the `d*` functions have an argument `log`. With `log = TRUE` they return the
 logarithm of the probability mass (or density), which is more accurate than calculating
 the probability first and taking its logarithm afterwards. The log-likelihood is the sum
-of these values:
-
-```{r}
-# Log-likelihood of the 50 counts at lambda = 2: sum the log probabilities,
-# using the argument log = TRUE of dpois().
-sum(dpois(x = seedling_counts, lambda = 2, log = TRUE))
-
-# The same number, from the logarithm of the product.
-log(prod(dpois(x = seedling_counts, lambda = 2)))
-```
-
-Both calculations give the same value. With 50 counts the product still works.
-To see when it fails, we simulate 1,000 counts from a Poisson model with $\lambda=4$:
+of these values. To see where the product fails, we simulate 1,000 counts from a Poisson
+model with $\lambda=4$:
 
 ```{r}
 # Likelihood and log-likelihood of a large simulated sample of 1,000 counts at lambda = 4.
@@ -302,15 +270,15 @@ log-likelihoods.
 For continuous data the contributions to the likelihood are densities. Recall from
 [Chapter 2](../Chapter_2/Theory.qmd#sec-continuous_measurements) that a density has units
 (one over the unit of the measurement), that it changes with those units and that it can
-be larger than one. The log-likelihood inherits these properties: **it can be positive**, and
-**its value changes if we express the same measurements in other units**. For example, if body
-masses are converted from grams to kilograms, the density of every mass is multiplied by
-1,000 (the same probability is spread over a thousand times fewer units), so the
-log-likelihood of $n$ masses increases by $n\log(1000)$. This shift is a constant, so the
-differences between the log-likelihoods of two parameter values, or of two models, are the
-same in both units. In general, the value of a log-likelihood means nothing by itself, and
-only differences between log-likelihoods calculated from the same data are meaningful. You
-will check this with measurements of body mass in the practical.
+be larger than one. The log-likelihood inherits these properties: **it can be positive**,
+and **its value changes if we express the same measurements in other units**. For example,
+if body masses are converted from grams to kilograms, the density of every mass is
+multiplied by 1,000 (the same probability is spread over a thousand times fewer units), so
+the log-likelihood of $n$ masses increases by $n\log(1000)$. This shift is a constant, so
+the differences between the log-likelihoods of two parameter values, or of two models, are
+the same in both units. In general, the value of a log-likelihood means nothing by itself,
+and only differences between log-likelihoods calculated from the same data are meaningful.
+You will check this with measurements of body mass in the practical.
 
 :::: {#imp-crab-burrows .callout-important title="crab burrows"}
 
@@ -362,28 +330,24 @@ $$
 where $\arg\max$ reads "the value of $\theta$ at which the function reaches its maximum".
 That is, $\max$ would give the height of the highest point and $\arg\max$ gives its
 location. In plain English, the MLE is the parameter value under which the model assigns
-the highest probability to the data that we observed. As we saw in [Chapter 3](../Chapter_3/Theory.qmd#sec-estimates),
-the procedure of calculation is called estimator and the value that it returns for a given
-sample is the estimate; we use the abbreviation MLE for both.
-
-For a few models the MLE can be written as a formula, and we start with one of them, the
-Poisson model. In general there is no such formula, and we find the maximum numerically,
-with an algorithm that searches for it. That is the method that we use in the rest of the
-book, because it works for any model for which we can write a likelihood.
+the highest probability to the data that we observed. As we saw in
+[Chapter 3](../Chapter_3/Theory.qmd#sec-estimates), the procedure of calculation is called
+estimator and the value that it returns for a given sample is the estimate; we use the
+abbreviation MLE for both.
 
 At the highest point of the log-likelihood its slope is zero (if you need to refresh how
 a derivative is calculated, see the
 [rules of differentiation](../Supplements/calculus.qmd#sec-calc-rules) of the calculus
-refresher). For i.i.d. Poisson counts,
-setting the derivative of the log-likelihood with respect to $\lambda$ to zero and solving
-for $\lambda$ gives
+refresher). For i.i.d. Poisson counts, setting the derivative of the log-likelihood with
+respect to $\lambda$ to zero and solving for $\lambda$ gives
 
 $$
 \hat\lambda=\frac{1}{n}\sum_{i=1}^{n}x_i=\overline x.
 $$
 
 So the MLE of $\lambda$ is the mean of the sample, which is also the method-of-moments
-estimator of [Chapter 3](../Chapter_3/Theory.qmd#sec-estimates). For the 50 counts:
+estimator of [Chapter 3](../Chapter_3/Theory.qmd#sec-estimates), and for the 50 counts it
+is 2.14 seedlings per quadrat:
 
 ```{r}
 # The maximum likelihood estimate of the Poisson mean is the mean of the counts.
@@ -391,14 +355,15 @@ lambda_hat = mean(seedling_counts)
 lambda_hat
 ```
 
-The estimate is 2.14 seedlings per quadrat, as in Chapter 3. A solution that can be written as a formula, like
-this one, is called a **closed-form** solution, and it exists only for a few
-models.^[The Normal model is another of them. The MLE of $\mu$ is
-the mean of the sample and the MLE of $\sigma^2$ is the variance with divisor $n$, that is,
-the method-of-moments estimators of
+A solution that can be written as a formula, like this one, is called a **closed-form**
+solution, and it exists only for a few models.^[The Normal model is another of them. The
+MLE of $\mu$ is the mean of the sample and the MLE of $\sigma^2$ is the variance with
+divisor $n$, that is, the method-of-moments estimators of
 [Chapter 3](../Chapter_3/Theory.qmd#sec-two_parameters). The MLE of the variance is
 therefore biased.] For the others, setting the derivatives to zero gives equations that
-cannot be solved with algebra.
+cannot be solved with algebra, and we find the maximum numerically, with an algorithm that
+searches for it. That is the method that we use in the rest of the book, because it works
+for any model for which we can write a likelihood.
 
 ::: {.callout-caution collapse="true" icon=false title="Statistical detail: deriving the Poisson estimator"}
 At the maximum of a smooth curve
@@ -436,10 +401,8 @@ sum(seedling_counts) / lambda_hat - n_quadrats
 A **likelihood curve** is the log-likelihood of a model with one parameter, drawn as a
 function of that parameter. It shows where the maximum is and how quickly the
 log-likelihood falls on either side of it, which is what we will use in
-@sec-likelihood-uncertainty to calculate confidence intervals. To draw it, we calculate
-the log-likelihood for many values of the parameter. We plot the result
-as a **relative log-likelihood**, which is the difference between the log-likelihood and
-its maximum,
+@sec-likelihood-uncertainty to calculate confidence intervals. We plot it as a **relative
+log-likelihood**, which is the difference between the log-likelihood and its maximum,
 
 $$
 \ell(\theta)-\ell(\hat\theta),
@@ -449,22 +412,19 @@ so that the curve is zero at the estimate and negative everywhere else. We draw 
 likelihood figures of this chapter on this scale, because only differences in
 log-likelihood are meaningful.
 
-We draw the curve for a smaller sample from the same data, the first ten quadrats, because
-the shape of a likelihood curve is easier to see when the sample is small (in
-@sec-likelihood-uncertainty we compare what ten and 50 quadrats say about $\lambda$). From
-here on we say each time which of the two samples a result refers to. The ten quadrats
-contain 22 seedlings, so their estimate is 2.2 seedlings per quadrat:
+The shape of a likelihood curve is easier to see in a small sample, so from here on we use
+the first ten quadrats for the curve and for the uncertainty of $\lambda$. They contain 22
+seedlings, so their estimate is 2.2 seedlings per quadrat:
 
 ```{r}
 # The counts of the first ten quadrats and their maximum likelihood estimate.
 ten_counts = seedling_counts[1:10]
-ten_counts
 lambda_hat_ten = mean(ten_counts)
 lambda_hat_ten
 ```
 
-We define a grid of values of $\lambda$ and fill a vector with the log-likelihood at each
-of them, using a `for` loop:
+To draw the curve, we define a grid of values of $\lambda$ and fill a vector with the
+log-likelihood at each of them, using a `for` loop:
 
 ```{r}
 # Candidate values of lambda (seedlings per quadrat).
@@ -495,8 +455,8 @@ The curve reaches its maximum at $\hat\lambda=2.2$ seedlings per quadrat
 (@fig-likelihood_curve). Note that the curve is not symmetric: it falls more steeply to
 the left of the maximum than to the right. The relative log-likelihood is $-3.33$ at
 $\lambda=1.2$ and $-1.76$ at $\lambda=3.2$, so a mean of 3.2 is better supported by these
-data than a mean of 1.2, although both are one seedling away from the estimate. We come
-back to this asymmetry in @sec-likelihood-uncertainty.
+data than a mean of 1.2, although both are one seedling away from the estimate. This
+asymmetry matters for confidence intervals (@sec-likelihood-uncertainty).
 
 ```{r}
 #| echo: false
@@ -578,7 +538,8 @@ We take three elements from this object that are passed to the `optim()` functio
 
 - `par`, the starting values as a vector;
 - `fn`, the NLL as a function of that vector;
-- and `gr`, the gradients of the NLL with respect to parameters (details on why we need it in [Chapter 6](../Chapter_6/Theory.qmd) and [Chapter 8](../Chapter_8/Theory.qmd)).
+- and `gr`, the gradients of the NLL with respect to parameters (details on why we need it
+  in [Chapter 6](../Chapter_6/Theory.qmd) and [Chapter 8](../Chapter_8/Theory.qmd)).
 
 ```{r}
 # optim() minimises fn, starting from par and using the slope gr.
@@ -595,9 +556,10 @@ We will use `"BFGS"` in most cases as it is quite efficient. `optim()` returns a
 its most relevant elements are
 
 - `par`, the value of the parameter at the minimum (i.e., the maximum likelihood estimate);
-- `value`,  the value of NLL at the maximum likelihood estimate;
-- `convergence`, a code that is zero when the algorithm stopped normally, which is the first thing to
-check after every fit. If you get a value different from 0 that means something went wrong.
+- `value`, the value of NLL at the maximum likelihood estimate;
+- `convergence`, a code that is zero when the algorithm stopped normally, which is the
+  first thing to check after every fit. If you get a value different from 0 that means
+  something went wrong.
 
 ```{r}
 # Estimate, minimum of the negative log-likelihood, and convergence code (0 = normal stop).
@@ -618,8 +580,8 @@ optimiser works with a quantity that can take any real value, and the NLL functi
 converts it into the parameter of the model.
 
 For a positive parameter we use the logarithm. The optimiser searches over
-$\log\lambda$, which can be any real number, and inside the function `exp()` turns it into
-a positive mean:
+$\log(\lambda)$, which can be any real number, and inside the function `exp()` turns it
+into a positive mean:
 
 ```{r}
 # Negative log-likelihood on the log scale: log_lambda can take any real value
@@ -632,37 +594,29 @@ poisson_nll = function(parms, data) {
 }
 ```
 
-The steps of the fit are the same as before. The parameter in the list of starting values
-is now `log_lambda`, so the search starts at $\log 1=0$:
+The steps of the fit are the same as before, with `log_lambda` in the list of starting
+values. The element `par` of the fit is now the estimate of $\log(\lambda)$, which we
+transform back with `exp()` to report it in seedlings per quadrat (`unname()` drops the
+name `log_lambda`, which no longer describes the value):
 
 ```{r}
-# Process the NLL of the 50 counts, starting from log(1).
+# Process the NLL of the 50 counts, starting from log(1), and fit it.
 fir_obj = MakeADFun(
   cmb(poisson_nll, list(counts = seedling_counts)),
   list(log_lambda = log(1)),
   silent = TRUE
 )
-
-# Fit and check the convergence code.
 fir_fit = optim(par = fir_obj$par, fn = fir_obj$fn, gr = fir_obj$gr, method = "BFGS")
 fir_fit$convergence
-```
 
-The element `par` of the fit is the estimate of $\log\lambda$, the quantity that the
-optimiser searched over. We transform it back with `exp()` to report it in seedlings per
-quadrat (`unname()` drops the name `log_lambda`, which no longer describes the value):
-
-```{r}
-# Estimate on the log scale and transformed back to seedlings per quadrat.
-fir_fit$par
+# Estimate in seedlings per quadrat.
 lambda_mle = unname(exp(fir_fit$par))
 lambda_mle
 ```
 
-On the original scale the estimate is again 2.14 seedlings per quadrat.
-
 The same NLL can be connected to another data set, as long as its list uses the same
-name, `counts`. For the first ten quadrats, only the list of data changes:
+name, `counts`. For the first ten quadrats, which we use again in
+@sec-likelihood-uncertainty, only the list of data changes:
 
 ```{r}
 # The same likelihood connected to the counts of the first ten quadrats.
@@ -678,16 +632,10 @@ fir_ten_fit = optim(
   method = "BFGS"
 )
 fir_ten_fit$convergence
-
-# Estimate in seedlings per quadrat.
-unname(exp(fir_ten_fit$par))
 ```
 
-The estimate is 2.2 seedlings per quadrat, the mean of the ten counts. We will use both
-objects again in @sec-likelihood-uncertainty.
-
 For a probability $p$ the corresponding transformation is the **logit**,
-$\operatorname{logit}(p)=\log\left[p/(1-p)\right]$, which covers all the real numbers as
+$\operatorname{logit}(p)=\log\left(p/(1-p)\right)$, which covers all the real numbers as
 $p$ goes from zero to one. In R, `qlogis()` calculates the logit and `plogis()` its
 inverse, which turns any real number into a value between zero and one (the names come
 from the logistic distribution, of which they are the quantile and cumulative probability
@@ -699,9 +647,6 @@ qlogis(p = 0.25)
 plogis(q = qlogis(p = 0.25))
 ```
 
-The logit of 0.25 is a negative number, and `plogis()` returns the 0.25 that we started
-with. We will use this transformation in @sec-likelihood-surface.
-
 Fitting on a transformed scale and reporting on the original scale relies on a property of
 maximum likelihood called **invariance**: the MLE of a function of a parameter is that
 function of the MLE.^[See Zehna (1966), "Invariance of maximum likelihood estimators",
@@ -712,28 +657,19 @@ $$
 \widehat{g(\theta)}=g(\hat\theta).
 $$
 
-Here the optimiser found the MLE of $\log\lambda$, and invariance tells us that its
+Here the optimiser found the MLE of $\log(\lambda)$, and invariance tells us that its
 exponential is the MLE of $\lambda$. The reason is that the transformation only relabels
-the horizontal axis of the likelihood curve. Every value of $\log\lambda$ corresponds to
+the horizontal axis of the likelihood curve. Every value of $\log(\lambda)$ corresponds to
 one value of $\lambda$ with the same likelihood, so the highest point is the same on both
 scales.
 
 Invariance also gives us the MLE of other quantities that are calculated from the
 parameter. For example, under the Poisson model the probability that a quadrat has no
-seedlings is $P(X=0\mid\lambda)=e^{-\lambda}$, and its MLE is $e^{-\hat\lambda}$:
-
-```{r}
-# By invariance, the estimate of the probability of an empty quadrat, exp(-lambda),
-# is calculated from the estimate of lambda.
-exp(-lambda_mle)
-```
-
-That is, we estimate that approximately 12% of the quadrats are empty (in the sample, 7 of
-the 50 quadrats have no seedlings).
-[Chapter 3](../Chapter_3/Theory.qmd#sec-sampling_distribution) used this same quantity as
-an example of a biased estimator: $\hat\lambda$ is an unbiased estimator of $\lambda$, but
-$e^{-\hat\lambda}$ is a biased estimator of $e^{-\lambda}$. So invariance carries over the
-estimate, but it does not carry over unbiasedness.
+seedlings is $P(X=0\mid\lambda)=e^{-\lambda}$, and its MLE is
+$e^{-\hat\lambda}\approx 0.12$. Note that invariance carries over the estimate but not
+unbiasedness: [Chapter 3](../Chapter_3/Theory.qmd#sec-sampling_distribution) showed that
+$\hat\lambda$ is an unbiased estimator of $\lambda$, whereas $e^{-\hat\lambda}$ is a biased
+estimator of $e^{-\lambda}$.
 
 ::: {.callout-note title="When a fit fails"}
 Check the element `convergence` after every fit. A code other than zero means that the
@@ -784,17 +720,18 @@ logarithm and logit.
 With several parameters the likelihood is a function of all of them jointly, and the MLE is
 the combination of values with the highest likelihood. The definitions of the previous
 sections do not change, but the likelihood is now a surface over the parameters instead of
-a curve. This raises questions that did not exist with one parameter: how to look at the
-surface, how the estimates of the different parameters depend on each other, and how to
-describe what the data say about one of them. These questions matter for the rest of the
-book, because the models of Chapters 6 and 7 always have several parameters.
+a curve. This raises two questions that did not exist with one parameter: how the estimates
+of the different parameters depend on each other, and how to describe what the data say
+about one of them. These questions matter for the rest of the book, because the models of
+Chapters 6 and 7 always have several parameters.
 
 We will use the barn owl data of the Chapter 3 practical to illustrate these concepts. The
 data set `Owls` in the package `glmmTMB` contains observations of barn owl nests (Roulin
 and Bersier 2007). For each visit of a parent to a nest, the variable `SiblingNegotiation`
 is the number of calls made by the nestlings. As in that practical, we keep the visits of
 the female parent to nests where the nestlings had been fed (`Satiated`), so that all
-counts can reasonably share one mean:
+counts can reasonably share one mean. We also calculate the method-of-moments estimates of
+the Negative Binomial model introduced below, which we will use as starting values:
 
 ```{r}
 # Load the Owls data from the glmmTMB package without attaching the package.
@@ -806,13 +743,7 @@ satiated_female = Owls[Owls$FoodTreatment == "Satiated" & Owls$SexParent == "Fem
 # Number of calls at each of these visits, and the number of visits.
 call_counts = satiated_female$SiblingNegotiation
 n_visits = length(call_counts)
-```
 
-We also calculate the mean and the variance of the counts and, from them, the
-method-of-moments estimate of the shape of a Negative Binomial distribution (the model is
-introduced below):
-
-```{r}
 # Method-of-moments estimates, as in the practical of Chapter 3.
 mu_mom = mean(call_counts)
 var_mom = mean((call_counts - mu_mom)^2)
@@ -831,11 +762,10 @@ $$
 X_i \sim \operatorname{NegBin}(\mu, k), \qquad \operatorname{Var}(X_i)=\mu+\frac{\mu^2}{k},
 $$
 
-and we assume that the visits are i.i.d. (a simplification to which we return in
-@sec-misspecified). The method of moments gives $\hat\mu=\overline x\approx 4.75$ calls
-per visit and $\hat k_{\mathrm{MM}}=\hat\mu^2/(\hat\sigma^2-\hat\mu)\approx 0.60$, where
-$\hat\sigma^2$ is the variance of the sample with divisor $n$ and the subscript marks the
-method-of-moments estimate, as in Chapter 3.
+and we assume that the visits are i.i.d. (a simplification, because visits to the same
+nest may resemble each other; models for such data are the subject of
+[Chapter 7](../Chapter_7/Theory.qmd)). The method of moments gives
+$\hat\mu=\overline x\approx 4.75$ calls per visit and $\hat k\approx 0.60$.
 
 The NLL is written as before. The list of parameters now has two elements, `log_mu` and
 `log_k` (both parameters are positive, so we use the logarithm for both), and the list of
@@ -866,7 +796,8 @@ with an error about an unused argument `size`.
 The optimiser needs a starting value for each parameter. The method-of-moments estimates
 are a sensible choice: they are quick to calculate and, being estimates of the same
 parameters, they should not be far from the maximum. We give them to `MakeADFun()` in a
-list with the names that the NLL uses, and `optim()` keeps those names in its result:
+list with the names that the NLL uses, and `optim()` keeps those names in its result, so
+we can select each estimate by its name and transform it back:
 
 ```{r}
 # Process the NLL of the owl counts, starting from the method-of-moments estimates
@@ -880,66 +811,30 @@ owl_obj = MakeADFun(
 # Fit the model and check the convergence code.
 owl_fit = optim(par = owl_obj$par, fn = owl_obj$fn, gr = owl_obj$gr, method = "BFGS")
 owl_fit$convergence
-```
 
-The element `par` of the fit is now a vector with two named elements, `log_mu` and
-`log_k`. We select each of them by its name and transform it back with `exp()`:
-
-```{r}
 # Maximum likelihood estimates on the original scale.
 mu_mle = unname(exp(owl_fit$par["log_mu"]))
 k_mle = unname(exp(owl_fit$par["log_k"]))
 c(mu_mle = mu_mle, k_mle = k_mle)
 ```
 
-The estimate of the mean is $\hat\mu\approx 4.75$ calls per
-visit, which is the mean of the sample: for a Negative Binomial model the MLE of
-the mean is the mean of the sample, whatever the value of $k$. The estimate of the shape
-is $\hat k\approx 0.33$, far from the method-of-moments estimate of 0.60 at which the
-search started. We return to the difference between the two estimates in
-@sec-misspecified.
+The estimate of the mean is the mean of the sample, 4.75 calls per visit: for a Negative
+Binomial model the MLE of the mean is the mean of the sample, whatever the value of $k$.
+The estimate of the shape is $\hat k\approx 0.33$, far from the method-of-moments estimate
+of 0.60 at which the search started. The two methods are different estimators, so they give
+different estimates from the same sample; we compare their precision in
+@sec-mle_properties.
 
 ## The fitted model
 
 `optim()` returns estimates for any model that we give it, so after a fit we check whether
 the fitted model describes the data. For counts we can compare the relative frequency of
-each count in the sample with the probability that the fitted model assigns to it. As a
-reference we add a Poisson model with the same mean, which is the model that we would use
-if there were no overdispersion (its MLE is the mean of the sample, as we saw in
-@sec-maximum-likelihood). As a specific check, we calculate the fraction of visits without
-calls in the sample and the probability that each fitted model assigns to a count of zero:
-
-```{r}
-# Fraction of visits without calls: observed, and under each fitted model.
-c(
-  observed = mean(call_counts == 0),
-  nb_mle = dnbinom2(x = 0, mu = mu_mle, size = k_mle),
-  poisson = dpois(x = 0, lambda = mu_mom)
-)
-```
-
-The visits without calls are 44% of the sample (54 of 122). The fitted Negative Binomial
-model assigns a probability of 0.41 to a count of zero, whereas under the Poisson model a
-visit without calls would be very rare (a probability of 0.009). The log-likelihoods of
-the two models compare them on the whole sample. The element `value` of a fit is the NLL
-at the estimates, so the maximum log-likelihood of the Negative Binomial model is minus
-that value:
-
-```{r}
-# Log-likelihood at the maximum likelihood estimates and for a Poisson model with the
-# sample mean.
-loglik_nb = -owl_fit$value
-loglik_poisson = sum(dpois(x = call_counts, lambda = mu_mom, log = TRUE))
-c(negative_binomial = loglik_nb, poisson = loglik_poisson)
-```
-
-The log-likelihood of the Negative Binomial model is about 335 units higher than that of
-the Poisson model. @fig-owl_fits shows the two fitted distributions with the relative
-frequencies of the sample. The Negative Binomial model reproduces the high frequency of
-visits without calls and spreads the rest of its probability over a wide range of counts,
-whereas the Poisson model concentrates its probability around the mean. We compare the two
-models with a formal criterion in @sec-aic, and we return in @sec-misspecified to what the
-Negative Binomial model does not describe well.
+each count in the sample with the probability that the fitted model assigns to it
+(@fig-owl_fits). As a reference we add a Poisson model with the same mean, its MLE. The
+Negative Binomial model reproduces the high frequency of visits without calls (54 of the
+122) and spreads the rest of its probability over a wide range of counts, whereas the
+Poisson model concentrates its probability around the mean and makes a visit without calls
+very rare. We compare the two models with a formal criterion in @sec-aic.
 
 ```{r}
 #| echo: false
@@ -1006,7 +901,8 @@ dimensions: one for the values of $\mu$ and one for the values of $k$. We store 
 in a matrix with one row per value of $\mu$ and one column per value of $k$, and fill it
 with two nested `for` loops. Inside the loops we call `owl_obj$fn()`, which returns the
 NLL for a vector of parameters on the scale that was optimised. So we give it the
-logarithms of the candidate values and change the sign of the result:
+logarithms of the candidate values and change the sign of the result. The maximum
+log-likelihood is minus the element `value` of the fit:
 
 ```{r}
 # Grids of candidate values for the mean (calls per visit) and the shape.
@@ -1023,6 +919,7 @@ for (i in seq_along(mu_grid)) {
 }
 
 # Relative log-likelihood: the difference from the maximum found by optim().
+loglik_nb = -owl_fit$value
 relative_surface = loglik_surface - loglik_nb
 ```
 
@@ -1037,11 +934,9 @@ contour(x = mu_grid, y = k_grid, z = relative_surface, levels = c(-6, -4, -3, -2
 @fig-likelihood_surface shows the same contours. Each line joins the combinations of $\mu$
 and $k$ that have the same relative log-likelihood, like the contours of the joint density
 in [Chapter 2](../Chapter_2/Theory.qmd#sec-two_continuous_variables), and the MLE is at the
-top of the hill. The contours
-are not tilted: the value of $\mu$ with the highest log-likelihood is the same for every
-value of $k$ (the mean of the sample), and the best value of $k$ hardly changes with
-$\mu$. The surface is not symmetric, however, as it falls more slowly towards large values
-of $\mu$ and of $k$ than towards small ones.
+top of the hill. The contours are not tilted, because the best value of $\mu$ is the mean
+of the sample for every value of $k$. They are not symmetric either: the surface falls more
+slowly towards large values of $\mu$ and of $k$ than towards small ones.
 
 ```{r}
 #| echo: false
@@ -1072,27 +967,34 @@ ggplot() +
   theme_classic()
 ```
 
-## Parameterisation and the shape of the surface
+## Parameterisation, slices and profiles
 
 The same model can be written with different sets of parameters, each of which is called a
-**parameterisation**. The Negative Binomial distribution has two in RTMB and RTMBdist:
-`dnbinom2()` takes the mean $\mu$ and the shape $k$ (`mu` and `size`), as we have used so
-far, and `dnbinom()` takes the shape $k$ and a probability $p$ (`size` and `prob`), which
-is related to the mean through $p=k/(k+\mu)$. Both are described in the
-[supplement entry](../Supplements/distributions.qmd#sec-negative_binomial).
+**parameterisation**. By invariance, the maximum and the fitted model are the same in every
+parameterisation, but the shape of the surface around the maximum is not. The Negative
+Binomial distribution, for example, can also be written with the shape $k$ and a
+probability $p=k/(k+\mu)$, which are the arguments `size` and `prob` of `dnbinom()` (see
+the [supplement entry](../Supplements/distributions.qmd#sec-negative_binomial)). With this
+parameterisation the contours of the owl surface are tilted (left panel of
+@fig-slice_profile): a larger $k$ goes with a larger $p$, because the two together
+determine the mean, which the data pin down well. Tilted contours describe estimates that
+depend on each other. Whether they are tilted depends on the model, its parameterisation
+and the data, so it cannot be generalised from one example. This book writes distributions
+in terms of their mean where possible, because the models of later chapters describe how
+the mean changes with covariates (see the [Supplement](../Supplements/distributions.qmd));
+the choice of parameters also matters for numerical optimisation, which is a topic of
+[Chapter 8](../Chapter_8/Theory.qmd).
 
 ```{r}
 #| include: false
-# Negative log-likelihood with the shape k (size) and probability p (prob) of dnbinom(),
-# with log(k) and logit(p) as the transformed parameters.
+# The owl model with the shape k (size) and probability p (prob) of dnbinom(), with log(k)
+# and logit(p) as the transformed parameters.
 nb_prob_nll = function(parms, data) {
   getAll(parms, data)
   k = exp(log_k)
   p = plogis(logit_p)
   -sum(dnbinom(x = calls, size = k, prob = p, log = TRUE))
 }
-
-# Starting values: the method-of-moments shape and p = k / (k + mu).
 owl_prob_obj = MakeADFun(
   cmb(nb_prob_nll, list(calls = call_counts)),
   list(log_k = log(k_mom), logit_p = qlogis(k_mom / (k_mom + mu_mom))),
@@ -1106,31 +1008,15 @@ owl_prob_fit = optim(
 )
 owl_prob_fit$convergence
 
-# Estimates on the original scale and the maximum log-likelihood.
+# Same maximum and same k as the first fit; p equals k / (k + mu) by invariance.
 k_mle_prob = unname(exp(owl_prob_fit$par["log_k"]))
 p_mle = unname(plogis(owl_prob_fit$par["logit_p"]))
 c(k_mle_prob = k_mle_prob, p_mle = p_mle, loglik = -owl_prob_fit$value)
-
-# By invariance, p equals k / (k + mu) evaluated at the first fit.
 k_mle / (k_mle + mu_mle)
-```
 
-I fitted the same model to the owl data with this parameterisation, using
-$\log k$ and $\operatorname{logit}p$ as the transformed parameters, and calculated the
-log-likelihood on a grid of values of $k$ and $p$ (the code repeats the steps above with
-the arguments `size` and `prob` of `dnbinom()`, so it is not shown). The maximum
-log-likelihood is $-299.44$, the same as before, and so is
-$\hat k\approx 0.33$. The estimate of the probability is $\hat p\approx 0.064$, which is
-the value we would get from $\hat k/(\hat k+\hat\mu)$ from the first fit, as expected from invariance. It is the same model at the same maximum. What changes is
-the shape of the surface around the maximum (@fig-surface_size_prob).
-
-```{r}
-#| include: false
-# Grids of candidate values for the shape and the probability.
+# Surface in k and p.
 k_grid_prob = seq(from = 0.12, to = 0.75, length.out = 91)
 p_grid = seq(from = 0.02, to = 0.16, length.out = 91)
-
-# Fill the matrix of log-likelihoods with two nested loops; fn() takes log(k) and logit(p).
 loglik_surface_prob = matrix(NA, nrow = length(k_grid_prob), ncol = length(p_grid))
 for (i in seq_along(k_grid_prob)) {
   for (j in seq_along(p_grid)) {
@@ -1138,25 +1024,64 @@ for (i in seq_along(k_grid_prob)) {
       -owl_prob_obj$fn(c(log(k_grid_prob[i]), qlogis(p_grid[j])))
   }
 }
-relative_surface_prob = loglik_surface_prob - loglik_nb
+surface_prob_data = expand.grid(k = k_grid_prob, p = p_grid)
+surface_prob_data$relative = as.vector(loglik_surface_prob - loglik_nb)
+
+# Slice: p is fixed at its estimate.
+k_fine = seq(from = 0.12, to = 0.75, length.out = 127)
+slice_loglik = rep(NA, times = length(k_fine))
+for (i in seq_along(k_fine)) {
+  slice_loglik[i] = -owl_prob_obj$fn(c(log(k_fine[i]), qlogis(p_mle)))
+}
+
+# Profile: tmbprofile() re-estimates p for each k. ytol = 10 continues it to 10 units
+# below the maximum, beyond the lower limit of the figure.
+owl_prob_profile_k = TMB::tmbprofile(owl_prob_obj, name = "log_k", ytol = 10, trace = FALSE)
+profile_data = data.frame(
+  k = exp(owl_prob_profile_k$log_k),
+  relative = -owl_prob_profile_k$value - loglik_nb
+)
+
+# Path of the profile: for every k the MLE of the mean is the mean of the counts, so the
+# best p is k / (k + mu_mle).
+profile_data$p = profile_data$k / (profile_data$k + mu_mle)
 ```
+
+A surface can only be drawn for two parameters, and even then we usually want to know what
+the data say about one parameter at a time. There are two ways of reducing a likelihood
+surface to a curve for one parameter, and they answer different questions. Let $\theta_1$
+be the parameter of interest and $\theta_2$ the other parameter (or parameters). A
+**likelihood slice** fixes the other parameters at their estimates and varies the parameter
+of interest, $\ell(\theta_1,\hat\theta_2)$: it is a cut through the surface along a
+straight line. A **likelihood profile** re-estimates the other parameters for every value
+of the parameter of interest:
+
+$$
+\ell_{\mathrm{prof}}(\theta_1)=\max_{\theta_2}\,\ell(\theta_1,\theta_2).
+$$
+
+That is, for each value of $\theta_1$ we find the value of $\theta_2$ that maximises the
+log-likelihood with $\theta_1$ held fixed, and we record that maximum. Which parameter we
+profile depends on the question.
 
 ```{r}
 #| echo: false
-#| label: fig-surface_size_prob
-#| fig-cap: "Contours of the relative log-likelihood of the owl data as a function of the shape k and the probability p of the Negative Binomial model. The circle is the maximum likelihood estimate."
-# Arrange the matrix as a data frame: k varies fastest.
-surface_prob_data = expand.grid(k = k_grid_prob, p = p_grid)
-surface_prob_data$relative = as.vector(relative_surface_prob)
+#| label: fig-slice_profile
+#| fig-width: 10
+#| fig-height: 4.5
+#| fig-cap: "Slice and profile of the log-likelihood for the shape k of the Negative Binomial model fitted to the owl data, in the parameterisation with k and p. Left: contours of the relative log-likelihood with the slice (dashed line) and the values of p that maximise the log-likelihood for each k (solid line). Right: relative log-likelihood along the slice and along the profile."
+library(patchwork)
 
-# Contours with the maximum likelihood estimate.
-ggplot() +
+# Left panel: contours with the slice and the path of the profile.
+left_panel = ggplot() +
   geom_contour(
     data = surface_prob_data,
     aes(x = k, y = p, z = relative),
     breaks = c(-12, -9, -6, -4, -3, -2, -1),
     colour = "grey40"
   ) +
+  geom_hline(yintercept = p_mle, linetype = "dashed", colour = "#D55E00") +
+  geom_line(data = profile_data, aes(x = k, y = p), colour = "#D55E00", linewidth = 0.8) +
   geom_point(
     data = data.frame(k = k_mle_prob, p = p_mle),
     aes(x = k, y = p),
@@ -1168,180 +1093,41 @@ ggplot() +
     y = expression(paste("Probability, ", italic(p)))
   ) +
   theme_classic()
-```
-
-The contours are now tilted: a larger $k$ goes with a larger $p$. With
-this parameterisation the mean of the distribution is $k(1-p)/p$, and the data determine the
-mean number of calls well. So a higher value of $k$ can be compensated by a higher value of
-$p$ that keeps the mean close to 4.75, with little loss of likelihood. Tilted contours
-describe two parameters whose estimates depend on
-each other, which has consequences for slices and profiles (below) and for the uncertainty
-of the estimates (@sec-likelihood-uncertainty). Note that whether the contours of a likelihood surface are tilted or not will depend on the model's parameterization and the data, so we should not generalize these properties from example.
-
-This book writes distributions in terms of their mean where possible, because we normally
-model the effect of covariates on the mean (see the
-[Supplement](../Supplements/distributions.qmd)). For the Negative Binomial distribution
-that parameterisation also gives estimates that hardly depend on each other, as
-@fig-likelihood_surface showed. The choice of parameters also matters for numerical
-optimisation, which is a topic of [Chapter 8](../Chapter_8/Theory.qmd).
-
-## Slices and profiles
-
-A surface can only be drawn for two parameters, and even then we usually want to know what
-the data say about one parameter at a time. There are two ways of reducing a likelihood
-surface to a curve for one parameter, and they answer different questions.
-
-A **likelihood slice** fixes the other parameters at one value, normally their estimates,
-and varies the parameter of interest. For the shape $k$ in the parameterisation with $k$ and $p$, the
-slice is $\ell(k,\hat p)$, a cut through the surface along a straight line.
-
-A **likelihood profile** re-estimates the other parameters for every value of the parameter
-of interest:
-
-$$
-\ell_{\mathrm{prof}}(k)=\max_{p}\,\ell(k,p).
-$$
-
-That is, for each value of $k$ we find the value of $p$ that maximises the log-likelihood
-with $k$ held fixed, and we record that maximum. Which parameter we profile depends on the
-question, and we will profile each parameter in turn.
-
-We calculate both curves on a grid of values of $k$: the slice evaluates the
-log-likelihood with $p$ fixed at $\hat p$, and the profile runs `optim()` at each value of
-$k$ to re-estimate $p$ (the code of a profile is shown in @sec-profile_intervals, where we
-need it to calculate confidence intervals).
-
-```{r}
-#| include: false
-# Fine grid of shape values on which the slice and the profile are evaluated.
-k_fine = seq(from = 0.12, to = 0.75, length.out = 127)
-
-# Slice: p is fixed at its estimate. Profile: for each k, p is re-estimated with optim(),
-# starting from the joint estimate. The argument map of MakeADFun() keeps log(k) fixed
-# at the value given in the list of parameters, so that only logit(p) is estimated.
-slice_loglik = rep(NA, times = length(k_fine))
-profile_loglik = rep(NA, times = length(k_fine))
-profile_p = rep(NA, times = length(k_fine))
-profile_convergence = rep(NA, times = length(k_fine))
-for (i in seq_along(k_fine)) {
-  slice_loglik[i] = -owl_prob_obj$fn(c(log(k_fine[i]), qlogis(p_mle)))
-  inner_obj = MakeADFun(
-    cmb(nb_prob_nll, list(calls = call_counts)),
-    list(log_k = log(k_fine[i]), logit_p = qlogis(p_mle)),
-    map = list(log_k = factor(NA)),
-    silent = TRUE
-  )
-  inner_fit = optim(
-    par = inner_obj$par,
-    fn = inner_obj$fn,
-    gr = inner_obj$gr,
-    method = "BFGS"
-  )
-  profile_loglik[i] = -inner_fit$value
-  profile_p[i] = plogis(inner_fit$par)
-  profile_convergence[i] = inner_fit$convergence
-}
-
-# Relative log-likelihoods and the range of k within 1.92 of the maximum
-# (the cutoff is explained in the section on likelihood profile intervals).
-slice_relative = slice_loglik - loglik_nb
-profile_relative = profile_loglik - loglik_nb
-range(k_fine[slice_relative >= -1.92])
-range(k_fine[profile_relative >= -1.92])
-
-# All inner fits stopped normally.
-all(profile_convergence == 0)
-```
-
-```{r}
-#| include: false
-# With the parameterisation mu and k, the best mu for any k is the sample mean, so the
-# profile of k equals the slice at the estimate of mu. Check this on the same grid.
-slice_k_mu = rep(NA, times = length(k_fine))
-profile_k_mu = rep(NA, times = length(k_fine))
-for (i in seq_along(k_fine)) {
-  slice_k_mu[i] = -owl_obj$fn(c(log(mu_mle), log(k_fine[i])))
-  inner_obj = MakeADFun(
-    cmb(nb_nll, list(calls = call_counts)),
-    list(log_mu = log(mu_mle), log_k = log(k_fine[i])),
-    map = list(log_k = factor(NA)),
-    silent = TRUE
-  )
-  inner_fit = optim(
-    par = inner_obj$par,
-    fn = inner_obj$fn,
-    gr = inner_obj$gr,
-    method = "BFGS"
-  )
-  profile_k_mu[i] = -inner_fit$value
-}
-max(abs(slice_k_mu - profile_k_mu))
-```
-
-```{r}
-#| echo: false
-#| label: fig-slice_profile
-#| fig-width: 10
-#| fig-height: 4.5
-#| fig-cap: "Slice and profile of the log-likelihood for the shape k of the Negative Binomial model fitted to the owl data. Left: contours in k and p with the slice (dashed line) and the values of p that maximise the log-likelihood for each k (solid line). Right: relative log-likelihood along the slice and along the profile; the horizontal line is at -1.92."
-library(patchwork)
-
-# Left panel: contours with the slice and the path of the profile.
-path_data = data.frame(k = k_fine, p = profile_p)
-left_panel = ggplot() +
-  geom_contour(
-    data = surface_prob_data,
-    aes(x = k, y = p, z = relative),
-    breaks = c(-12, -9, -6, -4, -3, -2, -1),
-    colour = "grey40"
-  ) +
-  geom_hline(yintercept = p_mle, linetype = "dashed", colour = "#D55E00") +
-  geom_line(data = path_data, aes(x = k, y = p), colour = "#D55E00", linewidth = 0.8) +
-  geom_point(
-    data = data.frame(k = k_mle_prob, p = p_mle),
-    aes(x = k, y = p),
-    colour = "#D55E00",
-    size = 3
-  ) +
-  labs(x = expression(paste("Shape, ", italic(k))), y = expression(paste("Probability, ", italic(p)))) +
-  theme_classic()
 
 # Right panel: relative log-likelihood along the slice and along the profile.
-curve_data = rbind(
-  data.frame(k = k_fine, relative = slice_relative, curve = "Slice"),
-  data.frame(k = k_fine, relative = profile_relative, curve = "Profile")
+slice_profile_data = rbind(
+  data.frame(k = k_fine, relative = slice_loglik - loglik_nb, curve = "Slice"),
+  data.frame(k = profile_data$k, relative = profile_data$relative, curve = "Profile")
 )
-right_panel = ggplot(curve_data, aes(x = k, y = relative, linetype = curve)) +
+right_panel = ggplot(slice_profile_data, aes(x = k, y = relative, linetype = curve)) +
   geom_line(colour = "#D55E00", linewidth = 0.8) +
-  geom_hline(yintercept = -1.92, colour = "grey40") +
   coord_cartesian(ylim = c(-6, 0)) +
-  labs(x = expression(paste("Shape, ", italic(k))), y = "Relative log-likelihood", linetype = NULL) +
+  labs(
+    x = expression(paste("Shape, ", italic(k))),
+    y = "Relative log-likelihood",
+    linetype = NULL
+  ) +
   theme_classic() +
   theme(legend.position = "top")
 
 left_panel | right_panel
 ```
 
-@fig-slice_profile shows why the two curves differ. In the left panel, the slice follows
-the horizontal line at $\hat p$, which leaves the high part of the surface quickly because
-the contours are tilted. The profile follows the ridge of the surface: for each $k$ it
-moves to the best $p$. Both pass through the MLE, and everywhere else the profile is
-higher than the slice, since it is the maximum over all the values of $p$ (right panel).
-The slice is therefore narrower: the values of $k$ within 1.92 units of the maximum, a
-cutoff that we justify in @sec-profile_intervals, go from 0.26 to 0.41 for the slice and
-from 0.24 to 0.45 for the profile. The slice describes what the data would say about $k$
-if we knew that $p$ is exactly 0.064, whereas the profile takes into account that $p$ is
-estimated from the same data.
+@fig-slice_profile shows the slice and the profile of $k$ in the parameterisation with $k$
+and $p$. The slice follows the horizontal line at $\hat p$, which leaves the high part of
+the surface quickly because the contours are tilted. The profile follows the ridge of the
+surface: for each $k$ it moves to the best $p$. Both pass through the MLE, and everywhere
+else the profile is higher than the slice, since it is the maximum over all the values of
+$p$. The slice is therefore narrower. It describes what the data would say about $k$ if we
+knew $p$ exactly, whereas the profile takes into account that $p$ is estimated from the
+same data. The profile does not depend on how the other parameters are written, whereas a
+slice does: with $\mu$ and $k$, where the contours are not tilted, the slice and the
+profile of $k$ coincide.
 
-How much the two curves differ depends on the parameterisation and the data. With the mean as the
-second parameter, the slice and the profile of $k$ coincide, because the best $\mu$ is the
-mean of the sample for every value of $k$. The profile itself does not depend on how the
-other parameter is written: maximising over $p$ or over $\mu$ gives the same curve for
-$k$ (i.e., the profile is invariance to reparameterisaton of the model). A slice does depend on it.
-
-We will use profiles to calculate confidence intervals (@sec-profile_intervals). Slices
-need no optimisation, so they are a quick way to inspect a fitted model, and they return
-as a diagnostic in [Chapter 8](../Chapter_8/Theory.qmd).
+We will use profiles to calculate confidence intervals (@sec-profile_intervals), where a
+function of TMB re-estimates the other parameters for us. Slices need no optimisation, so
+they are a quick way to inspect a fitted model, and they return as a diagnostic in
+[Chapter 8](../Chapter_8/Theory.qmd).
 
 ::: {.callout-note title="Explore a likelihood surface"}
 Kristoffer Magnusson's
@@ -1358,74 +1144,112 @@ hypothesis tests, which we do not use in this course.
 
 In [Chapter 3](../Chapter_3/Theory.qmd#sec-standard_errors) we reported the uncertainty of
 an estimate with a standard error and a confidence interval, and for the mean of Poisson
-counts we had a formula for the standard error. For most models and/or parameters there is no such formula.
-In this section we calculate standard errors and confidence intervals from the likelihood
-itself, which we can do for any model that we fit with `optim()`.
+counts we had a formula for the standard error. For most models and parameters there is no
+such formula. In this section we calculate standard errors and confidence intervals from
+the likelihood itself, which we can do for any model that we fit with `optim()`.
 
-A confidence interval for a parameter can be calculated from a likelihood in (at least) two ways. The
+A confidence interval can be calculated from a likelihood in (at least) two ways. The
 **Wald interval** uses the asymptotic normality of the MLE and the curvature of the
-log-likelihood at its maximum. The **likelihood profile
-interval** uses the whole shape of the log-likelihood around the maximum. In this book the
-likelihood profile interval is the better method in general, but the Wald interval is the fast
-approximation that software usually reports. This section explains both, shows when they
-differ and checks their coverage by simulation. The Wald interval relies on an assumption for
-large samples that we state below and use straight away. In @sec-mle_properties we then
-examine that result by simulation, together with the other properties of maximum
-likelihood estimators.
+log-likelihood at its maximum. The **likelihood profile interval** uses the whole shape of
+the log-likelihood around the maximum. In this book the likelihood profile interval is the
+better method in general, but the Wald interval is the fast approximation that software
+usually reports. This section explains both, shows when they differ and checks their
+coverage by simulation.
 
 ## Standard errors and Wald intervals
 
-The standard error of an MLE follows from a result for large samples.
-[Chapter 3](../Chapter_3/Theory.qmd#sec-large_samples) ended with the concept of asymptotic normality of estimators (for the mean of $n$ i.i.d. observations we called it the central
-limit theorem). This also applies to maximum likelihood estimators. The result is that the MLE
-of any parameter is **asymptotically
-normal**: as the sample grows, its sampling distribution approaches a Normal distribution
-centred on the parameter.^[Fisher used the large-sample standard error of maximum likelihood estimators
+In [Chapter 3](../Chapter_3/Theory.qmd#sec-confidence_intervals) we defined the Wald
+interval^[The interval is named after Abraham Wald, who developed in 1943 the large-sample
+test on which it is based.] as $\hat\theta\pm z_{0.975}\,\widehat{\operatorname{SE}}(\hat\theta)$
+and justified it with the approximately Normal sampling distribution of the estimator.
+[Chapter 3](../Chapter_3/Theory.qmd#sec-large_samples) ended with the asymptotic normality
+of estimators, and it also applies to maximum likelihood estimators: as the sample grows,
+the sampling distribution of an MLE approaches a Normal distribution centred on the
+parameter.^[Fisher used the large-sample standard error of maximum likelihood estimators
 in 1922 and developed the concept of information in 1925, with arguments that were not
 rigorous. The result was made rigorous by Wald (1943) and by Cramér (1946), whose
 treatment states the conditions explicitly.] For one parameter:
 
 $$
 \hat\theta \overset{\mathrm{approx}}{\sim}
-\operatorname{Normal}\left(\theta,\frac{1}{\mathcal I(\theta)}\right)
+\operatorname{Normal}\left(\theta,\operatorname{SE}(\hat\theta)^2\right)
 \quad\text{for sufficiently large }n,
 $$
 
-where $\mathcal I(\theta)$ is the **Fisher information** that the sample contains about
-$\theta$. In plain English, across large hypothetical samples^[These results require some conditions on the model, known as regularity
-conditions. In words: the parameter is not on the boundary of its range (e.g., a variance
-of exactly zero), the support of the distribution does not depend on the parameter, the
-log-likelihood is a smooth function of the parameters, and the number of parameters does
-not grow with the sample size.] the
-estimates fall around the parameter in the shape of a bell (the shape of a Normal
-distribution), and the more information the sample contains, the narrower the bell.
+where $\operatorname{SE}(\hat\theta)$ is the standard error of the estimator, that is, the
+standard deviation of its sampling distribution. In plain English, across large
+hypothetical samples^[These results require some conditions on the model, known as
+regularity conditions. In words: the parameter is not on the boundary of its range (e.g.,
+a variance of exactly zero), the support of the distribution does not depend on the
+parameter, the log-likelihood is a smooth function of the parameters, and the number of
+parameters does not grow with the sample size.] the estimates fall around the parameter in
+the shape of a bell.
+
+With several parameters, the estimates jointly follow approximately a **multivariate
+Normal distribution**, which extends the bivariate Normal distribution of
+[Chapter 2](../Chapter_2/Theory.qmd#sec-two_continuous_variables) to any number of
+variables (see the
+[supplement entry](../Supplements/distributions.qmd#sec-multivariate_normal)). Its means
+are the parameters of the model, and its **covariance matrix** contains the variance of the
+estimator of each parameter on the diagonal and the covariance between the estimators of
+each pair of parameters outside the diagonal. The Wald interval of one parameter uses only
+its variance, through the standard error, which is the square root of the variance. What
+maximum likelihood adds to Chapter 3 is a way to estimate this covariance matrix from the
+log-likelihood of the sample, for any model, also when there is no formula for the
+variance of the estimator.
+
+### Curvature and standard errors {#sec-curvature}
+
+The Normal approximation of the sampling distribution has a counterpart in the shape of
+the log-likelihood: in a large sample the log-likelihood near its maximum is close to a
+parabola,
+
+$$
+\ell(\theta)-\ell(\hat\theta)\approx
+-\frac{(\theta-\hat\theta)^2}{2\,\widehat{\operatorname{SE}}(\hat\theta)^2},
+$$
+
+that is, a polynomial of degree two in the parameter, with its maximum at the estimate and
+a width set by the standard error. With several parameters it is a polynomial of degree two
+in all of them, with a squared term for each parameter and a product term for each pair.
+The two approximations go together, and the Wald interval relies on both: it amounts to
+replacing the log-likelihood by this parabola, which is why it is also called a quadratic
+interval.
+
+The **curvature** of the log-likelihood at its maximum measures how fast the log-likelihood
+falls as we move away from the estimate, and it determines the standard error. A
+log-likelihood that falls slowly has a small curvature: many parameter values are almost
+equally well supported by the data, which corresponds to a large standard error. A
+log-likelihood that falls quickly has a large curvature: the data discriminate well among
+parameter values, and the standard error is small. For one parameter the relation follows
+from the parabola above, whose curvature is
+$1/\widehat{\operatorname{SE}}(\hat\theta)^2$^[Mathematically the curvature is given by the negative of the second derivative]. That is, the standard error is one over the
+square root of the curvature, so a log-likelihood that is four times as sharply curved
+gives half the standard error. A larger sample contains more information about the
+parameter, which gives a more sharply curved log-likelihood and a smaller standard error.
+
+With several parameters, the curvatures of the log-likelihood along each parameter and for
+each pair of parameters give the whole covariance matrix of the estimates. The tilted
+contours of the surface in the parameterisation with $k$ and $p$ (@fig-slice_profile) are
+an example: they describe estimates that are correlated. The boxes below give the
+mathematics of these statements.
+
+The approximation is good when the log-likelihood is close to a parabola on the scale of the
+parameter. When it is not, for example when the log-likelihood is asymmetric like the curve
+of the ten quadrats (@fig-likelihood_curve), the standard error describes only the
+curvature at the maximum and the Wald interval is less accurate.
 
 ::: {.callout-note title="Asymptotic normality of maximum likelihood estimators"}
-For a large sample of i.i.d. observations from the model, the sampling distribution of a
-maximum likelihood estimator is approximately Normal, centred on the parameter, with a
-variance equal to the inverse of the Fisher information. The observed information (minus
-the second derivative of the log-likelihood at the estimate) estimates it from the sample.
+For a large sample of i.i.d. observations from the model, the sampling distribution of
+maximum likelihood estimators is approximately (multivariate) Normal and centred on the
+parameters. Its covariance matrix is estimated from the curvature of the log-likelihood at
+its maximum: the more sharply curved the log-likelihood, the smaller the standard errors.
 :::
 
-We will learn about the Wald interval in five steps, which are the subsections below. We first
-calculate the information and the standard error for a model with one parameter, where
-everything can be done by hand (@sec-fisher-information). We then generalise the calculation
-to several parameters with the Hessian matrix (@sec-hessian). Because the fits
-of this chapter search for unconstrained parameters, we next see how to obtain the standard
-error of a parameter from the standard error of its transformation (@sec-wald-constrained).
-With the standard errors in hand we calculate the Wald intervals (@sec-wald-intervals).
-Finally, we let TMB do all these calculations (@sec-wald-automation).
-
-### Fisher information {#sec-fisher-information}
-
-The information measures how sharply the log-likelihood is curved around its maximum. We
-calculate it from our sample as the **observed information**, which is the negative of the second
-derivative of the log-likelihood at the estimate,^[Strictly, the Fisher information in the
-result above is the **expected information**: the expectation of $-\ell''(\theta)$ across
-hypothetical samples. The observed information is calculated from the log-likelihood of
-the sample that we have, and the two agree in large samples. Efron and Hinkley (1978)
-compared them and argued for the observed information.] and from it we obtain an estimate
-of the variance and of the standard error of the estimator:
+::: {.callout-caution collapse="true" icon=false title="Statistical detail: Fisher information"}
+The curvature of the log-likelihood at the estimate is the **observed information**, which
+is the negative of its second derivative there. Its inverse estimates the variance of the
+estimator:
 
 $$
 \hat{\mathcal I}=-\ell''(\hat\theta),
@@ -1435,17 +1259,26 @@ $$
 \widehat{\operatorname{SE}}(\hat\theta)=\frac{1}{\sqrt{\hat{\mathcal I}}}.
 $$
 
-The second derivative measures how fast the slope of a curve changes. At a maximum it is
-negative, and the more negative it is, the faster the log-likelihood falls as we move away
-from the estimate. A sharply curved log-likelihood therefore means that the data
-discriminate well among parameter values, which corresponds to a small variance of the
-estimator. A flat log-likelihood means that many parameter values are almost equally well
-supported, which corresponds to a large variance.
+The asymptotic result is usually stated with the **Fisher information**
+$\mathcal I(\theta)$, also called the **expected information**: the expectation of
+$-\ell''(\theta)$ across hypothetical samples, which measures how much information a sample
+of this size contains about $\theta$. Then
 
-For the Poisson model we can do the calculation by hand. The second derivative of its
-log-likelihood with respect to $\lambda$ is $\ell''(\lambda)=-\sum x_i/\lambda^2$ (the
-derivation is in the box of @sec-maximum-likelihood). At $\hat\lambda=\overline x$ the sum
-of the counts is $n\hat\lambda$, so the observed information is $n/\hat\lambda$.
+$$
+\hat\theta \overset{\mathrm{approx}}{\sim}
+\operatorname{Normal}\left(\theta,\frac{1}{\mathcal I(\theta)}\right)
+\quad\text{for sufficiently large }n.
+$$
+
+The observed information is calculated from the log-likelihood of the sample that we have,
+and the two agree in large samples.^[Efron and Hinkley (1978) compared them and argued for
+the observed information.] In plain English, the more information the sample contains, the
+narrower the bell of the sampling distribution.
+
+For the Poisson model the calculation can be done by hand. The second derivative of its
+log-likelihood is $\ell''(\lambda)=-\sum x_i/\lambda^2$ (see the box of
+@sec-maximum-likelihood). At $\hat\lambda=\overline x$ the sum of the counts is
+$n\hat\lambda$, so for the ten quadrats
 
 $$
 \hat{\mathcal I}=\frac{n\hat\lambda}{\hat\lambda^2}=\frac{n}{\hat\lambda}=\frac{10}{2.2}\approx 4.55,
@@ -1455,154 +1288,139 @@ $$
 \widehat{\operatorname{SE}}(\hat\lambda)=\sqrt{0.22}\approx 0.47.
 $$
 
-The result, $\sqrt{\hat\lambda/n}$, is exactly the formula of the plug-in standard error
-that we obtained in [Chapter 3](../Chapter_3/Theory.qmd#sec-standard_errors) from the
-variance of a mean. Maximum likelihood gives it to us from the curvature of the
-log-likelihood, which we can calculate for any model, also when there is no formula for
-the variance of the estimator. We can verify our maths with R:
+The result, $\sqrt{\hat\lambda/n}$, is the plug-in standard error that we obtained in
+[Chapter 3](../Chapter_3/Theory.qmd#sec-standard_errors) from the variance of a mean. For
+all 50 quadrats it gives the 0.21 seedlings per quadrat of that chapter.
+:::
+
+::: {.callout-caution collapse="true" icon=false title="Statistical detail: the Hessian matrix"}
+With several parameters the observed information is a matrix. The matrix of second
+derivatives of a function is called its **Hessian**, and the Hessian of the NLL at the
+estimates is the observed information matrix. For two parameters $\theta_1$ and
+$\theta_2$,
+
+$$
+\mathbf H=
+\begin{pmatrix}
+\dfrac{\partial^2(-\ell)}{\partial\theta_1^2} &
+\dfrac{\partial^2(-\ell)}{\partial\theta_1\,\partial\theta_2}\\[2ex]
+\dfrac{\partial^2(-\ell)}{\partial\theta_2\,\partial\theta_1} &
+\dfrac{\partial^2(-\ell)}{\partial\theta_2^2}
+\end{pmatrix},
+\qquad
+\hat{\boldsymbol\Sigma}=\mathbf H^{-1},
+$$
+
+where the derivatives are evaluated at the estimates (see the
+[calculus supplement](../Supplements/calculus.qmd) for partial derivatives) and
+$\hat{\boldsymbol\Sigma}$ is the estimate of the covariance matrix of the estimates. In
+plain English, the inverse of the Hessian has the variances of the estimates on its
+diagonal and their covariances outside it. The elements outside the diagonal of the
+Hessian measure how the slope of the NLL along one parameter changes with the other
+parameter, which is what makes the contours of a likelihood surface tilted.
+
+The Hessian refers to the parameters that the optimiser searched over. For the ten
+quadrats, written in terms of $\log(\lambda)$, the NLL is
+$\sum_i\left(e^{\log(\lambda)}-x_i\log(\lambda)\right)$ plus a constant, so its second
+derivative with respect to $\log(\lambda)$ is $n\lambda$. At the estimate this is
+$10\times 2.2=22$, and the standard error of the estimate of $\log(\lambda)$ is
+$1/\sqrt{22}\approx 0.213$.
+
+In R, `optim()` returns a numerical Hessian of the function that it minimised when it is
+called with `hessian = TRUE`, and `solve()` inverts a matrix. `sdreport()` does both steps
+for us, so we use it instead (the practical takes the Hessian from `optim()` once, for
+comparison).
+:::
+
+### Standard errors with TMB {#sec-wald-automation}
+
+The function `sdreport()` of RTMB calculates the standard errors of any model processed
+with `MakeADFun()`. It takes the object after the fit (it reads the estimates from the
+object), calculates the curvature of the NLL at the estimates and converts it into the
+covariance matrix of the estimates. `summary()` of its result is a table with one row per
+parameter, on the scale that was optimised, and two columns:
+
+- `Estimate`, the estimate of the parameter;
+- `Std. Error`, its standard error.
+
+For the ten quadrats, the parameter that was optimised is $\log(\lambda)$:
 
 ```{r}
-# Observed information of the Poisson model at the estimate, for the ten quadrats:
-# -l''(lambda_hat) = sum(x) / lambda_hat^2, which equals n / lambda_hat at lambda_hat = mean(x).
-observed_information = sum(ten_counts) / lambda_hat_ten^2
-observed_information
-
-# Approximate variance of the estimator and its standard error (seedlings per quadrat).
-approximate_variance = 1 / observed_information
-standard_error = sqrt(approximate_variance)
-c(approximate_variance = approximate_variance, standard_error = standard_error)
+# sdreport() calculates the standard errors from the curvature at the estimates.
+summary(sdreport(fir_ten_obj))
 ```
 
-The same formula gives the standard error for all 50 quadrats:
+The object returned by `sdreport()` also keeps the covariance matrix of the estimates in its
+element `cov.fixed`. A covariance divided by the two standard errors is the correlation
+between the estimates, which
+[Chapter 2](../Chapter_2/Theory.qmd#sec-two_continuous_variables) introduced as a parameter
+of the bivariate Normal distribution, and `cov2cor()` does this conversion for a whole
+matrix. For the owl model we calculate the correlation in both parameterisations of
+@fig-slice_profile:
 
 ```{r}
-# The same standard error for all 50 quadrats: the value of Chapter 3.
-sqrt(lambda_hat / n_quadrats)
+# Standard errors of log(mu) and log(k), and the correlation between their estimates.
+owl_sd = sdreport(owl_obj)
+summary(owl_sd)
+cov2cor(owl_sd$cov.fixed)
+
+# The correlation in the parameterisation with k and p.
+cov2cor(sdreport(owl_prob_obj)$cov.fixed)
 ```
 
-With all 50 quadrats the standard error is 0.207 seedlings per quadrat, the value that we
-calculated in Chapter 3. With ten quadrats it is more than twice as large (0.47), because
-the sample contains about five times less information.
+For the estimates of $\log(\mu)$ and $\log(k)$ the correlation is zero to four decimals,
+because the contours of @fig-likelihood_surface are not tilted. For those of $\log(k)$ and
+$\operatorname{logit}(p)$ it is 0.71: hypothetical samples that overestimate $k$ would also
+tend to overestimate $p$. This is the tilt of the contours in @fig-slice_profile expressed
+as a number.
 
-### The Hessian matrix {#sec-hessian}
+### Standard errors on the original scale {#sec-wald-constrained}
 
-With several parameters, the information is a matrix that contains the second derivatives
-of the log-likelihood with respect to every pair of parameters. The matrix of second
-derivatives of a function is called its **Hessian**. The Hessian of the NLL at the
-estimates is the observed information matrix, and its inverse approximates the variances
-of the estimates (on its diagonal) and the covariances between them (outside the
-diagonal). We use it first for the Poisson model and then for the owl model.
+The standard errors of `sdreport()` refer to the scale that was optimised. For the ten
+quadrats this is the standard error of the estimate of $\log(\lambda)$, 0.213, and not of
+$\hat\lambda$. The estimate can be transformed back with `exp()`, because by invariance the
+result is the MLE of $\lambda$. The standard error cannot: `exp(0.213)` is 1.24, which is not
+a standard error of $\hat\lambda$. It could not have been one, because the exponential of a
+positive number is always larger than one, so it would stay above 1 seedling per quadrat
+however many quadrats we sampled, whereas a standard error becomes smaller as the sample
+grows.
 
-We do not need to derive the second derivatives by hand. With `hessian = TRUE`, `optim()`
-also returns the Hessian of the function that it minimised, calculated numerically at the
-estimate. It is the Hessian with respect to the parameter that `optim()` searched over,
-which in our fit is $\log\lambda$ (see @sec-constraints). So the standard error that we
-obtain from it is the standard error of the estimate of $\log\lambda$:
-
-```{r}
-# Fit the Poisson model to the ten quadrats again, now asking for the Hessian.
-fir_ten_fit = optim(
-  par = fir_ten_obj$par, fn = fir_ten_obj$fn, gr = fir_ten_obj$gr,
-  method = "BFGS", hessian = TRUE
-)
-
-# The Hessian is a 1 by 1 matrix; take its single element. Its inverse is the
-# approximate variance of the estimate of log(lambda).
-hessian_log = fir_ten_fit$hessian[1, 1]
-se_log_lambda = sqrt(1 / hessian_log)
-c(hessian_log = hessian_log, se_log_lambda = se_log_lambda)
-```
-
-A fit with one parameter returns a matrix with one row and one column, from which we take
-the single element. The Hessian is 22 and the standard error of the estimate of
-$\log\lambda$ is $1/\sqrt{22}\approx 0.213$. In the next section we show how to convert this
-standard error back to the scale of $\lambda$.
-
-The owl model has two parameters, so its Hessian is a matrix with two rows and two
-columns, and we need its inverse, which approximates the covariance matrix of the
-estimates of $\log\mu$ and $\log k$. We fit the model of the previous section again, now
-asking `optim()` for the Hessian. The model is the same, so the estimates do not change:
-
-```{r}
-# Fit the owl model again, now asking optim() for the Hessian.
-owl_fit = optim(
-  par = owl_obj$par, fn = owl_obj$fn, gr = owl_obj$gr,
-  method = "BFGS", hessian = TRUE
-)
-```
-
-Three functions take us from the Hessian to the standard errors:
-
-- `solve()` applied to a matrix returns its inverse (matrices were introduced in the
-  Chapter 1 practical);
-- `diag()` extracts the diagonal of a matrix, which here holds the variances of the two
-  estimates;
-- `sqrt()` turns the variances into standard errors.
-
-```{r}
-# Invert the Hessian, take the variances from its diagonal and their square roots.
-owl_covariance = solve(owl_fit$hessian)
-sqrt(diag(owl_covariance))
-```
-
-These are the standard errors of the estimates of $\log\mu$ and $\log k$, which are the
-parameters that `optim()` searched over, and not of $\mu$ and $k$ themselves. We now look
-at why that matters.
-
-### Constrained and unconstrained parameters {#sec-wald-constrained}
-
-Both the mean of the Poisson and Negative Binomial models ($\lambda$ and $\mu$) and the
-shape $k$ of the Negative Binomial model are constrained to be positive, and in
-@sec-constraints we dealt with the constraint by using their logarithms in the optimisation
-(unconstrained parameters). The Hessian matrices calculated in the previous section refer
-to the unconstrained parameters. For the ten quadrats we therefore have two standard errors,
-one for the estimator $\hat\lambda$ (calculated by hand, in seedlings per quadrat) and one
-for the estimator of $\log(\lambda)$ (from the Hessian). We transform an estimate of
-$\log(\lambda)$ back with `exp()`, so let's see what happens if we do the same with its
-standard error:
-
-```{r}
-c(
-  # By hand, from the observed information of lambda (seedlings per quadrat).
-  original_scale = standard_error,
-  # From the Hessian with respect to log(lambda).
-  log_scale = se_log_lambda,
-  # exp() applied to the standard error on the log scale.
-  exp_of_se = exp(se_log_lambda)
-)
-```
-
-The exponential of the standard error (1.24) is very wrong: it is more than twice the standard
-error of $\hat\lambda$ (0.47). It could not have been right, because the exponential of a
-positive number is always larger than one. So the result would stay above 1 seedling per
-quadrat however many quadrats we sampled, whereas a standard error should become
-smaller as the sample grows.
-
-The reason is that a non-linear function does not pass through a mean. For a non-linear
-function $g$ and a random variable $X$ that varies, in general
+The reason is that a non-linear function does not pass through an average. For a
+non-linear function $g$ and a random variable $X$ that varies, in general
 
 $$
 E[g(X)]\neq g(E[X]).
 $$
 
 In plain English, the mean of a transformed variable is not the transformation of the mean.
-**Jensen's inequality** gives the direction of the difference: $E[g(X)]\ge g(E[X])$ if $g$ is
-convex (its curve bends upwards, as the exponential does) and $E[g(X)]\le g(E[X])$ if $g$ is
-concave (its curve bends downwards, as the logarithm does). So the curvature of the function
-decides the sign of the difference, but the problem exists for any non-linear function. For
-example, if
-$X$ takes the values 0 and 2 with equal probabilities, the exponential of its mean is
-$\exp(1)\approx 2.72$, whereas the mean of its exponential is
-$(\exp(0)+\exp(2))/2\approx 4.19$. This applies to a standard error because a standard error
-is the square root of a variance, and a variance is an expectation (which is a weighted means):
+A variance is an average, the expectation of the squared distance from the mean (see
+[Chapter 2](../Chapter_2/Theory.qmd#sec-expectations)), and a standard error is its square
+root, so neither of them can be carried to a new scale by
+applying the transformation to it. An estimate and the endpoints of an interval are values
+of the parameter and not averages, which is why they can be transformed back.
 
-$$
-\operatorname{Var}(\hat\theta)=E\left[(\hat\theta-E[\hat\theta])^2\right].
-$$
+The standard error on the new scale is calculated instead with the **delta method**, which
+treats the transformation as a straight line near the estimate and multiplies the standard
+error by the slope of that line. It is an approximation, because the transformation is not
+a straight line, but it is good when the standard error is small and it is widely used;
+[Chapter 6](../Chapter_6/Theory.qmd#sec-delta-method) explains it in more detail. In TMB we
+ask for it with the function `ADREPORT()`. Placed inside the NLL, `ADREPORT(x)` tells
+`sdreport()` to report the quantity `x`, calculated from the parameters, with its
+standard error: TMB applies the delta method and adds a row for `x` to the table.
 
-There is a way to correct for this when we back-transform a standard error, known as the
-**delta method**. It uses the first derivative of the function at the estimate (see the
-[rules of differentiation](../Supplements/calculus.qmd#sec-calc-rules) of the calculus
+::: {.callout-caution collapse="true" icon=false title="Statistical detail: Jensen's inequality"}
+**Jensen's inequality** gives the direction of the difference between $E[g(X)]$ and
+$g(E[X])$: $E[g(X)]\ge g(E[X])$ if $g$ is convex (its curve bends upwards, as the
+exponential does) and $E[g(X)]\le g(E[X])$ if $g$ is concave (its curve bends downwards, as
+the logarithm does). So the curvature of the function decides the sign of the difference,
+but the difference exists for any non-linear function. For example, if $X$ takes the values
+0 and 2 with equal probabilities, the exponential of its mean is $\exp(1)\approx 2.72$,
+whereas the mean of its exponential is $(\exp(0)+\exp(2))/2\approx 4.19$.
+:::
+
+::: {.callout-caution collapse="true" icon=false title="Statistical detail: the delta method"}
+The delta method uses the first derivative of the transformation $g$ at the estimate (see
+the [rules of differentiation](../Supplements/calculus.qmd#sec-calc-rules) of the calculus
 supplement), which tells us how much the function stretches small differences around the
 estimate:
 
@@ -1611,134 +1429,62 @@ $$
 \left|g'(\hat\theta)\right|\,\widehat{\operatorname{SE}}(\hat\theta).
 $$
 
-In plain English, the standard error on the new scale is approximately the standard error on
-the old scale multiplied by the slope of the function at the estimate. The correction works
-only to some extent, because it treats the function as a straight line around the estimate,
-which is a better description the smaller the standard error is. We will use the delta method
-without going into its details, which [Chapter 6](../Chapter_6/Theory.qmd#sec-delta-method)
-explains.
+In plain English, the standard error on the new scale is approximately the standard error
+on the old scale multiplied by the slope of the transformation at the estimate. Each
+transformation therefore has its own correction:
 
-For the Poisson model the function is the exponential, $\lambda=\exp(\log(\lambda))$, which
-is its own derivative. The slope at the estimate is therefore $\exp(\log(\hat\lambda))=\hat\lambda$,
-and the delta method tells us to multiply the standard error on the log scale by the estimate
-of $\lambda$ itself:
+- For a log-transformed parameter, the transformation back is the exponential, whose
+  derivative is the exponential itself. The delta method multiplies the standard error on
+  the log scale by the estimate: for the ten quadrats,
+  $\widehat{\operatorname{SE}}(\hat\lambda)\approx\hat\lambda\,\widehat{\operatorname{SE}}(\log(\hat\lambda))=2.2\times 0.213\approx 0.47$,
+  the standard error of the box on Fisher information.^[The two numbers agree exactly
+  because both come from the curvature of the same log-likelihood at its maximum. Both are
+  still large-sample approximations of the standard deviation of $\hat\lambda$ across
+  hypothetical samples.]
+- For a probability fitted on the logit scale, the transformation back is the inverse logit,
+  $p=1/(1+e^{-\operatorname{logit}(p)})$, whose derivative is $p(1-p)$. The delta method
+  multiplies the standard error on the logit scale by $\hat p(1-\hat p)$.
 
-$$
-\widehat{\operatorname{SE}}(\hat\lambda)\approx
-\hat\lambda\,\widehat{\operatorname{SE}}(\log(\hat\lambda))=2.2\times 0.213\approx 0.47.
-$$
+For a quantity that depends on several parameters the slope becomes a vector of partial
+derivatives, which is combined with the covariance matrix of the estimates
+([Chapter 6](../Chapter_6/Theory.qmd#sec-delta-method)).
+:::
 
-We can verify this with R:
+For the ten quadrats we add one line to the Poisson NLL, `ADREPORT(lambda)`, which asks
+for the standard error of $\lambda$ itself. `sdreport()` reads the estimates from the
+processed object, so we process the new NLL and fit it again (the estimate does not change)
+before we call it:
 
 ```{r}
-c(
-  # By hand, from the observed information of lambda (seedlings per quadrat).
-  original_scale = standard_error,
-  # Delta method: the standard error on the log scale multiplied by the estimate.
-  delta_method = lambda_hat_ten * se_log_lambda
+# The Poisson NLL with one more line.
+poisson_nll = function(parms, data) {
+  getAll(parms, data)
+  lambda = exp(log_lambda)
+  # Ask for the standard error of lambda itself.
+  ADREPORT(lambda)
+  -sum(dpois(x = counts, lambda = lambda, log = TRUE))
+}
+
+# Process the new NLL for the ten quadrats, fit it again and calculate the standard errors.
+fir_ten_obj = MakeADFun(
+  cmb(poisson_nll, list(counts = ten_counts)),
+  list(log_lambda = log(1)),
+  silent = TRUE
 )
-```
-
-The delta method reproduces the standard error of $\hat\lambda$ that we calculated by
-hand.^[The two numbers agree exactly because both come from the curvature of the same
-log-likelihood at its maximum. Both are still large-sample approximations of the standard
-deviation of $\hat\lambda$ across hypothetical samples.]
-
-Note that the multiplication by the estimate is only the result for this example, and we
-should not generalise it. It holds for a parameter fitted on the log scale, because the
-exponential is its own derivative. Back-transforming another parameter requires another
-correction, given by the slope of its own transformation. For example, the slope of `plogis()`
-is $\hat p(1-\hat p)$, so the standard error of a probability fitted on the logit scale is
-that on the logit scale multiplied by $\hat p(1-\hat p)$. We do not need to work out these slopes
-ourselves, because TMB applies the delta method internally to any quantity that we request
-with `ADREPORT()`, as we will see in @sec-wald-automation.
-
-### Wald intervals on the original and log scales {#sec-wald-intervals}
-
-In [Chapter 3](../Chapter_3/Theory.qmd#sec-confidence_intervals) we defined the Wald
-interval^[The interval is named after Abraham Wald, who developed in 1943 the large-sample
-test on which it is based.] as
-$\hat\theta\pm z_{0.975}\,\widehat{\operatorname{SE}}(\hat\theta)$ and justified it with
-the approximate normality of the estimator. For an MLE the standard error comes from the
-observed information. For the ten quadrats we calculated it by hand,
-$\widehat{\operatorname{SE}}(\hat\lambda)=\sqrt{\hat\lambda/n}\approx 0.47$, so the
-interval is:
-
-```{r}
-# Wald interval for the Poisson mean of the ten quadrats, on the original scale.
-critical_value = qnorm(p = 0.975)
-wald_original = lambda_hat_ten + c(-1, 1) * critical_value * standard_error
-wald_original
-```
-
-That is, 1.28 to 3.12 seedlings per quadrat. This interval is symmetric around the
-estimate and it is calculated on the original scale of the parameter, with the standard
-error of $\hat\lambda$.
-
-We can also calculate the interval on the log scale, where the standard error from the
-Hessian applies, and transform its endpoints back with `exp()`. Unlike a standard error, the
-endpoints of an interval can be transformed directly, because the logarithm is an increasing
-function: $\log(\lambda)$ lies between the two endpoints on the log scale exactly when
-$\lambda$ lies between their exponentials. So the transformed interval contains the parameter
-in the same hypothetical samples as the interval on the log scale, and it has the same
-coverage:
-
-```{r}
-# Wald interval on the log scale, with the endpoints transformed back to seedlings
-# per quadrat.
-wald_log = exp(
-  fir_ten_fit$par[["log_lambda"]] + c(-1, 1) * critical_value * se_log_lambda
+fir_ten_fit = optim(
+  par = fir_ten_obj$par,
+  fn = fir_ten_obj$fn,
+  gr = fir_ten_obj$gr,
+  method = "BFGS"
 )
-wald_log
-```
-
-This interval (1.45 to 3.34 seedlings per quadrat) differs from the first one (1.28 to
-3.12), although both are 95% Wald intervals for the same parameter and the same data. A
-Wald interval depends on the scale on which it is calculated, because the Normal
-approximation is applied to a different quantity in each case ($\hat\lambda$ or its
-logarithm). The interval from the log scale is better here because it captures the
-asymmetry around the estimate and it cannot include negative values, which addresses two
-shortcomings of the Wald interval on the original scale.
-
-The Wald interval amounts to replacing the log-likelihood by a parabola with the same
-curvature at the maximum,
-
-$$
-\ell(\theta)-\ell(\hat\theta)\approx
--\frac{(\theta-\hat\theta)^2}{2\,\widehat{\operatorname{SE}}(\hat\theta)^2},
-$$
-
-which is why it is also called a quadratic approximation, and the interval a quadratic
-interval. The approximation is good when the log-likelihood is close to a parabola on the
-scale that we use, and we saw in @fig-likelihood_curve that for the ten quadrats it is not
-symmetric.
-
-### Automation with TMB {#sec-wald-automation}
-
-The steps above are the same for every model: obtain the Hessian at the estimates, invert
-it, take the square roots of its diagonal and, for a quantity calculated from the
-parameters, apply the delta method. TMB does all of this for us. The function
-`sdreport()` of RTMB takes the object returned by `MakeADFun()` after the fit (it reads
-the estimates from the object), calculates the Hessian itself, and `summary()` of its
-result is a table with one row per parameter, on the scale that was optimised, and two
-columns:
-
-- `Estimate`, the estimate of the parameter;
-- `Std. Error`, its standard error.
-
-```{r}
-# sdreport() calculates the standard errors from the Hessian at the estimates.
-fir_ten_sd = sdreport(fir_ten_obj)
-fir_ten_summary = summary(fir_ten_sd)
+fir_ten_summary = summary(sdreport(fir_ten_obj))
 fir_ten_summary
 ```
 
-The standard error of `log_lambda` is the one that we obtained from the Hessian, and from
-here on we use `sdreport()`. For a quantity calculated from the parameters, such as
-$\lambda$ or the shape $k$ of the owl model, we ask for its standard error with
-`ADREPORT()` inside the NLL. TMB then applies the delta method for us and adds a row for
-that quantity to the table. For the owl model we add one line to the NLL, `ADREPORT(k)`,
-which asks for the standard error of $k$ itself, next to that of $\log k$:
+The last row is the quantity that we asked for with `ADREPORT()`. Its standard error, 0.47
+seedlings per quadrat, is the estimate multiplied by the standard error of
+$\log(\hat\lambda)$, $2.2\times 0.213$, as the delta method for the exponential says. For
+the owl model we add `ADREPORT(k)` in the same way:
 
 ```{r}
 # The Negative Binomial NLL with one more line.
@@ -1750,35 +1496,62 @@ nb_nll = function(parms, data) {
   ADREPORT(k)
   -sum(dnbinom2(x = calls, mu = mu, size = k, log = TRUE))
 }
-```
 
-We process the new NLL and fit it again, because `sdreport()` reads the estimates from
-the processed object. The model is the same, so the estimates do not change:
-
-```{r}
-# Process the new NLL and fit it again.
+# Process the new NLL, fit it again and calculate the standard errors.
 owl_obj = MakeADFun(
   cmb(nb_nll, list(calls = call_counts)),
   list(log_mu = log(mu_mom), log_k = log(k_mom)),
   silent = TRUE
 )
 owl_fit = optim(par = owl_obj$par, fn = owl_obj$fn, gr = owl_obj$gr, method = "BFGS")
-```
-
-The table of `sdreport()` has the standard errors that we obtained from the inverse of the
-Hessian, and one more row for the quantity in `ADREPORT()`:
-
-```{r}
-# The standard errors of log(mu) and log(k), and the row of k from ADREPORT().
 owl_sd = sdreport(owl_obj)
 owl_summary = summary(owl_sd)
 owl_summary
 ```
 
-The last row is the quantity that we asked for with `ADREPORT()`: $\hat k\approx 0.327$,
-with a standard error of 0.054. It agrees with the delta method for the exponential
-that we applied above, $0.327\times 0.165$, the estimate multiplied by the standard error
-of $\log k$. We can now calculate a Wald interval for $k$ on each of the two scales:
+The standard error of $\hat k$ in the last row, 0.054, is again the estimate multiplied by
+the standard error of $\log(\hat k)$, $0.327\times 0.165$.
+
+### Wald intervals on the original and log scales {#sec-wald-intervals}
+
+With a standard error on each scale we can calculate a Wald interval for $\lambda$ in two
+ways: on the original scale, from the row `lambda`, or on the log scale, from the row
+`log_lambda`, with its endpoints transformed back with `exp()`. Unlike a standard error,
+the endpoints of an interval can be transformed directly:^[That is because the logarithm
+is an increasing function: $\log(\lambda)$ lies between the two endpoints on the log scale
+exactly when $\lambda$ lies between their exponentials. So the interval contains the
+parameter in the same hypothetical samples on both scales, and its coverage is kept.]
+
+```{r}
+# Wald intervals for the Poisson mean of the ten quadrats, in seedlings per quadrat.
+critical_value = qnorm(p = 0.975)
+
+# On the original scale, from the row of ADREPORT().
+wald_original = fir_ten_summary["lambda", "Estimate"] +
+  c(-1, 1) * critical_value * fir_ten_summary["lambda", "Std. Error"]
+
+# On the log scale, with the endpoints transformed back.
+wald_log = exp(
+  fir_ten_summary["log_lambda", "Estimate"] +
+    c(-1, 1) * critical_value * fir_ten_summary["log_lambda", "Std. Error"]
+)
+
+rbind(wald_original, wald_log)
+```
+
+The interval from the log scale (1.45 to 3.34 seedlings per quadrat) differs from the
+interval on the original scale (1.28 to 3.12), although both are 95% Wald intervals for the
+same parameter and the same data. This is not due to the back-transformation of the
+endpoints but because Wald intervals rely on the sampling distribution being Normal, and how
+well this holds depends on the scale of the parameter. The sampling distribution of a
+parameter that was transformed to make it unconstrained approaches the Normal distribution
+faster (in terms of sample size) than on the original scale, because constraints on
+parameter values make sampling distributions skewed when the standard error is relatively
+large. In terms of the log-likelihood, the curve is closer to a parabola when the parameter is on the log scale.
+So the transformation of parameters is not only useful for the optimisation algorithm, it
+also makes Wald intervals more reliable, and we calculate them on the scale that was
+optimised. We do the same for the owl model, where we also calculate the interval for $k$
+on the original scale, from the row of `ADREPORT()`:
 
 ```{r}
 # Lower and upper endpoints of a Wald interval for every row of the table.
@@ -1791,19 +1564,10 @@ owl_wald_k = exp(c(owl_lower[["log_k"]], owl_upper[["log_k"]]))
 
 # Row k, from ADREPORT(): interval for k on the original scale.
 owl_wald_k_original = c(owl_lower[["k"]], owl_upper[["k"]])
-
-rbind(
-  "mu, from the log scale" = owl_wald_mu,
-  "k, from the log scale" = owl_wald_k,
-  "k, original scale" = owl_wald_k_original
-)
 ```
 
-The Wald intervals from the log scales are 3.45 to 6.55 calls per visit for $\mu$ and
-0.237 to 0.453 for $k$. On the original scale the interval for $k$ is 0.221 to 0.434: it
-is symmetric around the estimate and lies lower than the first one. As for the ten
-quadrats, the same fit gives two different Wald intervals, and in @sec-profile_intervals
-we compare both with the likelihood profile interval.
+We compare these intervals with the likelihood profile intervals in
+@sec-profile_intervals.
 
 :::: {#imp-log-scale-interval .callout-important title="an interval from the log scale"}
 
@@ -1829,32 +1593,6 @@ more than the part below it.
 :::
 ::::
 
-## Covariance between estimates
-
-The inverse of the Hessian contains more than variances. Its off-diagonal elements are the
-**covariances** between the estimates, which describe how the estimates of two parameters
-vary together across hypothetical samples. A covariance divided by the two standard
-errors is the correlation between the estimates
-([Chapter 2](../Chapter_2/Theory.qmd#sec-two_continuous_variables) introduced the
-correlation as a parameter of the bivariate Normal distribution), and `cov2cor()` does this
-conversion for a whole matrix. `sdreport()` keeps the inverse of the Hessian in its
-element `cov.fixed`:
-
-```{r}
-# Correlations between the estimates, from the covariance matrix kept by sdreport().
-cov2cor(owl_sd$cov.fixed)
-
-# The same for the parameters k and p, whose estimates are correlated.
-cov2cor(sdreport(owl_prob_obj)$cov.fixed)
-```
-
-For the estimates of $\log\mu$ and $\log k$ the correlation is zero to four decimals. For
-those of $\log k$ and $\operatorname{logit}p$ it is 0.71: hypothetical samples that
-overestimate $k$ would also tend to overestimate $p$. This is the tilt of
-@fig-surface_size_prob expressed as a number. In large samples the estimates of two
-parameters jointly follow a bivariate Normal distribution, and the contours of its density
-have the shape of the contours of the likelihood near the maximum.
-
 ## Likelihood profile intervals {#sec-profile_intervals}
 
 The Wald interval uses the curvature of the log-likelihood at one point, its maximum. The
@@ -1862,23 +1600,16 @@ likelihood profile interval uses the whole curve: it contains all the values of 
 parameter whose relative profile log-likelihood is above a cutoff, that is, the values
 that the data support almost as well as the estimate. The cutoff is chosen so that, in a
 large sample, the interval contains the parameter in approximately 95% of hypothetical
-samples. It is half the 0.95 quantile of a **chi-squared distribution** with one
-degree of freedom, which is the distribution of the square of a standard Normal variable.
-In R, the quantiles of a chi-squared distribution are calculated with `qchisq()`:
+samples. It is half the 0.95 quantile of a **chi-squared distribution** with one degree of
+freedom, a result known as Wilks' theorem (stated in the box below). In R, the quantiles of
+a chi-squared distribution are calculated with `qchisq()`:
 
 ```{r}
 # Cutoff for the relative profile log-likelihood: half the 95% quantile of a
 # chi-squared distribution with one degree of freedom.
-qchisq(p = 0.95, df = 1)
-sqrt(qchisq(p = 0.95, df = 1))
 cutoff = qchisq(p = 0.95, df = 1) / 2
 cutoff
 ```
-
-The 0.95 quantile is 3.84, which is the square of the 1.96 of the Wald interval, so the
-cutoff is 1.92. That is, an approximate 95% likelihood profile interval contains all the
-values of the parameter whose relative profile log-likelihood is above $-1.92$. This is
-the cutoff that we used in @sec-likelihood-surface to compare the slice and the profile.
 
 ::: {.callout-note title="Likelihood profile interval"}
 An approximate 95% confidence interval for a parameter contains all the values whose
@@ -1891,10 +1622,10 @@ of the model are re-estimated for each value.
 The cutoff of the likelihood profile interval comes from
 **Wilks' theorem**,^[Wilks (1938). The theorem is about the ratio between two maximised
 likelihoods (a difference between two log-likelihoods is the logarithm of a likelihood
-ratio), and it holds under the regularity conditions that asymptotic normality requires. The likelihood
-profile interval follows from it.] which describes how far below its maximum the
-log-likelihood is at the parameter value that generated the data. Let $\theta_0$ be that
-value for the parameter of interest. Then
+ratio), and it holds under the regularity conditions that asymptotic normality requires.
+The likelihood profile interval follows from it.] which describes how far below its
+maximum the log-likelihood is at the parameter value that generated the data. Let
+$\theta_0$ be that value for the parameter of interest. Then
 
 $$
 2\left[\ell(\hat\theta)-\ell_{\mathrm{prof}}(\theta_0)\right]
@@ -1911,101 +1642,19 @@ generated the data is rarely far down the slope of the profile: twice its distan
 top behaves like the square of a standard Normal variable.^[The same result is the basis
 of the likelihood ratio test, which compares two nested models by calculating a p-value
 from the chi-squared distribution. As with p-values in general, we do not use it in this
-course.] So in
-about 95% of hypothetical samples the profile log-likelihood at $\theta_0$ is within
-$3.84/2=1.92$ units of the maximum. The likelihood profile interval contains
-$\theta_0$ in exactly those samples, which gives it a coverage of
-approximately 95%.
+course.] So in about 95% of hypothetical samples the profile log-likelihood at $\theta_0$
+is within $3.84/2=1.92$ units of the maximum. The likelihood profile interval contains
+$\theta_0$ in exactly those samples, which gives it a coverage of approximately 95%.
 :::
 
-We calculate the likelihood profile interval in three steps. We first calculate it by hand
-for a model with one parameter, the Poisson model, and then for a model with two
-parameters, the Negative Binomial model of the owls, to see what the calculation involves.
-In practice we do not do these calculations ourselves: TMB automates them for any model
-that was processed with `MakeADFun()`, and the third subsection shows the two functions
-that do it. From then on, this is how we calculate likelihood profile intervals.
-
-### One parameter
-
-The Poisson model has one parameter, so the profile is the log-likelihood itself, and the
-endpoints of the interval are the two values of $\lambda$ at which the relative
-log-likelihood equals $-1.92$. We calculate them by hand for the ten quadrats
-(@fig-likelihood_curve). To find them we use `uniroot()`,
-which searches for the value at which a function crosses zero. Its main arguments are:
-
-- `f`, the function;
-- `interval`, the range in which to search, whose two ends must give values of opposite
-  sign;
-- `tol`, the precision with which the crossing point is located.
-
-It returns a list, and the crossing point is the element called `root`. We give it the
-relative log-likelihood plus the cutoff, which is zero at
-the endpoints of the confidence interval, positive at the estimate (where it equals 1.92)
-and negative far from it. There is one crossing on each side of the estimate, so we call
-`uniroot()` twice: between 0.8 and $\hat\lambda$, and between $\hat\lambda$ and 5. These
-are the two ends of the curve in @fig-likelihood_curve, where the relative log-likelihood
-is far below the cutoff.
-
-```{r}
-# Relative log-likelihood of the ten quadrats plus the cutoff, as a function of lambda.
-# With one parameter the log-likelihood is also the profile.
-ten_crossing = function(lambda) {
-  sum(dpois(x = ten_counts, lambda = lambda, log = TRUE)) - loglik_lambda_hat_ten + cutoff
-}
-
-# uniroot() finds where a function crosses zero inside an interval whose ends give
-# values of opposite sign: once below the estimate and once above it.
-lambda_lower = uniroot(f = ten_crossing, interval = c(0.8, lambda_hat_ten), tol = 1e-8)$root
-lambda_upper = uniroot(f = ten_crossing, interval = c(lambda_hat_ten, 5), tol = 1e-8)$root
-c(lambda_lower, lambda_upper)
-```
-
-The likelihood interval goes from 1.40 to 3.25 seedlings per quadrat. We will not repeat
-this calculation for other models: it is what `tmbprofile()` and `confint()` do for us
-in the third subsection.
-
-### Two parameters
-
-The owl model has two parameters, so the interval of each of them is calculated from its
-profile, as defined in @sec-likelihood-surface. To see what the calculation involves, we
-calculate the profile of $k$ once by
-hand, on a grid of values of $k$. For each value we process the NLL with $\log k$ held
-fixed and fit it with `optim()`, which then re-estimates only $\log\mu$. The argument
-`map = list(log_k = factor(NA))` of `MakeADFun()` keeps `log_k` fixed at the value given
-in the list of parameters:
-
-```{r}
-# Profile of k by hand: for each value of k on a grid, the mean is re-estimated with k
-# held fixed, starting from the joint estimate.
-k_values = seq(from = 0.15, to = 0.60, by = 0.005)
-profile_k = rep(NA, times = length(k_values))
-for (i in seq_along(k_values)) {
-  inner_obj = MakeADFun(
-    cmb(nb_nll, list(calls = call_counts)),
-    list(log_mu = owl_fit$par[["log_mu"]], log_k = log(k_values[i])),
-    map = list(log_k = factor(NA)),
-    silent = TRUE
-  )
-  inner_fit = optim(par = inner_obj$par, fn = inner_obj$fn, gr = inner_obj$gr, method = "BFGS")
-  # Relative profile log-likelihood (both values are NLLs, so the order is reversed).
-  profile_k[i] = owl_fit$value - inner_fit$value
-}
-
-# Values of k on the grid whose relative profile log-likelihood is above the cutoff.
-range(k_values[profile_k >= -cutoff])
-```
-
-On this grid the values of $k$ above the cutoff go from 0.24 to 0.45, to the precision of
-its step.
-
-### Automation with TMB {#sec-profile_automation}
-
-The two calculations above follow the same steps for every model and parameter: move the
-parameter away from its estimate, re-estimate the other parameters at each step (the inner
-fits), record the NLL and find the two values at which the relative profile
-log-likelihood crosses the cutoff. TMB does all of this for us, so in practice we never
-write the grid, the inner fits or the calls to `uniroot()` ourselves. Two functions are
-enough:
+The calculation of a likelihood profile interval follows the same two steps for every
+model and parameter. First, the profile: the parameter of interest is moved away from its
+estimate in small steps, the other parameters are re-estimated at each step by an
+optimisation of their own (an **inner fit**), and the NLL is recorded. With a single
+parameter there is nothing to re-estimate, and the profile is the log-likelihood itself.
+Second, the endpoints: the two values of the parameter, one below and one above the
+estimate, at which the relative profile log-likelihood crosses the cutoff. We do not
+program these steps ourselves, because two functions do them:
 
 - `TMB::tmbprofile()` calculates the profile of one parameter of a model that was
   processed with `MakeADFun()`. Its main arguments are the object and `name`, the name of
@@ -2017,21 +1666,20 @@ enough:
   cutoff, that is, the endpoints of the 95% likelihood profile interval.
 
 The profile is calculated on the scale that was optimised, so we transform the endpoints
-back. For the Poisson model with one parameter there are no other parameters to
-re-estimate, and the result is the interval that we calculated by hand:
+back.
+
+### One parameter
+
+The Poisson model has one parameter, so the endpoints of the interval are the two values
+of $\lambda$ at which the relative log-likelihood of the ten quadrats equals $-1.92$. We
+profile `log_lambda` in the object of the ten quadrats and collect the interval with the
+two Wald intervals:
 
 ```{r}
-# Profile of log(lambda) for the ten quadrats (trace = FALSE stops the printing of
-# progress) and the endpoints of its 95% interval, transformed back.
+# Profile of log(lambda) for the ten quadrats and its 95% interval, transformed back.
 fir_ten_profile = TMB::tmbprofile(fir_ten_obj, name = "log_lambda", trace = FALSE)
 likelihood_interval = exp(confint(fir_ten_profile))
-likelihood_interval
-```
 
-We now have three intervals for $\lambda$ from the ten quadrats, and we collect them in a
-matrix to compare them:
-
-```{r}
 # The three intervals for lambda (seedlings per quadrat) from the ten quadrats.
 intervals_ten = rbind(wald_original, wald_log, likelihood_interval)
 dimnames(intervals_ten) = list(
@@ -2041,58 +1689,88 @@ dimnames(intervals_ten) = list(
 intervals_ten
 ```
 
-The likelihood interval is not
-symmetric: it extends 0.80 below the estimate and 1.05 above it, following the asymmetry of
-the curve.
-It also does not depend on the scale, because a value of $\lambda$ and its logarithm have
-the same likelihood, so we obtain the same interval whether we search over $\lambda$, as
-we did by hand, or over $\log\lambda$, as `tmbprofile()` did. As expected (see above), the
-Wald interval from the log scale is closer to it than the Wald interval on the original
-scale.
-
-We now repeat the three intervals for all 50 quadrats, with `sdreport()` and
-`tmbprofile()`:
+The likelihood interval is not symmetric: it extends 0.80 below the estimate and 1.05
+above it, following the asymmetry of the curve (@fig-profile_interval). It also does not
+depend on the scale, because a value of $\lambda$ and its logarithm have the same
+likelihood: `tmbprofile()` searched over $\log(\lambda)$, and the transformed endpoints are
+exactly the values of $\lambda$ at which the curve of @fig-profile_interval crosses the
+cutoff. The Wald interval on the original
+scale is the interval of the parabola: because $z_{0.975}^2/2=1.92$, the parabola crosses
+the cutoff exactly at its endpoints. Where the curve is not a parabola, as on the left of
+the estimate, the two intervals disagree. The Wald interval from the log scale is closer to
+the likelihood interval, as expected from the previous section.
 
 ```{r}
-# Wald interval on the original scale for the 50 quadrats (the interval of Chapter 3).
-wald_original_all = lambda_hat + c(-1, 1) * critical_value * sqrt(lambda_hat / n_quadrats)
+#| echo: false
+#| label: fig-profile_interval
+#| fig-cap: "Relative log-likelihood of the counts of fir seedlings in the first ten quadrats (solid line) and its quadratic approximation on the original scale (dashed line). The horizontal line is the cutoff of the 95% interval, at -1.92. The likelihood interval contains the values where the curve is above the cutoff (dotted lines), and the Wald interval on the original scale those where the parabola is above it."
+# Quadratic approximation with the same curvature at the maximum, from the standard error
+# of lambda in the row of ADREPORT().
+se_lambda_ten = fir_ten_summary["lambda", "Std. Error"]
+quadratic_values = -(lambda_grid - lambda_hat_ten)^2 / (2 * se_lambda_ten^2)
+profile_figure_data = rbind(
+  data.frame(lambda = lambda_grid, relative = relative_loglik, curve = "Log-likelihood"),
+  data.frame(lambda = lambda_grid, relative = quadratic_values, curve = "Quadratic approximation")
+)
+ggplot(profile_figure_data, aes(x = lambda, y = relative, linetype = curve)) +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  geom_hline(yintercept = -cutoff, colour = "grey40") +
+  geom_vline(
+    xintercept = as.vector(likelihood_interval),
+    colour = "grey40",
+    linetype = "dotted"
+  ) +
+  coord_cartesian(ylim = c(-6, 0)) +
+  labs(
+    x = expression(paste("Mean seedlings per quadrat, ", lambda)),
+    y = "Relative log-likelihood",
+    linetype = NULL
+  ) +
+  theme_classic() +
+  theme(legend.position = "top")
+```
 
-# Wald interval from the log scale, with the standard error from sdreport().
+```{r}
+#| include: false
+# The three intervals for all 50 quadrats, with the NLL that reports lambda.
+fir_obj = MakeADFun(
+  cmb(poisson_nll, list(counts = seedling_counts)),
+  list(log_lambda = log(1)),
+  silent = TRUE
+)
+fir_fit = optim(par = fir_obj$par, fn = fir_obj$fn, gr = fir_obj$gr, method = "BFGS")
 fir_summary = summary(sdreport(fir_obj))
+wald_original_all = fir_summary["lambda", "Estimate"] +
+  c(-1, 1) * critical_value * fir_summary["lambda", "Std. Error"]
 wald_log_all = exp(
   fir_summary["log_lambda", "Estimate"] +
     c(-1, 1) * critical_value * fir_summary["log_lambda", "Std. Error"]
 )
-
-# Likelihood interval from the profile.
 fir_profile = TMB::tmbprofile(fir_obj, name = "log_lambda", trace = FALSE)
-
-# The three intervals for lambda (seedlings per quadrat) from the 50 quadrats.
-intervals_all = rbind(wald_original_all, wald_log_all, exp(confint(fir_profile)))
-dimnames(intervals_all) = dimnames(intervals_ten)
-intervals_all
+rbind(wald_original_all, wald_log_all, exp(confint(fir_profile)))
 ```
 
-With 50 quadrats the three intervals nearly coincide: 1.73 to 2.55 seedlings per quadrat
-for the Wald interval on the original scale (the interval of
-[Chapter 3](../Chapter_3/Theory.qmd#sec-confidence_intervals)), 1.77 to 2.59 for the Wald
-interval from the log scale and 1.76 to 2.57 for the likelihood interval. They are also
-much narrower than those of the ten quadrats. The three intervals agree because the
-log-likelihood of a larger sample is closer to a parabola around its maximum, so the
-quadratic approximation behind the Wald interval is better. With ten quadrats the lower
-endpoint was 1.28, 1.45 or 1.40 depending on the method, whereas with 50 quadrats it hardly
-matters which interval we report.
+With all 50 quadrats the three intervals nearly coincide: 1.73 to 2.55 seedlings per
+quadrat for the Wald interval on the original scale (the interval of
+[Chapter 3](../Chapter_3/Theory.qmd#sec-confidence_intervals)), 1.77 to 2.59 from the log
+scale and 1.76 to 2.57 for the likelihood interval. The log-likelihood of a larger sample
+is closer to a parabola around its maximum, so the quadratic approximation behind the Wald
+interval is better, and it hardly matters which interval we report.
 
-For the owl model, `tmbprofile()` makes the inner fits that we wrote as a loop, with
-the other parameter re-estimated at each step, and `confint()` locates the endpoints. We
-use them for both parameters, in two lines each instead of the loop:
+### Two parameters
+
+The owl model has two parameters, so the interval of each of them is calculated from its
+profile (@sec-likelihood-surface). At each value of $\log(k)$ that it visits,
+`tmbprofile()` makes an inner fit that re-estimates $\log(\mu)$, and the other way round
+when we profile $\log(\mu)$. We do this for both parameters and collect the results with
+the Wald intervals:
 
 ```{r}
-# Profiles of log(k) and log(mu), and their 95% intervals transformed back.
-owl_profile_k = TMB::tmbprofile(owl_obj, name = "log_k", trace = FALSE)
+# Profiles of log(mu) and log(k), and their 95% intervals transformed back.
 owl_profile_mu = TMB::tmbprofile(owl_obj, name = "log_mu", trace = FALSE)
-owl_interval_k = exp(confint(owl_profile_k))
+owl_profile_k = TMB::tmbprofile(owl_obj, name = "log_k", trace = FALSE)
 owl_interval_mu = exp(confint(owl_profile_mu))
+owl_interval_k = exp(confint(owl_profile_k))
 
 # Profile intervals next to the Wald intervals.
 owl_intervals = rbind(
@@ -2106,62 +1784,13 @@ dimnames(owl_intervals) = list(
 owl_intervals
 ```
 
-The likelihood profile intervals are 3.49 to 6.68 calls per visit for $\mu$ and 0.235 to
-0.451 for $k$. For $k$ the Wald interval from the log scale is almost the same (0.237 to
-0.453). The Wald interval on the original scale (0.221 to 0.434) is not: it is symmetric
-around the estimate, whereas the likelihood profile interval extends 0.09 below the
-estimate and 0.12 above it, so both of its endpoints are too low. This is why we calculate
-Wald intervals on the scale that was optimised and transform their endpoints, and why the
-likelihood profile interval is the reference with which we compare them. For $\mu$ the
-likelihood profile interval reaches further
-above the estimate than the Wald interval from the log scale (6.68 against 6.55).
-@fig-profile_interval shows that the profile of $\mu$ is not a parabola on the original
-scale. The parabola in the figure is the quadratic approximation on that scale, drawn with
-the standard error of the mean under the fitted model,
-$\sqrt{(\hat\mu+\hat\mu^2/\hat k)/n}\approx 0.78$ calls per visit (the variance of the
-counts divided by the number of visits, as for any mean). To the right of the estimate the
-profile falls more slowly than the parabola, and to the left it falls faster, so an
-interval that is symmetric around the estimate cannot follow it.
-
-```{r}
-#| echo: false
-#| label: fig-profile_interval
-#| fig-cap: "Relative profile log-likelihood of the mean number of calls per visit for the owl data (solid line) and the quadratic approximation that corresponds to the Wald interval on the original scale (dashed line). The horizontal line is the cutoff of the 95% interval, at -1.92, and the vertical lines mark the endpoints of the likelihood profile interval."
-# The profile of mu over a wider range than the default of tmbprofile() (ytol is the
-# drop in log-likelihood at which the profile stops), as a relative log-likelihood.
-profile_mu_wide = TMB::tmbprofile(owl_obj, name = "log_mu", ytol = 6, trace = FALSE)
-mu_lower = owl_interval_mu[1, "lower"]
-mu_upper = owl_interval_mu[1, "upper"]
-k_lower = owl_interval_k[1, "lower"]
-k_upper = owl_interval_k[1, "upper"]
-
-# Quadratic approximation around the estimate, with the standard error of mu from the
-# Negative Binomial variance: sqrt((mu + mu^2 / k) / n), in calls per visit.
-mu_fine = seq(from = 2.5, to = 9, length.out = 131)
-se_mu_nb = sqrt((mu_mle + mu_mle^2 / k_mle) / n_visits)
-quadratic_values = -(mu_fine - mu_mle)^2 / (2 * se_mu_nb^2)
-
-curve_data = rbind(
-  data.frame(
-    mu = exp(profile_mu_wide$log_mu),
-    relative = -(profile_mu_wide$value - min(profile_mu_wide$value)),
-    curve = "Profile"
-  ),
-  data.frame(mu = mu_fine, relative = quadratic_values, curve = "Quadratic approximation")
-)
-ggplot(curve_data, aes(x = mu, y = relative, linetype = curve)) +
-  geom_line(colour = "#D55E00", linewidth = 0.8) +
-  geom_hline(yintercept = -cutoff, colour = "grey40") +
-  geom_vline(xintercept = c(mu_lower, mu_upper), colour = "grey40", linetype = "dotted") +
-  coord_cartesian(xlim = c(2.5, 9), ylim = c(-6, 0)) +
-  labs(
-    x = expression(paste("Mean number of calls per visit, ", mu)),
-    y = "Relative log-likelihood",
-    linetype = NULL
-  ) +
-  theme_classic() +
-  theme(legend.position = "top")
-```
+For both parameters the Wald interval from the log scale is close to the likelihood profile
+interval (0.237 to 0.453 against 0.235 to 0.451 for $k$). The Wald interval for $k$ on the
+original scale (0.221 to 0.434) is not: it is symmetric around the estimate, whereas the
+likelihood profile interval extends further above the estimate than below it, so both of
+its endpoints are too low. This is why we calculate Wald intervals on the scale that was
+optimised and transform their endpoints, and why the likelihood profile interval is the
+reference with which we compare them.
 
 ## Joint confidence regions
 
@@ -2209,12 +1838,14 @@ ggplot() +
   ) +
   annotate(
     "segment",
-    x = mu_lower, xend = mu_upper, y = min(k_grid), yend = min(k_grid),
+    x = owl_interval_mu[1, "lower"], xend = owl_interval_mu[1, "upper"],
+    y = min(k_grid), yend = min(k_grid),
     linewidth = 1.2
   ) +
   annotate(
     "segment",
-    x = min(mu_grid), xend = min(mu_grid), y = k_lower, yend = k_upper,
+    x = min(mu_grid), xend = min(mu_grid),
+    y = owl_interval_k[1, "lower"], yend = owl_interval_k[1, "upper"],
     linewidth = 1.2
   ) +
   labs(
@@ -2226,16 +1857,16 @@ ggplot() +
 
 ::: {.callout-caution collapse="true" icon=false title="Statistical detail: the cutoff for a joint region"}
 Wilks' theorem also applies to several parameters at once. If we fix two parameters at the
-values that generated the data, twice the drop in log-likelihood from the maximum follows
-approximately a chi-squared distribution with two degrees of freedom (the distribution of
-the sum of the squares of two independent standard Normal variables). The cutoff for the
-joint region is half its 0.95 quantile (5.99), `qchisq(p = 0.95, df = 2) / 2`.
+same time, twice the drop in log-likelihood from the maximum follows approximately a
+chi-squared distribution with two degrees of freedom (the distribution of the sum of the
+squares of two independent standard Normal variables). The cutoff for the joint region is
+half its 0.95 quantile (5.99), `qchisq(p = 0.95, df = 2) / 2`.
 
 A likelihood profile interval is a statement about one parameter, whatever the value of
 the other: it is the range that the contour at $-1.92$ covers along one axis. Capturing
 two parameters simultaneously is more demanding than capturing one, so the cutoff of the
-joint region is further from the maximum, and the rectangle formed by the two separate
-intervals is not a 95% region for the pair.
+joint region is further from the maximum. Note that the joint region is not the rectangle
+formed by the two separate intervals: the shape of the likelihood contours matters.
 :::
 
 ## Coverage checked by simulation
@@ -2245,7 +1876,7 @@ of the intervals with a simulation in which we know the parameters. To simulate 
 model that is written as an NLL, we mark the data inside it with `OBS()`. The object
 returned by `MakeADFun()` then has a function `simulate()`, which draws one hypothetical
 sample of the size of the data for the parameter values that we give it, on the scale
-that was optimised. With this line the NLL of the owl model is complete:
+that was optimised:
 
 ```{r}
 # The complete NLL of the Negative Binomial model.
@@ -2260,53 +1891,39 @@ nb_nll = function(parms, data) {
 }
 ```
 
-We process and fit it as before, and the estimates do not change:
+We process and fit it as before (the estimates do not change) and give `simulate()` the
+estimates on the log scale, which are in the element `par` of the fit. It returns a list
+in which the simulated data have the name that they have in the NLL (`calls`). For
+example, these are the first 20 counts of one hypothetical sample of 122 visits:
 
 ```{r}
-# Process and fit as before (the estimates do not change).
+# Process and fit as before.
 owl_obj = MakeADFun(
   cmb(nb_nll, list(calls = call_counts)),
   list(log_mu = log(mu_mom), log_k = log(k_mom)),
   silent = TRUE
 )
 owl_fit = optim(par = owl_obj$par, fn = owl_obj$fn, gr = owl_obj$gr, method = "BFGS")
-```
 
-We give `simulate()` the estimates on the log scale, which are in the element `par` of the
-fit. It returns a list in which the simulated data have the name that they have in the NLL
-(`calls`). For example, these are the first 20 counts of one hypothetical sample of 122
-visits:
-
-```{r}
 # One hypothetical sample of 122 visits at the estimates: its first 20 counts.
 set.seed(seed = 700)
 owl_obj$simulate(owl_fit$par)$calls[1:20]
 ```
 
-For each hypothetical sample we calculate both types of interval and record whether
-each of them contains the parameter used to simulate (the code is not shown; it repeats
-the loop of @sec-mle_properties). We consider two cases with small samples, where the
-large-sample results are most at risk (@fig-coverage).
-
-The first case uses a Poisson model and compares the Wald interval on the original scale
-with the likelihood interval, with 5,000 hypothetical samples. Chapter 3 warned that
-the Wald interval does badly when the expected total count $n\lambda$ is small, so we take
-$\lambda=0.5$ and 10 quadrats, an expected total of five seedlings. The coverage of the
-Wald interval is 0.878, far from the intended 0.95, and that of the likelihood interval is
-0.924.^[A sample in which all the quadrats are empty
-gives an estimate of zero. The Wald interval on the original scale then collapses to
-$[0,0]$, and a likelihood interval can still be calculated at the boundary (it runs from
-zero to the value at which the log-likelihood has dropped by 1.92). The simulation counts
-such a sample as a miss for both intervals; it happens in less than 1% of these
-samples.]
-
-The second case uses the Negative Binomial model with the owl estimates as parameters and
-20 visits per sample. It compares, for the shape $k$, the Wald interval calculated on
-the log scale with the likelihood profile interval, with 2,000 hypothetical samples.
-The coverages are 0.945 and 0.942, so here the two intervals perform equally well: a
-coverage simulated with 2,000 samples has itself a standard error of about 0.005
-($\sqrt{0.95\times 0.05/2000}$), so a difference of this size is within the noise of the
-simulation.
+For each hypothetical sample we calculate both types of interval and record whether each
+of them contains the parameter used to simulate (the code is not shown). We consider two
+cases with small samples, where the coverage of the intervals is not guaranteed
+(@fig-coverage). The first uses a Poisson model with a mean of 0.5 seedlings per quadrat and
+5,000 hypothetical samples of ten quadrats, and compares the Wald interval on the original
+scale with the likelihood interval. The coverage of the Wald interval is 0.878, far from the
+intended 0.95, and that of the likelihood interval is 0.924.^[A sample in which all the
+quadrats are empty gives an estimate of zero. The Wald interval on the original scale then
+collapses to $[0,0]$. The simulation counts such a sample as a miss for both intervals; it
+happens in less than 1% of these samples.] The second uses the Negative Binomial model with
+the owl estimates as parameters and 2,000 hypothetical samples of 20 visits, and compares,
+for the shape $k$, the Wald interval calculated on the log scale with the likelihood
+profile interval. The coverages are 0.945 and 0.942, so here the two intervals perform
+equally well.
 
 ```{r}
 #| include: false
@@ -2440,31 +2057,44 @@ So the Wald interval fails on the original scale when the counts are few, where 
 log-likelihood is far from a parabola, and the likelihood interval is clearly better
 there. A Wald interval calculated on a suitable scale, such as the logarithm of a positive
 parameter, can be just as good as the likelihood profile interval, and it needs one fit
-instead of many. In the practical you will run a simulation
-of this kind for another model.
+instead of many. In the practical you will run a simulation of this kind for another
+model.
+
+::: {.callout-note title="Wald and likelihood profile intervals"}
+In this course we prefer likelihood profile intervals, because in small samples their
+coverage tends to be closer to the intended 95% than that of Wald intervals: they follow
+the shape of the log-likelihood instead of approximating it by a parabola at its maximum.
+The price is computation. A Wald interval needs only the fit and its Hessian, whereas a
+likelihood profile interval needs one optimisation of the other parameters for every
+value of the parameter on the profile, which takes longer and gives more fits that can
+fail. When this cost matters, a Wald interval calculated on a scale where the
+log-likelihood is close to a parabola (the logarithm of a positive parameter) is a
+reasonable approximation.
+:::
 
 # Properties of maximum likelihood estimators {#sec-mle_properties}
 
 An MLE is an estimator, so everything that we learnt in
 [Chapter 3](../Chapter_3/Theory.qmd#sec-sampling_distribution) applies to it: it has a
 sampling distribution across hypothetical samples, a bias, a variance and a standard
-error. In a finite sample we do not know that sampling distribution in general. For large
-samples, however, there are results that hold for the MLEs of a very wide class of
-models, and they are the reason why this book uses maximum
-likelihood. The standard errors and the intervals of @sec-likelihood-uncertainty relied on
-them. This section shows three of these properties at work (consistency, asymptotic
-normality and efficiency) and then looks at what happens in small samples and when the model
-is not a good description of the data generating process.
+error, and in a finite sample we do not know that sampling distribution in general. For
+large samples, however, the MLEs of a very wide class of models have three properties:
+they are consistent and asymptotically normal, like the method-of-moments estimators of
+[Chapter 3](../Chapter_3/Theory.qmd#sec-large_samples), and in addition they are
+asymptotically efficient. These results are the reason why this book uses maximum
+likelihood, and the standard errors and intervals of @sec-likelihood-uncertainty rely on
+them. In this section we see them at work in one simulation, and we then look at small
+samples and at models that do not describe the data generating process.
 
-We can check all these properties with the same simulation. As in the Chapter 3 practical, we simulate
-hypothetical samples from the model using the plug-in estimates: a Negative Binomial model
-with the maximum likelihood estimates for the owls as parameters ($\mu=4.75$ and
-$k=0.327$). We simulate 2,000 hypothetical samples for each of three sample sizes: 20,
-122 (the size of the owl sample) and 500 visits. The function `simulate()` of an object
-draws samples of the size of its data, so for each sample size we process the NLL
-with placeholder data of that length, whose values are not used. Each simulated sample is
-then fitted like the data, with `cmb()`, `MakeADFun()` and `optim()`, and we keep the
-maximum likelihood estimate of $k$ and the method-of-moments estimate:
+As in the Chapter 3 practical, we simulate hypothetical samples from the model with the
+plug-in estimates as parameters ($\mu=4.75$ and $k=0.327$), 2,000 for each of three sample
+sizes: 20, 122 (the size of the owl sample) and 500 visits. `simulate()` draws samples of
+the size of the data of its object, so for each sample size we process the NLL with
+placeholder data of that length, whose values are not used. Each simulated sample is then
+fitted by maximum likelihood, starting from the same values as the placeholder object,
+$\log(\mu)=0$ and $\log(k)=0$ (any starting values from which the optimiser reaches the
+maximum will do). We keep the estimate of $k$ and the sample itself, which we use again in
+@sec-efficiency:
 
 ```{r}
 #| warning: false
@@ -2474,7 +2104,7 @@ set.seed(seed = 601)
 n_samples = 2000
 visit_sizes = c(20, 122, 500)
 sim_k_ml = matrix(NA, nrow = n_samples, ncol = length(visit_sizes))
-sim_k_mom = matrix(NA, nrow = n_samples, ncol = length(visit_sizes))
+sim_samples = list()
 for (s in seq_along(visit_sizes)) {
   # Placeholder data of the right length: the values are not used.
   placeholder_obj = MakeADFun(
@@ -2482,22 +2112,17 @@ for (s in seq_along(visit_sizes)) {
     list(log_mu = 0, log_k = 0),
     silent = TRUE
   )
+  # One row per hypothetical sample.
+  sim_samples[[s]] = matrix(NA, nrow = n_samples, ncol = visit_sizes[s])
   for (i in seq_len(n_samples)) {
     # One hypothetical sample at the estimates for the owls.
     sim_calls = placeholder_obj$simulate(owl_fit$par)$calls
+    sim_samples[[s]][i, ] = sim_calls
 
-    # Method of moments: k exists only when the variance is larger than the mean.
-    sim_mu = mean(sim_calls)
-    sim_var = mean((sim_calls - sim_mu)^2)
-    if (sim_var > sim_mu) {
-      sim_k_mom[i, s] = sim_mu^2 / (sim_var - sim_mu)
-    }
-
-    # Maximum likelihood, starting from the method-of-moments estimates (or k = 1).
-    k_start = ifelse(is.na(sim_k_mom[i, s]), 1, sim_k_mom[i, s])
+    # Maximum likelihood, starting from log(mu) = 0 and log(k) = 0.
     sim_obj = MakeADFun(
       cmb(nb_nll, list(calls = sim_calls)),
-      list(log_mu = log(sim_mu), log_k = log(k_start)),
+      list(log_mu = 0, log_k = 0),
       silent = TRUE
     )
     sim_fit = optim(par = sim_obj$par, fn = sim_obj$fn, gr = sim_obj$gr, method = "BFGS")
@@ -2506,16 +2131,13 @@ for (s in seq_along(visit_sizes)) {
 }
 ```
 
-## Consistency
+## Consistency and asymptotic normality
 
-An estimator is **consistent** when its estimates get closer to the parameter as the
-sample grows: the chance of missing the parameter by more than any given margin becomes
-small ([Chapter 3](../Chapter_3/Theory.qmd#sec-large_samples) introduced this property).
 Maximum likelihood estimators are consistent when the observations are i.i.d. from the
-model. In the simulation we can calculate the chance that the estimate misses the shape
-$k$ by a margin of 0.1 or more. The matrix `sim_k_ml` has one column per sample size, and
-`colMeans()` calculates the mean of each column. As in Chapter 3, the mean of `TRUE` and
-`FALSE` values is the fraction of `TRUE` values:
+model: the chance that the estimate misses the parameter by more than any given margin
+becomes small as the sample grows. In the simulation we can calculate the fraction of the
+estimates that miss $k$ by 0.1 or more (`colMeans()` takes the mean of each column, one per
+sample size, and the mean of `TRUE` and `FALSE` values is the fraction of `TRUE` values):
 
 ```{r}
 # Fraction of the estimates that differ by 0.1 or more from the shape used to simulate,
@@ -2523,60 +2145,34 @@ $k$ by a margin of 0.1 or more. The matrix `sim_k_ml` has one column per sample 
 colMeans(abs(sim_k_ml - k_mle) >= 0.1)
 ```
 
-With 20 visits, 45% of the estimates differ from the $k$ used to simulate by 0.1 or more.
-With 122 visits it is 7%, and with 500 visits none of the 2,000 estimates does. For your
-own analysis, consistency means that more data bring the estimate closer to the parameter
-of the model, so a larger sample is worth its cost. How close the estimate from a sample
-of a given size is likely to be is what the standard error tells us.
+The fraction is 45% with 20 visits, 7% with 122 visits and zero with 500 visits.
 
-::: {.callout-caution collapse="true" icon=false title="Statistical detail: consistency"}
-The box on consistency in [Chapter 3](../Chapter_3/Theory.qmd#sec-large_samples) defined a
-consistent estimator as one that converges in probability to the parameter as the sample
-size grows. Maximum
-likelihood estimators are consistent when the observations are i.i.d. from the
-model.^[The consistency of maximum likelihood estimators was proved rigorously, under
-regularity conditions, by Abraham Wald (1949).] For
-the shape of the Negative Binomial model, with $\hat k_n$ the MLE calculated from $n$
-visits and any positive margin $\varepsilon$:
+::: {.callout-caution collapse="true" icon=false title="Statistical detail: why maximum likelihood estimators are consistent"}
+Why should the maximum of the likelihood be close to the parameter in a large sample (in the
+sense of the box on consistency in
+[Chapter 3](../Chapter_3/Theory.qmd#sec-large_samples))?^[The consistency of maximum
+likelihood estimators was proved rigorously, under regularity conditions, by Abraham Wald
+(1949).] If we divide the log-likelihood by $n$, which does not move its maximum, we obtain
 
 $$
-\lim_{n \to \infty}
-P\left(\left|\hat k_n - k\right| \ge \varepsilon\right)=0.
+\frac{1}{n}\ell(\theta)=\frac{1}{n}\sum_{i=1}^{n}\log\left(P(X_i=x_i\mid\theta)\right),
 $$
 
-In plain English, the chance that the estimate misses $k$ by $\varepsilon$ or more becomes
-small as we observe more visits.
-
-Why should the maximum of the likelihood be close to the parameter in a large sample?
-Chapter 3 gives us an intuition. If we divide the log-likelihood by $n$, which does not
-move its maximum, we obtain
-
-$$
-\frac{1}{n}\ell(\theta)=\frac{1}{n}\sum_{i=1}^{n}\log P(X_i=x_i\mid\theta),
-$$
-
-the mean of $\log P(X=x\mid\theta)$ over the sample. This is an expectation under the
-empirical distribution of the sample
-([Chapter 3](../Chapter_3/Theory.qmd#sec-samples)). As the sample grows, the empirical
-distribution converges to the distribution that generated the data (the Glivenko–Cantelli
-theorem), so the function that we maximise converges to the expectation of
-$\log P(X=x\mid\theta)$ under that distribution. It can be shown that this expectation is
-highest when $\theta$ is the parameter that generated the data (the box on the
-Kullback–Leibler divergence in @sec-misspecified says why).
+the mean of $\log(P(X=x\mid\theta))$ over the sample. This is an expectation under the
+empirical distribution of the sample ([Chapter 3](../Chapter_3/Theory.qmd#sec-samples)). As
+the sample grows, the empirical distribution converges to the distribution that generated
+the data (the Glivenko–Cantelli theorem), so the function that we maximise converges to the
+expectation of $\log(P(X=x\mid\theta))$ under that distribution. It can be shown that this
+expectation is highest when $\theta$ is the parameter that generated the data (the box on
+the Kullback–Leibler divergence in @sec-misspecified says why).
 :::
 
-## Asymptotic normality
-
-In @sec-likelihood-uncertainty we stated that, in a large sample, the sampling
-distribution of an MLE is approximately Normal and centred on the parameter, with a
-variance equal to the inverse of the Fisher information, and we used that result to
-calculate standard errors and Wald intervals. How large the sample needs to be depends on the model and on the parameter, so we look at
-the simulation (@fig-sampling_distribution_k). With 20 visits the estimates of $k$ are
-strongly skewed. Half of them are below 0.36, but a long tail to the right reaches values
-above 1, and their mean is 0.40, against the 0.327 used to simulate. A Normal curve with
-the same mean and standard deviation is a poor description of this distribution. With 500
-visits the estimates have a mean of 0.329, their distribution is nearly symmetric and the
-Normal curve is close to it.
+How large the sample needs to be for the Normal approximation of @sec-likelihood-uncertainty
+depends on the model and on the parameter (@fig-sampling_distribution_k). With 20 visits
+the estimates of $k$ are strongly skewed: half of them are below 0.36, but a long tail to
+the right reaches values above 1, and their mean is 0.40, against the 0.327 used to
+simulate. With 500 visits their mean is 0.329, their distribution is nearly symmetric and
+the Normal curve is close to it.
 
 ```{r}
 #| echo: false
@@ -2584,8 +2180,6 @@ Normal curve is close to it.
 #| fig-width: 9
 #| fig-height: 4
 #| fig-cap: "Maximum likelihood estimates of the shape k from 2,000 hypothetical samples of 20 and of 500 visits, simulated from a Negative Binomial model with the estimates for the owls as parameters. The vertical line is the shape used in the simulation and the curves are Normal distributions with the mean and standard deviation of the estimates."
-library(patchwork)
-
 # Histogram of the estimates for one number of visits, with its Normal approximation.
 plot_sampling_k = function(column, bin_width) {
   estimates = sim_k_ml[, column]
@@ -2620,97 +2214,76 @@ plot_sampling_k(column = 1, bin_width = 0.04) |
   plot_sampling_k(column = 3, bin_width = 0.01)
 ```
 
-The simulation also allows us to check the standard error that we calculated from the
-Hessian of the owl fit. The hypothetical samples of 122 visits have the sample size
-of the owl data and were simulated with the estimates of that fit, so the standard
-deviation of their estimates of $\log k$ is the quantity that the standard error of the
-estimate of $\log k$ approximates:
+The simulation also checks the standard error of the owl fit. The hypothetical samples of
+122 visits have the size of the owl data and were simulated with its estimates, so the
+standard deviation of their estimates of $\log(k)$ is what the standard error of
+$\log(\hat k)$ from `sdreport()` (0.165) approximates:
 
 ```{r}
 # Standard deviation of the estimates of log(k) across the hypothetical samples
-# of 122 visits (second column of sim_k_ml), to compare with the standard error of
-# log(k) obtained from the Hessian of the owl fit (0.165).
+# of 122 visits (second column of sim_k_ml).
 sd(log(sim_k_ml[, 2]))
 ```
 
-The standard deviation of the estimates of $\log k$ across the 2,000 hypothetical
-samples of 122 visits is 0.162, close to the 0.165 that `sdreport()` gave us from
-a single sample. For your own analysis this means that, with a sample of this size, the
-standard error from one fit describes the variation across hypothetical samples well.
-With 20 visits the sampling distribution of $\hat k$ is far from Normal, which is why the
-scale matters in a small sample: for the Wald interval calculated on the log scale, the
-coverage with 20 visits was close to the intended 95% (@fig-coverage).
+The two agree closely (0.162 against 0.165), so with a sample of this size the standard
+error from one fit describes the variation across hypothetical samples well.
 
-## Efficiency
+## Efficiency {#sec-efficiency}
 
 An estimator is more **efficient** than another estimator of the same parameter when its
 estimates vary less across hypothetical samples. This is the property that separates
-maximum likelihood from the method of moments. The two methods use different
-information from the sample. The method of moments chooses the
-parameters that reproduce the mean and the variance of the sample. Maximum likelihood
-chooses the parameters under which the observed counts are most probable, so every
-count contributes with the probability that the model assigns to it. Both estimators of
-$k$ are consistent, so with a very large sample from the model they would give nearly the
-same value. However, they are not equally precise.
-
-The mean squared error (MSE) of
-[Chapter 3](../Chapter_3/Theory.qmd#sec-sampling_distribution) allows us to compare
-estimators of the same parameter. In large samples, where the bias is negligible, this
-comes down to comparing their variances. We compare the two estimators of $k$ with the
-estimates stored in the simulation. The method of moments gives no estimate of $k$ when
-the variance of a sample is not larger than its mean, and the simulation left an `NA` in
-that case, so we first count the samples in which it happened:
+maximum likelihood from the method of moments. Both estimators of $k$ are consistent, but
+they use different information from the sample: the method of moments reproduces the mean
+and the variance of the sample, whereas maximum likelihood makes every observed count as
+probable as possible. To compare them, we calculate the method-of-moments estimate of $k$
+from each of the hypothetical samples that we kept:
 
 ```{r}
-# Number of simulated samples without a method-of-moments estimate of k.
-sum(is.na(sim_k_mom))
+# Method-of-moments estimates of k from the same hypothetical samples. k exists only
+# when the variance is larger than the mean; otherwise the estimate stays NA.
+sim_k_mom = matrix(NA, nrow = n_samples, ncol = length(visit_sizes))
+for (s in seq_along(visit_sizes)) {
+  for (i in seq_len(n_samples)) {
+    sim_mu = mean(sim_samples[[s]][i, ])
+    sim_var = mean((sim_samples[[s]][i, ] - sim_mu)^2)
+    if (sim_var > sim_mu) {
+      sim_k_mom[i, s] = sim_mu^2 / (sim_var - sim_mu)
+    }
+  }
+}
 ```
 
-For each number of visits we then calculate the mean, the standard deviation and the MSE
-of both estimators, and collect them in a table with one row per number of visits. In its
-column names, `ml` stands for maximum likelihood and `mom` for the method of moments:
+We then compare the standard deviations and the mean squared errors (MSE,
+[Chapter 3](../Chapter_3/Theory.qmd#sec-sampling_distribution)) of the two sets of
+estimates; in the column names `ml` stands for maximum likelihood and `mom` for the method
+of moments:
 
 ```{r}
-# Mean, standard deviation and mean squared error of both estimators of k for each
-# number of visits. Column s of sim_k_ml and sim_k_mom holds the 2,000 estimates for
-# the s-th number of visits.
+# Standard deviation and mean squared error of both estimators of k for each number of
+# visits. na.rm = TRUE skips any sample without a method-of-moments estimate.
 efficiency_table = data.frame(
   visits = visit_sizes,
-  mean_ml = NA, sd_ml = NA, mse_ml = NA,
-  mean_mom = NA, sd_mom = NA, mse_mom = NA
+  sd_ml = apply(sim_k_ml, 2, sd),
+  sd_mom = apply(sim_k_mom, 2, sd, na.rm = TRUE),
+  mse_ml = colMeans((sim_k_ml - k_mle)^2),
+  mse_mom = colMeans((sim_k_mom - k_mle)^2, na.rm = TRUE)
 )
-for (s in seq_along(visit_sizes)) {
-  ml = sim_k_ml[, s]
-  mom = sim_k_mom[, s]
-  efficiency_table$mean_ml[s] = mean(ml)
-  efficiency_table$sd_ml[s] = sd(ml)
-  efficiency_table$mse_ml[s] = mean((ml - k_mle)^2)
-  efficiency_table$mean_mom[s] = mean(mom)
-  efficiency_table$sd_mom[s] = sd(mom)
-  efficiency_table$mse_mom[s] = mean((mom - k_mle)^2)
-}
-
-# Show the table with three significant digits.
-# ml = maximum likelihood, mom = method of moments
 signif(efficiency_table, digits = 3)
 ```
 
-With 122 visits the standard deviation of the estimates (i.e., standard error) is 0.055 for
-maximum likelihood against 0.086 for the method of moments, and the MSE is 0.0031
-against 0.0085. The difference does not disappear in a larger sample: with 500 visits the
-standard errors are 0.024 and 0.042, respectively. Standard errors
-decrease with the square root of the sample size, so the method of moments would need
-about $(0.086/0.055)^2\approx 2.5$ times as many visits to estimate $k$ with the precision
-that maximum likelihood achieves with 122. With 20 visits maximum likelihood also has the
-smaller MSE (0.044 against 0.117).
+With 122 visits the standard deviation of the estimates is 0.055 for maximum likelihood
+against 0.086 for the method of moments, and the gap remains with 500 visits (0.024 against
+0.042). Standard errors decrease with the square root of the sample size, so the method of
+moments would need about $(0.086/0.055)^2\approx 2.5$ times as many visits to estimate $k$
+with the precision that maximum likelihood achieves with 122.
 
-What the simulation shows for this model is a general property. An MLE is **asymptotically
-efficient**: in large samples no other regular estimator of the same parameter is more
-precise. The variance that an MLE approaches as the sample grows, the inverse of the Fisher
-information (@sec-likelihood-uncertainty), is the smallest that such an estimator can
-have. For your own analysis, this is the reason to fit a model by maximum likelihood
-whenever you can write its likelihood: with a large sample, no other method of estimation
-obtains more precise estimates from the same data.
+What the simulation shows for this model is a general property. An MLE is
+**asymptotically efficient**: in large samples no other regular estimator of the same
+parameter is more precise, because the variance that an MLE approaches, the one given by
+the curvature of the log-likelihood (the inverse of the Fisher information, see the box in
+@sec-curvature), is the smallest that such an estimator can have. For your own analysis,
+this is the reason to fit a model by maximum likelihood whenever you can write its
+likelihood.
 
 ::: {.callout-caution collapse="true" icon=false title="Statistical detail: the Cramér–Rao bound"}
 How small can the variance of an estimator be?
@@ -2731,151 +2304,55 @@ this limit as the sample grows, which is what asymptotic efficiency means.
 
 ## Bias in finite samples
 
-Asymptotic normality tells us that the sampling distribution of an MLE is centred on the
-parameter in a large sample. In a small sample this need not be the case, and the table
-above already suggests it: the mean of the estimates of $k$ from 20 visits is 0.40. The
-bias relative to the $k$ used to simulate is:
+As for the estimators of Chapter 3, the large-sample results say little about small
+samples, where MLEs are in general biased. The relative bias of $\hat k$ in the simulation
+is:
 
 ```{r}
 # Relative bias of the maximum likelihood estimator of k for each number of visits.
-data.frame(
-  visits = efficiency_table$visits,
-  relative_bias = efficiency_table$mean_ml / k_mle - 1
-)
+data.frame(visits = visit_sizes, relative_bias = colMeans(sim_k_ml) / k_mle - 1)
 ```
 
-With 20 visits, $\hat k$ is on average 21% larger than the $k$ used to simulate. With 122
-visits the bias is 2.6% and with 500 visits 0.6%. This is the general behaviour: MLEs are
-in general biased in finite samples, and the bias decreases as the sample grows.^[Corrections
-of the bias exist for particular models. Dividing by $n-1$ in the estimator of a variance
-is one of them ([Chapter 3](../Chapter_3/Theory.qmd#sec-two_parameters)). Restricted
-maximum likelihood (REML) is the general approach to reduce the bias of the estimates of
-variance parameters, and it is used with the models for grouped observations of
-[Chapter 7](../Chapter_7/Theory.qmd).] It decreases faster than the standard error, so in
-a large sample it is negligible compared with the variation of the estimates across
-hypothetical samples. The warning about finite samples in
-[Chapter 3](../Chapter_3/Theory.qmd#sec-large_samples) applies to maximum likelihood as
-much as to the method of moments: for a small sample the properties of this section are
-approximations, and simulation is the way to check them.
-
-RTMB has a function that runs such a simulation for a fitted model, `checkConsistency()`.
-It draws `n` hypothetical samples of the size of the data from the model at its
-estimates, using the data marked with `OBS()`, and with `estimate = TRUE` it fits the
-model to each of them. `summary()` of its result holds the estimates of every sample
-on the scale that was optimised, from which we calculate the relative bias of $\hat k$:
-
-```{r}
-#| warning: false
-# 2,000 hypothetical samples of 122 visits at the estimates, each of them fitted.
-set.seed(seed = 801)
-owl_check = checkConsistency(owl_obj, n = 2000, estimate = TRUE)
-
-# Estimates of log(mu) and log(k) in every sample, and the relative bias of k.
-check_estimates = summary(owl_check)$estimate$par
-mean(exp(check_estimates$log_k)) / k_mle - 1
-```
-
-The relative bias is 3.0%, close to the 2.6% of our own loop for 122 visits (the two
-numbers come from different sets of 2,000 samples). `checkConsistency()` also reports
-a p-value for a test that the simulation and the NLL agree, which we do not use here.
+With 20 visits, $\hat k$ is on average 21% larger than the $k$ used to simulate, with 122
+visits 2.6% and with 500 visits 0.6%. The bias decreases faster than the standard error as
+the sample grows, so in a large sample it is negligible compared with the variation of the
+estimates across hypothetical samples.^[Corrections of the bias exist for particular models.
+Dividing by $n-1$ in the estimator of a variance is one of them
+([Chapter 3](../Chapter_3/Theory.qmd#sec-two_parameters)). Restricted maximum likelihood
+(REML) is the general approach to reduce the bias of the estimates of variance parameters,
+and it is used with the models for grouped observations of
+[Chapter 7](../Chapter_7/Theory.qmd).] For a small sample, the properties of this section
+are approximations, and simulation is the way to check them.
 
 ## Misspecified models {#sec-misspecified}
 
 This section can be skipped at a first reading: the rest of the chapter does not depend on
-it. All the properties above assume that the observations are a random sample from the model.
-[Chapter 1](../Chapter_1/Theory.qmd) described the model as an approximation of the data
-generating process, so this assumption is never exactly right. A model is **misspecified**
-when it does not contain the distribution of the data generating process, whatever the
-values of its parameters. What does the MLE estimate in that case?
+it. All the properties above assume that the observations are a random sample from the
+model. [Chapter 1](../Chapter_1/Theory.qmd) described the model as an approximation of the
+data generating process, so this assumption is never exactly right. A model is
+**misspecified** when it does not contain the distribution of the data generating process,
+whatever the values of its parameters. What does the MLE estimate in that case?
 
 The answer is that, as the sample grows, the MLE converges to the parameter values for
-which the model distribution is closest to the true distribution of the data generating
+which the model distribution is closest to the distribution of the data generating
 process. That is, the fitted model is the best approximation that the model can offer, and
-the estimates are the parameters of that approximation (the box at the end of this section
-says how closeness is measured).
-
-For the owls there are two signs that the Negative Binomial model with i.i.d. visits is an
-approximation. The first is in the fitted model itself. We saw in @sec-likelihood-surface
-that it reproduces the fraction of visits without calls. We can also calculate the
-variance that it implies, $\hat\mu+\hat\mu^2/\hat k$, and compare it with the variance of
-the sample:
-
-```{r}
-# Variance implied by the maximum likelihood fit, against the variance of the sample.
-c(implied = mu_mle + mu_mle^2 / k_mle, sample = var_mom)
-```
-
-The fitted model implies a variance of about 74, much larger than the variance of the
-sample (42). The model has two parameters, and no pair of values reproduces the mean, the
-variance and the fraction of visits without calls of this sample at the same time. Maximum
-likelihood settles for the compromise under which the 122 observed counts are most
-probable.
-
-This is also the reason for a difference that we left open in @sec-likelihood-surface: for
-the shape of the owl model the method of moments gave 0.60 and maximum likelihood 0.33, a
-gap of 0.27. The two estimators are not equally precise (see "Efficiency" above), so some
-difference between them is expected in any sample. To see how large a difference to expect
-when the model generated the data, we use the simulation of this section, in which the
-hypothetical samples of 122 visits were simulated from the fitted model:
-
-```{r}
-# Observed gap between the method-of-moments and the maximum likelihood estimates of k.
-observed_gap = k_mom - k_mle
-observed_gap
-
-# Difference between the two estimates in each of the 2,000 hypothetical samples of
-# 122 visits (second column of sim_k_mom and sim_k_ml), its largest value, and the
-# fraction of samples in which it is at least as large as the observed gap.
-simulated_gap = sim_k_mom[, 2] - sim_k_ml[, 2]
-max(simulated_gap)
-mean(simulated_gap >= observed_gap)
-```
-
-In none of the 2,000 hypothetical samples does the method-of-moments estimate exceed
-the maximum likelihood estimate by 0.27 or more (the largest difference is 0.23). A gap of
-this size is therefore unusual when the model generated the data, so the two methods
-disagree mainly because the model is an approximation, and each of them settles for a
-different compromise. To see the compromise of the method of moments, we calculate the
-probability of a visit without calls that its estimates imply:
-
-```{r}
-# Fraction of visits without calls under the method-of-moments estimates.
-dnbinom2(x = 0, mu = mu_mom, size = k_mom)
-```
-
-The method of moments reproduces the mean and the variance of the
-sample by construction, but its estimates imply that 27% of the visits have no calls,
-against 44% in the sample. Maximum likelihood reproduces the mean and comes close to that
-fraction (41%), and implies too large a variance.
-
-The second sign is the design of the study. The 122 visits come from a limited number of
-nests:
-
-```{r}
-# The visits come from a limited number of nests.
-length(unique(satiated_female$Nest))
-```
-
-There are 24 nests, and visits to the same nest are likely to resemble each other, so the
-visits are not independent. The Chapter 3 practical already described the i.i.d. assumption
-as a simplification for these data, and the models for observations nested in groups are
-the subject of [Chapter 7](../Chapter_7/Theory.qmd). The estimates that we obtained are
-still the best that this model can do for these data. The standard errors and confidence
-intervals of @sec-likelihood-uncertainty are calculated as if the model had generated the data, so
-with a misspecified model they are approximations too.
+the estimates are the parameters of that approximation (the box below says how closeness
+is measured). The standard errors and confidence intervals of @sec-likelihood-uncertainty
+are calculated as if the model had generated the data, so with a misspecified model they
+are approximations too.
 
 ::: {.callout-caution collapse="true" icon=false title="Statistical detail: the Kullback–Leibler divergence"}
 The closeness between the model and the data generating process is measured by the
-**Kullback–Leibler divergence**,^[Kullback and Leibler (1951) introduced this measure of "information for
-discrimination" between two distributions, which is now called the Kullback–Leibler
-divergence. Maximum likelihood estimation under a misspecified model is studied by White
-(1982), "Maximum likelihood estimation of misspecified models", *Econometrica*; Huber
-(1967) is an earlier treatment.] which for a discrete variable is
+**Kullback–Leibler divergence**,^[Kullback and Leibler (1951) introduced this measure of
+"information for discrimination" between two distributions, which is now called the
+Kullback–Leibler divergence. Maximum likelihood estimation under a misspecified model is
+studied by White (1982), "Maximum likelihood estimation of misspecified models",
+*Econometrica*; Huber (1967) is an earlier treatment.] which for a discrete variable is
 
 $$
 D_{\mathrm{KL}}(\theta)
-= E_g\left[\log\frac{g(X)}{P(X\mid\theta)}\right]
-= \sum_x g(x)\log\frac{g(x)}{P(X=x\mid\theta)},
+= E_g\left[\log\left(\frac{g(X)}{P(X\mid\theta)}\right)\right]
+= \sum_x g(x)\log\left(\frac{g(x)}{P(X=x\mid\theta)}\right),
 $$
 
 where $g(x)$ is the probability with which the data generating process produces the value
@@ -2887,7 +2364,7 @@ probability of a value and the probability that the model gives to it. It is zer
 model assigns the right probability to every value, and positive otherwise.
 
 This completes the intuition given in the box on consistency. The expectation of
-$\log P(X\mid\theta)$, which the log-likelihood divided by $n$ approaches in a large
+$\log(P(X\mid\theta))$, which the log-likelihood divided by $n$ approaches in a large
 sample, is the only part of the divergence that depends on $\theta$, and it enters with a
 minus sign. Maximising the likelihood therefore amounts to minimising the divergence
 between the model and the data generating process. When the model contains the
@@ -2925,28 +2402,27 @@ models fitted to the same observations, in the same units, are meaningful.
 
 A model is an approximation of the data generating process
 ([Chapter 1](../Chapter_1/Theory.qmd)), and the criterion measures how good that
-approximation is. Apart from a constant that is
-the same for all the models, AIC estimates how far the fitted model is from the data
-generating process when the fitted model is used to predict new data from the same
-process. The distance is the Kullback–Leibler divergence, which is defined in the box
-"Statistical detail" of @sec-misspecified.^[Akaike (1973, 1974) derived the criterion
-as an estimate of a loss based on the Kullback–Leibler divergence. Reading the term $2K$
-as a correction for using the same data twice is the usual interpretation of the
-criterion.] The maximum log-likelihood alone is too optimistic for that purpose, because
-the same data were used to fit the model and to evaluate it, and the term $2K$ corrects
-for this. In plain English, AIC rewards a model for assigning a high probability to the
-data and penalises it for each parameter that it needed to do so.
+approximation is. Apart from a constant that is the same for all the models, AIC estimates
+how far the fitted model is from the data generating process when the fitted model is used
+to predict new data from the same process. The distance is the Kullback–Leibler divergence
+of @sec-misspecified.^[Akaike (1973, 1974) derived the criterion as an estimate of a loss
+based on the Kullback–Leibler divergence. Reading the term $2K$ as a correction for using
+the same data twice is the usual interpretation of the criterion.] The maximum
+log-likelihood alone is too optimistic for that purpose, because the same data were used to
+fit the model and to evaluate it, and the term $2K$ corrects for this. In plain English,
+AIC rewards a model for assigning a high probability to the data and penalises it for each
+parameter that it needed to do so.
 
-For the owls we have fitted two models: the Poisson model, with one parameter, and the
-Negative Binomial model, with two. We collect the number of parameters and the maximum
-log-likelihood of each model in a table (for a model fitted with `optim()`, the maximum
-log-likelihood is minus the element `value` of the fit) and calculate the AIC from them.
-Only differences in AIC matter, so we also calculate the difference between each model and
-the one with the lowest AIC:
+For the owls we compare the Negative Binomial model, with two parameters, with the Poisson
+model, with one, whose maximum log-likelihood is calculated at its estimate, the mean of the
+sample (for a model fitted with `optim()`, the maximum log-likelihood is minus the element
+`value` of the fit). Only differences in AIC matter, so we also calculate the difference
+between each model and the one with the lowest AIC:
 
 ```{r}
 # Maximised log-likelihood, number of estimated parameters K and AIC for the two models
 # fitted to the owl data. AIC = 2K - 2 * log-likelihood.
+loglik_poisson = sum(dpois(x = call_counts, lambda = mu_mom, log = TRUE))
 aic_table = data.frame(
   model = c("Poisson", "Negative Binomial"),
   K = c(1, 2),
@@ -2963,15 +2439,15 @@ The difference of 667 units in favour of the Negative Binomial model is very lar
 compared with the two units that its additional parameter costs, in agreement with what
 @fig-owl_fits showed.
 
-The justification of AIC is asymptotic, and when the number of observations $n$
-is small compared with the number of parameters $K$ the term $2K$ is too small to properly
-penalise complex models: the criterion then tends to prefer models with too many parameters.
-The **corrected AIC**
-(AICc) adds a penalty that is large when $n$ is close to $K$ and disappears as $n$ grows:^[The
-correction was derived by Sugiura (1978) for linear regression with Normal errors and
-extended by Hurvich and Tsai (1989), "Regression and time series model selection in small
-samples", *Biometrika*. Burnham and Anderson (2002), *Model selection and multimodel
-inference*, recommend AICc whenever $n/K$ is smaller than about 40.]
+The justification of AIC is asymptotic, and when the number of observations $n$ is small
+compared with the number of parameters $K$ the term $2K$ is too small to properly penalise
+complex models: the criterion then tends to prefer models with too many parameters. The
+**corrected AIC** (AICc) adds a penalty that is large when $n$ is close to $K$ and
+disappears as $n$ grows:^[The correction was derived by Sugiura (1978) for linear regression
+with Normal errors and extended by Hurvich and Tsai (1989), "Regression and time series
+model selection in small samples", *Biometrika*. Burnham and Anderson (2002), *Model
+selection and multimodel inference*, recommend AICc whenever $n/K$ is smaller than about
+40.]
 
 $$
 \mathrm{AICc}
@@ -2983,25 +2459,16 @@ where $n$ is the number of observations and $K$ and $\ell(\hat\theta)$ are the s
 AIC. The correction needs $n>K+1$. In plain English, each parameter costs $2n/(n-K-1)$
 units instead of two: slightly more than two in a moderate sample, and a lot more when the
 sample has hardly more observations than parameters. AICc is used in the same way as AIC,
-as a difference between models fitted to the same observations.
+as a difference between models fitted to the same observations. For the owls the
+additional penalty is negligible (0.03 units for the Poisson model and 0.10 for the
+Negative Binomial model), because the 122 visits are many more than the one or two
+parameters.
 
-The expression above comes from
-linear regression with Normal errors, and for the non-linear models with other
-distributions that we use in this course it is an approximation: there is no general
-formula for the small-sample bias of AIC. AICc is nevertheless common in the ecological
-literature, where samples are often small, and a correction that is approximately right
-is better than none, so you will meet it often. For the owls the correction is negligible:
-
-```{r}
-# Additional penalty of AICc, 2K(K + 1) / (n - K - 1), for the Poisson (K = 1) and
-# Negative Binomial (K = 2) models, with n the number of visits.
-k_models = c(1, 2)
-2 * k_models * (k_models + 1) / (n_visits - k_models - 1)
-```
-
-It is about 0.03 units for the Poisson model and 0.10 for the Negative Binomial model,
-compared with a difference of 667 units between them, because the 122 visits are many more
-than the one or two parameters.
+The expression above comes from linear regression with Normal errors, and for the
+non-linear models with other distributions that we use in this course it is an
+approximation: there is no general formula for the small-sample bias of AIC. AICc is
+nevertheless common in the ecological literature, where samples are often small, and a
+correction that is approximately right is better than none, so you will meet it often.
 
 AIC ranks the candidate models that we give it. It does not tell us whether the best of
 them describes the data well: the Negative Binomial model is far better than the Poisson
@@ -3023,8 +2490,6 @@ that we use to contrast different models and in many cases there might not be a 
 to make any choice (i.e., scientific research may not be about choices but rather about
 evaluating the strength of evidence in favour of alternative hypotheses, and about making
 predictions supported by evidence).
-
-
 
 :::: {#imp-pollinator-wait .callout-important title="waiting for a pollinator"}
 
@@ -3088,17 +2553,19 @@ other parameters, whereas a profile re-estimates them for every value of the par
 interest, so the profile takes their uncertainty into account.
 
 Uncertainty is calculated from the same likelihood. In a large sample the sampling
-distribution of a maximum likelihood estimator is approximately Normal, with a variance
-equal to the inverse of the Fisher information, which we calculate from the curvature of
-the log-likelihood at its maximum. From the inverse of the Hessian, `sdreport()` gives
-standard errors and covariances on the scale that was optimised, and Wald
-intervals are calculated on that scale and transformed back. The standard error of a
-quantity calculated from the parameters is requested with `ADREPORT()`. Likelihood profile
-intervals, which we calculate with `tmbprofile()`,
-contain the values whose profile log-likelihood is within 1.92 units of the maximum; they
-do not depend on the scale and they follow the asymmetry of the likelihood. A joint
-confidence region for two parameters uses a cutoff of 3.00. Simulation shows how close the
-coverage of each interval is to the confidence level.
+distribution of maximum likelihood estimators is approximately (multivariate) Normal, and
+the log-likelihood near its maximum is approximately a parabola. Its curvature gives the
+covariance matrix of the estimates: the more slowly the log-likelihood falls away from the
+maximum, the larger the standard errors. `sdreport()` calculates the standard errors and
+covariances on the scale that was optimised, and Wald intervals are calculated on that
+scale and transformed back. A standard error cannot be transformed back like an estimate,
+because a non-linear function does not pass through an average; the standard error of a
+quantity calculated from the parameters is requested with `ADREPORT()`, which applies the
+delta method, an approximation. Likelihood profile intervals,
+which we calculate with `tmbprofile()`, contain the values whose profile log-likelihood is
+within 1.92 units of the maximum; they do not depend on the scale and they follow the
+asymmetry of the likelihood. A joint confidence region for two parameters uses a cutoff of
+3.00. Simulation shows how close the coverage of each interval is to the confidence level.
 
 Maximum likelihood estimators are consistent, asymptotically normal and asymptotically
 efficient: in large samples they are centred on the parameter and no other regular
@@ -3226,14 +2693,16 @@ the same data.
 :::: {.callout-important title="Question 7: two surveys"}
 
 Two surveys estimate the same detection probability by maximum likelihood on the logit
-scale. The Hessian of the NLL is 16 in the first survey and 64 in the second. Calculate the
-standard error of the estimate on the logit scale in each survey. In which survey is the
-log-likelihood more sharply curved, and what does that say about the data?
+scale. At the maximum, the curvature of the log-likelihood (minus its second derivative) is
+16 in the first survey and 64 in the second. Calculate the standard error of the estimate
+on the logit scale in each survey. What does the difference in curvature say about the
+data?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-The standard errors are $1/\sqrt{16}=0.25$ and $1/\sqrt{64}=0.125$. The log-likelihood of
-the second survey is more sharply curved: it contains four times as much information about
+The standard error is one over the square root of the curvature, so the standard errors
+are $1/\sqrt{16}=0.25$ and $1/\sqrt{64}=0.125$. The log-likelihood of the second survey
+is four times as sharply curved: its data discriminate better among values of
 the parameter (for example, because it has four times as many observations), which halves
 the standard error.
 

@@ -20,7 +20,12 @@ Each lecture lives in `Chapter_N/Lecture/`:
 - `lecture-script.pdf`: a printout of the script for the lecturer. Generated (Typst);
   regenerate it after changing the script and never edit it.
 - `lecture.scss`: presentation styling. Copy the Chapter 3 file and keep the class names
-  below; do not restyle per lecture. Its demo rules are only used by the Chapter 2 lecture.
+  below; do not restyle per lecture. Its demo rules are used by the lectures with demos
+  (Chapters 2 and 4).
+- `demo-<topic>.R` (only for a lecture with a demo from a standalone script): the code
+  of the demo, in numbered sections that match the steps on the demo slide, runnable in a
+  clean R session and following the R rules of `STYLE_GUIDE.md`. Its object names are
+  those of the chapter, and a header says which packages it needs and how long it runs.
 - `lecture-assets/`: figures made for the slides (schematics as SVG, copies of chapter
   figures as PNG). Copies of figures from the chapter are unchanged; their code and
   data provenance stay in the chapter's `Theory.qmd`. Refresh copies when the original
@@ -53,11 +58,13 @@ copy in each `lecture-assets/`. The subtitle, footer and `pagetitle` name the le
 - Plan the slides to fill the length minus a few minutes of slack for discussion (Chapter
   1: about 57 minutes of slides and 3 of slack), which appears as its own row of the
   table. The number of slides follows from the time and not the other way round.
-- **No live demos.** Lectures from Chapter 3 onward have no live demos and no demo slides
-  (author's decision). The author decides during the lecture whether to run code, and the
-  script's "Adjustments during delivery" lists the chunks that fit. Only the Chapter 2
-  lecture has demos; there a demo slide's `data-timing` includes its demo and the table of
-  the script shows the two parts ("1 + 12").
+- **Live demos only where the author asks for them.** The Chapter 3 lecture has none: the
+  author decides during the lecture whether to run code, and the script's "Adjustments
+  during delivery" lists the chunks that fit. The Chapter 2 lecture has three demos from
+  the chapter's code. Each Chapter 4 lecture has one demo of 18 minutes from a standalone
+  script (author's decision of 3 November): a slice and the profile with TMB in Lecture 1,
+  the properties of estimators by simulation in Lecture 2. A demo slide's `data-timing`
+  includes its demo, and the table of the script shows the two parts ("2 + 16").
 - **Breaks** are rows of the table without a slide number, and the line under the table
   totals slides, slack and breaks.
 - **Pace in delivery:** slides take longer than the allocation below suggests. In the
@@ -98,6 +105,11 @@ is in sentence case.
    "Boxes"): one slide titled as the page shows the callout ("Practice 1: orchid fruit
    set"), at the point of the chapter where the callout stands. Slides, script and handoff
    name a `Practice` callout by its number on the theory page and its title.
+   **Live demo slides** (only in a lecture with demos) mark where the lecturer switches to
+   R: `## Live demo: <topic> {.demo-slide}`, a numbered incremental list of the general
+   steps that the code shows, and a `.demo` box that names the script and its sections (or
+   the chapter section to follow). Place a demo at the end of the slides it applies, and
+   preferably next to a break, so that R can be set up.
 5. Roadmap slides when the chapter points forward: tables of at most four rows per
    slide, titled "Course roadmap: A to B".
 6. **Practical slide** when a practical accompanies the lecture: what it covers, as
@@ -127,6 +139,13 @@ rewrite slides that showed only an example.
 - Test: with the `.example` box, the caption and the code comments covered, the slide must
   still teach the concept. Title, overview, activity, discussion, roadmap and practical
   slides are exempt.
+- **The main points stand on the slide** (author's rule of 3 November). The script expands
+  a slide and does not carry its takeaways. When the chapter or the script states the reason
+  behind a rule (why the endpoints of an interval can be transformed back), what a concept
+  is for in the book (profiles give the confidence intervals) or the general conclusion
+  that the example supports (which interval the course prefers), that point goes on the
+  slide as a bullet or the `.takeaway`. When the slide is full, make room by shortening
+  the `.example` box or the wording, not by moving the general point to the script.
 
 Other rules:
 
