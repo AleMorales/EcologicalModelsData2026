@@ -44,8 +44,9 @@ Maximum Likelihood Estimation: Uncertainty, Properties and Model Comparison
 3. **Likelihood profile intervals:** which values do the data support?
 4. **Coverage:** do the intervals do what they promise?
 5. **Properties:** why does the method work, and when does it fail?
-6. **Model comparison:** which model do the data support?
-7. **The practical:** what comes next?
+6. **Properties in R:** how do we check them by simulation?
+7. **Model comparison:** which model do the data support?
+8. **The practical:** what comes next?
 :::
 
 ## Where we are: the modelling cycle {.diagram-slide data-timing="60"}
@@ -100,13 +101,14 @@ Both work for any model fitted with `optim()`, without a formula for the varianc
 
 $$
 \hat\theta \overset{\mathrm{approx}}{\sim}
-\operatorname{Normal}\left(\theta,\frac{1}{\mathcal I(\theta)}\right)
+\operatorname{Normal}\left(\theta,\operatorname{SE}(\hat\theta)^2\right)
 \quad\text{for sufficiently large }n
 $$
 
 ::: {.incremental}
-- **Fisher information** $\mathcal I(\theta)$: what the sample contains about $\theta$.
-- **More information:** a narrower bell.
+- **Several parameters:** a multivariate Normal (Chapter 2), with a covariance matrix.
+- **Wald interval:** $\hat\theta\pm1.96\,\widehat{\operatorname{SE}}(\hat\theta)$, as in
+  Chapter 3.
 - **Conditions:** not on the boundary of its range; support independent of the parameter;
   smooth log-likelihood; number of parameters does not grow with $n$.
 :::
@@ -115,14 +117,11 @@ $$
 Poisson mean: $\operatorname{Normal}(\lambda,\lambda/n)$, the result of Chapter 3.
 :::
 
-## Fisher information {.figure-slide data-timing="300"}
+## Curvature and standard errors {.figure-slide data-timing="240"}
 
 $$
-\hat{\mathcal I}=-\ell''(\hat\theta),
-\qquad
-\widehat{\operatorname{Var}}(\hat\theta)=\frac{1}{\hat{\mathcal I}},
-\qquad
-\widehat{\operatorname{SE}}(\hat\theta)=\frac{1}{\sqrt{\hat{\mathcal I}}}
+\ell(\theta)-\ell(\hat\theta)\approx
+-\frac{(\theta-\hat\theta)^2}{2\,\widehat{\operatorname{SE}}(\hat\theta)^2}
 $$
 
 :::: {.columns}
@@ -131,14 +130,15 @@ $$
 :::
 ::: {.column width="48%"}
 ::: {.incremental}
-- **Observed information:** the curvature at the maximum.
-- **Sharp:** the data discriminate; small variance.
-- **Flat:** many values almost equally supported; large variance.
+- **Large sample:** near its maximum, the log-likelihood is close to a parabola.
+- **Falls slowly:** low curvature, many values supported, large standard error.
+- **One parameter:** standard error = $1/\sqrt{\text{curvature}}$.
+- **Several:** the curvatures give the covariance matrix.
 :::
 
 ::: {.example .fragment}
-Poisson: $\hat{\mathcal I}=n/\hat\lambda$. Ten quadrats: standard error 0.47; 50 quadrats:
-0.207 seedlings per quadrat.
+Standard error of $\hat\lambda$: ten quadrats, 0.47; 50 quadrats, 0.207 seedlings per
+quadrat.
 :::
 :::
 ::::
@@ -148,85 +148,74 @@ Relative log-likelihood of the same Poisson model. Solid: the first ten quadrats
 all 50.
 :::
 
-## The Hessian matrix {data-timing="240"}
+## `sdreport()`: standard errors and correlations {data-timing="240"}
 
-::: {.definition}
-**Hessian:** the matrix of second derivatives of a function.
-:::
-
+:::: {.columns}
+::: {.column width="46%"}
 ::: {.incremental}
-- **Hessian of the NLL at the estimates:** the observed information matrix.
-- **Its inverse:** variances on the diagonal, covariances off the diagonal.
-- **`optim(hessian = TRUE)`:** returns it for the parameters that it searched over.
-- **Tilted contours:** correlated estimates; `cov2cor()` gives the correlation.
+- **`sdreport(obj)`:** after the fit; the curvature at the estimates.
+- **`summary()`:** a row per parameter, with `Estimate` and `Std. Error`, on the optimised
+  scale.
+- **`cov.fixed`:** the covariance matrix; `cov2cor()` gives the correlations.
+- **Tilted contours:** correlated estimates.
 :::
+:::
+::: {.column width="54%"}
+
+```{r}
+#| echo: true
+#| eval: false
+# Standard errors after the fit of the owl model.
+owl_sd = sdreport(owl_obj)
+summary(owl_sd)
+#        Estimate Std. Error
+# log_mu    1.559      0.164
+# log_k    -1.116      0.165
+
+# Correlation between the two estimates.
+cov2cor(owl_sd$cov.fixed)  # about 0
+```
+
+:::
+::::
 
 ::: {.example .fragment}
 Correlation of the estimates: $\log(\mu)$ and $\log(k)$, about 0; $\log(k)$ and
 $\operatorname{logit}(p)$, 0.71, the tilt of the surface in Lecture 1.
 :::
 
-## From the Hessian to standard errors in R {data-timing="180"}
-
-::: {.incremental}
-- **`solve()`:** the inverse of the Hessian.
-- **`diag()`:** the variances, from its diagonal.
-- **`sqrt()`:** the standard errors.
-:::
-
-```{r}
-#| echo: true
-#| eval: false
-# Fit the owl model again, now asking optim() for the Hessian.
-owl_fit = optim(
-  par = owl_obj$par, fn = owl_obj$fn, gr = owl_obj$gr,
-  method = "BFGS", hessian = TRUE
-)
-
-# Invert the Hessian, take the variances from its diagonal and their square roots.
-owl_covariance = solve(owl_fit$hessian)
-sqrt(diag(owl_covariance))  # log_mu: 0.164, log_k: 0.165
-```
-
-::: {.takeaway .fragment}
-Standard errors of $\log(\mu)$ and $\log(k)$, not of $\mu$ and $k$.
-:::
-
 ## Back-transforming a standard error {data-timing="300"}
 
-The Hessian gives the standard error on the scale that was optimised.
+`sdreport()` gives the standard error on the scale that was optimised.
 
 :::: {.columns}
 ::: {.column .fragment width="50%"}
-### Jensen's inequality
+### A non-linear function and an average
 
 For a non-linear $g$: $E[g(X)]\neq g(E[X])$.
 
-A standard error is the square root of a variance, and a variance is a kind of mean. So
-we cannot apply $g$ to it.
+A variance is an average and a standard error its square root, so applying $g$ to them
+gives no standard error. Estimates and endpoints are values: they transform.
 :::
 ::: {.column .fragment width="50%"}
 ### The delta method
 
-$\widehat{\operatorname{SE}}(g(\hat\theta))\approx
-\left|g'(\hat\theta)\right|\,\widehat{\operatorname{SE}}(\hat\theta)$
+Treats $g$ as a straight line near the estimate: an approximation (Chapter 6).
 
-The first derivative at the estimate, so each transformation has its own correction. It
-corrects to some extent (Chapter 6). TMB applies it for us: `ADREPORT()`.
+`ADREPORT(k)` in the NLL: `sdreport()` adds a row with the standard error of $k$.
 :::
 ::::
 
 ::: {.example .fragment}
-Ten quadrats: 0.47 on the original scale, 0.213 on the log scale. `exp(0.213)` gives 1.24,
-very wrong. Only for $\exp$ is the slope the estimate $\hat\lambda$: $2.2\times0.213$ gives 0.47.
+Ten quadrats: 0.213 on the log scale; `exp(0.213)` gives 1.24, but the standard error of
+$\hat\lambda$ is 0.47. Owls: $\hat k=0.327$, standard error 0.054.
+:::
+
+::: {.takeaway .fragment}
+Transform estimates and endpoints; for a standard error on the new scale, use `ADREPORT()`.
 :::
 
 ## A Wald interval depends on the scale {.figure-slide data-timing="240"}
-
-$$
-\ell(\theta)-\ell(\hat\theta)\approx
--\frac{(\theta-\hat\theta)^2}{2\,\widehat{\operatorname{SE}}(\hat\theta)^2}
-$$
 
 :::: {.columns}
 ::: {.column width="52%"}
@@ -235,13 +224,14 @@ $$
 ::: {.column width="48%"}
 ::: {.incremental}
 - **Wald interval:** replaces the log-likelihood by a parabola.
-- **Good:** if close to a parabola on that scale.
-- **Optimised scale:** calculate it there; transforming the endpoints keeps the coverage.
+- **Optimised scale:** an unconstrained parameter is closer to Normal; calculate it there.
+- **Endpoints:** an increasing transformation keeps the coverage.
 - **Positive parameter:** stays positive, and asymmetry is captured.
 :::
 
 ::: {.example .fragment}
-Ten quadrats: 1.28 to 3.12 on the original scale; 1.45 to 3.34 from the log scale.
+Ten quadrats: 1.28 to 3.12 on the original scale; 1.45 to 3.34 from the log scale. Owls,
+$k$: 0.221 to 0.434; 0.237 to 0.453.
 :::
 :::
 ::::
@@ -249,49 +239,6 @@ Ten quadrats: 1.28 to 3.12 on the original scale; 1.45 to 3.34 from the log scal
 ::: {.caption}
 Solid: the log-likelihood. Dashed and dotted: parabolas on the original and the log scale.
 Grey line: $-1.92$.
-:::
-
-## `sdreport()` and `ADREPORT()` {data-timing="240"}
-
-:::: {.columns}
-::: {.column width="46%"}
-::: {.incremental}
-- **`sdreport(obj)`:** after the fit, calculates the Hessian and reads the estimates.
-- **`summary()`:** a row per parameter, with `Estimate` and `Std. Error`, on the optimised
-  scale.
-- **`ADREPORT()`** in the NLL: adds a row for a quantity calculated from the parameters.
-:::
-:::
-::: {.column width="54%"}
-
-```{r}
-#| echo: true
-#| eval: false
-nb_nll = function(parms, data) {
-  getAll(parms, data)
-  mu = exp(log_mu)
-  k = exp(log_k)
-  # Ask for the standard error of k itself.
-  ADREPORT(k)
-  -sum(dnbinom2(x = calls, mu = mu, size = k,
-                log = TRUE))
-}
-# Process the new NLL and fit it again (as before),
-# then calculate the standard errors.
-owl_sd = sdreport(owl_obj)
-summary(owl_sd)
-#        Estimate Std. Error
-# log_mu    1.559      0.164
-# log_k    -1.116      0.165
-# k         0.327      0.054
-```
-
-:::
-::::
-
-::: {.example .fragment}
-Wald intervals from the log scale: $\mu$, 3.45 to 6.55 calls per visit; $k$, 0.237 to 0.453.
-On the original scale: $k$, 0.221 to 0.434.
 :::
 
 ## Practice 3: an interval from the log scale {data-timing="240"}
@@ -306,7 +253,7 @@ per lizard, and `sdreport()` reports a standard error of 0.141.
 2. Why is it not symmetric around the estimate?
 :::
 
-## Likelihood profile intervals {data-timing="300"}
+## Likelihood profile intervals {data-timing="240"}
 
 ::: {.definition}
 **Likelihood profile interval:** all the values whose relative profile log-likelihood is
@@ -327,7 +274,7 @@ within 1.92 units of the maximum; the other parameters are re-estimated for each
 qchisq(p = 0.95, df = 1) / 2  # 1.92
 ```
 
-## Reading a likelihood profile interval {.figure-slide data-timing="240"}
+## Reading a likelihood profile interval {.figure-slide data-timing="300"}
 
 :::: {.columns}
 ::: {.column width="58%"}
@@ -339,10 +286,11 @@ qchisq(p = 0.95, df = 1) / 2  # 1.92
 - **Scale:** it does not depend on it.
 - **Inner fits:** move the parameter, re-estimate the others, record the NLL, find the two
   crossings of the cutoff.
+- **Larger sample:** closer to a parabola, so the intervals agree.
 :::
 
 ::: {.example .fragment}
-Ten quadrats: profile 1.40 to 3.25; 0.80 below and 1.05 above the estimate.
+Ten quadrats: profile 1.40 to 3.25. With all 50 the three intervals nearly coincide.
 :::
 :::
 ::::
@@ -352,7 +300,7 @@ Ten quadrats: profile 1.40 to 3.25; 0.80 below and 1.05 above the estimate.
 3.34; profile, 1.40 to 3.25.
 :::
 
-## `tmbprofile()` and `confint()` {data-timing="180"}
+## `tmbprofile()` and `confint()` {data-timing="120"}
 
 ::: {.incremental}
 - **`TMB::tmbprofile(obj, name, trace = FALSE)`:** profiles one parameter, named as in the
@@ -373,50 +321,24 @@ owl_profile_k = TMB::tmbprofile(owl_obj, name = "log_k", trace = FALSE)
 exp(confint(owl_profile_k))
 ```
 
-## Intervals and sample size {data-timing="240"}
+## Profile intervals with several parameters {data-timing="240"}
 
-::: {.incremental}
-- **Larger sample:** the log-likelihood is closer to a parabola around its maximum.
-- **So:** the intervals agree more closely, and all are narrower.
-- **Small sample:** the method matters.
-:::
-
-::: {.example .fragment}
-
-| Interval for $\lambda$ | 10 quadrats | 50 quadrats |
-|---|---|---|
-| Wald, original scale | 1.28 to 3.12 | 1.73 to 2.55 |
-| Wald, from the log scale | 1.45 to 3.34 | 1.77 to 2.59 |
-| Profile | 1.40 to 3.25 | 1.76 to 2.57 |
-
-:::
-
-## Profile intervals with several parameters {.figure-slide data-timing="300"}
-
-:::: {.columns}
-::: {.column width="54%"}
-![](lecture-assets/profile-interval.png){fig-alt="Relative profile log-likelihood of the mean number of calls per visit for the owl data as a solid vermillion curve, with the quadratic approximation on the original scale as a dashed curve. Both reach zero near 4.75. To the right of the estimate the profile falls more slowly than the parabola, and to the left it falls faster. A horizontal grey line marks -1.92, and dotted vertical lines mark the endpoints of the likelihood profile interval at about 3.49 and 6.68."}
-
-::: {.caption}
-Solid: the profile. Dashed: the parabola on the original scale. Horizontal line: $-1.92$.
-Vertical lines: the likelihood profile interval.
-:::
-:::
-::: {.column width="46%"}
 ::: {.incremental}
 - **Each parameter:** its own profile, with the others re-estimated.
 - **Wald, optimised scale:** can come close.
 - **Wald, original scale:** may miss the asymmetry.
+- **The reference:** the likelihood profile interval.
 :::
 
 ::: {.example .fragment}
-$k$: profile 0.235 to 0.451; Wald from the log scale 0.237 to 0.453; Wald on the original
-scale 0.221 to 0.434.
 
-$\mu$: profile 3.49 to 6.68; Wald from the log scale 3.45 to 6.55 calls per visit.
+| 95% interval | Mean $\mu$ (calls per visit) | Shape $k$ |
+|---|---|---|
+| Profile | 3.49 to 6.68 | 0.235 to 0.451 |
+| Wald, from the log scale | 3.45 to 6.55 | 0.237 to 0.453 |
+| Wald, original scale | | 0.221 to 0.434 |
+
 :::
-:::
-::::
 
 ## Joint confidence regions {.figure-slide data-timing="240"}
 
@@ -475,25 +397,29 @@ owl_obj$simulate(owl_fit$par)$calls[1:20]
 :::: {.columns}
 ::: {.column width="62%"}
 ![](lecture-assets/coverage.png){fig-alt="Simulated coverage of nominal 95% intervals, with a dashed line at 0.95. Poisson with a mean of 0.5 and 10 quadrats: likelihood interval 0.924, Wald interval 0.878. Negative Binomial, shape k, 20 visits: likelihood interval 0.942, Wald interval 0.945, both close to the dashed line."}
+
+::: {.caption}
+Dashed line: the nominal level. Likelihood: the likelihood profile interval. Poisson: Wald
+on the original scale. Negative Binomial: Wald from the log scale.
+:::
 :::
 ::: {.column width="38%"}
 ::: {.incremental}
 - **Simulate** from known parameters: does each interval contain them?
-- **Wald, original scale:** fails when counts are few.
+- **Wald, original scale:** fails where the log-likelihood is far from a parabola.
 - **Wald, suitable scale:** can match the profile, with one fit.
 - **Simulated coverage:** has its own noise.
 :::
 :::
 ::::
 
-::: {.caption}
-Dashed line: the nominal level. Likelihood: the likelihood profile interval. Poisson: Wald
-on the original scale. Negative Binomial: Wald from the log scale.
+::: {.example .fragment}
+Wald 0.878 and profile 0.924 (Poisson); 0.945 and 0.942 (Negative Binomial).
 :::
 
-::: {.example .fragment}
-Poisson, $\lambda=0.5$, 10 quadrats: Wald 0.878, profile 0.924. Negative Binomial, $k$, 20
-visits: Wald 0.945, profile 0.942. Noise about 0.005 for 2,000 samples.
+::: {.takeaway .fragment}
+Profile intervals: closer to 95% in small samples, at the cost of many fits. Wald on the
+log scale: the fast approximation.
 :::
 
 ## Discussion: Wald or profile? {data-timing="180"}
@@ -513,7 +439,7 @@ Wald · Profile
 **1 minute:** decide with a neighbour.
 :::
 
-## Consistency {data-timing="240"}
+## Consistency and asymptotic normality {data-timing="300"}
 
 ::: {.definition}
 **Consistent estimator:** the chance of missing the parameter by more than any given margin
@@ -522,41 +448,15 @@ becomes small as the sample grows.
 
 ::: {.incremental}
 - **An MLE is an estimator:** it has a sampling distribution, a bias and a variance.
-- **MLEs are consistent:** when the observations are i.i.d. from the model.
-- **A statement about probabilities:** not about every sample.
+- **MLEs are consistent:** when the observations are i.i.d. from the model; a statement
+  about probabilities, not about every sample.
+- **Normal approximation:** how large $n$ must be depends on the model and the parameter.
+- **Large $n$:** the standard error of one fit describes the spread across samples.
 :::
 
 ::: {.example .fragment}
-2,000 hypothetical samples from the owl fit ($\mu=4.75$, $k=0.327$). Missing $k$ by 0.1 or
-more: 45% with 20 visits, 7% with 122, none with 500.
-:::
-
-## Asymptotic normality in a simulation {.figure-slide data-timing="240"}
-
-![](lecture-assets/sampling-distribution-k.png){fig-alt="Two grey histograms of maximum likelihood estimates of the shape k from 2,000 hypothetical samples, each with a vermillion Normal curve with the mean and standard deviation of the estimates and a dashed vertical line at 0.327. With 20 visits the histogram is strongly skewed, with a tail that reaches about 2.5, and the Normal curve describes it poorly. With 500 visits the histogram runs from about 0.25 to 0.42, is nearly symmetric and follows the Normal curve closely."}
-
-::: {.caption}
-Bars: the estimates. Curves: Normal distributions with their mean and standard deviation.
-Dashed line: the $k$ used to simulate.
-:::
-
-:::: {.columns}
-::: {.column width="68%"}
-::: {.incremental}
-- **How large $n$ must be:** depends on model and parameter.
-- **Small samples:** can be skewed.
-- **Large $n$:** one fit's standard error describes the spread.
-:::
-:::
-::: {.column width="32%"}
-::: {.example .fragment}
-20 visits: mean 0.40. 500 visits: mean 0.329. 122 visits: standard deviation of
-$\log(\hat k)$ 0.162, standard error 0.165.
-:::
-:::
-::::
-
-::: {style="height: 45px;"}
+Missing $k$ by 0.1 or more: 45% with 20 visits, 7% with 122, none with 500. With 122:
+standard deviation of $\log(\hat k)$ 0.162, standard error 0.165.
 :::
 
 ## Efficiency {data-timing="240"}
@@ -569,14 +469,17 @@ $\log(\hat k)$ 0.162, standard error 0.165.
 - **Maximum likelihood:** uses the probability of each observation; the method of moments
   only the mean and the variance.
 - **Asymptotically efficient:** in large samples no other regular estimator is more precise.
-- **The limit:** the inverse of the Fisher information is the smallest variance that such an
-  estimator can have.
+- **The limit:** the variance from the curvature of the log-likelihood is the smallest that
+  such an estimator can have.
 :::
 
 ::: {.example .fragment}
 Standard deviation of $\hat k$: 122 visits, 0.055 against 0.086; 500 visits, 0.024 against
-0.042. Mean squared error at 122 visits: 0.0031 against 0.0085. The method of moments would
-need about 2.5 times as many visits.
+0.042. The method of moments would need about 2.5 times as many visits.
+:::
+
+::: {.takeaway .fragment}
+The reason to use maximum likelihood whenever the likelihood can be written.
 :::
 
 ## Bias in finite samples {data-timing="240"}
@@ -584,23 +487,28 @@ need about 2.5 times as many visits.
 ::: {.incremental}
 - **MLEs:** in general biased in finite samples.
 - **The bias:** shrinks as the sample grows, faster than the standard error.
-- **Small sample:** these properties are approximations; check by simulation.
-- **`checkConsistency(obj, n, estimate = TRUE)`:** simulates samples at the estimates and
-  fits each of them.
+- **Small sample:** these properties are approximations.
+- **Check by simulation:** simulate hypothetical samples from the fit, refit each, and
+  compare the mean of the estimates with the value used to simulate.
 :::
 
 ::: {.example .fragment}
 Relative bias of $\hat k$: 21%, 2.6% and 0.6% for 20, 122 and 500 visits.
 :::
 
-```{r}
-#| echo: true
-#| eval: false
-set.seed(seed = 801)
-owl_check = checkConsistency(owl_obj, n = 2000, estimate = TRUE)
-check_estimates = summary(owl_check)$estimate$par
-mean(exp(check_estimates$log_k)) / k_mle - 1  # 3.0% for 122 visits
-```
+## Live demo: properties by simulation {.demo-slide data-timing="1080"}
+
+::: {.incremental}
+1. **One hypothetical sample:** `obj$simulate()` at the estimates, fitted like the data.
+2. **Many samples:** placeholder data set the sample size; keep every estimate.
+3. **Sampling distributions:** a histogram of the estimates for each sample size.
+4. **Properties:** consistency, the standard error, efficiency and bias from the estimates.
+:::
+
+::: {.demo}
+**Script:** `demo-properties.R`, sections 1 to 4 (the owl model; section 3 runs for about a
+minute).
+:::
 
 ## Misspecified models {data-timing="240"}
 
@@ -616,28 +524,7 @@ process, for any parameter values.
 - **Standard errors and intervals:** become approximations.
 :::
 
-::: {.example .fragment}
-Owls: implied variance 74, sample 42; zeros 41% against 44%; 122 visits from 24 nests.
-:::
-
-## Discussion: which property? {data-timing="180"}
-
-::: {.incremental}
-1. None of 2,000 estimates from 500 visits misses $k$ by 0.1.
-2. A histogram of estimates that has become bell-shaped.
-3. One method needs 2.5 times the visits of another.
-4. A mean estimate 21% too high with 20 visits.
-:::
-
-::: {.takeaway}
-Consistency · Asymptotic normality · Efficiency · Bias
-:::
-
-::: {.activity}
-**1 minute:** decide with a neighbour.
-:::
-
-## The Akaike information criterion {data-timing="300"}
+## The Akaike information criterion {data-timing="360"}
 
 $$
 \mathrm{AIC}=2K-2\,\ell(\hat\theta)
@@ -650,29 +537,12 @@ $$
 - **Lowest AIC:** preferred; only differences between models fitted to the same observations
   in the same units are meaningful.
 - **It estimates:** the distance to the data generating process when predicting new data.
+- **AICc:** adds $2K(K+1)/(n-K-1)$ for small samples; an approximation.
 :::
 
 ::: {.example .fragment}
 Owls: Poisson, $K=1$, $\ell=-634.16$; Negative Binomial, $K=2$, $\ell=-299.44$. Difference
-in AIC about 667.
-:::
-
-## Corrected AIC {data-timing="180"}
-
-$$
-\mathrm{AICc}=\mathrm{AIC}+\frac{2K(K+1)}{n-K-1}
-$$
-
-::: {.incremental}
-- **Few observations per parameter:** $2K$ is too small.
-- **Each parameter:** costs $2n/(n-K-1)$.
-- **Use:** as AIC, as a difference.
-- **Derived for linear models with Normal errors:** an approximation here, but common in the
-  literature.
-:::
-
-::: {.example .fragment}
-Owls: 0.03 and 0.10 units, against a difference of 667.
+in AIC about 667; AICc adds only 0.03 and 0.10.
 :::
 
 ## Using AIC {data-timing="180"}
@@ -702,7 +572,7 @@ $-230.4$.
 2. Could the log-likelihood of the Gamma model have been the lower of the two?
 :::
 
-## A recipe for a fit {data-timing="180"}
+## A recipe for a fit {data-timing="120"}
 
 ::: {.incremental}
 1. **Write the model:** random variable, distribution, assumptions.
@@ -719,14 +589,6 @@ $-230.4$.
 The same steps for every model in the rest of the book.
 :::
 
-## Course roadmap: from likelihood to response curves {.roadmap data-timing="60"}
-
-| Chapter | Main question |
-|---|---|
-| **4. Maximum likelihood estimation** | How do we estimate, and how uncertain are we? |
-| **5. Deterministic functions in ecology** | Which curves describe ecological responses? |
-| **6. Fitting ecological response curves** | How do we fit a curve to data? |
-
 ## The Chapter 4 R practical {data-timing="120"}
 
 ::: {.incremental}
@@ -742,20 +604,21 @@ The same steps for every model in the rest of the book.
 Exercises 1 to 4 are the core. Try, then check.
 :::
 
-## Summary and closing questions {.closing data-timing="240"}
+## Summary and closing questions {.closing data-timing="180"}
 
 ::: {.incremental}
-- In large samples an MLE is approximately Normal, with variance from the inverse of the
-  information.
-- `sdreport()` gives standard errors on the optimised scale, and endpoints transform back.
+- In large samples an MLE is approximately Normal, with a covariance matrix from the
+  curvature of the log-likelihood.
+- `sdreport()` gives standard errors on the optimised scale; endpoints transform back,
+  standard errors need `ADREPORT()`.
 - Profile intervals follow the likelihood and do not depend on the scale.
-- Simulation checks coverage.
+- Simulation checks coverage and the properties of estimators.
 - MLEs are consistent and asymptotically efficient, and biased in small samples.
 - AIC ranks candidates and shows nothing about whether they are good.
 :::
 
 ::: {.takeaway .fragment}
-Fisher information · Hessian · Wald · Profile · Coverage · Efficiency · AIC
+Curvature · Standard errors · Wald · Profile · Coverage · Efficiency · AIC
 :::
 
 ::: {.activity .fragment}

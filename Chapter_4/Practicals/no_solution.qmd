@@ -69,8 +69,8 @@ is calculated with the $n_i$ of its own tank.
    process it with `MakeADFun()` and minimise it with `optim()`. Check the convergence and
    report the estimate of $p$. Calculate the standard error on the logit scale from the
    Hessian by hand and with `sdreport()`, and calculate a 95% Wald interval for $p$.
-4. Calculate the 95% likelihood interval for $p$ by hand with `uniroot()` and with
-   `TMB::tmbprofile()`, and compare it with the Wald interval.
+4. Calculate the 95% likelihood interval for $p$ with `TMB::tmbprofile()` and
+   `confint()`, and compare it with the Wald interval.
 5. Is the Binomial model adequate for these data? For each initial density, compare the
    variance of the number of survivors among tanks with the variance of the fitted model.
    What does the comparison imply for the intervals of questions 3 and 4?
@@ -233,9 +233,11 @@ The convergence code is 0. By invariance, `plogis()` of the estimate of
 $\operatorname{logit}p$ is the MLE of $p$: 0.471, the value that we derived on paper. The
 minimum of the NLL is 98.94, so the maximum log-likelihood is $-98.94$.
 
-There are two routes to the standard error. The first is the calculation by hand of the
-theory. The Hessian that `optim()` returns refers to the parameter that it searched over,
-so its inverse is the approximate variance of the estimate of $\operatorname{logit}p$:
+There are two routes to the standard error. The first is the calculation by hand that the
+box on the Hessian matrix in
+[Curvature and standard errors](../Theory.qmd#sec-curvature) describes. The Hessian that
+`optim()` returns refers to the parameter that it searched over, so its inverse is the
+approximate variance of the estimate of $\operatorname{logit}p$:
 
 ```{r}
 # The Hessian is a 1 by 1 matrix; take its single element. For this model the second
@@ -286,46 +288,10 @@ standard error is $\sqrt{\hat p(1-\hat p)/\sum n_i}\approx 0.021$.
 
 The model has one parameter, so the profile is the log-likelihood itself. The likelihood
 interval contains the values of $p$ whose relative log-likelihood is above the cutoff of
-$-1.92$ (see [Likelihood profile intervals](../Theory.qmd#sec-profile_intervals)). By hand,
-we write the relative log-likelihood as a function of $p$ and use `uniroot()` to find the
-two values at which it equals the cutoff. `uniroot()` needs an interval whose ends give
-values of opposite sign. The function that we give it is positive at the estimate, so we
-search between 0.2 and $\hat p$ and between $\hat p$ and 0.8, after checking that the
-relative log-likelihood is below the cutoff at 0.2 and at 0.8:
-
-```{r}
-# Cutoff for a 95% interval: half the 95% quantile of a chi-squared distribution
-# with one degree of freedom.
-cutoff = qchisq(p = 0.95, df = 1) / 2
-
-# Log-likelihood of the Binomial model as a function of p, relative to the maximum.
-binomial_relative = function(p) {
-  sum(dbinom(x = survivors, size = tadpoles, prob = p, log = TRUE)) +
-    frog_fit$value
-}
-
-# Relative log-likelihood at the outer ends of the two search intervals.
-binomial_relative(p = 0.2)
-binomial_relative(p = 0.8)
-
-# uniroot() finds where the relative log-likelihood equals -cutoff, below and above the
-# estimate.
-p_lower = uniroot(
-  f = function(p) binomial_relative(p) + cutoff,
-  interval = c(0.2, p_hat),
-  tol = 1e-8
-)$root
-p_upper = uniroot(
-  f = function(p) binomial_relative(p) + cutoff,
-  interval = c(p_hat, 0.8),
-  tol = 1e-8
-)$root
-c(lower = p_lower, upper = p_upper)
-```
-
+$-1.92$ (see [Likelihood profile intervals](../Theory.qmd#sec-profile_intervals)).
 `TMB::tmbprofile()` calculates the profile of a parameter of the object, and `confint()`
-finds the two crossings of the cutoff. The profile is calculated on the logit scale, so we
-transform the endpoints with `plogis()`:
+finds the two values at which it crosses the cutoff. The profile is calculated on the logit
+scale, so we transform the endpoints with `plogis()`:
 
 ```{r}
 # Profile of logit(p) and the endpoints of its 95% interval, transformed back.
@@ -333,9 +299,7 @@ frog_profile = TMB::tmbprofile(frog_obj, name = "logit_p", trace = FALSE)
 plogis(confint(frog_profile))
 ```
 
-The relative log-likelihood is $-103.7$ at $p=0.2$ and $-148.1$ at $p=0.8$, far below the
-cutoff, so each search interval contains one crossing. By hand and with `tmbprofile()`
-the likelihood interval goes from 0.430 to 0.513, the same as the Wald interval to three
+The likelihood interval goes from 0.430 to 0.513, the same as the Wald interval to three
 decimals. The two methods agree because the sample is large: with 560 tadpoles the
 log-likelihood is very close to a parabola on the logit scale, which is the approximation
 behind the Wald interval. Under the Binomial model with independent tanks, we would report
@@ -545,10 +509,9 @@ the Chapter 3 practical (models for observations that are not independent start 
    approximate joint 95% confidence region. Is the method-of-moments estimate inside the
    region?
 4. Calculate a 95% Wald interval for $k$ (on the log scale, with the endpoints transformed
-   back) with the standard error from `sdreport()`. Then calculate the profile of $k$ by
-   hand on a grid of values of $k$, as in the theory, and find the values of $k$ that are
-   within 1.92 units of the maximum. Check the result with `TMB::tmbprofile()` and
-   `confint()`, and compare the likelihood profile interval with the Wald interval.
+   back) with the standard error from `sdreport()`. Then calculate the 95% likelihood
+   profile interval for $k$ with `TMB::tmbprofile()` and `confint()`, and compare it with
+   the Wald interval.
 5. Plot the relative frequencies of the counts together with the probabilities of the
    fitted Negative Binomial model and of a Poisson model. Compare the fraction of empty
    quadrats under each model with the observed fraction, and compare the two models with
@@ -657,7 +620,7 @@ Gamma model had generated the data (see
 [Properties of maximum likelihood estimators](../Theory.qmd#sec-mle_properties) and
 [Uncertainty from the likelihood](../Theory.qmd#sec-likelihood-uncertainty)). This
 exercise continues with the objects of Exercise 4. The function that runs the simulation
-is given below the questions with three gaps, which you fill in.
+is given below the questions with two gaps, which you fill in.
 
 1. For the shape $k$ of the Gamma model fitted to the tree volumes, calculate a 95% Wald
    interval (on the log scale, with the endpoints transformed back) with the standard
@@ -671,13 +634,11 @@ is given below the questions with three gaps, which you fill in.
    deviation and the mean squared error of the two estimators with the shape that you used
    to simulate. Tip: the function has the sample size, the shape and the rate as arguments
    because you will need it again in question 4.
-3. Complete the second and the third gap, which record for each sample whether the
-   Wald interval and the likelihood profile interval for the shape contain the shape that
-   you used to simulate, and calculate the coverage of both intervals. Hint: you do not
-   need `tmbprofile()` inside the simulation. A likelihood profile interval contains a
-   value whenever the profile log-likelihood at that value is within
-   `qchisq(p = 0.95, df = 1) / 2` of the maximum log-likelihood, so one extra fit with the
-   shape fixed at that value is enough.
+3. Complete the second gap, which records for each sample whether the Wald interval for
+   the shape contains the shape that you used to simulate, and calculate the coverage of
+   the interval. (The coverage of the likelihood profile interval would need
+   `tmbprofile()` in every sample, which takes much longer, so we do not simulate it
+   here.)
 4. Set seed 802 and repeat questions 2 and 3 with samples of 151 penguins from the
    Gamma model fitted to the body masses in grams. How do the bias and the coverage change?
    The two simulations differ in the sample size and in the model. How can you check which
@@ -685,9 +646,9 @@ is given below the questions with three gaps, which you fill in.
 5. Why do these results only approximate the behaviour of the estimators and the intervals
    for the real trees and penguins?
 
-The function below needs `gamma_nll()` from Exercise 4, the helper `cmb()`, and the objects
-`critical_value` and `cutoff` (the critical value of the standard Normal distribution and
-the cutoff of the relative log-likelihood for a 95% interval). It draws every sample
+The function below needs `gamma_nll()` from Exercise 4, the helper `cmb()`, and the object
+`critical_value` (the critical value of the standard Normal distribution for a 95%
+interval). It draws every sample
 with the function `simulate()` of an object that has placeholder data of the right length,
 as in the theory, and stores the results of every sample in one row of a data frame.
 In each gap, replace `NA` by your own code. The lines that follow a gap use the names of
@@ -697,14 +658,13 @@ the objects that the gap creates, so keep those names.
 #| eval: false
 # One simulation of hypothetical samples from a Gamma model whose parameters we know.
 # For each sample: the maximum likelihood and the method-of-moments estimates of the
-# shape, and whether the Wald interval (log scale) and the profile interval contain the
-# shape that was used to simulate.
+# shape, and whether the Wald interval (log scale) contains the shape that was used to
+# simulate.
 simulate_gamma_samples = function(n_obs, shape, rate, n_samples) {
   results = data.frame(
     shape_ml = rep(NA, times = n_samples),
     shape_mom = rep(NA, times = n_samples),
     wald_covered = rep(NA, times = n_samples),
-    profile_covered = rep(NA, times = n_samples),
     converged = rep(NA, times = n_samples)
   )
   # An object with placeholder data of the right length, from which the samples are
@@ -731,8 +691,7 @@ simulate_gamma_samples = function(n_obs, shape, rate, n_samples) {
     shape_ml = exp(fit$par[["log_shape"]])
 
     # The Wald interval contains the shape when the estimate is within the critical value
-    # of standard errors on the log scale. The profile interval contains it when the
-    # relative profile log-likelihood at that shape is within the cutoff.
+    # of standard errors on the log scale.
 
     # GAP 2: the standard error of the estimate of log(shape), from sdreport() of sim_obj,
     # in an object called se_log_shape. Then TRUE in wald_covered when the Wald interval
@@ -740,22 +699,10 @@ simulate_gamma_samples = function(n_obs, shape, rate, n_samples) {
     se_log_shape = NA
     wald_covered = NA
 
-    # GAP 3: process gamma_nll() for x again with log_shape fixed at the logarithm of the
-    # shape that was used to simulate (the argument map of MakeADFun(), as in the profile
-    # by hand of Exercise 2) and log_rate starting at its estimate in fit, and store the
-    # result in an object called fixed_obj. Fit it with optim(), which re-estimates the
-    # rate only, and store the result in an object called fixed_fit. Then record in
-    # profile_covered whether the relative profile log-likelihood at that shape is within
-    # the cutoff.
-    fixed_obj = NA
-    fixed_fit = NA
-    profile_covered = NA
-
     results$shape_ml[i] = shape_ml
     results$shape_mom[i] = shape_mom
     results$wald_covered[i] = wald_covered
-    results$profile_covered[i] = profile_covered
-    results$converged[i] = fit$convergence == 0 && fixed_fit$convergence == 0
+    results$converged[i] = fit$convergence == 0
   }
   results
 }

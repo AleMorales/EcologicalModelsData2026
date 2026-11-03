@@ -55,10 +55,9 @@ the Chapter 3 practical (models for observations that are not independent start 
    approximate joint 95% confidence region. Is the method-of-moments estimate inside the
    region?
 4. Calculate a 95% Wald interval for $k$ (on the log scale, with the endpoints transformed
-   back) with the standard error from `sdreport()`. Then calculate the profile of $k$ by
-   hand on a grid of values of $k$, as in the theory, and find the values of $k$ that are
-   within 1.92 units of the maximum. Check the result with `TMB::tmbprofile()` and
-   `confint()`, and compare the likelihood profile interval with the Wald interval.
+   back) with the standard error from `sdreport()`. Then calculate the 95% likelihood
+   profile interval for $k$ with `TMB::tmbprofile()` and `confint()`, and compare it with
+   the Wald interval.
 5. Plot the relative frequencies of the counts together with the probabilities of the
    fitted Negative Binomial model and of a Poisson model. Compare the fraction of empty
    quadrats under each model with the observed fraction, and compare the two models with
@@ -240,9 +239,8 @@ $\log\mu$ and $\log k$. We calculate the interval for $\log k$ and transform its
 with `exp()`:
 
 ```{r}
-# 0.975 quantile of the standard Normal distribution and the cutoff for one parameter.
+# 0.975 quantile of the standard Normal distribution.
 critical_value = qnorm(p = 0.975)
-cutoff = qchisq(p = 0.95, df = 1) / 2
 
 # Standard errors of the estimates of log(mu) and log(k).
 lily_sd = sdreport(lily_obj)
@@ -260,35 +258,10 @@ wald_k_lily
 The standard errors are 0.126 for the estimate of $\log\mu$ and 0.117 for the estimate of
 $\log k$, and the Wald interval for $k$ goes from 0.208 to 0.329.
 
-For the profile by hand we follow the theory. The surface of @fig-lily_surface shows that
-the values of $k$ that the data support lie well inside the range from 0.15 to 0.45, so we
-take a grid over that range. For each value of $k$ on the grid we process the NLL with
-$\log k$ held fixed, with the argument `map` of `MakeADFun()`, and `optim()` then
-re-estimates only $\log\mu$, starting from the joint estimate:
-
-```{r}
-# Profile of k by hand: for each value of k on a grid, the mean is re-estimated with k
-# held fixed, starting from the joint estimate.
-k_values_lily = seq(from = 0.15, to = 0.45, by = 0.005)
-profile_k_lily = rep(NA, times = length(k_values_lily))
-for (i in seq_along(k_values_lily)) {
-  inner_obj = MakeADFun(
-    cmb(nb_nll, list(counts = lily_counts)),
-    list(log_mu = lily_fit$par[["log_mu"]], log_k = log(k_values_lily[i])),
-    map = list(log_k = factor(NA)),
-    silent = TRUE
-  )
-  inner_fit = optim(par = inner_obj$par, fn = inner_obj$fn, gr = inner_obj$gr, method = "BFGS")
-  # Relative profile log-likelihood (both values are NLLs, so the order is reversed).
-  profile_k_lily[i] = lily_fit$value - inner_fit$value
-}
-
-# Values of k on the grid whose relative profile log-likelihood is above the cutoff.
-range(k_values_lily[profile_k_lily >= -cutoff])
-```
-
-`TMB::tmbprofile()` makes the same inner fits and `confint()` locates the two endpoints.
-The profile is calculated for $\log k$, so we transform them with `exp()`:
+For the likelihood profile interval we follow the theory. `TMB::tmbprofile()` moves
+$\log k$ away from its estimate and re-estimates $\log\mu$ at each step, and `confint()`
+locates the two values at which the relative profile log-likelihood crosses the cutoff.
+The profile is calculated for $\log k$, so we transform the endpoints with `exp()`:
 
 ```{r}
 # Profile of log(k) and the endpoints of its 95% interval, transformed back.
@@ -302,10 +275,8 @@ rbind(
 )
 ```
 
-On the grid, the values of $k$ within 1.92 units of the maximum go from 0.210 to 0.325,
-to the precision of its step of 0.005. `tmbprofile()` agrees with them and gives the
-endpoints with more decimals: the likelihood profile interval for $k$ goes from 0.207 to
-0.328. The Wald interval goes from 0.208 to 0.329, so the two intervals agree to two
+The likelihood profile interval for $k$ goes from 0.207 to 0.328. The Wald interval goes
+from 0.208 to 0.329, so the two intervals agree to two
 decimals. With 256 quadrats the profile log-likelihood is close to a parabola on the log
 scale of $k$, and the fast approximation gives the same answer as the reference method.
 
@@ -1009,7 +980,7 @@ reduces the function by less than a small fraction of its value, and with the ma
 grams the NLL is a large number. A convergence code of zero means that the search stopped
 normally, and it is good practice to check that other starting values lead to the same
 estimates, as the callout
-[When a fit fails](../Theory.qmd#sec-maximum-likelihood) recommends. How optimisers decide
+[When a fit fails](../Theory.qmd#sec-constraints) recommends. How optimisers decide
 when to stop, and how a fit depends on its starting values, are topics of
 [Chapter 8](../../Chapter_8/Theory.qmd).
 
@@ -1106,7 +1077,7 @@ Gamma model had generated the data (see
 [Properties of maximum likelihood estimators](../Theory.qmd#sec-mle_properties) and
 [Uncertainty from the likelihood](../Theory.qmd#sec-likelihood-uncertainty)). This
 exercise continues with the objects of Exercise 4. The function that runs the simulation
-is given below the questions with three gaps, which you fill in.
+is given below the questions with two gaps, which you fill in.
 
 1. For the shape $k$ of the Gamma model fitted to the tree volumes, calculate a 95% Wald
    interval (on the log scale, with the endpoints transformed back) with the standard
@@ -1120,13 +1091,11 @@ is given below the questions with three gaps, which you fill in.
    deviation and the mean squared error of the two estimators with the shape that you used
    to simulate. Tip: the function has the sample size, the shape and the rate as arguments
    because you will need it again in question 4.
-3. Complete the second and the third gap, which record for each sample whether the
-   Wald interval and the likelihood profile interval for the shape contain the shape that
-   you used to simulate, and calculate the coverage of both intervals. Hint: you do not
-   need `tmbprofile()` inside the simulation. A likelihood profile interval contains a
-   value whenever the profile log-likelihood at that value is within
-   `qchisq(p = 0.95, df = 1) / 2` of the maximum log-likelihood, so one extra fit with the
-   shape fixed at that value is enough.
+3. Complete the second gap, which records for each sample whether the Wald interval for
+   the shape contains the shape that you used to simulate, and calculate the coverage of
+   the interval. (The coverage of the likelihood profile interval would need
+   `tmbprofile()` in every sample, which takes much longer, so we do not simulate it
+   here.)
 4. Set seed 802 and repeat questions 2 and 3 with samples of 151 penguins from the
    Gamma model fitted to the body masses in grams. How do the bias and the coverage change?
    The two simulations differ in the sample size and in the model. How can you check which
@@ -1134,9 +1103,9 @@ is given below the questions with three gaps, which you fill in.
 5. Why do these results only approximate the behaviour of the estimators and the intervals
    for the real trees and penguins?
 
-The function below needs `gamma_nll()` from Exercise 4, the helper `cmb()`, and the objects
-`critical_value` and `cutoff` (the critical value of the standard Normal distribution and
-the cutoff of the relative log-likelihood for a 95% interval). It draws every sample
+The function below needs `gamma_nll()` from Exercise 4, the helper `cmb()`, and the object
+`critical_value` (the critical value of the standard Normal distribution for a 95%
+interval). It draws every sample
 with the function `simulate()` of an object that has placeholder data of the right length,
 as in the theory, and stores the results of every sample in one row of a data frame.
 In each gap, replace `NA` by your own code. The lines that follow a gap use the names of
@@ -1146,14 +1115,13 @@ the objects that the gap creates, so keep those names.
 #| eval: false
 # One simulation of hypothetical samples from a Gamma model whose parameters we know.
 # For each sample: the maximum likelihood and the method-of-moments estimates of the
-# shape, and whether the Wald interval (log scale) and the profile interval contain the
-# shape that was used to simulate.
+# shape, and whether the Wald interval (log scale) contains the shape that was used to
+# simulate.
 simulate_gamma_samples = function(n_obs, shape, rate, n_samples) {
   results = data.frame(
     shape_ml = rep(NA, times = n_samples),
     shape_mom = rep(NA, times = n_samples),
     wald_covered = rep(NA, times = n_samples),
-    profile_covered = rep(NA, times = n_samples),
     converged = rep(NA, times = n_samples)
   )
   # An object with placeholder data of the right length, from which the samples are
@@ -1180,8 +1148,7 @@ simulate_gamma_samples = function(n_obs, shape, rate, n_samples) {
     shape_ml = exp(fit$par[["log_shape"]])
 
     # The Wald interval contains the shape when the estimate is within the critical value
-    # of standard errors on the log scale. The profile interval contains it when the
-    # relative profile log-likelihood at that shape is within the cutoff.
+    # of standard errors on the log scale.
 
     # GAP 2: the standard error of the estimate of log(shape), from sdreport() of sim_obj,
     # in an object called se_log_shape. Then TRUE in wald_covered when the Wald interval
@@ -1189,22 +1156,10 @@ simulate_gamma_samples = function(n_obs, shape, rate, n_samples) {
     se_log_shape = NA
     wald_covered = NA
 
-    # GAP 3: process gamma_nll() for x again with log_shape fixed at the logarithm of the
-    # shape that was used to simulate (the argument map of MakeADFun(), as in the profile
-    # by hand of Exercise 2) and log_rate starting at its estimate in fit, and store the
-    # result in an object called fixed_obj. Fit it with optim(), which re-estimates the
-    # rate only, and store the result in an object called fixed_fit. Then record in
-    # profile_covered whether the relative profile log-likelihood at that shape is within
-    # the cutoff.
-    fixed_obj = NA
-    fixed_fit = NA
-    profile_covered = NA
-
     results$shape_ml[i] = shape_ml
     results$shape_mom[i] = shape_mom
     results$wald_covered[i] = wald_covered
-    results$profile_covered[i] = profile_covered
-    results$converged[i] = fit$convergence == 0 && fixed_fit$convergence == 0
+    results$converged[i] = fit$convergence == 0
   }
   results
 }
@@ -1240,29 +1195,28 @@ The Wald interval goes from 2.41 to 6.27 and the likelihood profile interval fro
 6.06. The two
 intervals differ in the first decimal, unlike those for the lily seedlings in Exercise 2:
 with 31 trees the profile log-likelihood is further from a parabola. From a single sample
-we cannot tell which of the two intervals behaves better, which is what the simulation is
-for.
+we cannot tell whether an interval contains the shape as often as its confidence level
+states, which is what the simulation checks for the Wald interval.
 
 ### Question 2
 
-Here is the skeleton with its three gaps filled in, and a second function that summarises
+Here is the skeleton with its two gaps filled in, and a second function that summarises
 the results. For each sample the first function draws the measurements with
 `simulate()`, calculates the method-of-moments estimate of the shape and fits the model by
 maximum likelihood like the data, with `cmb()`, `MakeADFun()` and `optim()` (gap 1). It
-also records what question 3 asks for (gaps 2 and 3) and whether the fits stopped
-normally. The results are stored in a data frame with one row per sample:
+also records what question 3 asks for (gap 2) and whether the fit stopped normally. The
+results are stored in a data frame with one row per sample:
 
 ```{r}
 # One simulation of hypothetical samples from a Gamma model whose parameters we know.
 # For each sample: the maximum likelihood and the method-of-moments estimates of the
-# shape, and whether the Wald interval (log scale) and the profile interval contain the
-# shape that was used to simulate.
+# shape, and whether the Wald interval (log scale) contains the shape that was used to
+# simulate.
 simulate_gamma_samples = function(n_obs, shape, rate, n_samples) {
   results = data.frame(
     shape_ml = rep(NA, times = n_samples),
     shape_mom = rep(NA, times = n_samples),
     wald_covered = rep(NA, times = n_samples),
-    profile_covered = rep(NA, times = n_samples),
     converged = rep(NA, times = n_samples)
   )
   # An object with placeholder data of the right length, from which the samples are
@@ -1291,35 +1245,22 @@ simulate_gamma_samples = function(n_obs, shape, rate, n_samples) {
     shape_ml = exp(fit$par[["log_shape"]])
 
     # The Wald interval contains the shape when the estimate is within the critical value
-    # of standard errors on the log scale. The profile interval contains it when the
-    # relative profile log-likelihood at that shape is within the cutoff.
+    # of standard errors on the log scale.
 
     # Gap 2: standard error of the estimate of log(shape) and the check for the Wald interval.
     se_log_shape = summary(sdreport(sim_obj))["log_shape", "Std. Error"]
     wald_covered = abs(log(shape) - fit$par[["log_shape"]]) <= critical_value * se_log_shape
 
-    # Gap 3: one extra fit with log_shape fixed at the shape that was used to simulate,
-    # which re-estimates the rate only, and the check for the profile interval.
-    fixed_obj = MakeADFun(
-      cmb(gamma_nll, list(x = x)),
-      list(log_shape = log(shape), log_rate = fit$par[["log_rate"]]),
-      map = list(log_shape = factor(NA)),
-      silent = TRUE
-    )
-    fixed_fit = optim(par = fixed_obj$par, fn = fixed_obj$fn, gr = fixed_obj$gr, method = "BFGS")
-    profile_covered = fit$value - fixed_fit$value >= -cutoff
-
     results$shape_ml[i] = shape_ml
     results$shape_mom[i] = shape_mom
     results$wald_covered[i] = wald_covered
-    results$profile_covered[i] = profile_covered
-    results$converged[i] = fit$convergence == 0 && fixed_fit$convergence == 0
+    results$converged[i] = fit$convergence == 0
   }
   results
 }
 
 # Mean, standard deviation and mean squared error of both estimators of the shape,
-# coverage of both intervals, and the number of samples in which a fit failed.
+# coverage of the Wald interval, and the number of samples in which a fit failed.
 summarise_samples = function(results, shape) {
   data.frame(
     mean_ml = mean(results$shape_ml),
@@ -1329,7 +1270,6 @@ summarise_samples = function(results, shape) {
     sd_mom = sd(results$shape_mom),
     mse_mom = mean((results$shape_mom - shape)^2),
     coverage_wald = mean(results$wald_covered),
-    coverage_profile = mean(results$profile_covered),
     failed_fits = sum(!results$converged)
   )
 }
@@ -1363,25 +1303,20 @@ sensitive to a few very large estimates.
 
 ### Question 3
 
-The simulation of question 2 already recorded what we need. For the Wald interval we do
-not have to calculate the endpoints: the interval on the log scale contains $\log k$
-exactly when the estimate of $\log k$ is within $z_{0.975}$ standard errors of it. For the
-likelihood profile interval we followed the hint. One extra fit with the shape fixed at the
-value used to simulate gives the profile log-likelihood at that value, and the interval
-contains it when the difference from the maximum log-likelihood is above $-1.92$. The
-coverage is the fraction of samples in which each check is `TRUE`:
+The simulation of question 2 already recorded what we need. We do not have to calculate
+the endpoints of the Wald interval: the interval on the log scale contains $\log k$
+exactly when the estimate of $\log k$ is within $z_{0.975}$ standard errors of it. The
+coverage is the fraction of samples in which this check is `TRUE`:
 
 ```{r}
-# Coverage of the two intervals, from the samples of question 2.
-c(wald = mean(trees_31$wald_covered), profile = mean(trees_31$profile_covered))
+# Coverage of the Wald interval, from the samples of question 2.
+mean(trees_31$wald_covered)
 ```
 
-The coverage is 0.931 for the Wald interval and 0.939 for the likelihood profile interval.
-A coverage simulated with 2,000 samples has a standard error of about 0.005
-($\sqrt{0.94\times 0.06/2000}$), so both are below the nominal 0.95 by two standard errors
-or more. With 31 trees both intervals are approximations, and they contain the shape
-slightly less often than their confidence level states. The likelihood profile interval is
-the closer of the two.
+The coverage is 0.931. A coverage simulated with 2,000 samples has a standard error of
+about 0.006 ($\sqrt{0.93\times 0.07/2000}$), so it is below the nominal 0.95 by about three
+standard errors. With 31 trees the Wald interval is an approximation, and it contains the
+shape slightly less often than its confidence level states.
 
 ### Question 4
 
@@ -1425,13 +1360,12 @@ c(
 ```
 
 No fit failed. With 151 penguins the relative bias of the MLE of the shape is 1.6% (a mean
-of 67.2 against the 66.1 used to simulate), and the coverage is 0.947 for the Wald interval
-and 0.946 for the likelihood profile interval, both within the simulation error of 0.95.
-With 151 trees the relative bias is 1.5% and the coverages are 0.951 and 0.956. With 31
-trees the bias was 11.5% and the coverages were 0.931 and 0.939. So the sample size
-explains the change: the model of the tree volumes, which gave biased estimates and
-intervals with a coverage below 0.95 for 31 trees, behaves as the large-sample results of
-the theory predict when the sample has 151 trees.
+of 67.2 against the 66.1 used to simulate), and the coverage of the Wald interval is 0.947,
+within the simulation error of 0.95. With 151 trees the relative bias is 1.5% and the
+coverage is 0.951. With 31 trees the bias was 11.5% and the coverage was 0.931. So the
+sample size explains the change: the model of the tree volumes, which gave biased
+estimates and a Wald interval with a coverage below 0.95 for 31 trees, behaves as the
+large-sample results of the theory predict when the sample has 151 trees.
 
 How the two estimators compare does depend on the model. For the tree model with 151 trees
 the MLE remains more precise than the method-of-moments estimator (a standard deviation of
