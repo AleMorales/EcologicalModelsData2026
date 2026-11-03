@@ -834,3 +834,27 @@ Each stage adds one line: date, stage, what is done, what is next.
 
 - 3 November 2026: Stage 0 done (author's decisions, this plan; feasibility of the theory and
   practical fits checked in R 4.6.1, see the tables above). Next: Stage 1.
+- 3 November 2026: Stage 1 done. `Chapter_6/Theory.qmd` has the new part A (front matter to
+  the end of "Uncertainty of a response curve", lines 1 to about 640) followed by the old part B
+  unchanged below the comment "Stage 2 ... replaces everything below this comment" (old
+  sections from "Compare candidate models" to the quiz; no executable chunks, IDs
+  `#sec-response-comparison` and `#sec-response-residuals` kept so links resolve). Rendered
+  with `--profile dev` (RTMB 2.0, RTMBdist 1.1.0, TMB 1.9.25, emdbook 1.3.14): no warnings;
+  every printed number checked against the prose. **Names for Stage 2:** `frog_data` (list with
+  `initial`, `killed`, and `initial_grid` = 0:100 added in `#sec-delta-method`); `cmb`;
+  `binomial_nll`, whose last version has the grid lines and `ADREPORT(logit_p_grid)` but no
+  `OBS()` (Stage 2 adds `killed = OBS(killed)` and reprocesses, as Chapter 4 does);
+  `binomial_obj`, `binomial_fit`, `binomial_sd` (refitted with the grid); `alpha_mle`,
+  `H_mle`; `binomial_profile_alpha`, `binomial_profile_H`, `profile_intervals` (rows `alpha`,
+  `H`, `1/H`); `critical_value`; `band_summary`, `curve_band`; figure helpers `alpha_eye`,
+  `H_eye`; hidden `mm_nll`, `mm_obj`, `mm_fit`, `binomial_summary`, `wald_H`. New ID
+  `#sec-curve-uncertainty`; Practice callouts `imp-seedlings-light` (Practice 1) and
+  `imp-ladybird-handling` (Practice 2). The one sentence on coverage by simulation (pointer to
+  Chapter 4 and the practical's extra exercise) is at the end of "Uncertainty of the fitted
+  curve"; Stage 2 need not repeat it. **Numbers** (all agree with the table above): profile
+  intervals $\alpha$ 0.402 to 0.682, $H$ 0.00699 to 0.0264, $1/H$ 37.9 to 143.1 (Wald from the
+  log scale 33.8 to 107.2, quoted once); standard errors 0.285 (`logit_alpha`) and 0.294
+  (`log_H`); band at 100 tadpoles 23.5 to 33.1 killed. On the logit scale the band is narrowest
+  near 50 tadpoles per tank and widens towards both ends (the text says so; it is not narrowest
+  at low density). `confint()` warns "collapsing to unique 'x' values" because each profile
+  holds the estimate twice; that chunk has `warning: false` with a comment. Next: Stage 2.
