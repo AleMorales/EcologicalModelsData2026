@@ -405,6 +405,11 @@ glossary.
 - They predate the rewrite of Chapters 4 and 5 and received consistency fixes only; the
   full rewrite is a separate plan. Where their terms differ from Chapter 4, follow
   Chapter 4 in new work.
+- The rewrite of Chapter 6 (theory, practical, one lecture) follows
+  `Chapter_6/rewrite-handoff.md`: seven stages with the author's decisions of 3 November
+  (one reed frog example, the full modelling cycle, the delta method in a box only, DHARMa
+  without tests, leave-one-out cross-validation). Its last stage moves the durable
+  decisions into this file.
 - Chapter 6 has two stopgap sections that earlier pages link to: `#sec-makeadfun` (what
   RTMB calculates for `optim()`, with a collapsed technical detail box on automatic
   differentiation; the main text does not use the word tape) and `#sec-delta-method`.
