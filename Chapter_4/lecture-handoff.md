@@ -981,3 +981,14 @@ Each phase or step adds one line: date, what is done, what is next.
   correlations" is new. 30 slides, 118 minutes, 12 of slack. `figures.R` now takes the two
   standard errors from `sdreport()` (same values, PNGs unchanged). The deck rendered and slides
   6 to 10 were inspected at 1440 × 900.
+- 3 November 2026: Phase 2 done: `lecture-script.md` and `lecture-script.pdf` (Typst through
+  `quarto render lecture-script.md --to typst`) of both lectures, written from the slides as they
+  stood after the 3 November cuts (32 and 30 slides, 125 and 118 minutes, 5 and 12 of slack). Both
+  demos were run in R 4.6.1 (`demo-properties.R` took 57 seconds; the numbers agree with the
+  chapter and the slides). Same day, after the author's review of the scripts: the demo slide of Lecture 1
+  now lists the four steps of `demo-profile.R` (no surface step, no cutoff line); `Lecture_1/lecture-assets/figures.R`
+  was aligned with the chapter (names, slide numbers, the `tmbprofile()` code of `fig-slice_profile`; the figure
+  now has no line at -1.92), `surface-size-prob.png` was removed (it copied a chapter figure that no longer exists)
+  and Lecture 1, slide 27 shows `slice-profile.png`; in Lecture 2, slide 15 shows the table of owl intervals and
+  `profile-interval.png` was removed (the chapter's `fig-profile_interval` now shows the ten quadrats, as slide 13
+  does). Next: the author's review.

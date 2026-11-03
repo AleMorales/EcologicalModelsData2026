@@ -272,6 +272,13 @@ The more text or topics on a slide, the more steps.
 A break is a single line ("Break (10 minutes).") after the section of the slide that
 precedes it.
 
+A live demo slide has a section that says what the script needs, when to run its first
+section (during a break, with the session kept open), and then a **Walkthrough of the
+script** with one numbered item per section of the demo script: what to say, what to point
+at in the output and the numbers to expect, with minutes that add up to the demo. It also
+carries the questions to ask during the demo, with their answers. If the script and the slide
+differ, the section says so for the author; it does not paper over it.
+
 A section is the narrative in full sentences, which follows the chapter, connects the
 slide to the neighbouring slides by number ("slide 14 looks at that assumption") and to
 later chapters, states caveats once and gives sources in full when the lecturer may cite

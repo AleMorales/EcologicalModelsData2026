@@ -4,7 +4,7 @@
 # of samples, so the script takes minutes. The figures are written into
 # Chapter_4/Lecture_2/lecture-assets/.
 #
-# profile-interval.png, joint-region.png, coverage.png and sampling-distribution-k.png are
+# joint-region.png, coverage.png and sampling-distribution-k.png are
 # unchanged copies of figure chunks of Chapter_4/Theory.qmd. The chunks run here in the
 # chapter's order, after the chunks they depend on, with the chapter's seeds, so that the
 # random draws are the same. Only the last line of each figure chunk changes, to assign
@@ -231,9 +231,9 @@ call_counts = satiated_female$SiblingNegotiation
 n_visits = length(call_counts)
 
 # Method-of-moments estimates, as in the practical of Chapter 3.
-mu_hat = mean(call_counts)
-variance_hat = mean((call_counts - mu_hat)^2)
-k_mom = mu_hat^2 / (variance_hat - mu_hat)
+mu_mom = mean(call_counts)
+var_mom = mean((call_counts - mu_mom)^2)
+k_mom = mu_mom^2 / (var_mom - mu_mom)
 
 # Negative log-likelihood of the Negative Binomial model with mean mu and shape k.
 nb_nll = function(parms, data) {
@@ -248,7 +248,7 @@ nb_nll = function(parms, data) {
 # on the log scale.
 owl_obj = MakeADFun(
   cmb(nb_nll, list(calls = call_counts)),
-  list(log_mu = log(mu_hat), log_k = log(k_mom)),
+  list(log_mu = log(mu_mom), log_k = log(k_mom)),
   silent = TRUE
 )
 
@@ -300,7 +300,7 @@ nb_nll = function(parms, data) {
 # Process the new NLL and fit it again.
 owl_obj = MakeADFun(
   cmb(nb_nll, list(calls = call_counts)),
-  list(log_mu = log(mu_hat), log_k = log(k_mom)),
+  list(log_mu = log(mu_mom), log_k = log(k_mom)),
   silent = TRUE
 )
 owl_fit = optim(par = owl_obj$par, fn = owl_obj$fn, gr = owl_obj$gr, method = "BFGS")
@@ -314,50 +314,11 @@ owl_profile_mu = TMB::tmbprofile(owl_obj, name = "log_mu", trace = FALSE)
 owl_interval_k = exp(confint(owl_profile_k))
 owl_interval_mu = exp(confint(owl_profile_mu))
 
-# ---------------------------------------------------------------------------
-# Slide 15: profile-interval.png (copy of fig-profile_interval; 7 x 5)
-# ---------------------------------------------------------------------------
-
-# The profile of mu over a wider range than the default of tmbprofile() (ytol is the
-# drop in log-likelihood at which the profile stops), as a relative log-likelihood.
-profile_mu_wide = TMB::tmbprofile(owl_obj, name = "log_mu", ytol = 6, trace = FALSE)
+# Endpoints of the profile intervals, drawn along the axes of the joint region.
 mu_lower = owl_interval_mu[1, "lower"]
 mu_upper = owl_interval_mu[1, "upper"]
 k_lower = owl_interval_k[1, "lower"]
 k_upper = owl_interval_k[1, "upper"]
-
-# Quadratic approximation around the estimate, with the standard error of mu from the
-# Negative Binomial variance: sqrt((mu + mu^2 / k) / n), in calls per visit.
-mu_fine = seq(from = 2.5, to = 9, length.out = 131)
-se_mu_nb = sqrt((mu_mle + mu_mle^2 / k_mle) / n_visits)
-quadratic_values = -(mu_fine - mu_mle)^2 / (2 * se_mu_nb^2)
-
-curve_data = rbind(
-  data.frame(
-    mu = exp(profile_mu_wide$log_mu),
-    relative = -(profile_mu_wide$value - min(profile_mu_wide$value)),
-    curve = "Profile"
-  ),
-  data.frame(mu = mu_fine, relative = quadratic_values, curve = "Quadratic approximation")
-)
-profile_interval_plot = ggplot(curve_data, aes(x = mu, y = relative, linetype = curve)) +
-  geom_line(colour = "#D55E00", linewidth = 0.8) +
-  geom_hline(yintercept = -cutoff, colour = "grey40") +
-  geom_vline(xintercept = c(mu_lower, mu_upper), colour = "grey40", linetype = "dotted") +
-  coord_cartesian(xlim = c(2.5, 9), ylim = c(-6, 0)) +
-  labs(
-    x = expression(paste("Mean number of calls per visit, ", mu)),
-    y = "Relative log-likelihood",
-    linetype = NULL
-  ) +
-  theme_classic() +
-  theme(legend.position = "top")
-
-ggsave(
-  file.path(out_dir, "profile-interval.png"),
-  plot = profile_interval_plot,
-  width = 7, height = 5, dpi = fig_dpi
-)
 
 # ---------------------------------------------------------------------------
 # Slide 16: joint-region.png (copy of fig-joint_region; 7 x 5)
@@ -429,7 +390,7 @@ nb_nll = function(parms, data) {
 # Process and fit as before (the estimates do not change).
 owl_obj = MakeADFun(
   cmb(nb_nll, list(calls = call_counts)),
-  list(log_mu = log(mu_hat), log_k = log(k_mom)),
+  list(log_mu = log(mu_mom), log_k = log(k_mom)),
   silent = TRUE
 )
 owl_fit = optim(par = owl_obj$par, fn = owl_obj$fn, gr = owl_obj$gr, method = "BFGS")

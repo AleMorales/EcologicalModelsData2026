@@ -18,7 +18,7 @@ out_dir = "Chapter_4/Lecture_1/lecture-assets"
 fig_dpi = 192
 
 # ---------------------------------------------------------------------------
-# Slide 17: likelihood-curve.png (copy of fig-likelihood_curve; 7 x 5, the default size)
+# Slide 14: likelihood-curve.png (copy of fig-likelihood_curve; 7 x 5, the default size)
 # ---------------------------------------------------------------------------
 
 # Counts of balsam fir seedlings in 50 quadrats (see ?boot::fir), as in Chapter 3,
@@ -84,9 +84,9 @@ call_counts = satiated_female$SiblingNegotiation
 n_visits = length(call_counts)
 
 # Method-of-moments estimates, as in the practical of Chapter 3.
-mu_hat = mean(call_counts)
-variance_hat = mean((call_counts - mu_hat)^2)
-k_mom = mu_hat^2 / (variance_hat - mu_hat)
+mu_mom = mean(call_counts)
+var_mom = mean((call_counts - mu_mom)^2)
+k_mom = mu_mom^2 / (var_mom - mu_mom)
 
 # Negative log-likelihood of the Negative Binomial model with mean mu and shape k.
 nb_nll = function(parms, data) {
@@ -101,7 +101,7 @@ nb_nll = function(parms, data) {
 # on the log scale.
 owl_obj = MakeADFun(
   cmb(nb_nll, list(calls = call_counts)),
-  list(log_mu = log(mu_hat), log_k = log(k_mom)),
+  list(log_mu = log(mu_mom), log_k = log(k_mom)),
   silent = TRUE
 )
 
@@ -114,10 +114,10 @@ mu_mle = unname(exp(owl_fit$par["log_mu"]))
 k_mle = unname(exp(owl_fit$par["log_k"]))
 
 # Log-likelihood at the maximum likelihood estimates.
-loglik_mle = -owl_fit$value
+loglik_nb = -owl_fit$value
 
 # ---------------------------------------------------------------------------
-# Slide 28: owl-fits.png (copy of fig-owl_fits; 9 x 4.5)
+# Slide 25: owl-fits.png (copy of fig-owl_fits; 9 x 4.5)
 # ---------------------------------------------------------------------------
 
 # Relative frequencies of each count in the sample.
@@ -136,7 +136,7 @@ fitted_data = rbind(
   ),
   data.frame(
     count = count_values,
-    probability = dpois(x = count_values, lambda = mu_hat),
+    probability = dpois(x = count_values, lambda = mu_mom),
     model = "Poisson"
   )
 )
@@ -178,7 +178,7 @@ ggsave(
 )
 
 # ---------------------------------------------------------------------------
-# Slide 29: likelihood-surface.png (copy of fig-likelihood_surface; 7 x 5)
+# Slide 26: likelihood-surface.png (copy of fig-likelihood_surface; 7 x 5)
 # ---------------------------------------------------------------------------
 
 # Grids of candidate values for the mean (calls per visit) and the shape.
@@ -195,7 +195,7 @@ for (i in seq_along(mu_grid)) {
 }
 
 # Relative log-likelihood: the difference from the maximum found by optim().
-relative_surface = loglik_surface - loglik_mle
+relative_surface = loglik_surface - loglik_nb
 
 # Arrange the matrix as a data frame: mu varies fastest, as in as.vector() of the matrix.
 surface_data = expand.grid(mu = mu_grid, k = k_grid)
@@ -228,22 +228,21 @@ ggsave(
 )
 
 # ---------------------------------------------------------------------------
-# Slide 30: surface-size-prob.png (copy of fig-surface_size_prob; 7 x 5)
+# Slides 27 and 29: slice-profile.png (copy of fig-slice_profile; 10 x 4.5)
+# Chapter chunks of the section "Parameterisation, slices and profiles".
 # ---------------------------------------------------------------------------
 
-# Negative log-likelihood in R's own parameters: shape k (size) and probability p (prob),
-# with log(k) and logit(p) as the transformed parameters.
+# The owl model with the shape k (size) and probability p (prob) of dnbinom(), with log(k)
+# and logit(p) as the transformed parameters.
 nb_prob_nll = function(parms, data) {
   getAll(parms, data)
   k = exp(log_k)
   p = plogis(logit_p)
   -sum(dnbinom(x = calls, size = k, prob = p, log = TRUE))
 }
-
-# Starting values: the method-of-moments shape and p = k / (k + mu).
 owl_prob_obj = MakeADFun(
   cmb(nb_prob_nll, list(calls = call_counts)),
-  list(log_k = log(k_mom), logit_p = qlogis(k_mom / (k_mom + mu_hat))),
+  list(log_k = log(k_mom), logit_p = qlogis(k_mom / (k_mom + mu_mom))),
   silent = TRUE
 )
 owl_prob_fit = optim(
@@ -254,15 +253,13 @@ owl_prob_fit = optim(
 )
 stopifnot(owl_prob_fit$convergence == 0)
 
-# Estimates on the original scale.
+# Same maximum and same k as the first fit; p equals k / (k + mu) by invariance.
 k_mle_prob = unname(exp(owl_prob_fit$par["log_k"]))
 p_mle = unname(plogis(owl_prob_fit$par["logit_p"]))
 
-# Grids of candidate values for the shape and the probability.
+# Surface in k and p.
 k_grid_prob = seq(from = 0.12, to = 0.75, length.out = 91)
 p_grid = seq(from = 0.02, to = 0.16, length.out = 91)
-
-# Fill the matrix of log-likelihoods with two nested loops; fn() takes log(k) and logit(p).
 loglik_surface_prob = matrix(NA, nrow = length(k_grid_prob), ncol = length(p_grid))
 for (i in seq_along(k_grid_prob)) {
   for (j in seq_along(p_grid)) {
@@ -270,20 +267,38 @@ for (i in seq_along(k_grid_prob)) {
       -owl_prob_obj$fn(c(log(k_grid_prob[i]), qlogis(p_grid[j])))
   }
 }
-relative_surface_prob = loglik_surface_prob - loglik_mle
-
-# Arrange the matrix as a data frame: k varies fastest.
 surface_prob_data = expand.grid(k = k_grid_prob, p = p_grid)
-surface_prob_data$relative = as.vector(relative_surface_prob)
+surface_prob_data$relative = as.vector(loglik_surface_prob - loglik_nb)
 
-# Contours with the maximum likelihood estimate.
-surface_size_prob_plot = ggplot() +
+# Slice: p is fixed at its estimate.
+k_fine = seq(from = 0.12, to = 0.75, length.out = 127)
+slice_loglik = rep(NA, times = length(k_fine))
+for (i in seq_along(k_fine)) {
+  slice_loglik[i] = -owl_prob_obj$fn(c(log(k_fine[i]), qlogis(p_mle)))
+}
+
+# Profile: tmbprofile() re-estimates p for each k. ytol = 10 continues it to 10 units
+# below the maximum, beyond the lower limit of the figure.
+owl_prob_profile_k = TMB::tmbprofile(owl_prob_obj, name = "log_k", ytol = 10, trace = FALSE)
+profile_data = data.frame(
+  k = exp(owl_prob_profile_k$log_k),
+  relative = -owl_prob_profile_k$value - loglik_nb
+)
+
+# Path of the profile: for every k the MLE of the mean is the mean of the counts, so the
+# best p is k / (k + mu_mle).
+profile_data$p = profile_data$k / (profile_data$k + mu_mle)
+
+# Left panel: contours with the slice and the path of the profile.
+left_panel = ggplot() +
   geom_contour(
     data = surface_prob_data,
     aes(x = k, y = p, z = relative),
     breaks = c(-12, -9, -6, -4, -3, -2, -1),
     colour = "grey40"
   ) +
+  geom_hline(yintercept = p_mle, linetype = "dashed", colour = "#D55E00") +
+  geom_line(data = profile_data, aes(x = k, y = p), colour = "#D55E00", linewidth = 0.8) +
   geom_point(
     data = data.frame(k = k_mle_prob, p = p_mle),
     aes(x = k, y = p),
@@ -296,82 +311,19 @@ surface_size_prob_plot = ggplot() +
   ) +
   theme_classic()
 
-ggsave(
-  file.path(out_dir, "surface-size-prob.png"),
-  plot = surface_size_prob_plot,
-  width = 7, height = 5, dpi = fig_dpi
-)
-
-# ---------------------------------------------------------------------------
-# Slide 32: slice-profile.png (copy of fig-slice_profile; 10 x 4.5)
-# ---------------------------------------------------------------------------
-
-# Fine grid of shape values on which the slice and the profile are evaluated.
-k_fine = seq(from = 0.12, to = 0.75, length.out = 127)
-
-# Slice: p is fixed at its estimate. Profile: for each k, p is re-estimated with optim(),
-# starting from the joint estimate. The argument map of MakeADFun() keeps log(k) fixed
-# at the value given in the list of parameters, so that only logit(p) is estimated.
-slice_loglik = rep(NA, times = length(k_fine))
-profile_loglik = rep(NA, times = length(k_fine))
-profile_p = rep(NA, times = length(k_fine))
-profile_convergence = rep(NA, times = length(k_fine))
-for (i in seq_along(k_fine)) {
-  slice_loglik[i] = -owl_prob_obj$fn(c(log(k_fine[i]), qlogis(p_mle)))
-  inner_obj = MakeADFun(
-    cmb(nb_prob_nll, list(calls = call_counts)),
-    list(log_k = log(k_fine[i]), logit_p = qlogis(p_mle)),
-    map = list(log_k = factor(NA)),
-    silent = TRUE
-  )
-  inner_fit = optim(
-    par = inner_obj$par,
-    fn = inner_obj$fn,
-    gr = inner_obj$gr,
-    method = "BFGS"
-  )
-  profile_loglik[i] = -inner_fit$value
-  profile_p[i] = plogis(inner_fit$par)
-  profile_convergence[i] = inner_fit$convergence
-}
-
-# Relative log-likelihoods.
-slice_relative = slice_loglik - loglik_mle
-profile_relative = profile_loglik - loglik_mle
-
-# All inner fits stopped normally.
-stopifnot(all(profile_convergence == 0))
-
-# Left panel: contours with the slice and the path of the profile.
-path_data = data.frame(k = k_fine, p = profile_p)
-left_panel = ggplot() +
-  geom_contour(
-    data = surface_prob_data,
-    aes(x = k, y = p, z = relative),
-    breaks = c(-12, -9, -6, -4, -3, -2, -1),
-    colour = "grey40"
-  ) +
-  geom_hline(yintercept = p_mle, linetype = "dashed", colour = "#D55E00") +
-  geom_line(data = path_data, aes(x = k, y = p), colour = "#D55E00", linewidth = 0.8) +
-  geom_point(
-    data = data.frame(k = k_mle_prob, p = p_mle),
-    aes(x = k, y = p),
-    colour = "#D55E00",
-    size = 3
-  ) +
-  labs(x = expression(paste("Shape, ", italic(k))), y = expression(paste("Probability, ", italic(p)))) +
-  theme_classic()
-
 # Right panel: relative log-likelihood along the slice and along the profile.
-curve_data = rbind(
-  data.frame(k = k_fine, relative = slice_relative, curve = "Slice"),
-  data.frame(k = k_fine, relative = profile_relative, curve = "Profile")
+slice_profile_data = rbind(
+  data.frame(k = k_fine, relative = slice_loglik - loglik_nb, curve = "Slice"),
+  data.frame(k = profile_data$k, relative = profile_data$relative, curve = "Profile")
 )
-right_panel = ggplot(curve_data, aes(x = k, y = relative, linetype = curve)) +
+right_panel = ggplot(slice_profile_data, aes(x = k, y = relative, linetype = curve)) +
   geom_line(colour = "#D55E00", linewidth = 0.8) +
-  geom_hline(yintercept = -1.92, colour = "grey40") +
   coord_cartesian(ylim = c(-6, 0)) +
-  labs(x = expression(paste("Shape, ", italic(k))), y = "Relative log-likelihood", linetype = NULL) +
+  labs(
+    x = expression(paste("Shape, ", italic(k))),
+    y = "Relative log-likelihood",
+    linetype = NULL
+  ) +
   theme_classic() +
   theme(legend.position = "top")
 
@@ -380,3 +332,8 @@ ggsave(
   plot = left_panel | right_panel,
   width = 10, height = 4.5, dpi = fig_dpi
 )
+
+# Ranges of k within 1.92 units of the maximum (quoted on the slide "Slice against profile").
+within_slice = k_fine[slice_loglik - loglik_nb >= -1.92]
+within_profile = profile_data$k[profile_data$relative >= -1.92]
+print(round(c(slice = range(within_slice), profile = range(within_profile)), digits = 3))
