@@ -1168,3 +1168,34 @@ Each stage adds one line: date, stage, what is done, what is next.
   appears, besides the callout, in the summary and Question 2 (planned), which is within the
   rule. `AGENTS.md` and `.claude/docs/` unchanged (no new durable decision; Stage 7 records
   the chapter's decisions). Next: Stage 5.
+- 4 November 2026: Stage 5 done. `Chapter_8/Lecture/` has `lecture.qmd` (31 slides),
+  `lecture.scss` (unchanged copy of Chapter 7's), `demo-diagnosis.R` and `lecture-assets/`
+  (`figures.R`, `co2-stops.png`, `search-paths.png`, `ridge-slice.png`,
+  `minima-schematic.svg`). No script or PDF yet (Stage 6). **Checks that ran:** `quarto
+  render Chapter_8/Lecture/lecture.qmd --to revealjs` without warnings (the generated
+  `lecture.html` deleted); `figures.R` run in a clean session from the repository root
+  (it extracts the chapter's chunks from `Theory.qmd`, unchanged except the line that
+  assigns the plot; the three PNGs are 7 × 5 inches at 192 dpi and the chunks draw no
+  random numbers); `demo-diagnosis.R` run in a clean session (about 2 s of code; every
+  number agrees with the chapter: code 0 and NLL 318.68 from the slow rise, `pdHess`
+  `FALSE` with `NaN` standard errors, the 50-start table 17/1/17/14/1, 296.2557 after the
+  restart with `pdHess` `TRUE`, profile interval of `c0` from −26.6 to 75.0 µL/L; the
+  `confint()` warning about collapsed values is harmless and noted in a comment); slides
+  1 to 31 screenshotted at 1440 × 900 with `fragments=false` in headless Edge and the
+  dense ones (5, 6, 7, 9 to 13, 16, 17, 19, 22, 23, 27, 29, 31) inspected, nothing touches
+  the footer; minutes equal `data-timing` (116 min of slides: blocks of 35, 30 and 51
+  with the demo; slack 14 and two breaks of 10 are in the script's table). General-first
+  audit: example numbers stand only in `.example` boxes, captions and the three Practice
+  and discussion slides. **Differences from the plan:** (1) slide 6 has the SVG schematic
+  (a curve of the NLL with two minima and a flat stretch, no scales); the saddle point is
+  defined in words only; (2) slide 10 carries `fig-ridge_slice` beside the checks, and no
+  multistart figure was made (the table is quoted in the `.example` box of slide 14);
+  (3) slide 23 quotes "17, 42 and 12 fits end within 0.01 of the minimum" for BFGS,
+  `nlminb()` and Nelder–Mead (the chapter's counts), not the plan's percentages; (4)
+  Practices 2 and 3 (slides 18 and 21) restate the chapter's callouts (`imp-seed-predation`,
+  `imp-fish-scaling`), Practice 1 is the parasitoid table; (5) slide 12's three fits are
+  the chapter's CO₂ stops (rows of the table of stops). The editor's diagnostic
+  "zero-length variable name" at line 79 of `lecture.qmd` is a false positive on the
+  `$4.4\times10^{-6}$` expression. For Stage 6: slide 22 is the demo (2 + 16 min, section
+  0 during the break after slide 21); the breaks stand after slides 12 and 21. Next:
+  Stage 6.
