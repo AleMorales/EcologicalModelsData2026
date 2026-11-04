@@ -3,9 +3,11 @@
 # ggplot2, patchwork, boot (fir) and glmmTMB (Owls). The figures are written into
 # Chapter_4/Lecture_1/lecture-assets/.
 #
-# Every figure is an unchanged copy of a figure chunk of Chapter_4/Theory.qmd. The chunks
-# run here in the chapter's order, after the chunks they depend on. Only the last line of
-# each figure chunk changes, to assign the plot and save it. No chunk uses random numbers.
+# The two figures of slide 7 are made for the lecture and have no counterpart in the
+# chapter. Every other figure is an unchanged copy of a figure chunk of
+# Chapter_4/Theory.qmd. The chunks run here in the chapter's order, after the chunks they
+# depend on. Only the last line of each figure chunk changes, to assign the plot and save
+# it. No chunk uses random numbers.
 
 library(RTMB)
 library(RTMBdist)
@@ -17,15 +19,68 @@ out_dir = "Chapter_4/Lecture_1/lecture-assets"
 # Resolution of the copies; each keeps the size of its chapter chunk.
 fig_dpi = 192
 
-# ---------------------------------------------------------------------------
-# Slide 14: likelihood-curve.png (copy of fig-likelihood_curve; 7 x 5, the default size)
-# ---------------------------------------------------------------------------
-
 # Counts of balsam fir seedlings in 50 quadrats (see ?boot::fir), as in Chapter 3,
 # and the number of quadrats.
 data(fir, package = "boot")
 seedling_counts = fir$count
 n_quadrats = length(seedling_counts)
+
+# ---------------------------------------------------------------------------
+# Slide 7: poisson-mass.png and fir-likelihood.png (made for the lecture; 7 x 5 each)
+# ---------------------------------------------------------------------------
+
+# The value of lambda that is fixed on the left and marked on the right.
+lambda_fixed = 2
+
+# Probability: lambda is fixed and the count varies.
+mass_data = data.frame(count = 0:10)
+mass_data$probability = dpois(x = mass_data$count, lambda = lambda_fixed)
+
+poisson_mass_plot = ggplot(mass_data, aes(x = count, y = probability)) +
+  geom_segment(aes(xend = count, yend = 0), colour = "#D55E00", linewidth = 1.2) +
+  geom_point(colour = "#D55E00", size = 3) +
+  scale_x_continuous(breaks = 0:10) +
+  labs(
+    x = expression(paste("Seedlings in a quadrat, ", italic(x))),
+    y = "Probability"
+  ) +
+  theme_classic(base_size = 20)
+
+ggsave(
+  file.path(out_dir, "poisson-mass.png"),
+  plot = poisson_mass_plot,
+  width = 7, height = 5, dpi = fig_dpi
+)
+
+# Likelihood: the 50 counts are fixed and lambda varies. Pre-allocate a vector and fill
+# it with a loop over candidate values of lambda (seedlings per quadrat).
+lambda_values = seq(from = 1.3, to = 3.1, by = 0.01)
+likelihood_values = rep(NA, times = length(lambda_values))
+for (i in seq_along(lambda_values)) {
+  likelihood_values[i] = prod(dpois(x = seedling_counts, lambda = lambda_values[i]))
+}
+
+# The likelihood is plotted in units of 10^-39; its maximum is about 1.7e-39.
+likelihood_data = data.frame(lambda = lambda_values, likelihood = likelihood_values / 1e-39)
+
+fir_likelihood_plot = ggplot(likelihood_data, aes(x = lambda, y = likelihood)) +
+  geom_line(colour = "#D55E00", linewidth = 1.2) +
+  geom_vline(xintercept = lambda_fixed, linetype = "dashed", colour = "grey40") +
+  labs(
+    x = expression(paste("Mean seedlings per quadrat, ", lambda)),
+    y = expression(paste("Likelihood (" %*% 10^-39, ")"))
+  ) +
+  theme_classic(base_size = 20)
+
+ggsave(
+  file.path(out_dir, "fir-likelihood.png"),
+  plot = fir_likelihood_plot,
+  width = 7, height = 5, dpi = fig_dpi
+)
+
+# ---------------------------------------------------------------------------
+# Slide 15: likelihood-curve.png (copy of fig-likelihood_curve; 7 x 5, the default size)
+# ---------------------------------------------------------------------------
 
 # The counts of the first ten quadrats and their maximum likelihood estimate.
 ten_counts = seedling_counts[1:10]
@@ -117,7 +172,7 @@ k_mle = unname(exp(owl_fit$par["log_k"]))
 loglik_nb = -owl_fit$value
 
 # ---------------------------------------------------------------------------
-# Slide 25: owl-fits.png (copy of fig-owl_fits; 9 x 4.5)
+# Slide 26: owl-fits.png (copy of fig-owl_fits; 9 x 4.5)
 # ---------------------------------------------------------------------------
 
 # Relative frequencies of each count in the sample.
@@ -178,7 +233,7 @@ ggsave(
 )
 
 # ---------------------------------------------------------------------------
-# Slide 26: likelihood-surface.png (copy of fig-likelihood_surface; 7 x 5)
+# Slide 27: likelihood-surface.png (copy of fig-likelihood_surface; 7 x 5)
 # ---------------------------------------------------------------------------
 
 # Grids of candidate values for the mean (calls per visit) and the shape.
@@ -228,7 +283,7 @@ ggsave(
 )
 
 # ---------------------------------------------------------------------------
-# Slides 27 and 29: slice-profile.png (copy of fig-slice_profile; 10 x 4.5)
+# Slides 28 and 30: slice-profile.png (copy of fig-slice_profile; 10 x 4.5)
 # Chapter chunks of the section "Parameterisation, slices and profiles".
 # ---------------------------------------------------------------------------
 

@@ -1,9 +1,9 @@
 # Chapter 4 lecture script, Lecture 1: Maximum likelihood estimation, the method
 
-Draft for the course author's review. **Target: 150 minutes in total, with 125 minutes of
-slides on 32 slides (including the discussion, the two practice questions and one live demo of 18
-minutes), 5 minutes of slack and two breaks of 10 minutes.** The breaks separate the three
-blocks of the lecture. The only code that is run live is the demo of slide 30, from the
+Draft for the course author's review. **Target: 150 minutes in total, with 127 minutes of
+slides on 33 slides (including the discussion, the two practice questions and one live demo of 18
+minutes), 3 minutes of slack and two breaks of 10 minutes.** The breaks separate the three
+blocks of the lecture. The only code that is run live is the demo of slide 31, from the
 script `demo-profile.R`.
 
 This script follows the first part of the [Chapter 4 theory](../Theory.qmd), up to the section
@@ -13,13 +13,14 @@ This script follows the first part of the [Chapter 4 theory](../Theory.qmd), up 
 properties of maximum likelihood estimators and model comparison. The slides carry keywords
 only; the narrative is here.
 
-Slide 3 uses your diagram `ModelCycle.png` from the Chapter 1 lecture folder. Slide 15 uses the
-schematic `optimiser-search.svg` and slide 17 the schematic `fit-pipeline.svg`. Slides 14
-(`likelihood-curve.png`), 25 (`owl-fits.png`), 26 (`likelihood-surface.png`) and 27 and 29
-(`slice-profile.png`, the same figure twice) use copies of the chapter figures `fig-likelihood_curve`,
-`fig-owl_fits`, `fig-likelihood_surface` and `fig-slice_profile`. All are in `lecture-assets/`, and
-`lecture-assets/figures.R` makes them from the code of the chapter. If the chapter figures change, run
-that script again.
+Slide 3 uses your diagram `ModelCycle.png` from the Chapter 1 lecture folder. Slide 16 uses the
+schematic `optimiser-search.svg` and slide 18 the schematic `fit-pipeline.svg`. Slide 7 uses
+two figures made for the lecture, `poisson-mass.png` and `fir-likelihood.png`, which have no
+counterpart in the chapter. Slides 15 (`likelihood-curve.png`), 26 (`owl-fits.png`), 27
+(`likelihood-surface.png`) and 28 and 30 (`slice-profile.png`, the same figure twice) use copies of
+the chapter figures `fig-likelihood_curve`, `fig-owl_fits`, `fig-likelihood_surface` and
+`fig-slice_profile`. All are in `lecture-assets/`, and `lecture-assets/figures.R` makes them, the
+copies from the code of the chapter. If the chapter figures change, run that script again.
 
 ## Timing and slide sequence
 
@@ -33,38 +34,39 @@ Times are measured from the start of the session and include the breaks.
 | 4 | From the method of moments to maximum likelihood | 2 | 4–6 |
 | 5 | The likelihood function | 4 | 6–10 |
 | 6 | Probability and likelihood | 3 | 10–13 |
-| 7 | A likelihood by hand | 4 | 13–17 |
-| 8 | A likelihood is not the probability of a parameter value | 4 | 17–21 |
-| 9 | Discussion: probability or likelihood? | 3 | 21–24 |
-| 10 | The log-likelihood | 4 | 24–28 |
-| 11 | Log-likelihoods in R | 3 | 28–31 |
-| 12 | Practice 1: crab burrows | 5 | 31–36 |
-| | Break | 10 | 36–46 |
-| 13 | The maximum likelihood estimator | 5 | 46–51 |
-| 14 | The likelihood curve | 4 | 51–55 |
-| 15 | Numerical optimisation | 3 | 55–58 |
-| 16 | The negative log-likelihood in R | 4 | 58–62 |
-| 17 | From the negative log-likelihood to a fit | 3 | 62–65 |
-| 18 | A fit in R | 5 | 65–70 |
-| 19 | The result of `optim()` | 3 | 70–73 |
-| 20 | Constraints and transformations | 4 | 73–77 |
-| 21 | Invariance | 4 | 77–81 |
-| 22 | Practice 2: back to the ecological scale | 3 | 81–84 |
-| 23 | Models with several parameters | 4 | 84–88 |
-| 24 | A fit with two parameters in R | 5 | 88–93 |
-| | Break | 10 | 93–103 |
-| 25 | Checking the fitted model | 3 | 103–106 |
-| 26 | The likelihood surface | 4 | 106–110 |
-| 27 | Parameterisation | 4 | 110–114 |
-| 28 | Slices and profiles | 3 | 114–117 |
-| 29 | Slice against profile | 4 | 117–121 |
-| 30 | Live demo: a likelihood profile in R | 2 + 16 | 121–139 |
-| 31 | The Chapter 4 R practical: first part | 2 | 139–141 |
-| 32 | Summary and closing questions | 4 | 141–145 |
-| | Slack for discussion | 5 | 145–150 |
+| 7 | Probability mass and likelihood curve | 2 | 13–15 |
+| 8 | A likelihood by hand | 4 | 15–19 |
+| 9 | A likelihood is not the probability of a parameter value | 4 | 19–23 |
+| 10 | Discussion: probability or likelihood? | 3 | 23–26 |
+| 11 | The log-likelihood | 4 | 26–30 |
+| 12 | Log-likelihoods in R | 3 | 30–33 |
+| 13 | Practice 1: crab burrows | 5 | 33–38 |
+| | Break | 10 | 38–48 |
+| 14 | The maximum likelihood estimator | 5 | 48–53 |
+| 15 | The likelihood curve | 4 | 53–57 |
+| 16 | Numerical optimisation | 3 | 57–60 |
+| 17 | The negative log-likelihood in R | 4 | 60–64 |
+| 18 | From the negative log-likelihood to a fit | 3 | 64–67 |
+| 19 | A fit in R | 5 | 67–72 |
+| 20 | The result of `optim()` | 3 | 72–75 |
+| 21 | Constraints and transformations | 4 | 75–79 |
+| 22 | Invariance | 4 | 79–83 |
+| 23 | Practice 2: back to the ecological scale | 3 | 83–86 |
+| 24 | Models with several parameters | 4 | 86–90 |
+| 25 | A fit with two parameters in R | 5 | 90–95 |
+| | Break | 10 | 95–105 |
+| 26 | Checking the fitted model | 3 | 105–108 |
+| 27 | The likelihood surface | 4 | 108–112 |
+| 28 | Parameterisation | 4 | 112–116 |
+| 29 | Slices and profiles | 3 | 116–119 |
+| 30 | Slice against profile | 4 | 119–123 |
+| 31 | Live demo: a likelihood profile in R | 2 + 16 | 123–141 |
+| 32 | The Chapter 4 R practical: first part | 2 | 141–143 |
+| 33 | Summary and closing questions | 4 | 143–147 |
+| | Slack for discussion | 3 | 147–150 |
 | | **Total** | **150** | |
 
-Slides 125 minutes (blocks of 36, 47 and 42, the demo included), slack 5, breaks 20: 150 minutes.
+Slides 127 minutes (blocks of 38, 47 and 42, the demo included), slack 3, breaks 20: 150 minutes.
 
 ## Slides 1 and 2 — Ecological Models and Data Analysis; Overview of the lecture
 
@@ -181,7 +183,32 @@ $x$ it is a function of $\lambda$: the likelihood of each possible mean.
 Allow one minute for the columns and one for the example. Write the expression once and point to
 $x$, then to $\lambda$, saying which of the two is fixed in each reading.
 
-## Slide 7 — A likelihood by hand
+## Slide 7 — Probability mass and likelihood curve
+
+The two figures show the two readings of slide 6 for the fir seedlings, so that students have a
+picture of each before we calculate with them. The left figure is a probability mass function, as
+in Chapter 2: the mean is fixed at 2 seedlings per quadrat and the horizontal axis holds the
+possible counts in one quadrat. Each height is the probability of a count (about 0.14 for an empty
+quadrat and 0.27 for one and for two seedlings), and the heights add up to one.
+
+The right figure holds the 50 observed counts fixed and puts the mean on the horizontal axis. Its
+height at each value of $\lambda$ is the probability of the whole observed sample under a Poisson
+model with that mean: the product of 50 probabilities like those on the left, one at each observed
+count. The dashed line marks $\lambda=2$, the model of the left figure, where the likelihood is about
+$1.3\times10^{-39}$. The curve is highest at about 2.14, the mean of the counts, which slide 14
+names as the estimate.
+
+**Figure walkthrough**
+
+Point at the horizontal axes first: possible counts on the left, possible means on the right. Then
+point at the vertical axis on the right, in units of $10^{-39}$: the values are tiny, because they
+are probabilities of a sample of 50 counts, and they are compared between values of $\lambda$ rather
+than read one at a time. The figure cannot show that the area under the curve is not one; slide 9
+gives that number. The calculation of the likelihood at a given $\lambda$ is in the chapter section
+"The likelihood function", and slide 15 draws the same kind of curve on the log scale. Included in
+the two minutes.
+
+## Slide 8 — A likelihood by hand
 
 Each observation contributes its probability, and the contributions are multiplied. To compare two
 parameter values, we compare their likelihoods: the ratio says how many times more probable the
@@ -210,7 +237,7 @@ comparison of 0.0249 and 0.0099. Mention the numbers of the 50 quadrats in speec
 not on the slide. These calculations are all in the chapter, where `dpois()` and `prod()` verify
 them.
 
-## Slide 8 — A likelihood is not the probability of a parameter value
+## Slide 9 — A likelihood is not the probability of a parameter value
 
 A likelihood is calculated from probabilities, but it is not a probability distribution for the
 parameter, for two reasons. First, we work with aleatoric probability (Chapter 2): probabilities
@@ -229,7 +256,7 @@ The likelihood is also at the core of Bayesian inference, where it is multiplied
 distribution and rescaled to give a probability distribution for the parameter. Chapter 1
 explains why this book stays with the Frequentist interpretation. One sentence is enough here.
 
-## Slide 9 — Discussion: probability or likelihood?
+## Slide 10 — Discussion: probability or likelihood?
 
 This discussion checks the difference between the two readings before the next slide builds on
 it.
@@ -241,12 +268,12 @@ Give students one minute to decide with a neighbour, then take one answer per it
 1. **Probability:** the parameter is fixed at 2 and the count varies. It is a value of the mass
    function, $e^{-2}2^{3}/3!\approx 0.18$.
 2. **Likelihood:** the counts are fixed and we compare two parameter values. This is the
-   comparison of slide 7, with a ratio of about 2.5 in favour of $\lambda=1$.
+   comparison of slide 8, with a ratio of about 2.5 in favour of $\lambda=1$.
 3. **Probability:** for a fixed $\lambda$ the probabilities of all possible counts add up to one.
 4. **Likelihood:** a curve over values of $\lambda$ whose area is not one. The area of
-   $8.7\times10^{-40}$ is the one of slide 8.
+   $8.7\times10^{-40}$ is the one of slide 9.
 
-## Slide 10 — The log-likelihood
+## Slide 11 — The log-likelihood
 
 The **log-likelihood** is the natural logarithm of the likelihood,
 $\ell(\theta)=\log(L(\theta))=\sum_{i=1}^{n}\log(P(X_i=x_i\mid\theta))$. It has three advantages.
@@ -272,7 +299,7 @@ The example simulates 1,000 counts from a Poisson distribution with $\lambda=4$ 
 returns zero for `prod()` of their probabilities, although none of the probabilities is zero,
 while the sum of the log probabilities is $-2094.6$.
 
-## Slide 11 — Log-likelihoods in R
+## Slide 12 — Log-likelihoods in R
 
 In R, all the `d*` functions have an argument `log`. With `log = TRUE` they return the logarithm
 of the probability mass (or density), which is more accurate than calculating the probability and
@@ -291,7 +318,7 @@ slide it would return minus infinity.
 Show the chunk without running it. If students ask about `getAll()` or `MakeADFun()`, say that
 they appear four slides later.
 
-## Slide 12 — Practice 1: crab burrows
+## Slide 13 — Practice 1: crab burrows
 
 **Short activity — allow about three minutes of work and two to discuss**
 
@@ -312,7 +339,7 @@ a ratio of likelihoods.
 
 Break (10 minutes).
 
-## Slide 13 — The maximum likelihood estimator
+## Slide 14 — The maximum likelihood estimator
 
 The **maximum likelihood estimator** (MLE) of a parameter is the value for which the likelihood of
 the observed sample is highest, $\hat\theta=\arg\max_\theta L(\theta\mid x_1,\ldots,x_n)$, and it
@@ -343,7 +370,7 @@ is biased.
 Do not derive the Poisson estimator on the board. The derivative of the log-likelihood with
 respect to a parameter is called the score; name it only if a student asks.
 
-## Slide 14 — The likelihood curve
+## Slide 15 — The likelihood curve
 
 A **likelihood curve** is the log-likelihood of a model with one parameter, drawn as a function of
 that parameter. We draw it as the relative log-likelihood, $\ell(\theta)-\ell(\hat\theta)$, so that
@@ -369,7 +396,7 @@ where the curve is zero. Point to the two sides: the left side reaches $-8$ at a
 right side reaches it only at about 4.7. The chapter draws the curve by evaluating the
 log-likelihood on a grid of values of $\lambda$ with a `for` loop; the code is on the chapter page.
 
-## Slide 15 — Numerical optimisation
+## Slide 16 — Numerical optimisation
 
 An **optimiser** is an algorithm that searches for the parameter values at which a function reaches
 its minimum. It starts from values that we provide, evaluates the function, and moves step by step
@@ -387,7 +414,7 @@ down the curve to its lowest point, which is the estimate on the horizontal axis
 cannot show how the optimiser chooses each step; the method that we use, called BFGS, is explained
 in Chapter 8.
 
-## Slide 16 — The negative log-likelihood in R
+## Slide 17 — The negative log-likelihood in R
 
 In this book every NLL is written in the same form, which the package RTMB needs. It is a function
 with two arguments, both of them named lists: the first holds the parameters (`parms`) and the
@@ -402,7 +429,7 @@ Say explicitly that this is the form of every NLL in the course, and that the fi
 always the parameters and the second the data. The chunk only defines a function; nothing is
 calculated yet.
 
-## Slide 17 — From the negative log-likelihood to a fit
+## Slide 18 — From the negative log-likelihood to a fit
 
 Three steps take us from the function to the estimate, and each has one name in code format. First,
 `cmb()` is a small helper that takes an NLL and a list of data and returns the NLL of those data as a
@@ -423,7 +450,7 @@ and data), `cmb()` (which adds the data), `MakeADFun()` (which adds the starting
 `par`, `fn` and `gr`) and `optim()` (which returns `par`, `value` and `convergence`, the next slide).
 Follow the arrows once, box by box, and do not explain what happens inside `MakeADFun()`.
 
-## Slide 18 — A fit in R
+## Slide 19 — A fit in R
 
 These are the three chunks of the chapter, shortened. In step 1 we define `cmb()`. In step 2 we
 connect `poisson_nll_lambda` to the 50 counts and process it, with a starting value of one seedling
@@ -438,7 +465,7 @@ This is a slide to read slowly: take about a minute on each step. Say that any s
 which the optimiser reaches the maximum will do, and that the chapter will use the method of moments
 for the owls only as one possible choice.
 
-## Slide 19 — The result of `optim()`
+## Slide 20 — The result of `optim()`
 
 `optim()` returns a list whose most relevant elements are `par`, the value of the parameter at the
 minimum (the maximum likelihood estimate), `value`, the value of the NLL at that estimate, and
@@ -458,7 +485,7 @@ parameter is transformed inside the NLL, try other starting values and calculate
 starting values, for example with `fn(par)` of the object. Chapter 8 explains why optimisers fail and
 what else can be done.
 
-## Slide 20 — Constraints and transformations
+## Slide 21 — Constraints and transformations
 
 A **constraint** is a restriction on the values that a parameter can take. The mean of a Poisson
 distribution must be positive, and a probability must lie between zero and one. An optimiser does not
@@ -482,7 +509,7 @@ The same NLL can be connected to the first ten quadrats by changing only the lis
 gives 2.2 seedlings per quadrat. This is the reason for `cmb()`, and both objects return in Lecture
 2, so say that in one sentence and move on.
 
-## Slide 21 — Invariance
+## Slide 22 — Invariance
 
 Fitting on a transformed scale and reporting on the original scale relies on a property of maximum
 likelihood called **invariance**: the MLE of a function of a parameter is that function of the MLE,
@@ -503,7 +530,7 @@ estimator of $e^{-\lambda}$.
 Zehna (1966), "Invariance of maximum likelihood estimators", *Annals of Mathematical Statistics* 37:
 744, gives the general statement.
 
-## Slide 22 — Practice 2: back to the ecological scale
+## Slide 23 — Practice 2: back to the ecological scale
 
 **Short activity — allow about two minutes of work and one to discuss**
 
@@ -519,7 +546,7 @@ of $-0.85$ would not make sense. The break follows.
 
 Break (10 minutes).
 
-## Slide 23 — Models with several parameters
+## Slide 24 — Models with several parameters
 
 With several parameters the likelihood is a function of all of them jointly, and the MLE is the
 combination of values with the highest likelihood. The definitions of the previous slides do not
@@ -540,7 +567,7 @@ $\operatorname{Var}(X_i)=\mu+\mu^2/k$ (the supplement describes the distribution
 i.i.d., which is a simplification because visits to the same nest may resemble each other; Chapter 7
 covers models for such data.
 
-## Slide 24 — A fit with two parameters in R
+## Slide 25 — A fit with two parameters in R
 
 The NLL is written as before. The list of parameters now has one element for each parameter,
 `log_mu` and `log_k`, and both parameters are positive, so we transform both with the logarithm. The
@@ -566,7 +593,7 @@ one of the package attached last, so always load RTMB first and RTMBdist second 
 arguments. If only RTMB is loaded, R stops with an error about an unused argument `size`. Say this
 once and keep going.
 
-## Slide 25 — Checking the fitted model
+## Slide 26 — Checking the fitted model
 
 `optim()` returns estimates for any model that we give it, so after a fit we compare the fitted
 model with the data. For counts we compare the relative frequency of each count in the sample with
@@ -586,7 +613,7 @@ around 4 and 5 calls. The log-likelihood of the Negative Binomial model is about
 information criterion. The figure does not show that the Negative Binomial model is adequate; it
 shows that it is much closer to the data than the reference.
 
-## Slide 26 — The likelihood surface
+## Slide 27 — The likelihood surface
 
 With two parameters we can still evaluate the log-likelihood on a grid, which now has two dimensions:
 one for the values of $\mu$ and one for the values of $k$. The chapter stores the results in a matrix
@@ -617,7 +644,7 @@ the sliders and watch how the contribution of each observation and the log-likel
 of the page is about hypothesis tests, which the course does not use. The static figure is the
 fallback.
 
-## Slide 27 — Parameterisation
+## Slide 28 — Parameterisation
 
 The same model can be written with different sets of parameters, each of which is a
 **parameterisation**. By invariance, the maximum and the fitted model are the same in every
@@ -628,7 +655,7 @@ $-299.44$, the same as before, and $\hat p\approx 0.064$.
 
 **Figure walkthrough — included in the four minutes**
 
-The figure is the chapter figure of slide 29, and here only the left panel matters. It has $k$ on the
+The figure is the chapter figure of slide 30, and here only the left panel matters. It has $k$ on the
 horizontal axis and $p$ on the vertical axis. The contours are elongated rings tilted upwards to the
 right: a larger $k$ goes with a larger $p$, because the two together determine the mean, which the data
 pin down well. Say that the two lines and the right panel are explained on the next slides, and ask
@@ -640,7 +667,7 @@ The course writes distributions in terms of their mean where possible, because t
 chapters describe how the mean changes with covariates. The choice of parameters also matters for
 numerical optimisation, which Chapter 8 covers.
 
-## Slide 28 — Slices and profiles
+## Slide 29 — Slices and profiles
 
 A surface can only be drawn for two parameters, and even then we usually want to know what the data
 say about one parameter at a time. There are two ways of reducing a likelihood surface to a curve
@@ -657,10 +684,10 @@ In the example, $\ell(k,\hat p)$ is a slice and $\max_p\ell(k,p)$ is the profile
 **Delivery**
 
 No name is introduced for the parameters that the profile re-estimates; say "the other parameters".
-The slide does not say how the profile is calculated. Slide 29 shows what it is and the demo shows
+The slide does not say how the profile is calculated. Slide 30 shows what it is and the demo shows
 how TMB calculates it.
 
-## Slide 29 — Slice against profile
+## Slide 30 — Slice against profile
 
 The slice follows the horizontal line at $\hat p$, which leaves the high part of the surface quickly
 because the contours are tilted. The profile follows the ridge of the surface: for each $k$ it moves
@@ -685,9 +712,9 @@ at about 0.33 and the profile is above the slice everywhere else. The figure dra
 slide uses to compare the two widths, the slice covers $k$ from 0.26 to 0.41 and the profile from 0.24
 to 0.45. Leave the questions about how the profile is calculated for the demo.
 
-## Slide 30 — Live demo: a likelihood profile in R
+## Slide 31 — Live demo: a likelihood profile in R
 
-The demo shows on the owl model what slides 27 to 29 describe. It uses the script `demo-profile.R`,
+The demo shows on the owl model what slides 28 to 30 describe. It uses the script `demo-profile.R`,
 which runs in a clean R session in a few seconds and needs the packages RTMB, RTMBdist, TMB and
 `glmmTMB` (for the data). It writes the NLL in the parameterisation with $k$ and $p$, so that
 the slice and the profile differ, and no profile is calculated by hand: TMB does it, as in the
@@ -705,9 +732,9 @@ steps, and then switch to R.
    parameters, `log_k` and `logit_p`: `k = exp(log_k)` and `p = plogis(logit_p)`, and `dnbinom()` with
    `size = k` and `prob = p`. Process it, starting from the method-of-moments estimates, and fit it.
    `convergence` is 0. The estimates are $\hat k\approx 0.327$ and $\hat p\approx 0.064$, and the maximum
-   log-likelihood is $-299.44$, the same as with $\mu$ and $k$. Ask students why (invariance, slide 21
-   and slide 27). The surface of this model is the left panel of slides 27 and 29, calculated with the
-   grid of `fn` of slide 26.
+   log-likelihood is $-299.44$, the same as with $\mu$ and $k$. Ask students why (invariance, slide 22
+   and slide 28). The surface of this model is the left panel of slides 28 and 30, calculated with the
+   grid of `fn` of slide 27.
 2. **The slice (section "The slice", about 3 minutes).** One `for` loop over a fine grid of $k$ with
    $p$ fixed at its estimate: each value needs only one call of `fn`, with `log(k)` and `qlogis(p_mle)`.
    Subtract the maximum log-likelihood to get the relative scale.
@@ -716,12 +743,12 @@ steps, and then switch to R.
    parameter as it is written in the list of parameters, and `trace = FALSE` to stop printing. The
    prefix `TMB::` is needed because RTMB does not export the function. At every value of `log_k` that it
    visits, `tmbprofile()` runs an inner fit that re-estimates `logit_p`, so this is the definition of
-   slide 28 carried out by TMB. By default it stops about two units below the maximum, which is enough
+   slide 29 carried out by TMB. By default it stops about two units below the maximum, which is enough
    for a 95% interval; `ytol = 6` continues it to the lower limit of the plot. The data frame has the
    columns `log_k` and `value` (the NLL), which we convert to $k$ and to the relative log-likelihood.
 4. **Both curves (section "Both curves", about 3 minutes).** The plot shows the profile as a solid line
    and the slice as a dashed line, on the relative log-likelihood. The slice is narrower, and the
-   profile is above it everywhere except at the maximum: the right panel of slide 29, drawn in base R.
+   profile is above it everywhere except at the maximum: the right panel of slide 30, drawn in base R.
    Ask the questions below.
 
 **Questions to ask during the demo (about 1 minute)**
@@ -735,7 +762,7 @@ Ask "slice or profile?" for each item and take one answer:
 
 If time allows, use question 6 of the chapter quiz, "two curves for one parameter".
 
-## Slide 31 — The Chapter 4 R practical: first part
+## Slide 32 — The Chapter 4 R practical: first part
 
 The practical has five exercises. After this lecture, students can do the first two partly.
 Exercise 1 is worked on the page, so read it first. It uses the survival of reed frog tadpoles in the
@@ -750,7 +777,7 @@ surface; the joint confidence region of question 3 belongs to Lecture 2.
 
 Try each question before opening the solution.
 
-## Slide 32 — Summary and closing questions
+## Slide 33 — Summary and closing questions
 
 Go back to slide 3 by speaking about it again; no new slide is needed. The likelihood is the
 probability of the sample, read as a function of the parameters, and it is used to compare parameter
@@ -783,22 +810,22 @@ and why maximum likelihood works.
 
 ## Adjustments during delivery
 
-The slides take 125 minutes and leave 5 minutes of slack, which comes last. The demo is kept whole; if
+The slides take 127 minutes and leave 3 minutes of slack, which comes last. The demo is kept whole; if
 it overruns, it takes the slack first. If discussion overruns, use the slack first, then shorten in
 this order:
 
 - Slide 3 to one sentence ("this lecture is the likelihood and the optimiser"): recovers about half a
   minute.
 - Slide 4 to the table of the two columns: about one minute.
-- Slide 19 to its bullets, with the callout on failed fits left to the chapter: about one minute.
-- Slide 25 to the figure alone, without the sentence on the Poisson model: about one minute.
-- Slide 26 without the optional minute of Magnusson's page: about one minute.
+- Slide 20 to its bullets, with the callout on failed fits left to the chapter: about one minute.
+- Slide 26 to the figure alone, without the sentence on the Poisson model: about one minute.
+- Slide 27 without the optional minute of Magnusson's page: about one minute.
 - In the demo, skip the slice code and show only its curve in the final plot: about three minutes.
 
-Keep the difference between probability and likelihood (slides 6 and 8), the steps of a fit (slides
-16 to 19), and slice against profile (slides 28 and 29).
+Keep the difference between probability and likelihood (slides 6, 7 and 9), the steps of a fit
+(slides 17 to 20), and slice against profile (slides 29 and 30).
 
-The breaks are placed between the blocks, after slides 12 and 24 (minutes 36 and 93). If a block runs
+The breaks are placed between the blocks, after slides 13 and 25 (minutes 38 and 95). If a block runs
 over, shorten the block rather than the following break.
 
 **If time is left: code to run**

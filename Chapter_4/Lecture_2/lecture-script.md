@@ -174,7 +174,7 @@ sharply curved gives half the standard error. A larger sample contains more info
 parameter, so it gives a more sharply curved log-likelihood and a smaller standard error. With several
 parameters, the curvatures along each parameter and for each pair give the whole covariance matrix. The
 approximation is good when the log-likelihood is close to a parabola on the scale of the parameter. When it
-is not, for example when it is asymmetric like the curve of Lecture 1, slide 14, the standard error
+is not, for example when it is asymmetric like the curve of Lecture 1, slide 15, the standard error
 describes only the curvature at the maximum and the Wald interval is less accurate.
 
 **Figure walkthrough**
@@ -209,8 +209,8 @@ bivariate Normal distribution, and `cov2cor()` converts a whole matrix.
 
 For the owl model, the rows are `log_mu` and `log_k`: the estimates are 1.559 and $-1.116$, with standard
 errors 0.164 and 0.165, all on the log scales. The correlation between the estimates of $\log(\mu)$ and
-$\log(k)$ is zero to four decimals, because the contours of the surface in Lecture 1, slide 26, are not tilted.
-In the parameterisation with $k$ and $p$ (Lecture 1, slides 27 and 29) the correlation between the estimates of
+$\log(k)$ is zero to four decimals, because the contours of the surface in Lecture 1, slide 27, are not tilted.
+In the parameterisation with $k$ and $p$ (Lecture 1, slides 28 and 30) the correlation between the estimates of
 $\log(k)$ and $\operatorname{logit}(p)$ is 0.71: hypothetical samples that overestimate $k$ tend to overestimate
 $p$ too. That is the tilt of the contours expressed as a number.
 
@@ -306,7 +306,7 @@ Break (10 minutes).
 The Wald interval uses the curvature of the log-likelihood at one point, its maximum. The **likelihood profile
 interval** uses the whole curve: it contains all the values of the parameter whose relative profile log-likelihood
 is within 1.92 units of the maximum, that is, the values that the data support almost as well as the estimate. The
-other parameters of the model are re-estimated for each value, as in the definition of a profile (Lecture 1, slide 28).
+other parameters of the model are re-estimated for each value, as in the definition of a profile (Lecture 1, slide 29).
 The cutoff is chosen so that, in a large sample, the interval contains the parameter in approximately 95% of hypothetical
 samples. It is half the 0.95 quantile of a chi-squared distribution with one degree of freedom, 3.84, which is the square of
 1.96, and `qchisq(p = 0.95, df = 1) / 2` calculates it: 1.92.
@@ -401,7 +401,7 @@ method-of-moments estimate is inside it (Exercise 2).
 
 **Figure walkthrough**
 
-The grey contours are the surface of the owl model in $\mu$ and $k$, as in Lecture 1, slide 26, and the vermillion circle is the estimate. The
+The grey contours are the surface of the owl model in $\mu$ and $k$, as in Lecture 1, slide 27, and the vermillion circle is the estimate. The
 vermillion contour at $-3.00$ is the region. The dark segments along the axes are the two profile intervals, from about 3.49 to 6.68 for $\mu$ and
 from about 0.235 to 0.451 for $k$. The vermillion contour extends beyond both segments.
 
@@ -595,7 +595,7 @@ are meaningful. Apart from a constant that is the same for all models, AIC estim
 log-likelihood alone is too optimistic for that purpose because the same data were used to fit the model and to evaluate it, and the term $2K$ corrects for this. In plain English, AIC rewards a model for assigning a high probability to the data and penalises it for each parameter that it needed to do so.
 
 The example compares the Poisson model, with $K=1$ and a maximum log-likelihood of $-634.16$, with the Negative Binomial model, with $K=2$ and $-299.44$, for the owl data. The Poisson model is evaluated at its estimate, the mean of the sample. The AIC are 1270.3 and 602.9, a difference of about
-667 units in favour of the Negative Binomial model, which is very large compared with the two units that its additional parameter costs, and agrees with the figure of Lecture 1, slide 25.
+667 units in favour of the Negative Binomial model, which is very large compared with the two units that its additional parameter costs, and agrees with the figure of Lecture 1, slide 26.
 
 The last bullet is the corrected AIC. The justification of AIC is asymptotic, and when the number of observations $n$ is small compared with the number of parameters $K$ the term $2K$ is too small to penalise complex models properly. The corrected AIC adds
 $2K(K+1)/(n-K-1)$, which is large when $n$ is close to $K$ and disappears as $n$ grows, so each parameter costs $2n/(n-K-1)$ units instead of two. It needs $n>K+1$ and is used in the same way, as a difference between models fitted to the same observations. For the owls the additional penalty is negligible (0.03 units
