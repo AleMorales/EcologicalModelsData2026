@@ -472,11 +472,14 @@ code, it cannot be stepped through like ordinary R code.
 
 ::: {.callout-warning title="When automatic differentiation needs care"}
 RTMB works out the derivatives from the calculations that the NLL carried out when
-`MakeADFun()` ran it at the starting values. If the NLL contains a branch that depends on a
-parameter (an `if` that compares a parameter with a value), only the side that was taken at
-the starting values is used afterwards, and a curve with a sharp change at an unknown
-threshold has no derivative at the change. Such
-[calculations need special care](https://cran.r-project.org/web/packages/RTMB/vignettes/RTMB-tips.html).
+`MakeADFun()` ran it at the starting values, so every calculation that involves a parameter
+must have a derivative. A branch that depends on a parameter (an `if` that compares a
+parameter with a value) does not: if it were recorded, only the side taken at the starting
+values would be used afterwards. RTMB therefore refuses such a comparison, and `MakeADFun()`
+stops with the error "Comparison is generally unsafe for AD types". In the same way, a curve
+with a sharp change at an unknown threshold has no derivative at the change. Such
+[calculations need special care](https://cran.r-project.org/web/packages/RTMB/vignettes/RTMB-tips.html),
+and a smooth curve that approximates the sharp change is the usual solution.
 Check the NLL on sensible parameter values in R first (a function written with `getAll()`
 can be called directly with two lists), and inspect `binomial_obj$fn(binomial_obj$par)` and
 `binomial_obj$gr(binomial_obj$par)` before fitting.
@@ -614,8 +617,8 @@ a Wald interval at each point, on a scale on which the quantity is unbounded, an
 the endpoints back, for the same reasons as for the parameters in Chapter 4. For a
 probability that scale is the logit. Together the intervals form a **confidence band**.
 
-The band is **pointwise**: at each value of $x$, the interval contains the curve of the
-model at that $x$ in approximately 95% of hypothetical samples. This is not the same as a
+The band is **pointwise**: at each value of $x$, the interval contains the value of the curve
+under the data generating process at that $x$ in approximately 95% of hypothetical samples. This is not the same as a
 band that contains the whole curve in 95% of hypothetical samples, which would be wider.
 The band also says nothing about where the observations of new tanks would fall: that is
 described by the distribution of the observations around the curve
@@ -688,8 +691,10 @@ curve_band = data.frame(
 ```
 
 @fig-curve_band shows the band with the data, the formula of the model and the estimates.
-On the logit scale the band is narrowest in the middle of the densities of the experiment
-and wider towards both ends, where fewer tanks constrain the curve. For the expected number
+On the logit scale the band is narrowest near 50 tadpoles per tank and wider towards both
+ends. The tanks at low density hold few tadpoles each, so most of the information about the
+curve comes from the denser tanks, and the band widens away from the middle of that
+information. For the expected number
 killed the band also widens with density because the probability is multiplied by the number
 of tadpoles; at the highest density it runs from about 24 to 33 tadpoles killed. So within
 the range of the data the curve is well determined, although its asymptote is not. Beyond
@@ -1339,8 +1344,8 @@ cross-validation and AIC agree in large samples: AIC is approximately $-2$ times
 leave-one-out log score.^[Stone, M. (1977), "An asymptotic equivalence of choice of model by
 cross-validation and Akaike's criterion", *Journal of the Royal Statistical Society, Series
 B* 39: 44–47.] When fitting the model $n$ times takes too long, the observations are split
-into $K$ groups (often 5 or 10) that are held out in turn, which is called $K$-fold
-cross-validation. When the observations are ordered in time or space, so that neighbouring
+into a few groups that are held out in turn, often 5 or 10, which is called 5-fold or
+10-fold cross-validation. When the observations are ordered in time or space, so that neighbouring
 observations are similar, each held-out part should be a block of neighbouring observations;
 otherwise its neighbours in the fit make it look easier to predict than a new observation
 would be.
@@ -1446,8 +1451,8 @@ betabinomial_intervals
 ```
 
 The attack rate is estimated at 0.54 per experiment, with an interval from 0.38 to 0.76: at
-low density, between about two fifths and three quarters of the tadpoles are killed in
-the 14 days. The handling time is estimated at 0.018 experiments per tadpole killed, but its
+low density, between about two fifths and three quarters of the tadpoles are killed on
+average in the 14 days. The handling time is estimated at 0.018 experiments per tadpole killed, but its
 interval runs from 0.0019 to 0.038, so the largest number of tadpoles that three larvae
 could kill in one experiment, about 56, has an interval from 27 to more than 500. The lower
 end of the interval of $H$ is close to zero, which is the constant probability, and this
@@ -1544,21 +1549,22 @@ between 0 and 1. Another is to pass a curve through the inverse logit.
 :::
 ::::
 
-:::: {.callout-important title="Question 2: a threshold in the NLL"}
+:::: {.callout-important title="Question 2: plant growth and soil nitrogen"}
 
-A colleague fits a hockey-stick curve, which increases linearly up to a threshold $c$ and
-is flat above it, and writes the NLL with an `if` that applies one formula or the other to
-each observation depending on whether its predictor is below $c$. The threshold is a
-parameter. What goes wrong when RTMB processes this NLL?
+A colleague describes the growth of plants against soil nitrogen with a hockey-stick curve,
+which increases linearly up to a threshold $c$ and is flat above it. The NLL uses an `if`
+that applies one formula or the other to each plant depending on whether its nitrogen is
+below $c$, and the threshold is a parameter. What goes wrong when RTMB processes this NLL?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-RTMB records the calculations of the NLL at the starting values. For each observation only
-the side of the `if` that was taken at the starting value of $c$ is recorded, so during the
-fit every observation stays on that side, whatever value of $c$ the optimiser tries, and
-the estimate of the threshold is meaningless. Moreover, the curve has a sharp bend at $c$,
-where its derivative does not exist. A smooth curve that approximates the bend avoids both
-problems, and the RTMB documentation describes other solutions.
+RTMB records the calculations of the NLL at the starting values and differentiates them,
+but a comparison between a parameter and a value has no derivative. By default RTMB refuses
+it, so `MakeADFun()` stops with an error. If the comparison were recorded, only the side of
+the `if` taken at the starting value of $c$ would be used, so during the fit every plant
+would stay on that side, whatever value of $c$ the optimiser tried, and the estimate of the
+threshold would be meaningless. Moreover, the curve has a sharp bend at $c$, where its
+derivative does not exist. A smooth curve that approximates the bend avoids both problems.
 
 :::
 ::::
@@ -1609,8 +1615,8 @@ band. Is that right?
 ::: {.callout-tip title="Answer" collapse="true"}
 
 No. The band describes the uncertainty of the curve, the expected number of fruits: at each
-height, the interval contains the expected number of the model at that height in about 95%
-of hypothetical samples. The numbers of fruits of individual shrubs vary around the curve
+height, the interval contains the expected number under the data generating process at
+that height in about 95% of hypothetical samples. The numbers of fruits of individual shrubs vary around the curve
 according to the distribution of the observations, which is much wider than the band, so
 many shrubs lie outside it.
 
@@ -1644,9 +1650,10 @@ model help?
 ::: {.callout-tip title="Answer" collapse="true"}
 
 The numbers germinated vary around the curve less than a Binomial model allows, about half
-as much as a variance: this is underdispersion. The seeds of a pot do not behave as
-independent trials with the same probability (for example, because of competition within
-the pot). A Beta-Binomial model cannot help, because its variance is always at least that
+as much as a variance: this is underdispersion. It suggests that the seeds of a pot do not
+behave as independent trials with the same probability (for example, because of
+competition within the pot), although the residuals alone cannot say which assumption
+fails. A Beta-Binomial model cannot help, because its variance is always at least that
 of the Binomial model with the same mean.
 
 :::
@@ -1684,10 +1691,11 @@ $\mathrm{BIC}=3\log(30)+2\times41.2\approx10.20+82.4=92.6$.
 :::
 ::::
 
-:::: {.callout-important title="Question 10: a shortcut in cross-validation"}
+:::: {.callout-important title="Question 10: seedling survival in plots"}
 
-To save time, a colleague estimates the precision $\kappa$ of a Beta-Binomial model from
-all 40 plots, and then runs leave-one-out cross-validation in which only the parameters of
+The number of planted seedlings that survive in each of 40 plots is described with a
+Beta-Binomial model and a curve of soil moisture. To save time, a colleague estimates the
+precision $\kappa$ from all 40 plots, and then runs leave-one-out cross-validation in which only the parameters of
 the curve are refitted, with $\kappa$ fixed at that estimate. What is wrong?
 
 ::: {.callout-tip title="Answer" collapse="true"}

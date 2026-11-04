@@ -957,3 +957,38 @@ Each stage adds one line: date, stage, what is done, what is next.
   0.019 days (Monte Carlo SE 0.0085); SD of estimates 0.381 against SE 0.383; coverage 0.927
   (SE 0.006); misses 104 below, 43 above. Three questions added under "Open questions".
   Next: Stage 4.
+- 4 November 2026: Stage 4 done (independent review of the theory, student page and
+  solutions). **Checked:** all three pages rendered with `--profile dev` (R 4.6.1, RTMB 2.0,
+  DHARMa 0.5.0; no warnings, exit 0) and every printed number compared with the prose; the
+  numbers of hidden chunks recalculated in a separate R session (correlation 0.98 in $a,b$;
+  log-scale Wald interval of $1/H$ 33.8 to 107.2; band at 100 tadpoles 23.5 to 33.1, narrowest
+  near 52 on the logit scale; variance factors 1.33 and 4.61; maximum killed 35; 610 tadpoles)
+  and the data claims of the practical (titres 4.2 to 8.5; 3 or 4 observations per
+  concentration, 0.02 to 1.1 ppm; Poisson profile interval of $b$ 1.92 to 2.03, so "much too
+  narrow" holds). All agree. Every link to another page and its anchor exists and lands on the
+  section that the text names; the DHARMa and band figures match their descriptions; Exercise 1
+  and the question blocks are identical on both practical pages; every `MakeADFun()` has
+  `silent = TRUE` and every `optim()` BFGS with `gr`; no `<-`, pipes, `reltol` or `%~%`; no
+  American spellings; citations (Vonesh and Bolker 2005, Dunn and Smyth 1996, Schwarz 1978,
+  Stone 1977, DHARMa 0.5.0 from `citation()`) correct. Statistics: model statements, ranges,
+  likelihoods, $n$ in AICc and BIC, cross-validation without leakage (every parameter refitted,
+  fixed starts), failed fits counted in Exercise 4 and no Normal-only result taught as general.
+  Scope and size within the plan (theory about 1,710 lines). **Changed:** (1) the warning callout
+  "When automatic differentiation needs care" and quiz question 2 said that an `if` on a
+  parameter is silently fixed at the side taken at the starting values. Tested in R: RTMB 2.0
+  refuses the comparison by default (`TapeConfig()` has `compare = "forbid"`) and `MakeADFun()`
+  stops with "Comparison is generally unsafe for AD types"; the branch is fixed only under the
+  setting `"allow"`, which the help page says not to use. Both now say this; the plan's Stage 1
+  bullet (line 321) has the old claim, and Stage 5 and 6 must follow the theory on slide 11.
+  (2) "$K$-fold" clashed with $K$ (parameters, and $K_i$ killed): now "5-fold or 10-fold".
+  (3) The band and quiz question 5 described coverage of "the curve of the model": now "the
+  value of the curve under the data generating process". (4) The reason given for the shape of
+  the band ("where fewer tanks constrain the curve") was wrong at low density, where there are
+  ten tanks: now explained by the few tadpoles of those tanks. (5) Quiz questions 2 and 10 had
+  no ecological setting (plant growth and soil nitrogen; seedling survival in plots). (6) Quiz
+  question 7 asserted the cause of underdispersion; now "suggests", in line with the warning
+  callout on residuals. (7) "On average" added to the Beta-Binomial attack rate; in the
+  solutions, Exercise 2, question 4, "agree to the second decimal" became "endpoints differ by
+  less than 0.001 ppm". **Remains:** no new open question; the three of Stage 3 and the
+  decisions of 4 November stand. AGENTS.md unchanged (Stage 7 records the decisions). Next:
+  Stage 5.
