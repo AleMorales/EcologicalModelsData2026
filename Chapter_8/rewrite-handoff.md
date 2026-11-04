@@ -993,3 +993,40 @@ Each stage adds one line: date, stage, what is done, what is next.
   `.claude/docs/chapters-7-8-other.md` pointing to this file; `AGENTS.md` unchanged, because it
   already lists Chapter 8 as generated and not rewritten, and Stage 7 records the decisions).
   Next: Stage 1.
+- 4 November 2026: Stage 1 done. `Chapter_8/Theory.qmd` replaced by part A (front matter with
+  `title:` only, Introduction, Learning goals, roadmap, `#sec-wrong-place` with `#sec-search`,
+  `#sec-gradients`, `#sec-stopping`, `#sec-diagnosis`, Practice 1 `#imp-parasitoid-fits`,
+  `#sec-multistart`); 907 source lines, so part B has about 700 lines within the target.
+  Renders in the dev profile without warnings (`quarto render Chapter_8/Theory.qmd --profile
+  dev`, 21 s); every chunk rerun in a clean session (purled) and every number in the prose
+  compared with the output; the three figures inspected. **Objects for Stage 2** (all on the
+  page): `co2`, `co2_data` (conc and uptake only), `pooled_nll`, `cmb`, `pooled_obj`,
+  `pooled_fit`, `other_starts` and `stop_fits` (named `slow_rise`, `high_asymptote`,
+  `early_plateau`), `co2_fits`, `stop_table`, `start_lower`, `start_upper`, `n_starts`,
+  `multi_results` (50 rows: `nll`, `convergence`, the four parameters; seed 801, drawn one
+  `runif(4, ...)` per start inside the loop), `best_fit`; in hidden chunks, `frog_data`,
+  `binomial_nll`, `binomial_obj`, `frog_fits` (three fits, names are the legend labels),
+  `mixed_nll` with `co2_data_plant`. `pooled_obj` has been evaluated at many points, so every
+  `sdreport()` on it must pass `par.fixed` (the page says so in `#sec-diagnosis`; by default
+  it uses `last.par.best`). Differences from "Numbers checked": (1) the slice along
+  `log_rate` through the ridge stop is an exact plateau (relative log-likelihood 0 for rates
+  above about 0.2 L/µL) with a rise of 12.3 units at 0.015 L/µL; it does not fall slowly as the
+  rate grows, and the text says what it shows; (2) the stop near $c=90$: gradient 0.019,
+  eigenvalues 835, 168, 13.2, −0.0067; the negative direction combines `c0` (0.98) and
+  `log_rate` (0.21), the NLL falls to 302.02 along it, a slice along `c0` alone shows a minimum,
+  and `nlminb()` from the stop reaches 296.2557 (for Stage 2); a hidden chunk checks the single
+  negative eigenvalue with `stopifnot()`; (3) the stop at zero has $b\to0$ as well as $a\to0$
+  ($b\approx4\times10^{-19}$; $\sigma=29.26$, the root mean square of the uptakes); (4) in
+  `fig-search_paths` the start that ends at $H\to0$ is ($\alpha$ 0.05, $H$ 0.03), inside the
+  plotted window, instead of (0.5, 1); its path first approaches $\alpha\approx0.98$; the
+  figure is on the original scales ($\alpha$ 0 to 1, $H$ 0 to 0.06), so the boundaries are
+  edges; (5) without `gr`, `optim()` called `fn` 339 times ($83+8\times32$, checked with a
+  counting wrapper: central differences, 2 per parameter per gradient). The multiple starts
+  reproduce the plan exactly (17, 1 with code 1 at 298.7, 17, 14, 1 at 2098.8); the 17 best
+  have `c0` between 45.0 and 46.8. The stopping rule was checked against `vmmin` in R's
+  `src/appl/optim.c`: a step that lowers the NLL by less than `reltol * (|f| + reltol)` counts
+  as no progress, BFGS then resets its inverse-Hessian approximation to the identity and stops
+  if the next step makes no progress either; the gradient is never tested. The page cites
+  Nocedal and Wright (2006), *Numerical Optimization*, 2nd edition, Springer, for BFGS (not
+  Bolker). Forward references to part B are plain text ("the section on identifiability", "the
+  section on boundaries"): Stage 2 may turn them into `@sec-` references. Next: Stage 2.
