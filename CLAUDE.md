@@ -23,6 +23,13 @@ Edit those files, not this one, when a convention changes.
   script, timing, incremental building and styling; prose, notation and R rules still come
   from `STYLE_GUIDE.md`. Edit that file when a lecture convention changes. The author
   sets the length of each lecture; if the request does not state it, ask before planning.
+- Do not load a whole chapter page, lecture file or long supplement unless the task
+  requires it (a full rewrite or a review of the whole page). Chapter files run to
+  thousands of lines (`Chapter_4/Theory.qmd` has about 2,760). Use Grep to find the
+  section by heading or `sec-` ID, then Read only those lines with `offset` and `limit`.
+  This replaces the "read the target page" step of "Read before working" for the parts
+  of a page that the change does not touch; read the chapter's file in `.claude/docs/`
+  (listed in `AGENTS.md`) first.
 - Use Read, Edit, Grep and Glob for files. Do not edit generated HTML, cache
   files, or vendored extensions.
 - Run focused R or Quarto checks only when R and Quarto are available. Never
