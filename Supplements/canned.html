@@ -225,6 +225,12 @@ window.Quarto = {
  <span class="menu-text">Chapter 6</span></a>
   </div>
 </li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../Chapter_7/Theory.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Chapter 7</span></a>
+  </div>
+</li>
       </ul>
   </li>
         <li class="sidebar-item sidebar-item-section">
@@ -267,6 +273,12 @@ window.Quarto = {
   <div class="sidebar-item-container"> 
   <a href="../Chapter_6/Lecture/lecture.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Chapter 6</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../Chapter_7/Lecture/lecture.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Chapter 7</span></a>
   </div>
 </li>
       </ul>
@@ -313,6 +325,12 @@ window.Quarto = {
  <span class="menu-text">Chapter 6</span></a>
   </div>
 </li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../Chapter_7/Practicals/no_solution.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Chapter 7</span></a>
+  </div>
+</li>
       </ul>
   </li>
         <li class="sidebar-item sidebar-item-section">
@@ -355,6 +373,12 @@ window.Quarto = {
   <div class="sidebar-item-container"> 
   <a href="../Chapter_6/Practicals/solution.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text">Chapter 6</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../Chapter_7/Practicals/solution.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Chapter 7</span></a>
   </div>
 </li>
       </ul>
@@ -457,7 +481,7 @@ window.Quarto = {
 <section id="introduction" class="level1" data-number="1">
 <h1 data-number="1"><span class="header-section-number">1</span> Introduction</h1>
 <p>In this supplement, we learn how to fit linear and generalised linear models, including their mixed-effects versions, with <code>glmmTMB</code>. These models are useful when a linear predictor, combined with a suitable observation distribution and link function, can describe the relationship we want to analyse. The package provides a formula interface to TMB, so we can use the likelihood methods of the course without writing each negative log-likelihood ourselves. Of course, you can write all of these models directly in RTMB, but when a model can be fitted with <code>glmmTMB</code> it is a lot faster to implement, and it may communicate better with others who are used to linear and generalised linear models.</p>
-<p>We assume that you are familiar with maximum likelihood and likelihood profile intervals from <a href="../Chapter_4/Theory.html">Chapter 4</a>, prediction and the delta method from <a href="../Chapter_6/Theory.html">Chapter 6</a>, and random effects and marginal likelihood from <a href="../Chapter_7/Theory.qmd">Chapter 7</a>. The statistical reasoning stays the same. This supplement explains how to express those models and request those calculations through <code>glmmTMB</code>, using penguin measurements, repeated measurements of chicks, and insect and salamander counts.</p>
+<p>We assume that you are familiar with maximum likelihood and likelihood profile intervals from <a href="../Chapter_4/Theory.html">Chapter 4</a>, prediction and the delta method from <a href="../Chapter_6/Theory.html">Chapter 6</a>, and random effects and marginal likelihood from <a href="../Chapter_7/Theory.html">Chapter 7</a>. The statistical reasoning stays the same. This supplement explains how to express those models and request those calculations through <code>glmmTMB</code>, using penguin measurements, repeated measurements of chicks, and insect and salamander counts.</p>
 </section>
 <section id="learning-goals" class="level1" data-number="2">
 <h1 data-number="2"><span class="header-section-number">2</span> Learning goals</h1>
@@ -525,13 +549,13 @@ window.Quarto = {
 </section>
 <section id="random-effects" class="level2" data-number="3.2">
 <h2 data-number="3.2" class="anchored" data-anchor-id="random-effects"><span class="header-section-number">3.2</span> Random effects</h2>
-<p>A <strong>random effect</strong> is a group deviation described by a distribution, as in Chapter 7. In <code>glmmTMB</code>, <code>(1 | site)</code> adds a Normal random intercept for each site. With a continuous predictor, the linear predictor becomes <span class="math inline">\(\eta_{ij}=a+b x_{ij}+u_j\)</span>, where <span class="math inline">\(u_j\)</span> is the deviation of site <span class="math inline">\(j\)</span> and <span class="math inline">\(u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{site}})\)</span>. The shared intercept, slope, and among-site variance are parameters of the model.</p>
+<p>A <strong>random effect</strong> is a group deviation described by a distribution, as in <a href="../Chapter_7/Theory.html#sec-conditional">Chapter 7</a>. In <code>glmmTMB</code>, <code>(1 | site)</code> adds a Normal random intercept for each site. With a continuous predictor, the linear predictor becomes <span class="math inline">\(\eta_{ij}=a+b x_{ij}+u_j\)</span>, where <span class="math inline">\(u_j\)</span> is the deviation of site <span class="math inline">\(j\)</span> and <span class="math inline">\(u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{site}})\)</span>. The shared intercept, slope, and among-site variance are parameters of the model.</p>
 <p>The formula <code>(1 + x | site)</code> also lets the slope vary among sites, and estimates the covariance between the intercept and slope deviations. Grouping factors can be crossed or nested. For example, <code>(1 | site) + (1 | year)</code> gives a site deviation and a year deviation shared across sites. By comparison, <code>(1 | site/year)</code> expands to <code>(1 | site) + (1 | site:year)</code>: the second deviation belongs to a particular year within a particular site.</p>
 </section>
 </section>
 <section id="sec-glmmtmb" class="level1" data-number="4">
 <h1 data-number="4"><span class="header-section-number">4</span> From TMB to <code>glmmTMB</code></h1>
-<p>The package <strong><code>glmmTMB</code></strong> constructs and fits a TMB likelihood from the formula, data, and chosen family. You already know the calculations that follow: automatic differentiation supplies derivatives for optimisation, the Hessian gives approximate standard errors, and likelihood profiles refit the other parameters while fixing the parameter of interest. For mixed models, TMB marginalises over the Normal random effects with the Laplace approximation of Chapter 7. This approximation is exact for the Normal linear mixed models considered here.</p>
+<p>The package <strong><code>glmmTMB</code></strong> constructs and fits a TMB likelihood from the formula, data, and chosen family. You already know the calculations that follow: automatic differentiation supplies derivatives for optimisation, the Hessian gives approximate standard errors, and likelihood profiles refit the other parameters while fixing the parameter of interest. For mixed models, TMB marginalises over the Normal random effects with the Laplace approximation of <a href="../Chapter_7/Theory.html#sec-marginal-likelihood">Chapter 7</a>. This approximation is exact for the Normal linear mixed models considered here.</p>
 <p>The difference is how we specify the model and read its results. In the course we write an NLL and process it with <code>MakeADFun()</code>; here we call <code>glmmTMB()</code> with the model description. The following methods request the corresponding calculations:</p>
 <table class="caption-top table">
 <colgroup>
@@ -625,9 +649,9 @@ Y_i\sim\operatorname{Normal}(\mu_i,\sigma^2),\qquad
 <span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(penguin_fit)<span class="sc">$</span>coefficients<span class="sc">$</span>cond[, <span class="fu">c</span>(<span class="st">"Estimate"</span>, <span class="st">"Std. Error"</span>)]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>             Estimate Std. Error
-(Intercept) 4780.6257  42.119209
+(Intercept) 4780.6257  42.119208
 flipper_mm    23.4991   5.158875
-sexmale      597.5017  67.682242</code></pre>
+sexmale      597.5017  67.682241</code></pre>
 </div>
 </div>
 <p>The intercept is the estimated mean body mass (g) of a female with a flipper length of 217 mm. The slope gives the change in expected mass (g/mm), holding sex constant, and <code>sexmale</code> gives the male–female difference (g) at the same flipper length. The model treats birds as independent conditional on these predictors. Adding an interaction, <code>flipper_mm * sex</code>, would allow the slopes to differ between sexes.</p>
@@ -780,7 +804,7 @@ Conditional model:
 <span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a><span class="fu">fixef</span>(penguin_disp_fit)<span class="sc">$</span>disp</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>(Intercept)     sexmale 
-  5.5092305   0.1794576 </code></pre>
+  5.5092301   0.1794566 </code></pre>
 </div>
 </div>
 <p>The intercept is the log of the residual standard deviation (g) of females, and <code>sexmale</code> is the difference between males and females on that scale, so its exponential is the ratio of the two standard deviations.</p>
@@ -811,10 +835,10 @@ Conditional model:
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Wald intervals, then likelihood profile intervals, for the coefficients.</span></span>
 <span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a><span class="fu">confint</span>(penguin_fit, <span class="at">parm =</span> <span class="st">"beta_"</span>, <span class="at">method =</span> <span class="st">"wald"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>                 2.5 %     97.5 %  Estimate
-(Intercept) 4698.07360 4863.17786 4780.6257
-flipper_mm    13.38789   33.61031   23.4991
-sexmale      464.84696  730.15647  597.5017</code></pre>
+<pre><code>                2.5 %     97.5 %  Estimate
+(Intercept) 4698.0736 4863.17786 4780.6257
+flipper_mm    13.3879   33.61031   23.4991
+sexmale      464.8469  730.15641  597.5017</code></pre>
 </div>
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="fu">confint</span>(penguin_fit, <span class="at">parm =</span> <span class="st">"beta_"</span>, <span class="at">method =</span> <span class="st">"profile"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
@@ -952,7 +976,7 @@ insect_nb_fit       7 374.2179 375.9679</code></pre>
 <div id="quarto-appendix" class="default"><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">Footnotes</h2>
 
 <ol>
-<li id="fn1"><p>For Normal linear mixed models, <code>REML = TRUE</code> requests restricted maximum likelihood, an alternative for estimating variance components. Keep maximum likelihood when comparing models with different fixed effects. See the <a href="https://glmmtmb.github.io/glmmTMB/reference/glmmTMB.html">function documentation</a> for the available arguments and options.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn1"><p>For Normal linear mixed models, <code>REML = TRUE</code> requests restricted maximum likelihood, an alternative for estimating variance components (<a href="../Chapter_7/Theory.html#sec-reml">Chapter 7</a>). Keep maximum likelihood when comparing models with different fixed effects. See the <a href="https://glmmtmb.github.io/glmmTMB/reference/glmmTMB.html">function documentation</a> for the available arguments and options.<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn2"><p>See the <a href="https://glmmtmb.github.io/glmmTMB/reference/Salamanders.html">data documentation</a> for the study and the <a href="https://doi.org/10.5061/dryad.5m8f6">data in Dryad</a>.<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 <li id="fn3"><p>The <a href="https://glmmtmb.github.io/glmmTMB/reference/predict.glmmTMB.html">prediction reference</a> describes these options and prediction for new groups.<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
 </ol>
