@@ -523,7 +523,7 @@ In the simulation the relative bias of $\hat k$ is 21% with 20 visits (on averag
 **Optional remark (corrections)**
 
 Corrections of the bias exist for particular models. Dividing by $n-1$ in the estimator of a variance is one of them (Chapter 3). Restricted maximum likelihood (REML) is the general approach to reduce the bias of the estimates of
-variance parameters; the chapter says that it is used with the models for grouped observations of Chapter 7. **Note for the author:** Chapter 7 does not cover REML yet; check before citing it.
+variance parameters, and Chapter 7 uses it with the models for grouped observations (section "Restricted maximum likelihood").
 
 Break (10 minutes).
 

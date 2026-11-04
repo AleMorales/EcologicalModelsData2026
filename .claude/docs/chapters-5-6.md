@@ -93,8 +93,11 @@ glossary.
   the log score (every parameter refitted to the other 15 tanks from fixed starts; no
   random folds; other folds named once as "5-fold or 10-fold", never "$K$-fold", which
   clashes with $K$; no RMSE). $n$ in AICc and BIC is the
-  16 tanks for all four models; whether it could be the tadpoles is left to Chapter 7
-  (author's decision of 4 November). The criteria disagree on the curve under the
+  16 tanks for all four models (author's decision of 4 November). Chapter 7 answers why
+  not the tadpoles: tadpoles of one tank share it, so the tanks are the independent
+  observations ("Observations in groups"); for grouped data $n$ lies somewhere between
+  the number of groups and of observations, so grouped models are compared with AIC and
+  leave-one-group-out cross-validation only. The criteria disagree on the curve under the
   Beta-Binomial (AIC, AICc and BIC prefer Holling type II, leave-one-out the constant
   probability), and the text keeps the disagreement so that students see it (author's
   decision); the answer uses the Beta-Binomial Holling type II model.

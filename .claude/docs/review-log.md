@@ -69,6 +69,22 @@ them. All dates are in 2026.
   Chapter 7 (which no longer claim that Chapter 6 used `shapes1.csv` or described `%~%`)
   and one of Chapter 8. The plan, `Chapter_6/rewrite-handoff.md`, stays until the author
   removes it.
+- **4 November, Chapter 7:** Chapter 7 (theory, practical, one lecture) was rewritten from
+  scratch to the author's decisions of 4 November (see `chapters-7-8-other.md`) in seven
+  stages with an independent review (Stage 4), and added to the production build; all of it
+  is a generated draft awaiting review. Promises about Chapter 7 elsewhere were corrected
+  the same day and await the author's check: in the approved Chapter 1, two sentences of the
+  roadmap entry "Chapter 7" (R skills now name REML and the comparison by AIC and
+  leave-one-group-out cross-validation; "builds on" no longer says that Chapter 7 reuses
+  Chapter 6's curve and observation model); elsewhere, the promises of spatial dependence
+  among neighbouring quadrats (Chapter 3 theory, Chapter 4 practical, the Chapter 3 lecture
+  slide and script, the Chapter 4 Lecture 1 script), which Chapter 7 does not model, now say
+  that the course does not model it and that Chapter 7 treats observations in groups; links
+  to `#sec-conditional`, `#sec-reml`, `#sec-marginal-likelihood` from Chapter 4 and
+  `canned.qmd`; the shifted forms of the saturating exponential in
+  `deterministic-functions.qmd`; eleven glossary entries. `lecture-script.pdf` of the
+  Chapter 3 lecture and of Chapter 4 Lectures 1 and 2 were not regenerated. The plan,
+  `Chapter_7/rewrite-handoff.md`, stays until the author removes it.
 
 | Material | Status and use |
 |---|---|
@@ -88,5 +104,7 @@ them. All dates are in 2026.
 | `Supplements/canned.qmd` | Draft, rewritten on 7 October. The paragraph of `index.qmd` that describes it is generated text in the author's first person and awaits check |
 | Chapter 6 (theory, practical) | Draft, rewritten from scratch on 3 and 4 November in seven stages (`Chapter_6/rewrite-handoff.md`), with an independent review (Stage 4) but no review by the author. Never a model of voice |
 | `Chapter_6/Lecture/` | Generated draft: a session of 150 minutes with 32 slides (121 minutes, 9 of slack) in three blocks with two breaks of 10 minutes, including one live demo of 18 minutes (2 at the slide, 16 in R) from `demo-cycle.R`. Every figure is a copy of a chapter figure or made from the chapter's code (`lecture-assets/figures.R`; `parameter-derivatives.png` is a copy of the Chapter 5 figure, whose axis labels are small at slide size). Slides, script and demo script await review. Never a model of voice |
-| Chapters 7 and 8 | Generated, not rewritten. Topic coverage only, never a model of voice |
+| Chapter 7 (theory, practical) | Draft, rewritten from scratch on 4 November in seven stages (`Chapter_7/rewrite-handoff.md`), with an independent review (Stage 4) but no review by the author. Never a model of voice |
+| `Chapter_7/Lecture/` | Generated draft: a session of 150 minutes with 31 slides (116 minutes, 14 of slack) in three blocks with two breaks of 10 minutes, including one live demo of 18 minutes (2 at the slide, 16 in R) from `demo-pooling.R`. Every figure is made from the chapter's code (`lecture-assets/figures.R`); the DHARMa panels of slide 25 are small at slide size. Slides, script and demo script await review. Never a model of voice |
+| Chapter 8 | Generated, not rewritten. Topic coverage only, never a model of voice |
 

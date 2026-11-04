@@ -81,6 +81,17 @@ so that the graph bends downwards and the slope decreases as $x$ increases. It i
 where the second derivative is positive, so that the graph bends upwards and the slope
 increases. The Michaelis–Menten function is concave for all $x\ge0$.
 
+- **Conditional distribution**: The distribution of one random variable for a given value of
+another,
+$$
+P(X_1=x_1\mid X_2=x_2)=\frac{P(X_1=x_1,X_2=x_2)}{P(X_2=x_2)},
+$$
+the joint probability divided by the marginal probability of the given value (for
+continuous variables, $f(x\mid y)=f(x,y)/f(y)$ with densities). Two random variables are
+independent when the conditional distribution of each equals its marginal distribution.
+Grouped models are written with conditional distributions: the observations of a group
+for a given value of its random effect ([Chapter 7](../Chapter_7/Theory.qmd#sec-conditional)).
+
 - **Confidence interval**: A range of values for a parameter, calculated from a sample with
 a procedure that has a known behaviour across repeated hypothetical samples. Once an
 interval has been calculated, it either contains the parameter or it does not, so the
@@ -219,6 +230,10 @@ $\hat{\mathcal{I}} = -\ell''(\hat\theta)$. A sharply curved log-likelihood has a
 information and a small variance of the estimator. With several parameters the information
 is a matrix: the Hessian of the negative log-likelihood at the estimates.
 
+- **Fixed effect**: A parameter of a grouped model that is shared by all the groups, such as
+the rate of a response curve or the effect of a group-level predictor (origin, treatment).
+It is estimated as an ordinary parameter. See also random effect and mixed-effects model.
+
 - **Four faces of a distribution**: The four functions that every distribution has: the
 probability mass (or density), the cumulative probability, the quantile function and the
 random sampler. In R they are implemented by functions with the prefixes `d`, `p`, `q` and
@@ -321,6 +336,22 @@ distribution are, i.e., how much of the distribution is spread far away from the
 often reported as the excess kurtosis, which subtracts 3, the kurtosis of a Normal
 distribution.
 
+- **Laplace approximation**: An approximation of the integral of a function with a single
+peak. Near the peak the logarithm of the function is close to a parabola, so the function
+is close to a Normal-shaped curve, whose area depends only on the height of the peak and
+the curvature of the logarithm there. RTMB uses it, through the argument `random` of
+`MakeADFun()`, to integrate random effects out of the likelihood. It is accurate when each
+group has many observations with nearly Normal conditional distributions, exact for Normal
+linear mixed models, and less accurate for few observations per group, small counts or
+binary data ([Chapter 7](../Chapter_7/Theory.qmd#sec-marginal-likelihood)).
+
+- **Leave-one-group-out cross-validation**: Cross-validation for grouped data in which one
+whole group is held out at a time: every parameter is estimated again from the other
+groups, and the held-out group is scored by its marginal log-likelihood under that fit. The
+score is the sum over groups. Holding out single observations would leave the other
+observations of the same group in the fit
+([Chapter 7](../Chapter_7/Theory.qmd#sec-grouped-comparison)).
+
 - **Likelihood function**: The joint probability (or, for continuous data, the joint density)
 of the observed sample, read as a function of the parameters with the data held fixed. For
 i.i.d. observations,
@@ -377,13 +408,25 @@ course can work with it. It returns an object with the starting values (`par`), 
 the negative log-likelihood (`fn`) and its slope (`gr`), which `optim()` uses, and with the
 function `simulate()`. The same object is the argument of `sdreport()` and of
 `TMB::tmbprofile()`. [Chapter 4](../Chapter_4/Theory.qmd) uses it from the first fit and
-[Chapter 6](../Chapter_6/Theory.qmd#sec-makeadfun) says more about it.
+[Chapter 6](../Chapter_6/Theory.qmd#sec-makeadfun) says more about it. In
+[Chapter 7](../Chapter_7/Theory.qmd#sec-random-effects-rtmb) the argument `random` names
+the random effects that it integrates out with the Laplace approximation, and `map` fixes
+parameters at given values.
 
 - **Marginal distribution**: The distribution of one random variable in a joint
 distribution, regardless of the value of the others. It is recovered by adding the joint
 probabilities over the other variable (discrete) or by integrating the joint density over
 it (continuous, which gives the **marginal density**), e.g.,
 $f_Y(y)=\int f_{X,Y}(x,y)\,dx$.
+
+- **Marginal likelihood**: The likelihood of the parameters of a model with random effects
+(fixed effects and variance components), in which the random effects, which are not
+observed, have been integrated out. For group $j$,
+$L_j(\boldsymbol\theta)=\int f(\mathbf y_j\mid u)\,f(u\mid\sigma_{\mathrm{group}})\,du$,
+the likelihood of the observations of the group averaged over the values that its random
+effect could take; the marginal likelihood is the product over the groups. Its maximisation
+is called maximum marginal likelihood
+([Chapter 7](../Chapter_7/Theory.qmd#sec-marginal-likelihood)).
 
 - **Maximum likelihood estimator (MLE)**: The value of a parameter for which the likelihood
 of the observed sample is highest,
@@ -427,6 +470,11 @@ generating process, whatever the values of its parameters. The maximum likelihoo
 then converges to the parameter values that minimise the Kullback–Leibler divergence, and
 standard errors and intervals calculated as if the model had generated the data are
 approximations.
+
+- **Mixed-effects model** (or mixed model): A model with both fixed effects and random
+effects. Because it describes the data in levels (the groups, then the observations within
+a group), it is also called a **hierarchical** or **multilevel model**
+([Chapter 7](../Chapter_7/Theory.qmd#sec-conditional)).
 
 - **Model**: Mathematical approximation to the data generating process. It involves at least
 one distribution. Often one or more of the parameters in that distribution vary as a function
@@ -472,6 +520,13 @@ Michaelis–Menten function.
 with respect to one of them, taken with the others held fixed, written
 $\partial f/\partial a$. The partial derivative of a function with respect to a parameter
 tells us how much the function moves, at a given $x$, when that parameter changes slightly.
+
+- **Partial pooling**: A way of treating a parameter that may differ among groups: each group
+has its own value, and the values are drawn from a distribution whose variance is
+estimated, so that all the groups inform the distribution and the distribution informs the
+value of each group. It lies between **complete pooling** (one value shared by all the
+groups) and **no pooling** (a separate, unconnected parameter for each group). See also
+random effect and shrinkage ([Chapter 7](../Chapter_7/Theory.qmd#sec-pooling)).
 
 - **Phenomenological function**: A function chosen because it has the shape of the pattern
 in the data, so that its parameters describe that shape (a height, a location, a steepness)
@@ -520,6 +575,14 @@ reached. For a discrete variable, $q_\alpha=\min\{x:F_X(x)\geq\alpha\}$; for a c
 variable, $F_X(q_\alpha)=\alpha$. The median is the $0.5$ quantile. In R, it is implemented
 by the `q*` functions.
 
+- **Random effect**: The deviation of a group (a plant, a nest, a site) from the value shared
+by all the groups, described by a distribution, usually Normal with mean zero on a
+transformed scale, e.g. $u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{group}})$ on the
+logarithm of a positive parameter. The random effects are not parameters: they are
+integrated out of the likelihood, and the values that RTMB returns for them are
+**predicted group effects**. "Random" does not mean that the groups were allocated at
+random ([Chapter 7](../Chapter_7/Theory.qmd#sec-conditional)).
+
 - **Random variable**: A numerical quantity that can take any value within a prescribed set
 (its support). It can be used to model error, variability or uncertainty. Random variables
 can be discrete or continuous.
@@ -539,6 +602,15 @@ and it shows that only differences in log-likelihood are meaningful.
 parameters, each of which is an expression of the old ones. The curve does not change; the
 meaning, the units and the correlation of the parameters do. The Michaelis–Menten function
 and the Holling type II functional response are two parameterisations of one curve.
+
+- **Restricted maximum likelihood (REML)**: A method of estimating variance components from a
+likelihood in which the fixed effects have also been integrated out, as if they were random
+effects with a flat distribution. It reduces the downward bias of maximum likelihood
+estimates of variances when fixed effects are estimated; for i.i.d. Normal observations it
+gives the variance estimator that divides by $n-1$. In RTMB the fixed effects are added to
+the argument `random`. For non-linear or non-Normal models it is an approximation, and
+models with different fixed effects are compared with maximum likelihood fits
+([Chapter 7](../Chapter_7/Theory.qmd#sec-reml)).
 
 - **RTMB**: An R package in which we write a negative log-likelihood as an R function and
 that provides the tools to fit it. Its functions for probability mass and density (together
@@ -570,6 +642,12 @@ returns the estimates and standard errors of the quantities requested with `ADRE
 - **Seed**: The starting state of the algorithm that generates a pseudo-random sequence. If
 the same seed is set before the same simulation, R produces the same sequence again. In R,
 it is set with `set.seed()`.
+
+- **Shrinkage**: The pull of the predicted effect of a group towards the typical value of
+groups with the same predictors, compared with the estimate from the observations of that
+group alone. It is stronger for groups with few or noisy observations and when the
+variance among groups is small. It follows from the distribution of the random effects and
+is a form of **regularisation** ([Chapter 7](../Chapter_7/Theory.qmd#sec-shrinkage)).
 
 - **Sigmoid function**: A function that increases slowly at first, then fast, then slowly
 again, so that its graph is S-shaped, as the logistic function does.
@@ -612,6 +690,13 @@ data, we calculate the variance of the empirical distribution of the sample.
 $$
  \operatorname{Var}(X) = E[(X-E[X])^2].
 $$
+
+- **Variance component**: A variance parameter of a grouped model that describes one level of
+variation: $\sigma^2_{\mathrm{group}}$ the variation among groups (the variance of the random
+effects) and $\sigma^2_{\mathrm{obs}}$ the variation of the observations around the curve of
+their group. Each has the scale and the units of the quantity that it describes; the
+negative log-likelihood usually takes their square roots, the standard deviations
+([Chapter 7](../Chapter_7/Theory.qmd#sec-marginal-likelihood)).
 
 - **Variance of an estimator**: The variance of its sampling distribution. For the mean of
 $n$ i.i.d. observations it decreases as the sample size grows, whereas the variance of the

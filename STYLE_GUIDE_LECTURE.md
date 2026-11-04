@@ -66,7 +66,10 @@ copy in each `lecture-assets/`. The subtitle, footer and `pagetitle` name the le
   script (author's decision of 3 November): a slice and the profile with TMB in Lecture 1,
   the properties of estimators by simulation in Lecture 2. The Chapter 6 lecture has one
   demo of the same length from `demo-cycle.R`: the modelling cycle for one model, from
-  the fit to the residuals, without model comparison. A demo slide's `data-timing`
+  the fit to the residuals, without model comparison. The Chapter 7 lecture has one demo
+  of the same length from `demo-pooling.R`: from complete and no pooling to partial
+  pooling with predictors, the shrinkage plot and curves for new groups, again without
+  model comparison (author's decision of 4 November). A demo slide's `data-timing`
   includes its demo, and the table of the script shows the two parts ("2 + 16").
 - **Breaks** are rows of the table without a slide number, and the line under the table
   totals slides, slack and breaks.

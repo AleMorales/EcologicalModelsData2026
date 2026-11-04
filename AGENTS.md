@@ -50,8 +50,9 @@ does not imply review. All dates are in 2026.
   reference for teaching voice, and Chapter 2 (author's sections and Exercises 1, 3, 4)
   for voice in technical chapters.
 - **Drafts, never a model of voice:** everything rewritten or generated since 6 October,
-  including the Chapter 3 and 4 theory, Chapters 5 and 6, the supplements, every lecture,
-  and Chapters 7 and 8. A draft is a reference for topic coverage only.
+  including the Chapter 3 and 4 theory, Chapters 5 to 7 (rewritten from scratch, Chapter 7
+  on 4 November), the supplements, every lecture, and Chapter 8 (generated, not
+  rewritten). A draft is a reference for topic coverage only.
 - **Lectures:** the author sets the length of each lecture; when a request does not give
   it, ask (`STYLE_GUIDE_LECTURE.md`).
 
@@ -77,6 +78,10 @@ quadrats, mean 2.14, Chapters 3 and 4) and the Negative Binomial model (`Owls`, 
 the hypothetical Binomial seed-survival example stays in Chapter 2. A practical may use
 another species of the data set of its theory (Chinstrap in Chapter 2, Adelie in Chapter
 4). `penguins` of `datasets` needs R 4.5.0 or later; a footnote at the first use says so.
+Grouped data have one running example in the theory, the CO₂ uptake curves of 12 plants
+(`CO2`, Chapter 7), and the practical of Chapter 7 returns to the reed frog tanks, owl
+nests and salamander sites that earlier chapters treated as i.i.d. The `shapes*.csv`
+files in `Data/` are used by no page; the author decides whether they stay.
 
 
 ## Teaching scope and progression
@@ -112,7 +117,10 @@ another species of the data set of its theory (Chinstrap in Chapter 2, Adelie in
 - Where topics live: method of moments in Chapter 3; AIC and AICc in Chapter 4; the delta
   method as a box in Chapter 4 (one parameter) and in Chapter 6 (several parameters,
   applied to a fitted curve through `ADREPORT()`), never calculated by hand in R; BIC,
-  leave-one-out cross-validation and scaled quantile residuals in Chapter 6; bounds,
+  leave-one-out cross-validation and scaled quantile residuals in Chapter 6; conditional
+  distributions, random effects, the marginal likelihood and the Laplace approximation,
+  REML and leave-one-group-out cross-validation in Chapter 7 (grouped models are compared
+  with AIC and leave-one-group-out only, because $n$ is ambiguous for AICc and BIC); bounds,
   `optimize()`, scaling, sensitivity to starting values, local maxima, Hessian problems
   and the effect of parameterisation on optimisation in Chapter 8 (Chapter 4 only uses
   transformations and points forward).
@@ -129,13 +137,14 @@ another species of the data set of its theory (Chinstrap in Chapter 2, Adelie in
 - Settings shared by every build belong in `_quarto.yml`; the complete render and sidebar
   lists belong in the mutually exclusive `_quarto-dev.yml` and `_quarto-prod.yml`, so
   that profile merging cannot duplicate navigation.
-- The production build renders Chapters 1 to 6 (with the lectures of Chapters 1 to 4 and
-  6) and five supplements; Chapters 7 and 8 are rendered only by the dev profile.
+- The production build renders Chapters 1 to 7 (with the lectures of Chapters 1 to 4, 6
+  and 7) and five supplements; Chapter 8 is rendered only by the dev profile.
 - Every package loaded in a rendered page must be in `.github/workflows/publish.yml`, or
   the production build fails. Production needs `MASS`, `ggplot2`, `patchwork`, `dplyr`,
   `RTMB`, `RTMBdist`, `TMB` (for `tmbprofile()`), `quarto`, `glmmTMB` (`Salamanders`,
-  `Owls`, the `glmmTMB` supplement), `boot` (`fir`), `emdbook` (Chapter 4 practical,
-  Chapters 5 and 6), `DHARMa` (Chapter 6), `knitr` and `rmarkdown`. `DEoptim` and `GA`
+  `Owls`, the `glmmTMB` supplement, Chapter 7 practical), `boot` (`fir`), `emdbook`
+  (Chapter 4 practical, Chapters 5 to 7), `DHARMa` (Chapters 6 and 7), `knitr` and
+  `rmarkdown`. `DEoptim` and `GA`
   stay for Chapter 8. `VGAM`, `gtools` and `COMPoissonReg` were removed because no page loads them.
 - Do not install packages during rendering.
 

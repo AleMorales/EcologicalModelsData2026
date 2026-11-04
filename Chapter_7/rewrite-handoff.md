@@ -1219,3 +1219,65 @@ Each stage adds one line: date, stage, what is done, what is next.
   pages, inspected as PNG via `quarto typst compile` in the scratchpad); the `.quarto/`
   folder that the render creates was removed. No new open question. `AGENTS.md` unchanged
   (Stage 7). Next: Stage 7.
+- 4 November 2026: Stage 7 done (integration) and final report. **Links and promises:**
+  every mention of Chapter 7 in the repository was checked. Changed in the approved
+  `Chapter_1/Theory.qmd` (roadmap entry "Chapter 7", two sentences): "R skills and tools"
+  now names REML and the comparison with AIC and leave-one-group-out cross-validation;
+  "How it builds" says that Chapter 7 applies the curves of Chapters 5 and 6, the checks
+  of Chapter 6 and the RTMB workflow (it no longer says Chapter 6's curve and observation
+  model). No sentence of Chapter 2 (theory, practical) or of the Chapter 3 practical was
+  changed: their pointers describe grouped observations correctly; Chapter 2, line 905
+  ("explores how to relax the assumption of independence", after a list that includes
+  spatial clustering) is general and was left for the author. Spatial dependence among
+  neighbouring quadrats, which Chapter 7 does not model, was promised in the Chapter 3
+  theory (`fir` grid; a draft page), the Chapter 4 practical (glacier lily grid, both
+  pages), the Chapter 3 lecture slide 5 and its script (two places) and the Chapter 4
+  Lecture 1 script: each now says that the course does not model it and that Chapter 7
+  treats observations in groups. Chapter 4: the footnote on the bar links to
+  `#sec-conditional`, the REML footnote to `#sec-reml`, the owl visits say that the
+  Chapter 7 practical fits a model with nests; Chapter 4 practical, Exercise 1 says that
+  the Chapter 7 practical returns to the tanks. The note "Chapter 7 does not cover REML
+  yet" was removed from the Lecture 2 script and from `Chapter_4/lecture-handoff.md`.
+  `canned.qmd`: links to `#sec-conditional`, `#sec-marginal-likelihood` and `#sec-reml`
+  (REML footnote). `deterministic-functions.qmd`, saturating exponential: the false
+  claims (Chapters 6 and 7 use $r+a(1-e^{-kx})$; the practical uses $A-(A-R_0)e^{-kt}$)
+  are gone; the "Also written" line and the paragraph on shifted forms add
+  $a(1-e^{-b(x-c)})$, the simple von Bertalanffy form, used by Chapter 7 for CO₂ uptake
+  and by its practical for the pines. `distributions.qmd` unchanged (Chapter 7 does not
+  link to it). Glossary: eleven entries added (conditional distribution, fixed effect,
+  Laplace approximation, leave-one-group-out cross-validation, marginal likelihood,
+  mixed-effects model, partial pooling, random effect, REML, shrinkage, variance
+  component) and the `MakeADFun()` entry names `random` and `map`. Checked and unchanged:
+  Chapter 6 (theory, practical, lecture, script), Chapter 8 (lines 464 and the note on
+  Exercise 5, kept), the Chapter 1 and 2 lecture scripts. **Guidance:** `AGENTS.md`
+  (status of Chapter 7 as a draft; data decisions: `CO2`, the practical's data, the
+  `shapes*.csv` files used by no page; "Where topics live" for Chapter 7 with the reason
+  for AIC and leave-one-group-out only; production renders Chapters 1 to 7; packages);
+  `.claude/docs/chapters-7-8-other.md` (a "Chapter 7" entry with the durable decisions of
+  this file, the lecture and demo, numbered Practice callouts through Chapter 7; the stale
+  notes on `%~%`, `shapes1.csv` and REML removed; "Chapter 8" kept separately);
+  `.claude/docs/review-log.md` (4 November entry and status rows for the Chapter 7 pages
+  and lecture); `.claude/docs/chapters-5-6.md` (what Chapter 7 says about $n$ for the
+  tanks); `STYLE_GUIDE.md` (Practice callouts and roadmap/recipe through Chapter 7; the
+  summary and front-matter exceptions now name Chapter 8 only; $K$ in grouped models; a
+  bullet "Random effects" under "Maximum likelihood with RTMB"); `STYLE_GUIDE_LECTURE.md`
+  (the Chapter 7 demo). **Build:** `_quarto-prod.yml` renders and lists the Chapter 7
+  theory, practical, solutions and lecture after Chapter 6; `_quarto-dev.yml` already had
+  the three pages (it has no Slides section for any chapter); every package that the new
+  pages load is in `.github/workflows/publish.yml`. **Render:** `quarto render --profile
+  prod` (the whole production site, 35 pages, R 4.6.1): exit 0, no warnings in the log; the
+  Chapter 7 theory, both practical pages and the lecture are in `_site-prod`; no
+  unresolved cross-reference (`?@`) in any page; every new link to a Chapter 7 `sec-` ID
+  resolves to an ID of the built page, and the sidebar lists Chapter 7 in all four
+  sections. The edited Markdown guidance and lecture scripts are not rendered (source
+  review only). **Numbers that differ
+  from this file:** none beyond those recorded by Stages 2, 3 and 6 (leave-one-plant-out
+  scores within 0.03; Exercise 1 starting value $k=0.05$; Exercise 5 starts and counts;
+  the Wald limit 0.68). **Awaiting the author:** all Chapter 7 pages, lecture, script and
+  demo (generated drafts, independently reviewed in Stage 4); the two changed sentences
+  of Chapter 1; the theory's length (about 2,070 lines against the target of 1,900); the
+  small DHARMa panels of lecture slide 25; whether the `shapes*.csv` files stay; the
+  `lecture-script.pdf` files of the Chapter 3 lecture and of Chapter 4 Lectures 1 and 2
+  were not regenerated after their scripts changed; the glossary still has no entries for
+  the Chapter 6 terms BIC, cross-validation and scaled quantile residuals. No new open
+  question. This file stays until the author removes it.
