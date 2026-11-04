@@ -1031,3 +1031,25 @@ Each stage adds one line: date, stage, what is done, what is next.
   when bullets follow it; a column of 60 to 64% works. Figures to note for the author: the
   axis labels of `parameter-derivatives.png` are small at slide size (an unchanged copy).
   No new open question. AGENTS.md unchanged (Stage 7). Next: Stage 6.
+- 4 November 2026: Stage 6 done. `Chapter_6/Lecture/lecture-script.md` written from the 32
+  slides as Stage 5 left them (121 minutes of slides, 9 of slack, 2 breaks: 150), in the format
+  of `STYLE_GUIDE_LECTURE.md` and of the Chapter 4, Lecture 2 script: opening (draft; figures by
+  slide with `figures.R`), timing table, one section per slide (slides 1 and 2 together),
+  expected answers for Practice 1 to 3 and the discussion, the demo section with section 0
+  during the break and a walkthrough of `demo-cycle.R` (4 + 2 + 3 + 3 + 4 = 16 minutes, three
+  questions with answers), and "Adjustments during delivery" (keeps slides 5, 6, 8, 13, 16, 20
+  and 24, the plan's 5 to 7, 13, 16, 20 and 24 renumbered; the demo is kept whole and takes the
+  slack first). Slide titles and minutes were compared mechanically with `lecture.qmd` and
+  `data-timing`: all agree. Slide 12 follows the theory (an `if` on a parameter is refused).
+  Provenance once (slide 4); no first-person opinion. **Checks:** `demo-cycle.R` run in a clean
+  session (R 4.6.1, about 6 s); every number of the walkthrough is its output (NLL at the
+  values by eye 46.95; gradient −4.30 and 3.20, at the estimates about 0.002 and −0.005;
+  0.526, 0.0166, 60.2, 114.6; 0.104 (0.285), −4.098 (0.294), 0.82; $H$ 0.0070 to 0.0264, $1/H$
+  37.9 to 143.1; first band row equals `logit_alpha`; 28.1, 23.5 to 33.1; residual 0.000 for 5
+  of 50 and six tanks below 0.1 or above 0.9; dispersion 2.93). The single draw in section 5
+  is made before `set.seed()`, so it changes at every run (the script says so). Practice
+  answers checked in R (0.028 to 0.060; 17 to 36 around 24.5; 4.8, 20, $\kappa=189$); the
+  other numbers come from the chapter and the Stage 1 to 2 log. `lecture-script.pdf` made with
+  `quarto render Chapter_6/Lecture/lecture-script.md --to typst` (no warnings; pages inspected
+  as PNG via `quarto typst compile`); the `.quarto/` folder that the render creates was
+  removed. No new open question. AGENTS.md unchanged (Stage 7). Next: Stage 7.
