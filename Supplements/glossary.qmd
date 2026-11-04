@@ -22,6 +22,14 @@ where $\ell(\hat\theta)$ is the maximum log-likelihood of the model and $K$ is t
 parameters that were estimated. Among models fitted to the same observations, the one with
 the lowest AIC is preferred, and only differences in AIC are meaningful. AIC ranks the
 candidate models: it does not tell us whether the best of them describes the data well.
+For small samples the **corrected AIC** adds a penalty that disappears as the number of
+observations $n$ grows,
+$$
+\mathrm{AICc}=\mathrm{AIC}+\frac{2K(K+1)}{n-K-1}
+$$
+([Chapter 4](../Chapter_4/Theory.qmd#sec-aic)). For grouped data $n$ is ambiguous, so
+grouped models are compared with AIC and not with AICc
+([Chapter 7](../Chapter_7/Theory.qmd#sec-grouped-comparison)).
 
 - **Aleatoric probability**: Probability interpreted as the relative frequency at which
 different values would be observed across all the possible replications of the same
@@ -45,9 +53,28 @@ limit theorem. The maximum likelihood estimator of any parameter is asymptotical
 under regularity conditions, centred on the parameter and with a variance equal to the
 inverse of the Fisher information.
 
+- **Automatic differentiation**: The calculation of the derivatives of a function from the
+code that computes it, exactly up to rounding error and without a formula written by us.
+RTMB uses it to supply the gradient of the negative log-likelihood to `optim()` (the
+element `gr` of the object made by `MakeADFun()`), and the same derivatives are behind
+`sdreport()`, `ADREPORT()` and the Laplace approximation
+([Chapter 6](../Chapter_6/Theory.qmd#sec-makeadfun)).
+
 - **Bandwidth**: The standard deviation of the kernel used in a kernel density estimate. It
 plays the same role as the bin width of a histogram: a small bandwidth gives a wiggly
 estimate and a large bandwidth a very smooth one.
+
+- **Bayesian information criterion (BIC)**: A criterion to compare models fitted to the same
+data, calculated as
+$$
+\mathrm{BIC}=K\log(n)-2\,\ell(\hat\theta),
+$$
+with the symbols of AIC and $n$ the number of independent observations. Each parameter
+costs $\log(n)$ units instead of two, so for most data sets BIC penalises additional
+parameters more strongly than AIC, and in large samples it tends to prefer simpler models.
+It is used like AIC, as a difference between models, although its name comes from its
+derivation in Bayesian inference ([Chapter 6](../Chapter_6/Theory.qmd#sec-response-comparison)).
+It is not used for grouped models, for which $n$ is ambiguous.
 
 - **Bias**: The difference between the mean of the sampling distribution of an estimator
 and the parameter that it estimates,
@@ -91,6 +118,15 @@ continuous variables, $f(x\mid y)=f(x,y)/f(y)$ with densities). Two random varia
 independent when the conditional distribution of each equals its marginal distribution.
 Grouped models are written with conditional distributions: the observations of a group
 for a given value of its random effect ([Chapter 7](../Chapter_7/Theory.qmd#sec-conditional)).
+
+- **Confidence band**: The confidence intervals of a fitted curve at every value of the
+predictor, drawn together. The intervals are calculated with `ADREPORT()` on a scale on
+which the curve is unbounded (e.g. the logit of a probability) and their endpoints are
+transformed back. A band is **pointwise**: at each value of $x$, its interval contains the
+value of the curve under the data generating process in approximately 95% of hypothetical
+samples; a band for the whole curve at once would be wider. It describes the uncertainty of
+the curve, not where new observations fall
+([Chapter 6](../Chapter_6/Theory.qmd#sec-delta-method)).
 
 - **Confidence interval**: A range of values for a parameter, calculated from a sample with
 a procedure that has a known behaviour across repeated hypothetical samples. Once an
@@ -136,6 +172,17 @@ whatever the method of estimation.
 that the function is flat there. It is a maximum when the slope changes from positive to
 negative, a minimum when it changes from negative to positive, and a saddle point when the
 sign of the slope does not change.
+
+- **Cross-validation**: An estimate of how well a model predicts observations that were not
+used to fit it. The observations are split into parts; the model is fitted to all but one
+part and scored on the held-out part, until every part has been held out once. In
+**leave-one-out cross-validation** each part is one observation: every parameter is
+estimated again from the other $n-1$ observations, and the held-out observation is scored
+by its **log score**, the log probability (or log density) that the refitted model assigns
+to it. The score of the model is the sum of the log scores, and a larger (less negative)
+score is better. It needs no penalty for the number of parameters
+([Chapter 6](../Chapter_6/Theory.qmd#sec-response-comparison)). See also
+leave-one-group-out cross-validation.
 
 - **Cumulative probability function**: The function $F_X(x)=P(X \le x)$, the probability that
 a random variable takes a value at or below $x$. It is calculated by adding probability
@@ -187,6 +234,13 @@ counts from a Poisson distribution it tends to be close to one, so a substantial
 ratio suggests overdispersion. It is an exploratory diagnostic and does not identify the
 cause of the extra variation.
 
+- **Dispersion statistic**: The summary of spread that DHARMa calculates from simulations
+of a fitted model: the variance of the observed values around their expected values,
+divided by the average of the same variance in the simulated samples. It is close to one
+when the model allows the right amount of variation, and above one when the observations
+vary more than the model allows. Like the dispersion ratio, it is exploratory evidence
+([Chapter 6](../Chapter_6/Theory.qmd#sec-response-residuals)).
+
 - **Domain**: The set of values of the input $x$ for which a function is used. Many
 ecological functions are used only for $x\ge0$ (a density, a size, a time).
 
@@ -222,6 +276,11 @@ E[f(X)] =
 \end{cases}
 $$
 
+- **Finite difference**: An approximation of a derivative: the change in a function between
+two points very close to each other, divided by the distance between them. It needs no
+calculus, and software uses it when no formula for the derivative is available
+([Chapter 5](../Chapter_5/Theory.qmd#sec-function-derivatives)).
+
 - **Fisher information**: A measure of how much information a sample contains about a
 parameter, written $\mathcal{I}(\theta)$. The variance of a maximum likelihood estimator
 approaches its inverse in large samples. From a sample we calculate the **observed
@@ -244,6 +303,18 @@ random sampler. In R they are implemented by functions with the prefixes `d`, `p
 converges uniformly (that is, for all values at once) to the cumulative distribution of the
 model as the sample size grows. It extends the law of large numbers, which applies to the
 relative frequency of one event at a time.
+
+- **Gradient**: The vector of the partial derivatives of a function with respect to each of
+its parameters, that is, its slope in the direction of each parameter. Optimisers such as
+BFGS use the gradient of the negative log-likelihood to choose their steps; RTMB calculates
+it by automatic differentiation ([Chapter 6](../Chapter_6/Theory.qmd#sec-makeadfun)).
+
+- **Group-level predictor**: A predictor measured on a group and not on each observation
+(the origin of a plant, the treatment that it received, the habitat of a site), so that
+all the observations of a group share its value. In a mixed model it enters as a fixed
+effect on the parameter that varies among groups, and the random effects then describe the
+variation that remains among groups with the same values of the predictors
+([Chapter 7](../Chapter_7/Theory.qmd#sec-group-predictors)).
 
 - **Half-life**: The time $t_{1/2}$ over which an exponential decay $ae^{-bt}$ falls to half
 of its value, $t_{1/2}=\log 2/b$, wherever we start. It is the half-maximum idea applied to
@@ -288,6 +359,12 @@ the probabilities for the others.
 - **Inflection point**: A value of $x$ at which the second derivative of a function changes
 sign, so that the graph changes from convex to concave or the reverse. The slope is steepest
 (or shallowest) there. The midpoint $c$ of the logistic function is its inflection point.
+
+- **Interaction**: Two predictors interact when the effect of one depends on the value of
+the other. In a model with a baseline plus effects, the interaction is the difference
+between the effect of one predictor at the two levels of the other, e.g. the effect of
+chilling in plants from Mississippi minus its effect in plants from Quebec
+([Chapter 7](../Chapter_7/Theory.qmd#sec-group-predictors)).
 
 - **Invariance**: The maximum likelihood estimate of a function of a parameter is that
 function of the maximum likelihood estimate, $\widehat{g(\theta)} = g(\hat\theta)$. It allows
@@ -345,6 +422,13 @@ group has many observations with nearly Normal conditional distributions, exact 
 linear mixed models, and less accurate for few observations per group, small counts or
 binary data ([Chapter 7](../Chapter_7/Theory.qmd#sec-marginal-likelihood)).
 
+- **Law of large numbers**: As the sample size $n$ of i.i.d. observations grows, the mean
+of the sample (and so a relative frequency, which is the mean of indicators) gets close to
+its expected value with a probability that approaches one. In its weak form: for any
+positive margin $\varepsilon$, the probability that the sample mean differs from the
+expected value by more than $\varepsilon$ tends to zero
+([Chapter 3](../Chapter_3/Theory.qmd#sec-samples)). See also consistency.
+
 - **Leave-one-group-out cross-validation**: Cross-validation for grouped data in which one
 whole group is held out at a time: every parameter is estimated again from the other
 groups, and the held-out group is scored by its marginal log-likelihood under that fit. The
@@ -401,6 +485,13 @@ which in R is calculated with the argument `log = TRUE` of the `d*` functions. I
 maximum at the same parameter value as the likelihood, and it avoids numbers that are too
 small for the computer to represent. Its value has no meaning by itself: only differences
 between log-likelihoods calculated from the same data are meaningful.
+
+- **Logit**: The transformation $\operatorname{logit}(p)=\log\left(p/(1-p)\right)$, which
+maps a probability between zero and one onto all the real numbers. Its inverse, the
+**inverse logit** $\operatorname{logit}^{-1}(z)=1/(1+e^{-z})$, turns any real number into
+a value between zero and one. In R, `qlogis()` calculates the logit and `plogis()` its
+inverse. The course optimises probabilities on the logit scale so that they stay between
+zero and one ([Chapter 4](../Chapter_4/Theory.qmd#sec-constraints)).
 
 - **`MakeADFun()`**: The function of RTMB that processes a negative log-likelihood written
 with two named lists, one for the parameters and one for the data, so that the tools of the
@@ -504,6 +595,14 @@ drawn from the model, which gives one hypothetical sample.
 that survived in one particular quadrat). It is written with a lower-case letter, $x$,
 whereas the random variable is written $X$.
 
+- **Optimiser**: An algorithm that searches for the parameter values at which a function
+reaches its minimum. It starts from values that we provide and moves step by step towards
+lower values until it cannot improve any further. The course minimises the negative
+log-likelihood with `optim()` and the method BFGS; a convergence code of zero says that the
+optimiser stopped, not that it found the maximum of the likelihood
+([Chapter 4](../Chapter_4/Theory.qmd#sec-maximum-likelihood),
+[Chapter 8](../Chapter_8/Theory.qmd)).
+
 - **Overdispersion**: Variation that is greater than the variation expected under a
 reference model, usually the Poisson distribution, for which the variance equals the mean.
 It does not identify the ecological cause: clustering, habitat differences, omitted
@@ -532,6 +631,10 @@ random effect and shrinkage ([Chapter 7](../Chapter_7/Theory.qmd#sec-pooling)).
 in the data, so that its parameters describe that shape (a height, a location, a steepness)
 and not a process. See also mechanistic function.
 
+- **Piecewise function**: A function defined by different formulas on different parts of its
+domain, such as the threshold and hockey-stick functions. In R it is written with
+`ifelse()` ([Chapter 5](../Chapter_5/Theory.qmd#sec-functions-r)).
+
 - **Plug-in estimate**: An estimate obtained by replacing an unknown parameter in a formula
 by its estimate. For example, the standard error of the mean of Poisson counts,
 $\sqrt{\lambda/n}$, is estimated by $\sqrt{\hat\lambda/n}$.
@@ -540,6 +643,20 @@ $\sqrt{\lambda/n}$, is estimated by $\sqrt{\hat\lambda/n}$.
 scientific question refers. In modelling, it may be a finite set of real organisms or sites,
 or a conceptual population described by a probability distribution. This is not always a
 useful concept, instead we will focus on the concept of data generating process.
+
+- **Precision** (of the Beta-Binomial distribution): The parameter $\kappa=a+b$, where $a$
+and $b$ are the shape parameters of the Beta distribution of the probability of each
+sampling unit. With the mean probability $p$, $a=\kappa p$ and $b=\kappa(1-p)$. A large
+precision means little variation in the probability among units, and as $\kappa$ grows
+the Beta-Binomial approaches the Binomial distribution
+([Chapter 6](../Chapter_6/Theory.qmd#sec-beta-binomial-fit)).
+
+- **Predicted group effect**: The value of the random effect of a group that RTMB returns
+(`summary(sdreport(...), "random")`): the peak of the integrand of the marginal likelihood
+of the group, that is, the most probable value of its random effect for its observations
+and the estimated parameters (also called the conditional mode). It is a prediction, not
+an estimate of a parameter, and it is shrunk towards the typical value of groups with the
+same predictors ([Chapter 7](../Chapter_7/Theory.qmd#sec-marginal-likelihood)).
 
 - **Probability density function**: The function $f_X(x)$ that defines the distribution of a
 continuous random variable. The probability of an interval is the integral of the density
@@ -603,6 +720,12 @@ parameters, each of which is an expression of the old ones. The curve does not c
 meaning, the units and the correlation of the parameters do. The Michaelis–Menten function
 and the Holling type II functional response are two parameterisations of one curve.
 
+- **Response curve**: A deterministic function that gives one parameter of the distribution
+of each observation (usually its mean) as a function of a predictor, e.g. the probability
+that a tadpole is killed as a function of the initial density of tadpoles. The curve and the
+probability distribution of the observations around it form the model that is fitted by
+maximum likelihood ([Chapter 6](../Chapter_6/Theory.qmd#sec-response-observation)).
+
 - **Restricted maximum likelihood (REML)**: A method of estimating variance components from a
 likelihood in which the fixed effects have also been integrated out, as if they were random
 effects with a flat distribution. It reduces the downward bias of maximum likelihood
@@ -633,6 +756,20 @@ never observe the sampling distribution itself, but we can approximate it with a
 - **Scale parameter**: A parameter that multiplies or divides $x$ wherever $x$ appears in a
 formula. Changing it stretches or compresses the curve along the $x$ axis without changing
 its shape.
+
+- **Scaled quantile residual**: The fraction of the values simulated from a fitted model for
+an observation that are smaller than the observed value (for discrete data, drawn at
+random between the fractions that are smaller and smaller or equal). If the model describes
+the data generating process, the residuals are approximately uniform between 0 and 1,
+whatever the distribution of the observations, so they can be read in the same way for
+any observation model. The course calculates them with the package DHARMa from
+simulations made with `obj$simulate()`
+([Chapter 6](../Chapter_6/Theory.qmd#sec-response-residuals)).
+
+- **Score**: The derivative of the log-likelihood with respect to a parameter. The MLE is the
+value of the parameter (or parameters) at which the score is zero
+([Chapter 4](../Chapter_4/Theory.qmd#sec-maximum-likelihood)). Not to be confused with the
+log score of cross-validation.
 
 - **`sdreport()`**: A function of RTMB that, applied to an object made by `MakeADFun()` after
 a fit, calculates the Hessian of the negative log-likelihood at the estimates and returns
@@ -690,6 +827,9 @@ data, we calculate the variance of the empirical distribution of the sample.
 $$
  \operatorname{Var}(X) = E[(X-E[X])^2].
 $$
+The variance of a sample, `mean((x - mean(x))^2)`, divides by $n$; `var(x)` divides by
+$n-1$ (**Bessel's correction**), which removes the bias of the estimate of the variance
+of the model ([Chapter 3](../Chapter_3/Theory.qmd#sec-two_parameters)).
 
 - **Variance component**: A variance parameter of a grouped model that describes one level of
 variation: $\sigma^2_{\mathrm{group}}$ the variation among groups (the variance of the random

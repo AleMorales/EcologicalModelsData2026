@@ -80,8 +80,10 @@ which stays until the author removes it.
   Exercise 1.
 - **Lecture:** one of 150 minutes (31 slides, 116 minutes of slides, 14 of slack, two
   breaks of 10) with the demo above.
-- `shapes1.csv` is no longer used; the `shapes*.csv` files in `Data/` are used by no page
-  and stay until the author decides.
+- The simulated `shapes*.csv` files were removed with the `Data/` folder that held only
+  them (author's decision of 4 November); no page used them after the rewrites of Chapters
+  6 and 7. Apart from `Chapter_1/Practicals/seedpred.csv`, the course data come from R
+  packages.
 
 ### Chapter 8
 

@@ -1281,3 +1281,12 @@ Each stage adds one line: date, stage, what is done, what is next.
   were not regenerated after their scripts changed; the glossary still has no entries for
   the Chapter 6 terms BIC, cross-validation and scaled quantile residuals. No new open
   question. This file stays until the author removes it.
+- 4 November 2026, after Stage 7, on the author's request: glossary completed with the
+  terms of Chapters 3 to 7 that were missing (AICc in the AIC entry, automatic
+  differentiation, BIC, confidence band, cross-validation with the log score, dispersion
+  statistic, finite difference, gradient, group-level predictor, interaction, law of large
+  numbers, logit and inverse logit, optimiser, piecewise function, precision, predicted
+  group effect, response curve, scaled quantile residual, score; Bessel's correction in the
+  variance entry). The simulated `shapes*.csv` files were deleted with the `Data/` folder
+  (author's decision; no page used them); `AGENTS.md` and `.claude/docs/chapters-7-8-other.md`
+  record it.

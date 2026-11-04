@@ -80,8 +80,8 @@ another species of the data set of its theory (Chinstrap in Chapter 2, Adelie in
 4). `penguins` of `datasets` needs R 4.5.0 or later; a footnote at the first use says so.
 Grouped data have one running example in the theory, the CO₂ uptake curves of 12 plants
 (`CO2`, Chapter 7), and the practical of Chapter 7 returns to the reed frog tanks, owl
-nests and salamander sites that earlier chapters treated as i.i.d. The `shapes*.csv`
-files in `Data/` are used by no page; the author decides whether they stay.
+nests and salamander sites that earlier chapters treated as i.i.d. The simulated
+`shapes*.csv` files were removed (author's decision of 4 November); do not reintroduce them.
 
 
 ## Teaching scope and progression
