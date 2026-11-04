@@ -981,7 +981,13 @@ short report in the progress log: what was checked, what was changed, what remai
 
 Stages add questions here; they do not wait for an answer.
 
-- (none yet)
+- **Size of the theory** (Stage 2): the page has 1,940 source lines, against the target of
+  about 1,600 in "Choices I made". Part B has about 1,030 lines, because each revisited model
+  (deviations, high concentrations, natural-scale rate, owls, fir, DEoptim) needs its own
+  set-up chunk. Stage 2 kept every planned example and cut one quiz question (9 remain). If
+  the page must be shorter, the candidates are the owl example of `#sec-scaling` (about 70
+  lines; the text could quote Chapter 4's correlations instead) and two more quiz
+  questions. Conservative choice applied: nothing planned removed.
 
 ## Progress log
 
@@ -1030,3 +1036,53 @@ Each stage adds one line: date, stage, what is done, what is next.
   Nocedal and Wright (2006), *Numerical Optimization*, 2nd edition, Springer, for BFGS (not
   Bolker). Forward references to part B are plain text ("the section on identifiability", "the
   section on boundaries"): Stage 2 may turn them into `@sec-` references. Next: Stage 2.
+- 4 November 2026: Stage 2 done. Part B appended to `Chapter_8/Theory.qmd` (1,940 source
+  lines in all; see "Open questions"): `#sec-identifiability` with "Structural
+  non-identifiability", "Practical non-identifiability" and `#sec-boundaries`, Practice 2
+  `#imp-seed-predation`; `#sec-scaling` with "Scaling" and "Parameterisation", Practice 3
+  `#imp-fish-scaling`; `#sec-other-optimisers` with "Other local optimisers", "One parameter
+  in an interval" and `#sec-global` (technical box on differential evolution); the recipe
+  callout, Summary, and a quiz of 9 questions. The three plain-text forward references of
+  part A are now `@sec-boundaries` and `@sec-identifiability`. Renders in the dev profile
+  without warnings (`quarto render Chapter_8/Theory.qmd --profile dev`, about 15 s), with no
+  unresolved `?@`; every chunk of part B was run after part A in a clean session (purled)
+  and every number in the prose compared with the output; hidden `stopifnot()` chunks check
+  the claims that the printed output does not show (plant asymptotes agree; the reduced
+  profile stays within 0.4 units; the counts of the 50-start comparison); figure
+  `fig-c0_profiles` inspected. **New objects** (for Stages 3 to 5): `co2_data_plant`
+  (now also visible), `deviation_nll`, `deviation_obj`, `deviation_table`, `co2_high_data`,
+  `high_obj`, `high_fit`, `high_sd`, `pooled_profile_c0`, `high_profile_c0`, `frog_table`,
+  `rate_nll`, `rate_obj`, `rate_fit`, `rate_scaled_fit`, `call_counts`, `nb_nll`,
+  `nb_prob_nll`, `owl_obj`, `owl_prob_obj`, `owl_fit`, `owl_prob_fit`, `nlminb_table`,
+  `other_results` (columns `bfgs`, `nlminb`, `nelder_mead`), `fir_obj`, `fir_fit` (an
+  `optimize()` result), `pooled_de`, `pooled_de_fit`. **Differences from "Numbers checked"**:
+  (1) structural example: the plan's start (`log_asym = log(30)`, `dev = 0`, $\sigma$ 2)
+  stalls at 260.137 with the asymptote of plant 12 run to zero, a different failure, so the
+  page fits from common asymptotes of 10, 20 and 40 µmol/m²/s with $\sigma$ 8: all three
+  reach 171.4375 (the no-pooling minimum), agree on all 12 plant asymptotes and end with
+  common asymptotes 28.34, 29.89, 31.53; all 16 standard errors are `NaN` in every fit, but
+  `pdHess` is `TRUE` in one (rounding of the zero curvature), which the text says; (2)
+  practical example: as planned, `c0` stays at 49.98 with se 579 and code 0, `pdHess` TRUE,
+  correlation of `log_rate` and `c0` 0.992; but the profile (with `parm.range = c(-1000,
+  260)` and `ystep = 0.01`, needed for a fine grid) is flat within 0.33 units from −979 to
+  247 µL/L and rises slightly to the left, so the maximum of the reduced data is not at 50
+  (`nlminb()` finds 218.5936 at `c0` ≈ −1075, 0.19 above the BFGS stop); the text says that
+  BFGS did not stop at the maximum either and that the difference is meaningless; full-data
+  profile interval −26.6 to 75.0 µL/L; (3) owls: from Chapter 4's method-of-moments starts,
+  BFGS counts are 16/5 ($\mu,k$) and 14/6 ($k,p$), not 31/10 and 25/11; correlations 0 and
+  0.711 as planned; (4) Nelder–Mead from Chapter 7's own start ends at 318.68 (not used in
+  the text); over the 50 starts, within 0.01 of the minimum: BFGS 17, `nlminb()` 42 (the
+  other 8 at 318.7), Nelder–Mead 12 (34 within 2 units); `nlminb()` from the three poor
+  starts: 296.2557 with 31, 28 and 55 evaluations of `fn`; (5) DEoptim: 296.2557, 8,040
+  evaluations; BFGS from `bestmem` stops at once at 296.2557 (6/1 evaluations), `pdHess`
+  TRUE; (6) `optimize()` 2.139962, NLL 89.28529, 11 evaluations (not quoted). Checked
+  against primary sources: `?DEoptim.control` (default strategy 2, local-to-best; F 0.8, CR
+  0.5), `?nlminb` (PORT, `NaN` replaced by `Inf` with a warning; result elements), RTMB
+  vignettes (`nlminb(obj$par, obj$fn, obj$gr)`), `glmmTMBControl()` (`nlminb`); footnote
+  cites Storn and Price (1997) and Mullen et al. (2011) as given in `?DEoptim`. **For Stage
+  3**: the theory promises that the practical takes up the penguin masses in grams (units and
+  relative tolerance) and the Gamma correlation of 0.996 (checked: shape 65.563 after 8/1
+  evaluations from the method-of-moments start, 66.095 after a restart), and that it "tells
+  the two cases apart" for a variance at practically zero (Exercise 3; link
+  `Practicals/solution.qmd`). `.claude/docs/` and `AGENTS.md` unchanged (Stage 7 records
+  the decisions). Next: Stage 3.
