@@ -531,7 +531,9 @@ and the same $n$, so the difference does not change either.
 We calculate the two probabilities under each model, together with the corresponding
 fractions of the sample. The probability of 20 or more seedlings is one minus the
 probability of 19 or fewer, which the cumulative distribution functions `pzipois()` and
-`pnbinom2()` of RTMBdist give:
+`pnbinom2()` of RTMBdist give. One minus the sum of the probabilities of 0 to 19 seedlings,
+for example `1 - sum(dzipois(x = 0:19, lambda = lambda_zip, zeroprob = pzero_zip))`, gives
+the same result:
 
 ```{r}
 # Probabilities of every count under the zero-inflated Poisson model, for the figure.
@@ -638,7 +640,11 @@ tree $i$ in cubic feet (ft³), the column `Volume`, and we assume that the trees
    estimate, on a grid of values, and the profile of $k$ with `TMB::tmbprofile()`, and plot
    both as relative log-likelihoods. Find the range of values of $k$ for which each curve
    is within 1.92 units of the maximum (for the profile, with `confint()`). Which of the two
-   ranges is a confidence interval, and why is the slice narrower?
+   ranges is a confidence interval, and why is the slice narrower? Hint: `tmbprofile()`
+   returns a data frame with a column `log_shape`, the values of $\log k$ that it visited,
+   and a column `value`, the NLL at each of them. By default the profile stops when the
+   log-likelihood has dropped by about two units; the argument `ytol` sets that drop (for
+   example, `ytol = 6`), so that the profile covers the same range as the slice.
 
 ## Solution
 
@@ -766,11 +772,10 @@ that overestimates the shape would tend to overestimate the rate too.
 
 The slice fixes the rate at its estimate and varies the shape, so we evaluate
 `volume_obj$fn()` on a grid of 261 values of the shape. The profile re-estimates the rate
-for every value of the shape, which is what `tmbprofile()` does. It returns a data frame
-with the values of $\log k$ that it visited and the NLL at each of them (`value`), from
-which we calculate the relative log-likelihood. By default the profile stops when the
-log-likelihood has dropped by two units, and with `ytol = 6` it continues until a drop of
-six units, so that the plot covers the same range as the slice:
+for every value of the shape, which is what `tmbprofile()` does. From the columns
+`log_shape` and `value` of its result we calculate the shape and the relative
+log-likelihood, and with `ytol = 6` the profile continues until a drop of six units, so
+that the plot covers the same range as the slice:
 
 ```{r}
 # Cutoff for a 95% interval of one parameter: half the 95% quantile of a chi-squared
@@ -848,8 +853,8 @@ your estimates of the shape and the rate of the tree volumes.
 Questions 1 and 2 each come with a chunk of code that is almost complete. Wherever the
 code contains `NA`, replace the `NA` by your own code; the comment just above it says what
 the code must calculate. Keep the names of the objects (`sim_obj`, `fit`, `lower`, ...),
-because the lines that follow use them. The chunk will not run until every `NA` has been
-replaced.
+because the lines that follow use them. Neither chunk gives a result until every `NA` in
+it has been replaced.
 
 1. Simulate 2,000 hypothetical samples, each of 31 trees, from a Gamma model whose shape
    and rate are the maximum likelihood estimates of Exercise 4, and estimate the shape in

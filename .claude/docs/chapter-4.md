@@ -141,5 +141,8 @@ Moved from AGENTS.md. Read this before working on the pages it covers; AGENTS.md
   the coverage of the Wald interval only, because the profile interval would need
   `tmbprofile()` in every sample (author's decision of 3 November; the question says so).
   The simulated fits start at shape 1 and rate $1/\bar x$. Grid ranges for the contour
-  questions are given in the questions.
+  questions are given in the questions. Exercise 4, question 3 has a hint that names the
+  columns `log_shape` and `value` of the result of `tmbprofile()` and the argument `ytol`,
+  because the theory uses them only in hidden code (added after a read-through as a
+  student on 4 November).
 

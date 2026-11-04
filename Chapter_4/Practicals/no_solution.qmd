@@ -222,7 +222,8 @@ frog_fit = optim(
 frog_fit$convergence
 
 # Estimate on the probability scale, and the minimum of the negative log-likelihood.
-plogis(frog_fit$par)
+# unname() drops the name logit_p, which plogis() would otherwise keep on the probability.
+unname(plogis(frog_fit$par))
 frog_fit$value
 ```
 
@@ -274,9 +275,8 @@ goes from 0.430 to 0.513. As in the theory, we transformed the endpoints and not
 standard error, because a standard error on the logit scale cannot be converted into a
 probability with `plogis()`. The standard error of $\hat p$ itself is in the row `p` of
 the table, 0.021: RTMB calculates it with the delta method (see the box on the delta
-method in [Chapter 4](../../Chapter_4/Theory.qmd#sec-wald-constrained)). For this model we
-can check it with a
-formula: the observed information for $p$ is $\sum n_i/[\hat p(1-\hat p)]$, so the
+method in [Standard errors on the original scale](../Theory.qmd#sec-wald-constrained)). For
+this model we can check it with a formula: the observed information for $p$ is $\sum n_i/[\hat p(1-\hat p)]$, so the
 standard error is $\sqrt{\hat p(1-\hat p)/\sum n_i}\approx 0.021$.
 
 ### Question 4
@@ -413,9 +413,10 @@ treatment_fit = optim(
 )
 c(pooled = pooled_fit$convergence, treatment = treatment_fit$convergence)
 
-# Estimates of the survival probabilities.
-plogis(pooled_fit$par)
-plogis(treatment_fit$par)
+# Estimates of the survival probabilities: one for all tanks, then the probabilities
+# without and with predators (unname() drops the name logit_p, as in question 3).
+unname(plogis(pooled_fit$par))
+unname(plogis(treatment_fit$par))
 
 # AIC = 2K - 2 * log-likelihood and AICc = AIC + 2K(K + 1) / (n - K - 1), with K the
 # number of parameters and n the number of tanks. The maximum log-likelihood is minus the
@@ -592,7 +593,11 @@ tree $i$ in cubic feet (ft³), the column `Volume`, and we assume that the trees
    estimate, on a grid of values, and the profile of $k$ with `TMB::tmbprofile()`, and plot
    both as relative log-likelihoods. Find the range of values of $k$ for which each curve
    is within 1.92 units of the maximum (for the profile, with `confint()`). Which of the two
-   ranges is a confidence interval, and why is the slice narrower?
+   ranges is a confidence interval, and why is the slice narrower? Hint: `tmbprofile()`
+   returns a data frame with a column `log_shape`, the values of $\log k$ that it visited,
+   and a column `value`, the NLL at each of them. By default the profile stops when the
+   log-likelihood has dropped by about two units; the argument `ytol` sets that drop (for
+   example, `ytol = 6`), so that the profile covers the same range as the slice.
 
 # Exercise 5: Estimators and intervals across hypothetical samples
 
@@ -611,8 +616,8 @@ your estimates of the shape and the rate of the tree volumes.
 Questions 1 and 2 each come with a chunk of code that is almost complete. Wherever the
 code contains `NA`, replace the `NA` by your own code; the comment just above it says what
 the code must calculate. Keep the names of the objects (`sim_obj`, `fit`, `lower`, ...),
-because the lines that follow use them. The chunk will not run until every `NA` has been
-replaced.
+because the lines that follow use them. Neither chunk gives a result until every `NA` in
+it has been replaced.
 
 1. Simulate 2,000 hypothetical samples, each of 31 trees, from a Gamma model whose shape
    and rate are the maximum likelihood estimates of Exercise 4, and estimate the shape in
