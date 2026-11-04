@@ -1097,3 +1097,44 @@ Each stage adds one line: date, stage, what is done, what is next.
   `simulate_group_variance(n_samples, n_sites)`, `six_sites`, `twelve_sites`. No `%~%`,
   `<-`, pipes, `reltol` or `obj$he()`; `glmmTMB` called with the prefix only. `AGENTS.md`
   unchanged (Stage 7 records the decisions). Next: Stage 4.
+- 4 November 2026: Stage 4 done (independent review of the theory and the practical).
+  **Checked:** the six points of "Stage 4" above. All three pages rendered with
+  `--profile dev` before and after the fixes (exit 0, no warnings; R 4.6.1, RTMB 2.0,
+  DHARMa 0.5.0, glmmTMB 1.1.15.2); the pages were also knitted to Markdown in the
+  scratchpad and every number quoted in the prose was compared with the printed output.
+  The claims that no chunk prints were recalculated in a separate session and agree:
+  the Wald intervals of the hidden chunk (0.046 to 0.136; −0.61 to −0.23), the REML
+  fixed effects (within 0.003 of the ML estimates, as "hardly differ" says), the
+  predicted asymptotes of Mc1 and Mc3 (20.6 and 19.7, above the typical 18.5), the pine
+  numbers (tallest 64.1 ft, mean growth 3.0 and 3.4 ft/year, standard error of
+  $\log(A)$ 0.025, correlation −0.90), the owl arrival times (21.7 to 29.25 hours) and
+  $e^{3.12}\approx23$. Every figure was inspected against its text. Every cross-page
+  `sec-` link resolves; the references of `Loblolly`, `Owls` and `Salamanders` match
+  their help pages; Chapter 4's practical (overdispersion of the tanks with predators)
+  and Chapter 6 ($n$ = 16 tanks, $\hat\kappa\approx26$, one unit of log score about two
+  of AIC) say what Chapter 7 says they say; the question text of Exercises 2 to 5 is
+  identical on both practical pages. No statistical error was found: the model levels,
+  scales, marginal likelihood, Laplace accuracy, predicted effects (not called
+  estimates), REML (what it integrates, approximate for non-linear models, comparisons
+  with ML fits), $K$, the no-pooling paragraph, leave-one-plant-out without leakage,
+  unconditional simulation and the Normal-linear label of the shrinkage weight are all
+  correct. **Changed (routine):** theory: the hidden chunk of `fig-laplace` uses a `for`
+  loop instead of `sapply()` and takes the peak from the predicted effect of Mc2
+  (`summary(sdreport(laplace_obj), "random")`) instead of `optimize()`, a Chapter 8
+  tool (figure, 0.3% and 0.003 unchanged); the Laplace box no longer says that the
+  Hessian is diagonal for any independent groups (block diagonal, diagonal with one
+  effect per group); "an interval for a property of 12 plants" → "the variance among
+  plants is informed by 12 plants"; the curve of Mc2 lies "just below" the range of new
+  plants (15.57 against 15.81), not "at the lower edge"; Practice 3 "That curve" →
+  "That value"; "10%, not 8%" → "10% instead of 8%"; the summary says that the variance
+  component describes the variation that remains, and no longer that "the likelihoods
+  were maximised without difficulty" in the chapter (the practical meets fits that stop
+  early); one long source line reflowed. Practical: `true_obj` → `placeholder_obj` in
+  Exercise 5 (both pages; "model, not truth", as Chapter 4's `placeholder_obj`); "the 24
+  differences of quadrats" → the differences of the 30 quadrats from their site means;
+  "0.89 per hour" → "for each hour"; one long line of mathematics broken. **Remains:**
+  the theory has 2,068 lines, above the 1,900 target; the reviewer found nothing to cut
+  without losing a required section or quiz question, and leaves the choice to the
+  author (the comparison code, about 200 lines, and the 10 quiz questions are the
+  largest parts). The `sec-` IDs that other pages may link to are unchanged. No new
+  open question. `AGENTS.md` unchanged (Stage 7 records the decisions). Next: Stage 5.

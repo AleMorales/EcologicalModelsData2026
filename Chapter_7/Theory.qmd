@@ -538,20 +538,23 @@ laplace_fit = optim(
 )
 laplace_par = as.list(laplace_fit$par)
 
-# Logarithm of the integrand for plant Mc2 (plant 11) at the estimates.
+# Logarithm of the integrand for plant Mc2 (plant 11) at the estimates, for each value of u.
 mc2 = co2_data$plant == 11
 log_integrand = function(u) {
-  sapply(u, function(v) {
-    mu = exp(laplace_par$log_asym + v) *
+  values = numeric(length(u))
+  for (i in seq_along(u)) {
+    mu = exp(laplace_par$log_asym + u[i]) *
       (1 - exp(-exp(laplace_par$log_rate) * (co2_data$conc[mc2] - laplace_par$c0)))
-    sum(dnorm(x = co2_data$uptake[mc2], mean = mu, sd = exp(laplace_par$log_sd_obs),
-              log = TRUE)) +
-      dnorm(x = v, mean = 0, sd = exp(laplace_par$log_sd_plant), log = TRUE)
-  })
+    values[i] = sum(dnorm(x = co2_data$uptake[mc2], mean = mu,
+                          sd = exp(laplace_par$log_sd_obs), log = TRUE)) +
+      dnorm(x = u[i], mean = 0, sd = exp(laplace_par$log_sd_plant), log = TRUE)
+  }
+  values
 }
 
-# Peak, and curvature of the logarithm at the peak from a second difference.
-u_peak = optimize(function(v) -log_integrand(v), interval = c(-3, 3))$minimum
+# Peak: the predicted effect of Mc2. Curvature of the logarithm at the peak from a second
+# difference.
+u_peak = summary(sdreport(laplace_obj), select = "random")[11, "Estimate"]
 step = 1e-4
 curvature = -(log_integrand(u_peak + step) - 2 * log_integrand(u_peak) +
   log_integrand(u_peak - step)) / step^2
@@ -627,8 +630,9 @@ the Hessian matrix $\mathbf H$ of $-h$ at its maximum (see the box on the Hessia
 [Chapter 4](../Chapter_4/Theory.qmd#sec-curvature)), and $\sqrt{2\pi/(-h''(\hat u))}$
 becomes $(2\pi)^{q/2}/\sqrt{\det(\mathbf H)}$, where the determinant $\det(\mathbf H)$
 measures how sharply the integrand peaks in all directions together. When the groups are
-independent, the matrix has non-zero elements only on its diagonal, and the approximation
-is the product of the approximations of the groups.
+independent, the matrix has non-zero elements only in the blocks of the random effects of
+each group (only on its diagonal when each group has one random effect), and the
+approximation is the product of the approximations of the groups.
 :::
 
 ## Random effects in RTMB {#sec-random-effects-rtmb}
@@ -1155,7 +1159,7 @@ treatment_fixed["beta_int", "Estimate"] +
 The standard deviation among plants of the same origin and treatment lies between 0.045
 and 0.139, so the asymptotes of such plants differ by between about 5% and 14%. The
 interval of the variance, from 0.0020 to 0.019, spans almost a factor of ten, although the
-model was fitted to 84 measurements: it is an interval for a property of 12 plants. On the
+model was fitted to 84 measurements: the variance among plants is informed by 12 plants. On the
 log scale the profile is nearly symmetric, and the Wald interval from the log scale (0.046
 to 0.136) is close to the profile interval; on the original scale the interval extends
 0.034 below the estimate of 0.079 and 0.060 above it.
@@ -1220,7 +1224,7 @@ rbind(
 
 The REML estimate of $\sigma_{\mathrm{plant}}$, 0.105, is a third larger than the maximum
 likelihood estimate of 0.079: plants of the same origin and treatment differ by roughly
-10%, not 8%. The estimate of $\sigma_{\mathrm{obs}}$ hardly changes (2.05 against 2.04
+10% instead of 8%. The estimate of $\sigma_{\mathrm{obs}}$ hardly changes (2.05 against 2.04
 µmol/m²/s), because the measurements around the curve of each plant are many compared with
 the parameters of the curve. The fixed effects are now returned by
 `summary(sdreport(reml_obj), select = "random")`, together with the plant deviations, and
@@ -1317,8 +1321,8 @@ typical values of 42 and 18 µmol/m²/s. The ranges are narrow because plants of
 origin and treatment are similar. They describe the variation among plants at the
 estimates, and leave out the uncertainty of the estimates themselves, which would widen
 them. @fig-new_plants shows the three kinds of curve for the chilled plants from
-Mississippi. The curve of Mc2 lies at the lower edge of the range of new plants, and above
-its own measurements, because its predicted asymptote is shrunk towards the typical one;
+Mississippi. The curve of Mc2 lies just below the range of new plants, and above its own
+measurements, because its predicted asymptote is shrunk towards the typical one;
 the curves of Mc1 and Mc3 lie above the typical curve. The typical curve is the median of the
 curves of new plants, not their mean, as we saw in @sec-marginal-likelihood. The mean
 asymptote of plants is $a_{\mathrm{typ}}e^{\sigma^2_{\mathrm{plant}}/2}$ (the mean of a
@@ -1396,7 +1400,7 @@ to plan a planting in a stand that was not surveyed? Is the mean growth rate ove
 
 The range is $20\,e^{-1.96\times0.4}\approx9.1$ to $20\,e^{1.96\times0.4}\approx43.8$
 cm/year, which is wide because $\sigma_{\mathrm{stand}}$ is large. The surveyed stand has a
-typical growth rate of $20\,e^{0.5}\approx33.0$ cm/year. That curve describes this stand
+typical growth rate of $20\,e^{0.5}\approx33.0$ cm/year. That value describes this stand
 only; for a stand that was not surveyed we know only the distribution of stand effects, so
 we expect a typical growth rate of 20 cm/year, anywhere between about 9 and 44 cm/year. The
 mean growth rate over stands is larger than 20 cm/year, because 20 cm/year is the median:
@@ -1527,8 +1531,9 @@ The measurements vary around their typical curves about 80% as much (as a varian
 the simulated samples. Most of this variation comes from the deviations of 12 plants, which
 vary a lot from one hypothetical sample to the next, so this is not a clear disagreement. In
 the right panel the line of the upper quartile lies above 0.75, most of all at low typical
-values, and DHARMa marks it in red. Many of the measurements with low typical values belong to the chilled plants from
-Mississippi, and the residuals of Mc1 and Mc3 are mostly high, because the seven
+values, and DHARMa marks it in red. Many of the measurements with low typical values
+belong to the chilled plants from Mississippi, and the residuals of Mc1 and Mc3 are mostly
+high, because the seven
 measurements of a plant share its deviation and both plants lie above the typical curve
 (@fig-new_plants). The 84 residuals are therefore not 84 independent values, and a pattern
 among them can come from a few plants and not from the shape of the curve. As in Chapter
@@ -1856,8 +1861,8 @@ integrated out, and RTMB approximates the integral with the Laplace approximatio
 the density of the random effects first. The variance components describe the variation
 among groups and within groups; predicted group effects are shrunk towards the typical
 value of groups with the same predictors, more so for groups with few or imprecise
-observations. Group-level predictors explain part of the variation among groups and reduce
-the variance among groups.
+observations. Group-level predictors explain part of the variation among groups, and the
+variance component then describes the variation that remains.
 
 A variance among groups is estimated from the groups, so with few groups its interval is
 wide; likelihood profile intervals on the log scale of the standard deviation are the
@@ -1872,9 +1877,9 @@ compared with AIC on the marginal likelihood, with $K$ counting the variance par
 not the random effects, and with leave-one-group-out cross-validation; AICc and BIC are not
 used, because the number of independent observations is ambiguous.
 
-In this chapter the likelihoods were maximised without difficulty. In
-[Chapter 8](../Chapter_8/Theory.qmd) we look at how optimisers work, and at what to do when
-they fail to find the maximum of a likelihood.
+The likelihoods of the CO₂ data were maximised without difficulty, but the practical meets
+fits that stop before the maximum. In [Chapter 8](../Chapter_8/Theory.qmd) we look at how
+optimisers work, and at what to do when they fail to find the maximum of a likelihood.
 
 # Chapter quiz
 
