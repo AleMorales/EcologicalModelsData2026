@@ -487,6 +487,12 @@ glossary.
 - They predate the rewrite of Chapters 4 to 6 and received consistency fixes only; the
   full rewrite is a separate plan. Where their terms differ from Chapters 4 and 6, follow
   Chapters 4 and 6 in new work.
+- The rewrite of Chapter 7 (theory, practical, one lecture) follows
+  `Chapter_7/rewrite-handoff.md`: seven stages with the author's decisions of 4 November
+  (one example, the CO₂ uptake curves of `datasets::CO2` with a random asymptote per plant;
+  conditional distributions, the Laplace approximation and REML; AIC and leave-one-group-out
+  cross-validation; four real data sets in the practical). Its last stage moves the durable
+  decisions into this file.
 - Chapter 7 introduces `shapes1.csv` (light response of five leaves) itself; it no longer
   relies on Chapter 6 for these data or for the `%~%` notation.
 - Not converted: the Chapter 7 theory and practical still use `%~%`, one parameter list,
