@@ -950,7 +950,7 @@ interval that runs from a decrease of 21% to an increase of 3%, and that of plan
 Mississippi by about 41%, with an interval from 32% to 48%. So the plants from the colder
 origin are hardly affected by a cold night, whereas the plants from the warmer origin lose
 about two fifths of their capacity. We return to the uncertainty of these effects, with
-likelihood profile intervals, later in the chapter.
+likelihood profile intervals, in @sec-grouped-uncertainty.
 
 ## Shrinkage {#sec-shrinkage}
 
@@ -1093,6 +1093,971 @@ the nest with fewer chicks most of all.
 :::
 ::::
 
-<!-- Stage 2 of the rewrite (Chapter_7/rewrite-handoff.md) writes part B below this
-comment: uncertainty and REML, curves for observed and new plants, checking, comparison,
-the recipe, the summary and the quiz. -->
+# Uncertainty in a grouped model {#sec-grouped-uncertainty}
+
+The uncertainty of the estimates of a grouped model is calculated from the marginal
+likelihood with the tools of [Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood-uncertainty)
+and [Chapter 6](../Chapter_6/Theory.qmd#sec-curve-uncertainty). Two things are new. The
+variance among groups is estimated from the groups, so its precision depends on the number
+of groups more than on the number of observations. And maximum likelihood estimates of
+variances tend to be too small when fixed effects are estimated from the same data, a bias
+that restricted maximum likelihood reduces.
+
+## Standard errors and likelihood profile intervals
+
+`sdreport()` and `TMB::tmbprofile()` work on the marginal NLL as on any other NLL. Each
+evaluation of the NLL during a profile contains a Laplace approximation, so a profile takes
+longer, but it needs no new code. Variance components need care for three reasons. A
+variance is bounded below by zero, so we optimise the logarithm of the standard deviation,
+as for any positive parameter. The observations inform the variance among groups only
+through the deviations of the groups: the 84 measurements of the CO₂ data tell us about
+$\sigma_{\mathrm{plant}}$ through 12 plant deviations, and part of the information in these
+is used up by the four fixed effects on the asymptote. So a variance among groups is
+usually estimated much less precisely than the fixed effects. And its log-likelihood is
+often asymmetric, the more so when the estimate is close to zero, which makes the
+quadratic approximation behind a Wald interval less accurate. For variance components we
+therefore use the likelihood profile interval of the log standard deviation, and transform
+its endpoints back: `exp()` gives the interval of the standard deviation and squaring that
+gives the interval of the variance, because both functions are increasing.
+
+We profile the log standard deviation among plants and the interaction of the model with
+origin and chilling. The interaction is on the log scale of the asymptote, and
+$e^{\beta_{\mathrm{int}}}$ is the ratio of the factors by which chilling multiplies the
+asymptote of a Mississippi plant and of a Quebec plant (@sec-group-predictors):
+
+```{r}
+# Profiles of log(sd_plant) and of the interaction.
+treatment_profile_sd = TMB::tmbprofile(treatment_obj, name = "log_sd_plant", trace = FALSE)
+treatment_profile_int = TMB::tmbprofile(treatment_obj, name = "beta_int", trace = FALSE)
+
+# 95% intervals of sd_plant and of its variance, and of the interaction and its
+# exponential.
+sd_interval = exp(confint(treatment_profile_sd))
+int_interval = confint(treatment_profile_int)
+treatment_intervals = rbind(sd_interval, sd_interval^2, int_interval, exp(int_interval))
+dimnames(treatment_intervals) = list(
+  c("sd_plant", "variance", "beta_int", "exp(beta_int)"),
+  c("lower", "upper")
+)
+treatment_intervals
+```
+
+```{r}
+#| include: false
+# Wald intervals from the optimised scales, for comparison with the profile intervals.
+treatment_fixed = summary(treatment_sd, select = "fixed")
+exp(treatment_fixed["log_sd_plant", "Estimate"] +
+  c(-1, 1) * critical_value * treatment_fixed["log_sd_plant", "Std. Error"])
+treatment_fixed["beta_int", "Estimate"] +
+  c(-1, 1) * critical_value * treatment_fixed["beta_int", "Std. Error"]
+```
+
+The standard deviation among plants of the same origin and treatment lies between 0.045
+and 0.139, so the asymptotes of such plants differ by between about 5% and 14%. The
+interval of the variance, from 0.0020 to 0.019, spans almost a factor of ten, although the
+model was fitted to 84 measurements: it is an interval for a property of 12 plants. On the
+log scale the profile is nearly symmetric, and the Wald interval from the log scale (0.046
+to 0.136) is close to the profile interval; on the original scale the interval extends
+0.034 below the estimate of 0.079 and 0.060 above it.
+
+The interaction lies between $-0.64$ and $-0.21$, so the chilling factor of plants from
+Mississippi is between 0.53 and 0.81 times the chilling factor of plants from Quebec.
+Values near one, which would mean that a cold night affects the plants of both origins in
+the same way, lie well outside the interval. The Wald interval from the log scale is
+slightly narrower ($-0.61$ to $-0.23$).
+
+## Restricted maximum likelihood {#sec-reml}
+
+Maximum likelihood estimates of variances tend to be too small when the fixed effects are
+estimated from the same data.
+[Chapter 3](../Chapter_3/Theory.qmd#sec-two_parameters) met the simplest case: for i.i.d.
+Normal observations the maximum likelihood estimate of the variance divides the sum of
+squared deviations by $n$, like the method-of-moments estimate, and it is too small on
+average by a fraction $1/n$. The deviations are taken from the estimated mean, which lies
+closer to the observations than the mean of the model, and dividing by $n-1$ removes the
+bias. In a grouped model the same happens at the level of the groups. The fixed effects of
+the group-level predictors are fitted to the deviations of the groups, so these deviations
+look smaller than they are, and the bias of $\hat\sigma^2_{\mathrm{group}}$ grows with the
+number of fixed effects estimated from the groups and falls with the number of groups. With
+12 plants and four fixed effects on the log asymptote, it need not be small.
+
+**Restricted maximum likelihood** (REML) estimates the variance components from a
+likelihood in which the fixed effects have been integrated out, in the same way as the
+random effects, as if they were random effects with a flat distribution. What remains
+depends only on the variances, and maximising it takes into account the information that
+the estimation of the fixed effects uses up. For i.i.d. Normal observations REML gives the
+estimator that divides by $n-1$ (see the box below), and for Normal linear mixed models it
+is the standard method of estimating variance components.^[REML was introduced by
+Patterson, H. D. and Thompson, R. (1971), "Recovery of inter-block information when block
+sizes are unequal", *Biometrika* 58: 545–554, who maximised the likelihood of contrasts of
+the observations from which the fixed effects had been removed. For Normal linear models
+this gives the same estimates as integrating the fixed effects out of the likelihood.] In
+RTMB, REML is one change to the call of `MakeADFun()`: the fixed effects are added to
+`random`, and RTMB integrates them out with the Laplace approximation, together with the
+plant deviations. Only the variance parameters are left for `optim()`:
+
+```{r}
+# The same joint NLL, with the fixed effects of the curve integrated out as well (REML).
+reml_obj = MakeADFun(
+  cmb(treatment_nll, co2_data),
+  list(
+    log_asym = log(30), beta_miss = 0, beta_chill = 0, beta_int = 0,
+    log_rate = log(0.01), c0 = 50,
+    log_sd_plant = log(0.1), log_sd_obs = log(2), u = rep(0, 12)
+  ),
+  random = c("u", "log_asym", "beta_miss", "beta_chill", "beta_int", "log_rate", "c0"),
+  silent = TRUE
+)
+reml_fit = optim(par = reml_obj$par, fn = reml_obj$fn, gr = reml_obj$gr, method = "BFGS")
+reml_fit$convergence
+
+# Standard deviations among plants and of the measurements, by ML and by REML.
+rbind(
+  ml = exp(treatment_fit$par[c("log_sd_plant", "log_sd_obs")]),
+  reml = exp(reml_fit$par)
+)
+```
+
+The REML estimate of $\sigma_{\mathrm{plant}}$, 0.105, is a third larger than the maximum
+likelihood estimate of 0.079: plants of the same origin and treatment differ by roughly
+10%, not 8%. The estimate of $\sigma_{\mathrm{obs}}$ hardly changes (2.05 against 2.04
+µmol/m²/s), because the measurements around the curve of each plant are many compared with
+the parameters of the curve. The fixed effects are now returned by
+`summary(sdreport(reml_obj), select = "random")`, together with the plant deviations, and
+their estimates hardly differ from the maximum likelihood estimates. Whether REML removes
+the bias in a particular design can be checked by simulation, as in the extra exercise of
+the [practical](Practicals/no_solution.qmd).
+
+Two cautions apply. For non-linear curves or observations that are not Normal, REML
+through the Laplace approximation is itself an approximation: the integral over the fixed
+effects is not exact, and the reduction of the bias is not guaranteed. And the REML
+likelihood depends on which fixed effects were integrated out, so the REML fits of models
+with different fixed effects cannot be compared with each other: models are compared with
+their maximum likelihood fits (@sec-grouped-comparison). REML is therefore worth its
+extra fit when the variance components are the question, and the rest of the chapter uses
+maximum likelihood.
+
+::: {.callout-caution collapse="true" icon=false title="Statistical detail: what REML integrates"}
+Let $L(\boldsymbol\beta,\boldsymbol\sigma)$ be the marginal likelihood of a grouped model
+(the random effects already integrated out), where $\boldsymbol\beta$ are the fixed effects
+and $\boldsymbol\sigma$ the variance parameters. The REML likelihood is
+$L_{\mathrm{R}}(\boldsymbol\sigma)=\int L(\boldsymbol\beta,\boldsymbol\sigma)\,d\boldsymbol\beta$,
+the integral over all the fixed effects, and the REML estimates of the variance parameters
+maximise it. For $n$ i.i.d. observations from a Normal distribution with mean $\mu$ and
+variance $\sigma^2$, writing the sum of squares as
+$\sum_i(y_i-\mu)^2=S+n(\bar y-\mu)^2$ with $S=\sum_i(y_i-\bar y)^2$ gives
+
+$$
+L_{\mathrm{R}}(\sigma^2)=\int_{-\infty}^{\infty}\prod_{i=1}^{n}
+\frac{1}{\sqrt{2\pi\sigma^2}}e^{-\frac{(y_i-\mu)^2}{2\sigma^2}}\,d\mu
+=\left(2\pi\sigma^2\right)^{-n/2}e^{-\frac{S}{2\sigma^2}}\sqrt{\frac{2\pi\sigma^2}{n}}
+\;\propto\;\left(\sigma^2\right)^{-(n-1)/2}e^{-\frac{S}{2\sigma^2}},
+$$
+
+where the integral over $\mu$ is the area under a Normal-shaped curve with variance
+$\sigma^2/n$. Setting the derivative of $\log(L_{\mathrm{R}})$ with respect to $\sigma^2$
+to zero gives $\hat\sigma^2=S/(n-1)$, whereas the likelihood itself, before the
+integration, gives $S/n$. In plain English, integrating out the mean costs one observation,
+which is the $n-1$ of Chapter 3; in a grouped model, integrating out the fixed effects
+costs as many observations as there are fixed effects, at the level at which they act.
+:::
+
+# Curves for observed and new plants {#sec-new-groups}
+
+A fitted grouped model gives three kinds of curve, which answer different questions. The
+**curve of an observed group** uses the predicted effect of that group, and describes the
+group that was measured, shrunk towards its typical value (@sec-shrinkage). The **typical
+curve** has $u_j=0$ and describes the median group with given values of the predictors.
+The curve of a **new group**, one that was not measured, has an effect that is a new draw
+from the distribution of group effects, so we can only give the range in which it is
+expected to lie. Questions about the measured groups ("how does this plant respond?") use
+their own curves; questions about groups in general ("which curve should we expect for a
+plant from Mississippi after a cold night?") use the typical curve and the range of new
+groups.
+
+For the CO₂ data the deviation of a new plant follows a Normal distribution with mean zero
+and standard deviation $\sigma_{\mathrm{plant}}$, so 95% of new plants have deviations
+between $-1.96\,\sigma_{\mathrm{plant}}$ and $1.96\,\sigma_{\mathrm{plant}}$, and
+asymptotes between $a_{\mathrm{typ}}e^{-1.96\,\sigma_{\mathrm{plant}}}$ and
+$a_{\mathrm{typ}}e^{1.96\,\sigma_{\mathrm{plant}}}$, where $a_{\mathrm{typ}}$ is the
+typical asymptote of their origin and treatment. The curve increases with $u$ at every
+concentration, so these two curves are the 2.5% and 97.5% quantiles of the curves of new
+plants at every concentration. We calculate the typical asymptote of each combination of
+origin and treatment from the estimates, and the range with `qnorm()`:
+
+```{r}
+# Estimates, the standard deviation among plants, and the log typical asymptote of each
+# combination of origin and treatment.
+treatment_par = treatment_fit$par
+sd_plant = exp(treatment_par[["log_sd_plant"]])
+mississippi_group = c(0, 0, 1, 1)
+chilled_group = c(0, 1, 0, 1)
+log_typical = treatment_par[["log_asym"]] +
+  treatment_par[["beta_miss"]] * mississippi_group +
+  treatment_par[["beta_chill"]] * chilled_group +
+  treatment_par[["beta_int"]] * mississippi_group * chilled_group
+
+# Typical asymptote and the range that contains the asymptotes of 95% of new plants
+# (µmol/m²/s).
+new_plant_asym = exp(cbind(
+  typical = log_typical,
+  lower = log_typical + qnorm(p = 0.025) * sd_plant,
+  upper = log_typical + qnorm(p = 0.975) * sd_plant
+))
+rownames(new_plant_asym) = c(
+  "Quebec, non-chilled", "Quebec, chilled", "Mississippi, non-chilled",
+  "Mississippi, chilled"
+)
+new_plant_asym
+```
+
+A new non-chilled plant from Quebec is expected to have an asymptote between 36 and 49
+µmol/m²/s, and a new chilled plant from Mississippi one between 16 and 22 µmol/m²/s, around
+typical values of 42 and 18 µmol/m²/s. The ranges are narrow because plants of the same
+origin and treatment are similar. They describe the variation among plants at the
+estimates, and leave out the uncertainty of the estimates themselves, which would widen
+them. @fig-new_plants shows the three kinds of curve for the chilled plants from
+Mississippi. The curve of Mc2 lies at the lower edge of the range of new plants, and above
+its own measurements, because its predicted asymptote is shrunk towards the typical one;
+the curves of Mc1 and Mc3 lie above the typical curve. The typical curve is the median of the
+curves of new plants, not their mean, as we saw in @sec-marginal-likelihood. The mean
+asymptote of plants is $a_{\mathrm{typ}}e^{\sigma^2_{\mathrm{plant}}/2}$ (the mean of a
+[LogNormal](../Supplements/distributions.qmd#sec-lognormal) distribution), only 0.3% above
+the median for $\hat\sigma_{\mathrm{plant}}=0.079$, but the difference grows quickly with
+the variance among groups (@imp-stand-growth).
+
+```{r}
+#| echo: false
+#| label: fig-new_plants
+#| fig-cap: "CO₂ uptake of the three chilled plants from Mississippi (points), with the curve of each plant from its predicted deviation (blue lines), the typical curve of chilled plants from Mississippi (u = 0, vermillion line) and the range that contains the curves of 95% of new plants of this origin and treatment at the estimates (shaded), under the model with a random asymptote and the effects of origin and chilling."
+# Concentrations at which the curves are drawn, and the shared part of the curve.
+conc_grid = seq(from = 95, to = 1000, length.out = 200)
+curve_shape = 1 - exp(-exp(treatment_par[["log_rate"]]) * (conc_grid - treatment_par[["c0"]]))
+
+# Measurements and conditional curves of the chilled plants from Mississippi (10 to 12).
+mc_rows = co2_data$plant %in% 10:12
+mc_points = data.frame(
+  conc = co2_data$conc[mc_rows],
+  uptake = co2_data$uptake[mc_rows],
+  plant = plant_names[co2_data$plant[mc_rows]]
+)
+mc_asym = typical_treatment[10:12] *
+  exp(summary(treatment_sd, select = "random")[10:12, "Estimate"])
+mc_curves = data.frame(
+  conc = rep(conc_grid, times = 3),
+  uptake = rep(curve_shape, times = 3) * rep(mc_asym, each = length(conc_grid)),
+  plant = rep(plant_names[10:12], each = length(conc_grid))
+)
+
+# Typical curve and the range of new plants.
+mc_range = data.frame(
+  conc = conc_grid,
+  typical = new_plant_asym["Mississippi, chilled", "typical"] * curve_shape,
+  lower = new_plant_asym["Mississippi, chilled", "lower"] * curve_shape,
+  upper = new_plant_asym["Mississippi, chilled", "upper"] * curve_shape
+)
+
+ggplot() +
+  geom_ribbon(
+    data = mc_range,
+    aes(x = conc, ymin = lower, ymax = upper),
+    fill = "#D55E00",
+    alpha = 0.2
+  ) +
+  geom_line(data = mc_range, aes(x = conc, y = typical), colour = "#D55E00", linewidth = 0.8) +
+  geom_line(data = mc_curves, aes(x = conc, y = uptake, linetype = plant), colour = "#0072B2") +
+  geom_point(
+    data = mc_points,
+    aes(x = conc, y = uptake, shape = plant),
+    colour = "#0072B2",
+    alpha = 0.7,
+    size = 2
+  ) +
+  labs(
+    x = expression("Ambient CO"[2] * " concentration (µL/L)"),
+    y = expression("CO"[2] * " uptake (µmol/m²/s)"),
+    linetype = "Plant",
+    shape = "Plant"
+  ) +
+  theme_classic()
+```
+
+:::: {#imp-stand-growth .callout-important title="sapling growth in forest stands"}
+
+The height growth of saplings is described with a model in which the typical growth rate
+of stand $j$ is $r\,e^{u_j}$, with $u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{stand}})$.
+The estimates are $r=20$ cm/year and $\sigma_{\mathrm{stand}}=0.4$. Between which values
+lie the typical growth rates of 95% of new stands? A stand that was surveyed has a predicted
+effect of 0.5: what is its typical growth rate, and which of the two answers would you use
+to plan a planting in a stand that was not surveyed? Is the mean growth rate over stands
+20 cm/year? Calculate it in R by simulating many stands.
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The range is $20\,e^{-1.96\times0.4}\approx9.1$ to $20\,e^{1.96\times0.4}\approx43.8$
+cm/year, which is wide because $\sigma_{\mathrm{stand}}$ is large. The surveyed stand has a
+typical growth rate of $20\,e^{0.5}\approx33.0$ cm/year. That curve describes this stand
+only; for a stand that was not surveyed we know only the distribution of stand effects, so
+we expect a typical growth rate of 20 cm/year, anywhere between about 9 and 44 cm/year. The
+mean growth rate over stands is larger than 20 cm/year, because 20 cm/year is the median:
+the exponential stretches the stands above the median more than it compresses those below.
+In R:
+
+```{r}
+# Range of the typical growth rates of new stands (cm/year).
+20 * exp(qnorm(p = c(0.025, 0.975)) * 0.4)
+
+# Mean over many simulated stands, and the mean of the LogNormal distribution.
+set.seed(seed = 702)
+mean(20 * exp(rnorm(n = 1e6, mean = 0, sd = 0.4)))
+20 * exp(0.4^2 / 2)
+```
+
+The mean growth rate over stands is about 21.7 cm/year, 8% above the median.
+
+:::
+::::
+
+# Checking a grouped model {#sec-grouped-residuals}
+
+A fitted grouped model is a data generating process with two levels: first the effects of
+the groups are drawn from their distribution, and then the observations are drawn for
+these effects. Checking the model means comparing data simulated in this way with the
+observations, with scaled quantile residuals as in
+[Chapter 6](../Chapter_6/Theory.qmd#sec-response-residuals). The observations are marked
+with `OBS()` in the NLL, and `obj$simulate()` then draws both levels: new effects for all
+the groups, and new observations for these effects. This is called **unconditional
+simulation**, because the effects of the groups are not kept at their predicted values.
+RTMB simulates in the order of the lines of the NLL. At the line with the density of the
+random effects it draws new values of them, and the lines below use these values, which is
+why the density of the random effects must come before the lines that use them. (Keeping
+the effects at their predicted values instead, **conditional simulation**, simulates new
+observations of the same groups; it checks the curves of the observed groups and not the
+distribution of group effects.)
+
+For the CO₂ data the NLL with origin and chilling gains one line, `uptake = OBS(uptake)`.
+We process it and fit it again (the estimates do not change):
+
+```{r}
+# The NLL with origin and chilling, with one more line.
+treatment_nll = function(parms, data) {
+  getAll(parms, data)
+  # Mark the response as observations, so that they can be simulated.
+  uptake = OBS(uptake)
+  sd_plant = exp(log_sd_plant)
+  nll = -sum(dnorm(x = u, mean = 0, sd = sd_plant, log = TRUE))
+  log_a = log_asym + beta_miss * mississippi + beta_chill * chilled +
+    beta_int * mississippi * chilled + u
+  a = exp(log_a)
+  b = exp(log_rate)
+  sd_obs = exp(log_sd_obs)
+  log_chill_factor = c(beta_chill, beta_chill + beta_int)
+  ADREPORT(log_chill_factor)
+  mu = a[plant] * (1 - exp(-b * (conc - c0)))
+  nll - sum(dnorm(x = uptake, mean = mu, sd = sd_obs, log = TRUE))
+}
+
+# Process the new NLL and fit it again.
+treatment_obj = MakeADFun(
+  cmb(treatment_nll, co2_data),
+  list(
+    log_asym = log(30), beta_miss = 0, beta_chill = 0, beta_int = 0,
+    log_rate = log(0.01), c0 = 50,
+    log_sd_plant = log(0.1), log_sd_obs = log(2), u = rep(0, 12)
+  ),
+  random = "u",
+  silent = TRUE
+)
+treatment_fit = optim(
+  par = treatment_obj$par,
+  fn = treatment_obj$fn,
+  gr = treatment_obj$gr,
+  method = "BFGS"
+)
+treatment_fit$convergence
+```
+
+Each call to `simulate()` returns a list with new deviations `u` for the 12 plants and new
+measurements `uptake` for the 84 rows. We keep the measurements of 1,000 hypothetical
+samples in a matrix with one row per measurement:
+
+```{r}
+# 1,000 hypothetical samples: new plant deviations, then new measurements for them.
+n_sim = 1000
+treatment_simulations = matrix(NA, nrow = length(co2_data$uptake), ncol = n_sim)
+set.seed(seed = 701)
+for (j in seq_len(n_sim)) {
+  treatment_simulations[, j] = treatment_obj$simulate(treatment_fit$par)$uptake
+}
+```
+
+The expected value of a measurement before its plant deviation is known is the typical
+curve of the origin and treatment of its plant, so that is what we give DHARMa as
+`fittedPredictedResponse`. The uptake is continuous, so `integerResponse` keeps its default
+value. The residuals of the 84 measurements are:
+
+```{r}
+#| label: fig-residuals_grouped
+#| fig-width: 9
+#| fig-height: 4.5
+#| fig-cap: "Scaled quantile residuals of the 84 measurements under the model with a random asymptote and the effects of origin and chilling, from 1,000 hypothetical samples with new plant deviations, as drawn by DHARMa. Left: quantile–quantile plot against a uniform distribution. Right: residuals against the rank of the typical curve of each measurement, with the quartiles of a uniform distribution (dashed lines) and lines fitted to the quartiles of the residuals."
+# Expected uptake of each measurement on the typical curve (u = 0) of its plant's group.
+typical_asym = exp(log_typical)
+plant_group = 1 + 2 * co2_data$mississippi + co2_data$chilled
+treatment_expected = typical_asym[plant_group[co2_data$plant]] *
+  (1 - exp(-exp(treatment_par[["log_rate"]]) * (co2_data$conc - treatment_par[["c0"]])))
+
+# Scaled quantile residuals and the two standard panels.
+treatment_residuals = DHARMa::createDHARMa(
+  simulatedResponse = treatment_simulations,
+  observedResponse = co2_data$uptake,
+  fittedPredictedResponse = treatment_expected
+)
+plot(treatment_residuals)
+```
+
+The quantile–quantile plot follows the line, and the dispersion statistic is below one:
+
+```{r}
+# Observed spread around the typical curves relative to the simulated spread.
+DHARMa::testDispersion(treatment_residuals, plot = FALSE)$statistic
+```
+
+The measurements vary around their typical curves about 80% as much (as a variance) as in
+the simulated samples. Most of this variation comes from the deviations of 12 plants, which
+vary a lot from one hypothetical sample to the next, so this is not a clear disagreement. In
+the right panel the line of the upper quartile lies above 0.75, most of all at low typical
+values, and DHARMa marks it in red. Many of the measurements with low typical values belong to the chilled plants from
+Mississippi, and the residuals of Mc1 and Mc3 are mostly high, because the seven
+measurements of a plant share its deviation and both plants lie above the typical curve
+(@fig-new_plants). The 84 residuals are therefore not 84 independent values, and a pattern
+among them can come from a few plants and not from the shape of the curve. As in Chapter
+6, we read the plots and the dispersion statistic as exploratory evidence, and not the
+tests that DHARMa prints with them.
+
+The residuals of the groups themselves come from `DHARMa::recalculateResiduals()`, whose
+argument `group` gives the group of each observation. It adds up the observed values of
+each group, and the simulated values of each group in each hypothetical sample, and
+calculates one residual per group from these sums. We name the residuals by plant:
+
+```{r}
+# One residual per plant, from the sums of its seven measurements.
+plant_residuals = DHARMa::recalculateResiduals(treatment_residuals, group = co2_data$plant)
+plant_scaled = residuals(plant_residuals)
+names(plant_scaled) = plant_names
+round(plant_scaled, 3)
+```
+
+The residual of Mc2 is 0.010: its total uptake is lower than in 99% of the simulated
+plants of its origin and treatment, so its asymptote is lower than the model expects for
+such a plant, as @fig-new_plants showed. Among 12 plants one residual this extreme is not
+unusual, so this is a pattern to note, not a sign that the model fails. With more plants
+in this group, several of them in the tails would suggest that the distribution of plant
+effects should be wider or have a longer tail than the Normal distribution allows.
+
+::: {.callout-warning title="Residuals of observations and of groups"}
+A grouped model can disagree with the data at either level, and the residuals of one level
+can hide a problem at the other. Residuals of the observations mix the deviation of their
+group with their own variation, so a curve that misses some groups may look acceptable, and
+a pattern that looks like a misfit of the curve may come from a few groups. Residuals of
+the groups summarise each group in one number, so they cannot show a problem with the
+shape of the curve within groups. Check both. With few groups, as here, a quiet plot of
+the group residuals says little about whether the distribution of group effects is Normal.
+:::
+
+# Comparing grouped models {#sec-grouped-comparison}
+
+Grouped models are compared with AIC
+([Chapter 4](../Chapter_4/Theory.qmd#sec-aic)) calculated from the maximum marginal
+log-likelihood. $K$ counts the parameters that were estimated, the fixed effects and the
+variance parameters, but not the random effects, which were integrated out: the
+deviations of the 12 plants cost one parameter, $\sigma_{\mathrm{plant}}$, and not 12. The
+vector `par` of a fit holds exactly these parameters, so $K$ is its length. A model
+without random effects is the special case $\sigma_{\mathrm{group}}=0$, which lies at the
+boundary of the range of the parameter, where the large-sample theory behind AIC does not
+hold, so a comparison between models with and without random effects is only an
+approximate guide.
+
+AICc and BIC need the number of independent observations $n$, and for grouped data it is
+ambiguous. The 84 measurements are not independent, because the measurements of a plant
+share its deviation, but they are not only 12 observations either, because each
+measurement adds information about the curve of its plant. The effective number lies
+somewhere between the number of groups and the number of observations, and depends on how
+large the variance among groups is compared with the variance within groups. So we do not
+use AICc and BIC for grouped models, and compare them with AIC and with cross-validation.
+
+**Leave-one-group-out cross-validation** holds out one whole group at a time. Every
+parameter is estimated again from the other groups, and the held-out group is scored by
+its marginal log-likelihood under that fit: the log density of all its observations
+together, with its effect integrated out, because the effect of a new group is not known.
+[Chapter 6](../Chapter_6/Theory.qmd#sec-response-comparison) noted that each held-out part
+should be a block of related observations. If we held out single measurements, the other
+measurements of the same plant would stay in the fit, and their plant deviation would make
+the held-out measurement look easier to predict than a measurement of a new plant. Holding
+out whole plants scores the models by how well they predict a plant that was not used to
+fit them, which is the question of partial pooling.
+
+Five candidates answer two questions: do the plants differ beyond their origin and
+treatment, and do origin and chilling explain part of the differences? Besides the three
+models already fitted (complete pooling, the random asymptote, and the random asymptote
+with origin, chilling and their interaction), we fit complete pooling with origin,
+chilling and their interaction, and the random asymptote with origin and chilling but no
+interaction. Their NLLs are those of @sec-pooling and @sec-group-predictors with one term
+removed:
+
+```{r}
+# Complete pooling with origin, chilling and their interaction: no plant deviations.
+pooled_treatment_nll = function(parms, data) {
+  getAll(parms, data)
+  log_a = log_asym + beta_miss * mississippi + beta_chill * chilled +
+    beta_int * mississippi * chilled
+  a = exp(log_a)
+  b = exp(log_rate)
+  sd_obs = exp(log_sd_obs)
+  mu = a[plant] * (1 - exp(-b * (conc - c0)))
+  -sum(dnorm(x = uptake, mean = mu, sd = sd_obs, log = TRUE))
+}
+
+# Random asymptote with origin and chilling, without their interaction.
+additive_nll = function(parms, data) {
+  getAll(parms, data)
+  sd_plant = exp(log_sd_plant)
+  nll = -sum(dnorm(x = u, mean = 0, sd = sd_plant, log = TRUE))
+  log_a = log_asym + beta_miss * mississippi + beta_chill * chilled + u
+  a = exp(log_a)
+  b = exp(log_rate)
+  sd_obs = exp(log_sd_obs)
+  mu = a[plant] * (1 - exp(-b * (conc - c0)))
+  nll - sum(dnorm(x = uptake, mean = mu, sd = sd_obs, log = TRUE))
+}
+```
+
+As in Chapter 6, we collect the candidates in a list, each with its NLL, its starting
+values without the plant deviations, and whether it has them. A function adds one starting
+deviation per plant in the data when the model has deviations, processes the NLL with
+`random = "u"` in that case, and fits it:
+
+```{r}
+# Starting values shared by the candidates.
+curve_start = list(log_asym = log(30), log_rate = log(0.01), c0 = 50)
+sd_start = list(log_sd_plant = log(0.1), log_sd_obs = log(2))
+effect_start = list(beta_miss = 0, beta_chill = 0, beta_int = 0)
+
+# The NLL of each candidate, its starting values in the order of its list of parameters,
+# and whether it has plant deviations.
+models = list(
+  pooled = list(
+    nll = pooled_nll, random = FALSE,
+    start = c(curve_start, sd_start["log_sd_obs"])
+  ),
+  pooled_treatment = list(
+    nll = pooled_treatment_nll, random = FALSE,
+    start = c(curve_start[1], effect_start, curve_start[2:3], sd_start["log_sd_obs"])
+  ),
+  mixed = list(
+    nll = mixed_nll, random = TRUE,
+    start = c(curve_start, sd_start)
+  ),
+  additive = list(
+    nll = additive_nll, random = TRUE,
+    start = c(curve_start[1], effect_start[1:2], curve_start[2:3], sd_start)
+  ),
+  treatment = list(
+    nll = treatment_nll, random = TRUE,
+    start = c(curve_start[1], effect_start, curve_start[2:3], sd_start)
+  )
+)
+
+# Fit one candidate to one list of data, with one starting deviation per plant if it has
+# plant deviations.
+fit_model = function(model, data) {
+  start = model$start
+  random = NULL
+  if (model$random) {
+    start$u = rep(0, length(data$mississippi))
+    random = "u"
+  }
+  obj = MakeADFun(cmb(model$nll, data), start, random = random, silent = TRUE)
+  optim(par = obj$par, fn = obj$fn, gr = obj$gr, method = "BFGS")
+}
+```
+
+A loop fits the five candidates to the 84 measurements and calculates their AIC:
+
+```{r}
+# Fit every candidate to the 12 plants; K is the number of estimated parameters.
+comparison = data.frame(model = names(models), K = NA, loglik = NA, convergence = NA)
+for (m in seq_along(models)) {
+  fit = fit_model(models[[m]], co2_data)
+  comparison$K[m] = length(fit$par)
+  comparison$loglik[m] = -fit$value
+  comparison$convergence[m] = fit$convergence
+}
+comparison$aic = 2 * comparison$K - 2 * comparison$loglik
+comparison
+```
+
+All five fits converged. To score a held-out plant we need its marginal log-likelihood at
+the estimates from the other plants, which is the value of `fn` of an object for the data
+of that plant, with every parameter except the plant deviation fixed at those estimates.
+The argument `map` of `MakeADFun()` fixes parameters:
+
+- `map` is a list with one element for each parameter to fix, named as in the list of
+  parameters;
+- each element is a factor with one value per element of the parameter, and `factor(NA)`
+  fixes a parameter with one element at its value in the list of parameters (here, at the
+  estimate);
+- the fixed parameters are left out of `par`, so when every parameter but the random
+  effects is fixed, `par` is empty, and `fn(par)` returns the marginal NLL of the data at the
+  fixed values.
+
+We also need the data of some of the plants, with the plants numbered again from one and
+the indicators of origin and treatment of the plants that are kept:
+
+```{r}
+# Keep only the given plants in the list of data, numbered again from 1.
+subset_plants = function(data, plants) {
+  rows = data$plant %in% plants
+  list(
+    conc = data$conc[rows],
+    uptake = data$uptake[rows],
+    plant = match(data$plant[rows], plants),
+    mississippi = data$mississippi[plants],
+    chilled = data$chilled[plants]
+  )
+}
+
+# Log-likelihood of the data at the given estimates: every parameter is fixed with map,
+# and the plant deviations, if any, are integrated out.
+plant_loglik = function(model, estimates, data) {
+  parms = as.list(estimates)
+  random = NULL
+  if (model$random) {
+    parms$u = rep(0, length(data$mississippi))
+    random = "u"
+  }
+  fixed = lapply(as.list(estimates), function(x) factor(NA))
+  obj = MakeADFun(cmb(model$nll, data), parms, map = fixed, random = random, silent = TRUE)
+  -obj$fn(obj$par)
+}
+```
+
+For each candidate and each plant, we fit the model to the other 11 plants from the same
+starting values as before, and add the marginal log-likelihood of the held-out plant to the
+score of the model. We count the fits that did not converge:
+
+```{r}
+# Leave-one-plant-out score of each candidate: fit to 11 plants, score the plant held out.
+n_plants = length(plant_names)
+comparison$loo = NA
+n_failed = 0
+for (m in seq_along(models)) {
+  score = 0
+  for (i in seq_len(n_plants)) {
+    fit = fit_model(models[[m]], subset_plants(co2_data, setdiff(seq_len(n_plants), i)))
+    n_failed = n_failed + (fit$convergence != 0)
+    score = score + plant_loglik(models[[m]], fit$par, subset_plants(co2_data, i))
+  }
+  comparison$loo[m] = score
+}
+n_failed
+```
+
+All 60 fits converged. The differences from the best model for each criterion:
+
+```{r}
+# Differences from the lowest AIC and from the highest leave-one-plant-out score.
+data.frame(
+  model = comparison$model,
+  K = comparison$K,
+  loglik = round(comparison$loglik, 2),
+  delta_aic = round(comparison$aic - min(comparison$aic), 2),
+  delta_loo = round(comparison$loo - max(comparison$loo), 2)
+)
+```
+
+Both criteria prefer the random asymptote with origin, chilling and their interaction, and
+both rank complete pooling without predictors last by far. They agree that the plants
+differ beyond their origin and treatment: with the same fixed effects, the random asymptote
+is better than complete pooling by 19.2 units of AIC and 22.2 units of log score (recall
+that one unit of log score corresponds to about two of AIC). They agree on the direction of
+the interaction, but not on its strength: AIC prefers the model with the interaction by 8.6
+units, leave-one-plant-out by only 0.33 units of log score. And they disagree on the order
+of two models. AIC prefers complete pooling with predictors to the random asymptote without
+predictors (by 5.9 units), whereas leave-one-plant-out prefers the random asymptote, by 19.2
+units of log score. The likelihood of complete pooling treats the seven measurements of a
+plant as independent, so its AIC estimates how well it predicts new measurements that are
+independent of each other; a new plant has seven measurements that share its deviation,
+which this model cannot predict. Leave-one-plant-out scores exactly that, so it is the
+better guide when models with and without random effects are compared.
+
+No pooling is not in the table. Its AIC, 372.9, is lower than that of every mixed model,
+but it answers another question. Its likelihood describes new measurements of the same 12
+plants, with their 12 asymptotes as parameters, whereas the marginal likelihood of a mixed
+model describes the measurements of a new plant, whose asymptote is unknown. The two
+likelihoods are probabilities of different things, so their AICs cannot be compared. Nor
+can leave-one-plant-out score no pooling, because it has no asymptote for a plant that was
+not used to fit it.
+
+For the ecological question we use the model with the interaction. Chilling multiplies the
+typical uptake capacity of plants from Quebec by about 0.90 (Wald interval from the log
+scale 0.79 to 1.03) and that of plants from Mississippi by about 0.59 (0.52 to 0.69), and
+the ratio of the two factors lies between 0.53 and 0.81 (likelihood profile interval).
+So a cold night hardly affects the plants from the colder origin, and lowers the capacity
+of the plants from the warmer origin by about two fifths. Plants of the same origin and
+treatment differ by roughly 8% (5% to 14%), or 10% when the variance is estimated by REML.
+With three plants per combination, these conclusions rest on 12 plants, which is why the
+intervals of the effects and of the variance among plants are wide.
+
+# A recipe for a grouped response curve
+
+The steps of this chapter extend the recipe of [Chapter 6](../Chapter_6/Theory.qmd) to
+observations that come in groups:
+
+::: {.callout-note title="A recipe for a grouped response curve"}
+1. Identify the observational unit and the groups, and whether each predictor is measured
+   on the observations or on the groups.
+2. Choose the curve and the observation model as in Chapter 6, and the parameter of the
+   curve that varies among groups, on a scale on which a Normal deviation is plausible
+   (the logarithm of a positive parameter, the logit of a probability).
+3. Write the joint NLL: minus the log density of the random effects first, then minus the
+   log density of the observations for given random effects.
+4. Process it with `MakeADFun()` and `random`, with one starting value of zero per group,
+   fit it with `optim()`, and check that `convergence` is zero.
+5. Read the variance components and the predicted group effects from `sdreport()`, and
+   calculate likelihood profile intervals with `TMB::tmbprofile()` for the parameters that
+   the question is about, including the log standard deviations; fit the model by REML as
+   well when the variance components are the question.
+6. Draw the curves of the observed groups, the typical curve and the range of new groups,
+   and use each for the question that it answers.
+7. Mark the response with `OBS()`, simulate hypothetical samples with `obj$simulate()`, and
+   check the scaled quantile residuals of the observations and of the groups.
+8. Compare the candidate models, fitted by maximum likelihood to the same observations,
+   with AIC and leave-one-group-out cross-validation.
+9. Interpret the fixed effects and the variance among groups in units, in terms of the
+   ecological question, and say what the number of groups leaves uncertain.
+:::
+
+# Summary
+
+Observations that come in groups share the conditions of their group, so they are not
+independent. A grouped model describes this with two levels: the effects of the groups
+follow a distribution, and the observations follow a distribution for given values of
+these effects. The observations of a group are then independent for a given effect of
+their group but dependent marginally. The parameters shared by all groups are fixed
+effects, the deviations of the groups are random effects, and the model is a mixed-effects
+model. Complete pooling ignores the groups, no pooling gives each group parameters of its
+own, and partial pooling, the mixed model, describes both the measured groups and groups in
+general.
+
+The likelihood of a mixed model is the marginal likelihood, with the random effects
+integrated out, and RTMB approximates the integral with the Laplace approximation when
+`MakeADFun()` is given the argument `random`. The NLL that we write is the joint NLL, with
+the density of the random effects first. The variance components describe the variation
+among groups and within groups; predicted group effects are shrunk towards the typical
+value of groups with the same predictors, more so for groups with few or imprecise
+observations. Group-level predictors explain part of the variation among groups and reduce
+the variance among groups.
+
+A variance among groups is estimated from the groups, so with few groups its interval is
+wide; likelihood profile intervals on the log scale of the standard deviation are the
+reference. Maximum likelihood estimates of variances tend to be too small, and REML, which
+integrates the fixed effects out as well, reduces this bias, but REML fits are not used to
+compare models with different fixed effects. The curve of an observed group, the typical
+curve and the range of new groups answer different questions.
+
+A grouped model is checked by unconditional simulation, with residuals of the observations
+and of the groups, each of which can hide what the other shows. Grouped models are
+compared with AIC on the marginal likelihood, with $K$ counting the variance parameters and
+not the random effects, and with leave-one-group-out cross-validation; AICc and BIC are not
+used, because the number of independent observations is ambiguous.
+
+In this chapter the likelihoods were maximised without difficulty. In
+[Chapter 8](../Chapter_8/Theory.qmd) we look at how optimisers work, and at what to do when
+they fail to find the maximum of a likelihood.
+
+# Chapter quiz
+
+The questions below follow the order of the chapter. Try each question before opening its
+solution.
+
+:::: {.callout-important title="Question 1: bats at roosts"}
+
+The number of bats leaving each of 15 roosts is counted on 10 nights per roost. What is the
+observational unit, and what is the group? What goes wrong if the 150 counts are treated as
+independent observations?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+The observational unit is one count, on one night at one roost, and the group is the
+roost. Counts at the same roost share its size and surroundings, so they resemble each
+other more than counts at different roosts. Treated as independent, the 150 counts would
+be taken as more informative than they are: the standard errors of effects that vary
+among roosts would be too small, the intervals too narrow, and the evidence for such
+effects would look stronger than it is.
+
+:::
+::::
+
+:::: {.callout-important title="Question 2: nest predation and rodent years"}
+
+A year is a rodent year with probability 0.3. In a rodent year a nest is predated with
+probability 0.6, in other years with probability 0.2. What is the marginal probability
+that a nest is predated? What is the probability that the year was a rodent year, for a
+given predated nest?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+The marginal probability adds the joint probabilities over the two kinds of year:
+$0.3\times0.6+0.7\times0.2=0.18+0.14=0.32$. The conditional probability is the joint
+probability divided by the marginal probability of the given value:
+$0.18/0.32\approx0.56$. A predated nest makes a rodent year more probable (0.56 against
+0.3), which is how the nests of one year come to be dependent when the kind of year is
+not known.
+
+:::
+::::
+
+:::: {.callout-important title="Question 3: fish growth in lakes"}
+
+The growth curves of fish are measured in 10 lakes. Which model, complete, no or partial
+pooling, answers each question: (a) which of these 10 lakes has the fastest growth; (b) how
+much growth varies among lakes of the region; (c) which growth curve to expect in a lake
+that was not sampled? What does complete pooling assume?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+(a) No pooling or partial pooling: both give each lake its own curve, and partial pooling
+shrinks the curves of lakes with few fish. (b) and (c) Partial pooling only, because only
+it describes how lakes vary: its variance among lakes answers (b), and its typical curve
+with the range of new lakes answers (c). Complete pooling assumes that the lakes do not
+differ, so it answers none of these questions.
+
+:::
+::::
+
+:::: {.callout-important title="Question 4: body mass of lizards"}
+
+The body mass of 30 lizards is weighed several times during a season, and a model with a
+random effect per lizard is fitted. What do $\sigma^2_{\mathrm{lizard}}$ and
+$\sigma^2_{\mathrm{obs}}$ describe? Would weighing each lizard more often give a more
+precise estimate of $\sigma^2_{\mathrm{lizard}}$?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+$\sigma^2_{\mathrm{lizard}}$ is the variance among lizards of their typical mass (on the
+scale of the random effect), and $\sigma^2_{\mathrm{obs}}$ the variance of repeated
+weighings of one lizard around its own typical mass, which includes changes during the
+season and the error of the scale. More weighings determine the mass of each lizard better
+and $\sigma^2_{\mathrm{obs}}$ more precisely, but $\sigma^2_{\mathrm{lizard}}$ is a
+variance among 30 lizards, and its precision is limited by the number of lizards. To
+estimate it more precisely, weigh more lizards.
+
+:::
+::::
+
+:::: {.callout-important title="Question 5: lichen cover on rocks"}
+
+In a model for the lichen cover of quadrats on rocks, with a random effect per rock, the
+variance among rocks is estimated close to zero. What happens to the predicted effects of
+the rocks, and what does the model then resemble?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+The distribution of rock effects then says that rocks are alike, so every predicted effect
+is shrunk almost completely to zero, whatever the observations of the rock. The model is
+then close to complete pooling. This is the case of strongest shrinkage: the observations
+of a rock count for little when the model says that rocks do not differ.
+
+:::
+::::
+
+:::: {.callout-important title="Question 6: a forgotten argument"}
+
+A student fits the NLL of a model with a random intercept per site, but forgets the
+argument `random = "u"` in `MakeADFun()`. What does `optim()` then minimise, and what
+happens to the estimate of $\sigma_{\mathrm{site}}$?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+Without `random`, the site effects are ordinary parameters, and `optim()` minimises the
+joint NLL over them and the other parameters together, which is not a likelihood of the
+parameters. As $\sigma_{\mathrm{site}}$ shrinks towards zero with all site effects at
+zero, minus the log density of the effects decreases without bound, so the joint NLL has
+no minimum and the estimate of $\sigma_{\mathrm{site}}$ runs towards zero. `random = "u"`
+integrates the site effects out, and the marginal NLL has a proper minimum.
+
+:::
+::::
+
+:::: {.callout-important title="Question 7: variance among streams"}
+
+The density of mayfly larvae is described with a random effect per stream and five fixed
+effects of stream-level predictors, fitted to eight streams. Why might REML be preferred
+for the variance among streams? A colleague then compares models with and without one of
+the predictors by the AIC of their REML fits. What is wrong?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+With eight streams and five fixed effects estimated from their deviations, the deviations
+look much smaller than they are, and the maximum likelihood estimate of the variance among
+streams is likely to be much too small; REML integrates the fixed effects out and reduces
+this bias. But the REML likelihood depends on which fixed effects were integrated out, so
+models with different fixed effects do not have comparable REML likelihoods. They must be
+compared with their maximum likelihood fits.
+
+:::
+::::
+
+:::: {.callout-important title="Question 8: phenology of observed and new sites"}
+
+A model with a random effect per site describes the date of first flowering of a shrub
+against spring temperature at 20 monitored sites. Which curve would you use to predict the
+flowering date next year at one of the monitored sites, and which at a site where
+monitoring starts next year?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+At a monitored site, the curve with the predicted effect of that site, because its
+observations tell us how that site differs from the typical one. At a new site the effect
+is unknown, so we use the typical curve, with the range that the distribution of site
+effects gives for new sites, which is wider.
+
+:::
+::::
+
+:::: {.callout-important title="Question 9: cross-validation of nestling growth"}
+
+The growth of nestlings is measured several times in 40 broods, and a model with a random
+effect per brood is compared with one without it by leave-one-out cross-validation that
+holds out one measurement at a time. What is wrong with this design, and how should it be
+changed?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+The other measurements of the same brood stay in the fit, so the predicted effect of the
+brood is known when the held-out measurement is scored, and the model with brood effects
+looks better at predicting it than it would be at predicting a new brood. Hold out whole
+broods, refit every parameter to the other 39, and score each held-out brood by its
+marginal log-likelihood, with its effect integrated out.
+
+:::
+::::
+
+:::: {.callout-important title="Question 10: seed mass of trees"}
+
+The seed mass of 25 trees is modelled with complete pooling, with no pooling (one mean per
+tree) and with a random effect per tree. No pooling has the lowest AIC. Should it be
+preferred?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+Not by that comparison. The likelihood of no pooling describes new seeds of the same 25
+trees, with their means as parameters, whereas the marginal likelihood of the mixed model
+describes the seeds of a new tree, whose mean is unknown. The AICs measure predictions of
+different things, so they cannot be compared. If the question is about these 25 trees, no
+pooling or the predicted effects of the mixed model answer it; if it is about trees of the
+species, only the mixed model does.
+
+:::
+::::

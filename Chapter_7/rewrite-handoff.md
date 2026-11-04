@@ -976,3 +976,60 @@ Each stage adds one line: date, stage, what is done, what is next.
   area 0.3% smaller than the exact integral, log-likelihood changed by 0.003. The one-mean-
   per-group encoding was checked to give the same NLL (192.086). No new open question.
   `AGENTS.md` unchanged (Stage 7 records the decisions). Next: Stage 2.
+- 4 November 2026: Stage 2 done. Part B written in `Chapter_7/Theory.qmd` in place of the
+  HTML comment: `#sec-grouped-uncertainty` ("Standard errors and likelihood profile
+  intervals"; "Restricted maximum likelihood" `#sec-reml` with the box "Statistical detail:
+  what REML integrates", the i.i.d. Normal case giving $S/(n-1)$), `#sec-new-groups` (with
+  `fig-new_plants`, chilled Mississippi plants, and Practice 3 `imp-stand-growth`, range of
+  new stands and the LogNormal mean by simulation, seed 702), `#sec-grouped-residuals`
+  (`fig-residuals_grouped`, DHARMa's own plot; warning callout "Residuals of observations
+  and of groups"), `#sec-grouped-comparison`, "A recipe for a grouped response curve" (nine
+  steps), "Summary" and a quiz of 10 questions. Part A's sentence on profile intervals now
+  links to `@sec-grouped-uncertainty`. Rendered with `--profile dev` (R 4.6.1, RTMB 2.0,
+  DHARMa 0.5.0): exit 0, no warnings, no unresolved cross-references; whole page in about
+  30 s; every printed number of part B compared with the prose; both new figures inspected.
+  Citation checked: Patterson and Thompson (1971), *Biometrika* 58(3): 545–554 (footnote in
+  `#sec-reml`). **Size:** the page has 2,063 lines, above the 1,900 target (part B about
+  960 lines, of which the comparison code about 200 and the quiz about 190); Stage 4 may
+  shorten the quiz or the comparison prose if it wants the target. **Choices:** REML puts
+  every parameter of the curve in `random` (`u`, `log_asym`, the three `beta_`,
+  `log_rate`, `c0`), only the two log standard deviations are optimised (as in the
+  practical's Exercise 5, `random = c("u", "mu")`); with only the four effects on the
+  asymptote in `random`, $\sigma_{\mathrm{plant}}$ would be 0.106 and
+  $\sigma_{\mathrm{obs}}$ 2.02 (not in the page). The comparison uses separate NLLs
+  (`pooled_treatment_nll`, `additive_nll`), not `map`, for the nested models; `map` is used
+  only to score a held-out plant. `treatment_nll` gains `uptake = OBS(uptake)` in
+  `#sec-grouped-residuals` and is refitted there, so `treatment_obj` and `treatment_fit` are
+  the `OBS()` versions from then on. Residuals per plant use
+  `recalculateResiduals(group = co2_data$plant)` (integer index; a character group would be
+  sorted alphabetically). The `fittedPredictedResponse` is the typical curve ($u_j=0$) of
+  each measurement's origin and treatment. **Names for Stage 3 and later:**
+  `treatment_profile_sd`, `treatment_profile_int`, `sd_interval`, `int_interval`,
+  `treatment_intervals`, `reml_obj`, `reml_fit`, `treatment_par`, `sd_plant`,
+  `mississippi_group`, `chilled_group`, `log_typical`, `new_plant_asym` (rows Quebec
+  non-chilled, Quebec chilled, Mississippi non-chilled, Mississippi chilled), `n_sim`,
+  `treatment_simulations` (seed 701), `typical_asym`, `plant_group`, `treatment_expected`,
+  `treatment_residuals`, `plant_residuals`, `plant_scaled`, `pooled_treatment_nll`,
+  `additive_nll`, `curve_start`, `sd_start`, `effect_start`, `models` (`pooled`,
+  `pooled_treatment`, `mixed`, `additive`, `treatment`, each with `nll`, `random`,
+  `start`), `fit_model(model, data)`, `subset_plants(data, plants)`,
+  `plant_loglik(model, estimates, data)`, `n_plants`, `comparison`, `n_failed`. Hidden:
+  `treatment_fixed`, `conc_grid`, `curve_shape`, `mc_rows`, `mc_points`, `mc_asym`,
+  `mc_curves`, `mc_range`. **Numbers:** profile intervals $\sigma_{\mathrm{plant}}$ 0.045 to
+  0.139 (variance 0.0020 to 0.019; Wald from the log scale 0.046 to 0.136), `beta_int`
+  −0.638 to −0.209 ($e^{\beta_{\mathrm{int}}}$ 0.528 to 0.812; Wald −0.614 to −0.227);
+  REML $\sigma_{\mathrm{plant}}$ 0.105, $\sigma_{\mathrm{obs}}$ 2.05; typical asymptotes and
+  95% ranges of new plants 42.2 (36.1 to 49.2), 38.2 (32.7 to 44.5), 31.1 (26.6 to 36.3),
+  18.5 (15.8 to 21.5) µmol/m²/s; mean over median $e^{\sigma^2/2}$ 1.003; dispersion 0.80
+  (seed 701); plant residuals Mc2 0.010, Mc1 0.956, the rest 0.195 to 0.887; the upper
+  quartile line of the observation residuals lies above 0.75 (DHARMa flags it), traced to
+  Mc1 and Mc3, whose residuals are mostly high. Comparison: all five fits and all 60
+  leave-one-plant-out fits converged; AIC 600.51, 419.32, 425.21, 408.81, 400.17 (as in the
+  table above); leave-one-plant-out −310.74, −235.96, −216.80, −214.10, −213.77, which
+  differ from the table above by at most 0.03 in the last three (−235.93, −214.11,
+  −213.75; the page's values are the ones calculated by its code). No pooling AIC 372.87.
+  AIC and leave-one-plant-out agree on the best model, disagree on the order of complete
+  pooling with predictors and the random asymptote without predictors, and on the strength
+  of the interaction (8.6 units of AIC, 0.33 of log score); the text says all three.
+  No new open question. `AGENTS.md` unchanged (Stage 7 records the decisions). Next:
+  Stage 3.
