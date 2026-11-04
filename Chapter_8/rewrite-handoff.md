@@ -1230,3 +1230,62 @@ Each stage adds one line: date, stage, what is done, what is next.
   --to typst` (25 pages; the `.quarto/` folder it created was removed); the PDF pages could
   not be inspected as images (no PDF renderer in this environment). No new open question.
   `AGENTS.md` and `.claude/docs/` unchanged (Stage 7 records the decisions). Next: Stage 7.
+- 4 November 2026: Stage 7 done (integration). **Links and promises:** Chapter 1 (approved
+  page), one sentence changed: the roadmap entry "Chapter 8", R skills, no longer names
+  `ga()`; the key concepts and line 561 still describe the chapter and are unchanged. Links
+  to the new IDs: Chapter 4 theory (`gr` to `#sec-gradients`, "When a fit fails" to
+  `#sec-wrong-place`, parameterisation to `#sec-scaling`, slices to `#sec-diagnosis`; the
+  chapter does use a slice); Chapter 5 (finite difference to `#sec-gradients`, partial
+  derivatives to `#sec-search`); Chapter 6 theory (`#sec-gradients`) and practical
+  solutions (code 0 "explains why" to `#sec-stopping`, not `#sec-multistart` as planned,
+  because the sentence promises the reason); Chapter 7 theory (Newton's method to
+  `#sec-search`; lines 36 and 1881 unchanged, still true). The Chapter 4 practical,
+  Exercise 4 question 4 (identical on both pages), now says that Exercise 2 of the Chapter 8
+  practical returns to the fit, and its solution links `#sec-stopping` and the Chapter 8
+  solutions; the Chapter 7 practical solution (Exercise 5) points to Exercise 3 of the
+  Chapter 8 practical (exercises are linked by page, as elsewhere in the course).
+  `deterministic-functions.qmd`: the sentence "Chapter 8 uses a threshold function..."
+  removed; the sentence on slope-following methods failing for $c$ now adds that RTMB refuses
+  the comparison with $c$ (Chapter 6's warning callout, `#sec-makeadfun`) and points to
+  `#sec-other-optimisers` for optimisers without derivatives and global search.
+  `canned.qmd` does not name glmmTMB's optimiser; one pointer to `#sec-diagnosis` added
+  after its convergence check. Glossary: "Optimiser" links `#sec-wrong-place` and names the
+  other optimisers; "Finite difference", "Gradient", "Hessian", "Likelihood slice" and
+  "Reparameterisation" extended with one or two sentences and a link each; 15 new entries
+  (BFGS, Convergence code, Differential evolution, Global optimisation, Identifiability with
+  structural and practical, Local and global minimum, Multiple starting values, Nelder–Mead
+  method, Newton's method, Positive definite, Quasi-Newton method, Ridge, Saddle point,
+  Scaling, Stopping rule), in alphabetical order. Lecture slides and scripts of Chapters 1, 4,
+  6 and 7 and `Chapter_4/lecture-handoff.md` checked: every statement about Chapter 8 is
+  still true (BFGS explained, finite differences, slices as a diagnostic, parameterisation,
+  Newton's method; the Chapter 7 script's list "bounds, scaling, starting values, local
+  maxima and problems with the Hessian" matches the chapter, where bounds are mentioned), so
+  none changed and no PDF was regenerated. **Guidance:** `AGENTS.md` (drafts list,
+  "no new data" sentence in data decisions, "Where topics live", production build and
+  packages); `.claude/docs/chapters-7-8-other.md` (Chapter 8 entry replaced with the
+  durable decisions, demo in "Lectures", numbering through Chapter 8, glossary note);
+  `.claude/docs/review-log.md` (entry of 4 November and two status rows);
+  `STYLE_GUIDE.md` (front-matter exception removed, Practice callouts numbered through
+  Chapter 8, roadmap and recipe through Chapter 8, a bullet "Other optimisers and difficult
+  fits (Chapter 8 only)" under "Maximum likelihood with RTMB"); `STYLE_GUIDE_LECTURE.md`
+  (the Chapter 8 demo). **Build:** `_quarto-prod.yml` renders the theory, practical,
+  solutions and lecture of Chapter 8, with sidebar entries in the order of Chapter 7;
+  `_quarto-dev.yml` already rendered everything (it has no Slides section);
+  `publish.yml` lost `any::GA` and keeps `any::DEoptim`; every package the Chapter 8 pages
+  use is listed (RTMB, RTMBdist, TMB, DEoptim, emdbook, glmmTMB, boot, ggplot2).
+  **Checks that ran:** `quarto render --profile prod` of the whole site (39 files, exit 0, no
+  warning in the log; Chapter 8 pages taken from the freeze of the Stage 4 renders, since
+  their sources did not change; Chapters 1, 4 to 7 and the supplements re-executed); no
+  unresolved `?@` cross-reference in any output page (the `?@` strings in the decks are
+  JavaScript); every link into a Chapter 8 `sec-` ID in `_site-prod` resolves to an ID of
+  `Chapter_8/Theory.html`; all four Chapter 8 entries are in the sidebar. No number in
+  this stage differs from the plan. **Left for the author:** DEoptim is not in the install
+  line of the Chapter 1 practical (approved page; the Chapter 8 practical asks students to
+  install it once, as the Chapter 6 practical does for DHARMa); the older plans
+  (`Chapter_6/rewrite-handoff.md`, `Chapter_7/rewrite-handoff.md`) still describe the old
+  Chapter 8 and were not edited. **Awaits review:** the whole of Chapter 8 (theory,
+  practical, lecture, script, demo), the sentences changed above (in particular Chapter 1's
+  roadmap entry and the threshold paragraph of `deterministic-functions.qmd`), the new
+  glossary entries, and the open question on the size of the theory. Files per stage are in
+  the commits `Chapter 8 rewrite: stage 0` to `stage 7`. This file stays until the author
+  removes it.

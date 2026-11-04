@@ -69,7 +69,11 @@ copy in each `lecture-assets/`. The subtitle, footer and `pagetitle` name the le
   the fit to the residuals, without model comparison. The Chapter 7 lecture has one demo
   of the same length from `demo-pooling.R`: from complete and no pooling to partial
   pooling with predictors, the shrinkage plot and curves for new groups, again without
-  model comparison (author's decision of 4 November). A demo slide's `data-timing`
+  model comparison (author's decision of 4 November). The Chapter 8 lecture has one demo
+  of the same length from `demo-diagnosis.R`: the diagnosis of a fit that stops in the
+  wrong place, from the convergence code, gradient and `sdreport()` to multiple random
+  starts, a BFGS restart and a slice or profile, without comparing optimisers (author's
+  decision of 4 November). A demo slide's `data-timing`
   includes its demo, and the table of the script shows the two parts ("2 + 16").
 - **Breaks** are rows of the table without a slide number, and the line under the table
   totals slides, slack and breaks.

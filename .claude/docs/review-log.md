@@ -85,6 +85,19 @@ them. All dates are in 2026.
   `deterministic-functions.qmd`; eleven glossary entries. `lecture-script.pdf` of the
   Chapter 3 lecture and of Chapter 4 Lectures 1 and 2 were not regenerated. The plan,
   `Chapter_7/rewrite-handoff.md`, stays until the author removes it.
+- **4 November, Chapter 8:** Chapter 8 (theory, practical, one lecture) was rewritten from
+  scratch to the author's decisions of 4 November (see `chapters-7-8-other.md`) in seven
+  stages with an independent review (Stage 4), and added to the production build; all of it
+  is a generated draft awaiting review. Promises about Chapter 8 elsewhere were corrected
+  the same day and await the author's check: in the approved Chapter 1, one sentence of the
+  roadmap entry "Chapter 8" (R skills no longer name `ga()`); in `deterministic-functions.qmd`,
+  the two promises on the threshold function, which the chapter does not use (one sentence
+  removed; the other now points to Chapter 6's warning on automatic differentiation and to
+  Chapter 8's other optimisers); links to the new section IDs from Chapters 4 to 7 and
+  `canned.qmd`; the Chapter 4 practical (Exercise 4) and Chapter 7 practical (Exercise 5) now
+  point to Exercises 2 and 3 of the Chapter 8 practical; fifteen new and six revised glossary
+  entries. No lecture slide or script of another chapter needed a change. The plan,
+  `Chapter_8/rewrite-handoff.md`, stays until the author removes it.
 
 | Material | Status and use |
 |---|---|
@@ -106,5 +119,6 @@ them. All dates are in 2026.
 | `Chapter_6/Lecture/` | Generated draft: a session of 150 minutes with 32 slides (121 minutes, 9 of slack) in three blocks with two breaks of 10 minutes, including one live demo of 18 minutes (2 at the slide, 16 in R) from `demo-cycle.R`. Every figure is a copy of a chapter figure or made from the chapter's code (`lecture-assets/figures.R`; `parameter-derivatives.png` is a copy of the Chapter 5 figure, whose axis labels are small at slide size). Slides, script and demo script await review. Never a model of voice |
 | Chapter 7 (theory, practical) | Draft, rewritten from scratch on 4 November in seven stages (`Chapter_7/rewrite-handoff.md`), with an independent review (Stage 4) but no review by the author. Never a model of voice |
 | `Chapter_7/Lecture/` | Generated draft: a session of 150 minutes with 31 slides (116 minutes, 14 of slack) in three blocks with two breaks of 10 minutes, including one live demo of 18 minutes (2 at the slide, 16 in R) from `demo-pooling.R`. Every figure is made from the chapter's code (`lecture-assets/figures.R`); the DHARMa panels of slide 25 are small at slide size. Slides, script and demo script await review. Never a model of voice |
-| Chapter 8 | Generated, not rewritten. Topic coverage only, never a model of voice |
+| Chapter 8 (theory, practical) | Draft, rewritten from scratch on 4 November in seven stages (`Chapter_8/rewrite-handoff.md`), with an independent review (Stage 4) but no review by the author. The theory is longer than its target (about 1,940 source lines against 1,600; open question in the handoff). Never a model of voice |
+| `Chapter_8/Lecture/` | Generated draft: a session of 150 minutes with 31 slides (116 minutes, 14 of slack) in three blocks with two breaks of 10 minutes, including one live demo of 18 minutes (2 at the slide, 16 in R) from `demo-diagnosis.R`. Three figures are copies of chapter figures and one is a schematic (`lecture-assets/figures.R`). Slides, script and demo script await review. Never a model of voice |
 

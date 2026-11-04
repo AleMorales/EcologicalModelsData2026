@@ -50,9 +50,9 @@ does not imply review. All dates are in 2026.
   reference for teaching voice, and Chapter 2 (author's sections and Exercises 1, 3, 4)
   for voice in technical chapters.
 - **Drafts, never a model of voice:** everything rewritten or generated since 6 October,
-  including the Chapter 3 and 4 theory, Chapters 5 to 7 (rewritten from scratch, Chapter 7
-  on 4 November), the supplements, every lecture, and Chapter 8 (generated, not
-  rewritten). A draft is a reference for topic coverage only.
+  including the Chapter 3 and 4 theory, Chapters 5 to 8 (rewritten from scratch, Chapters 7
+  and 8 on 4 November), the supplements and every lecture. A draft is a reference for topic
+  coverage only.
 - **Lectures:** the author sets the length of each lecture; when a request does not give
   it, ask (`STYLE_GUIDE_LECTURE.md`).
 
@@ -82,6 +82,7 @@ Grouped data have one running example in the theory, the CO₂ uptake curves of 
 (`CO2`, Chapter 7), and the practical of Chapter 7 returns to the reed frog tanks, owl
 nests and salamander sites that earlier chapters treated as i.i.d. The simulated
 `shapes*.csv` files were removed (author's decision of 4 November); do not reintroduce them.
+Chapter 8 has no new data: its theory and practical revisit fits of earlier chapters.
 
 
 ## Teaching scope and progression
@@ -120,10 +121,12 @@ nests and salamander sites that earlier chapters treated as i.i.d. The simulated
   leave-one-out cross-validation and scaled quantile residuals in Chapter 6; conditional
   distributions, random effects, the marginal likelihood and the Laplace approximation,
   REML and leave-one-group-out cross-validation in Chapter 7 (grouped models are compared
-  with AIC and leave-one-group-out only, because $n$ is ambiguous for AICc and BIC); bounds,
-  `optimize()`, scaling, sensitivity to starting values, local maxima, Hessian problems
-  and the effect of parameterisation on optimisation in Chapter 8 (Chapter 4 only uses
-  transformations and points forward).
+  with AIC and leave-one-group-out only, because $n$ is ambiguous for AICc and BIC); how
+  gradient methods search, exact and approximate gradients, stopping rules, the diagnosis of
+  a fit, multiple starting values, structural and practical identifiability, estimates at a
+  boundary, scaling and parameterisation, `nlminb()`, Nelder–Mead, `optimize()` and
+  differential evolution in Chapter 8 (Chapter 4 only uses transformations and points
+  forward; bounds are only mentioned, and SANN and genetic algorithms are not used).
 - Use simulation to connect known parameters to samples, estimates and repeated-sampling
   behaviour. Introduce an unfamiliar R tool when it is needed.
 - Exercises ask students to calculate, simulate, plot, compare and explain; solutions
@@ -137,15 +140,15 @@ nests and salamander sites that earlier chapters treated as i.i.d. The simulated
 - Settings shared by every build belong in `_quarto.yml`; the complete render and sidebar
   lists belong in the mutually exclusive `_quarto-dev.yml` and `_quarto-prod.yml`, so
   that profile merging cannot duplicate navigation.
-- The production build renders Chapters 1 to 7 (with the lectures of Chapters 1 to 4, 6
-  and 7) and five supplements; Chapter 8 is rendered only by the dev profile.
+- The production build renders Chapters 1 to 8 (with the lectures of Chapters 1 to 4 and 6
+  to 8) and five supplements.
 - Every package loaded in a rendered page must be in `.github/workflows/publish.yml`, or
   the production build fails. Production needs `MASS`, `ggplot2`, `patchwork`, `dplyr`,
   `RTMB`, `RTMBdist`, `TMB` (for `tmbprofile()`), `quarto`, `glmmTMB` (`Salamanders`,
   `Owls`, the `glmmTMB` supplement, Chapter 7 practical), `boot` (`fir`), `emdbook`
-  (Chapter 4 practical, Chapters 5 to 7), `DHARMa` (Chapters 6 and 7), `knitr` and
-  `rmarkdown`. `DEoptim` and `GA`
-  stay for Chapter 8. `VGAM`, `gtools` and `COMPoissonReg` were removed because no page loads them.
+  (Chapter 4 practical, Chapters 5 to 8), `DHARMa` (Chapters 6 and 7), `DEoptim` (Chapter
+  8), `knitr` and `rmarkdown`. `VGAM`, `gtools`, `COMPoissonReg` and `GA` were removed
+  because no page loads them.
 - Do not install packages during rendering.
 
 ## Repository workflow
