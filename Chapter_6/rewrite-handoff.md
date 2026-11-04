@@ -1053,3 +1053,45 @@ Each stage adds one line: date, stage, what is done, what is next.
   `quarto render Chapter_6/Lecture/lecture-script.md --to typst` (no warnings; pages inspected
   as PNG via `quarto typst compile`); the `.quarto/` folder that the render creates was
   removed. No new open question. AGENTS.md unchanged (Stage 7). Next: Stage 7.
+- 4 November 2026: Stage 7 done (integration). **Links and promises:** every mention of
+  Chapter 6 outside the chapter was checked; every anchor that other pages use
+  (`#sec-delta-method`, `#sec-makeadfun`, `#sec-response-residuals`,
+  `#sec-response-observation`) exists. Changed: the delta-method pointers in
+  `Chapter_3/Theory.qmd`, `Chapter_4/Theory.qmd`, `Chapter_4/Practicals/no_solution.qmd`,
+  `Supplements/canned.qmd` and `Supplements/glossary.qmd` (formula in Chapter 4's box;
+  Chapter 6 applies it to a fitted curve); the Chapter 6 roadmap entry of
+  `Chapter_1/Theory.qmd`; `Chapter_5/Theory.qmd` (compositions give a curve the range of a
+  Poisson mean or a Binomial probability) and `Chapter_5/Practicals/no_solution.qmd`
+  (generalised Ricker: the Chapter 6 practical fits the Ricker and gives the tools);
+  `Supplements/deterministic-functions.qmd` (monomolecular, Gompertz and inverse logit of a
+  quadratic no longer claim a use in the Chapter 6 practical); `Chapter_7/Theory.qmd`
+  (introduction, data and response function no longer attributed to Chapter 6; `%~%`
+  described in place); `Chapter_8/Theory.qmd` (Chapter 6 explains `obj$gr`, not
+  `obj$he`). Checked and unchanged: Chapter 2, the other promises of Chapters 4 and 5 and of
+  the Chapter 5 solutions, `distributions.qmd`, `canned.qmd` (introduction and residuals),
+  the Chapter 1 to 4 lecture slides and scripts, and `ModelCycle.png`. **Sentences changed
+  in approved pages:** Chapter 1, the Chapter 6 entry of the roadmap ("In the practical,
+  repeated simulation is also used to investigate the bias and coverage of a confidence
+  interval"; "learn what its built-in automatic differentiation calculates and how the
+  delta method gives the uncertainty of a fitted curve. You calculate AIC, AICc and BIC and
+  a leave-one-out cross-validation score, and create diagnostic residuals"); Chapter 3, one
+  sentence in "Consistency and asymptotic normality". **Stale, left for the author:**
+  `Chapter_4/Lecture_2/lecture-script.md` (line 243, "Chapter 6 explains it in more
+  detail") and line 203 of its `lecture.qmd` ("an approximation (Chapter 6)") are still
+  roughly true and were not changed; Chapter 1's "Chapter 7 applies Chapter 6's response
+  curve" is general enough to stand until Chapter 7 is rewritten. **Guidance:**
+  `AGENTS.md` (review status of 4 November, status rows for the Chapter 6 pages and
+  lecture, a "Chapter 6" entry under "Decisions by page", "Chapters 7 and 8", lectures,
+  where topics live, builds and packages, the DHARMa figure exception awaiting
+  confirmation, numbered Practice callouts); `STYLE_GUIDE.md` (Practice callouts and
+  front matter now through Chapter 6; summary; roadmap and recipe; `ADREPORT()` bullet;
+  new bullets on response curves, DHARMa residuals and leave-one-out cross-validation);
+  `STYLE_GUIDE_LECTURE.md` (Chapter 6 demo, the 40% first table column, two-panel figures
+  in a 60 to 64% column). **Build:** `_quarto-prod.yml` renders and lists the Chapter 6
+  theory, practical, solutions and lecture; `publish.yml` already has every package that
+  they load; `_quarto-dev.yml` unchanged. `quarto render --profile prod` (whole site, R
+  4.6.1) ran in 4 minutes: exit 0, 31 pages, no warnings. **Awaiting the author:** the
+  whole of Chapter 6 (theory, practical, lecture, script, demo), the three open questions
+  of Stage 3, the DHARMa figure exception and the sentences changed above. No number in
+  the chapter differs from this file except the dispersion statistic (2.93 with seed 601,
+  2.89 in the Stage 0 table with seed 1). This file stays until the author removes it.

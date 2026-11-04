@@ -91,6 +91,20 @@ them. All dates are in 2026.
   Jensen's inequality and the delta method moved to statistical detail boxes (see "Chapter
   4" below). Lecture 2 (slides 6 to 10), its handoff, `figures.R`, the learning goals,
   roadmap, summary and quiz question 7 follow it.
+- **4 November:** Chapter 6 (theory, practical, one lecture) was rewritten from scratch to
+  the author's decisions of 3 and 4 November (see "Chapter 6" below) and added to the
+  production build; all of it is a generated draft awaiting review. Promises about
+  Chapter 6 elsewhere were corrected the same day and await the author's check: in the
+  approved pages, two sentences of the Chapter 6 entry of the Chapter 1 roadmap (coverage
+  by simulation only in the practical; automatic differentiation, the delta method and the
+  leave-one-out score in place of "predictive RMSE") and one sentence of Chapter 3
+  ("Consistency and asymptotic normality": the delta method's formula is in Chapter 4);
+  elsewhere, the pointers to the delta method in Chapter 4 (theory and practical),
+  `canned.qmd` and the glossary, two sentences of Chapter 5 and its practical, three
+  sentences of `deterministic-functions.qmd`, the introduction and two sentences of
+  Chapter 7 (which no longer claim that Chapter 6 used `shapes1.csv` or described `%~%`)
+  and one of Chapter 8. The plan, `Chapter_6/rewrite-handoff.md`, stays until the author
+  removes it.
 
 | Material | Status and use |
 |---|---|
@@ -108,7 +122,9 @@ them. All dates are in 2026.
 | Chapter 4 (theory and practical) | Draft: rewritten from scratch, trimmed by the author, then rewritten to the RTMB pattern. The author's own edits and sentences stay |
 | Chapter 5 (theory and practical), `Supplements/deterministic-functions.qmd`, `Supplements/calculus.qmd` | Drafts, rewritten from scratch |
 | `Supplements/canned.qmd` | Draft, rewritten on 7 October. The paragraph of `index.qmd` that describes it is generated text in the author's first person and awaits check |
-| Chapters 6 to 8 | Generated, not rewritten. Topic coverage only, never a model of voice |
+| Chapter 6 (theory, practical) | Draft, rewritten from scratch on 3 and 4 November in seven stages (`Chapter_6/rewrite-handoff.md`), with an independent review (Stage 4) but no review by the author. Never a model of voice |
+| `Chapter_6/Lecture/` | Generated draft: a session of 150 minutes with 32 slides (121 minutes, 9 of slack) in three blocks with two breaks of 10 minutes, including one live demo of 18 minutes (2 at the slide, 16 in R) from `demo-cycle.R`. Every figure is a copy of a chapter figure or made from the chapter's code (`lecture-assets/figures.R`; `parameter-derivatives.png` is a copy of the Chapter 5 figure, whose axis labels are small at slide size). Slides, script and demo script await review. Never a model of voice |
+| Chapters 7 and 8 | Generated, not rewritten. Topic coverage only, never a model of voice |
 
 ## Decisions by page
 
@@ -171,7 +187,8 @@ another species of the data set of its theory (Chinstrap in Chapter 2, Adelie in
 - "Consistency and asymptotic normality" presents asymptotic normality as the general
   behaviour of most estimators (author's instruction of 30 October), with the central limit
   theorem as its name for the mean; method-of-moments estimators follow from the theorem
-  applied to the moments plus a smooth function (delta method in Chapter 6), and Chapter 4
+  applied to the moments plus a smooth function (the delta method, whose formula is a box
+  in Chapter 4), and Chapter 4
   gives the result for maximum likelihood. The new wording awaits the author's check.
 - Practical. Exercise 1: `Owls` from `glmmTMB` (`data(Owls, package = "glmmTMB")`),
   satiated nestlings and female parents, Negative Binomial model, method-of-moments
@@ -186,8 +203,9 @@ another species of the data set of its theory (Chinstrap in Chapter 2, Adelie in
 ### Lectures
 
 The Chapter 3 lecture has no live demos (author's decision of 30 October); the Chapter 2
-lecture has three, and each Chapter 4 lecture has one of 18 minutes from a standalone
-script, `demo-profile.R` and `demo-properties.R` (author's decision of 3 November). Slides state the general definition, rule or property
+lecture has three, each Chapter 4 lecture has one of 18 minutes from a standalone
+script, `demo-profile.R` and `demo-properties.R`, and the Chapter 6 lecture has one of 18
+minutes from `demo-cycle.R` (author's decisions of 3 November). Slides state the general definition, rule or property
 and then the result for the example, never the example alone (author's decision of 30
 October), and the main takeaways stand on the slide, not only in the script (author's
 decision of 3 November). The rules are in `STYLE_GUIDE_LECTURE.md`.
@@ -293,7 +311,8 @@ decision of 3 November). The rules are in `STYLE_GUIDE_LECTURE.md`.
   of a standard error is no standard error at all, not a "biased" one; the delta method
   approximates the standard error on the new scale by treating the transformation as a
   straight line near the estimate (an approximation, widely used), it does not remove a
-  bias, and TMB applies it through `ADREPORT()`; Chapter 6 explains it.
+  bias, and TMB applies it through `ADREPORT()`. The formula is a box of this chapter;
+  Chapter 6 gives it for several parameters in a box and applies it to a fitted curve.
 - **Simulation:** data are marked with `OBS()`, `obj$simulate()` draws each hypothetical
   sample and a visible loop refits. The hidden coverage simulation of the theory checks
   the profile interval with one extra fit at the generating value, not `tmbprofile()` in
@@ -400,26 +419,79 @@ logarithm of the residual standard deviation. The page uses `InsectSprays` and
 evaluated. Filename and navigation are kept; it is in `_quarto-prod.yml` after the
 glossary.
 
-### Chapters 6 to 8
+### Chapter 6
 
-- They predate the rewrite of Chapters 4 and 5 and received consistency fixes only; the
-  full rewrite is a separate plan. Where their terms differ from Chapter 4, follow
-  Chapter 4 in new work.
-- The rewrite of Chapter 6 (theory, practical, one lecture) follows
-  `Chapter_6/rewrite-handoff.md`: seven stages with the author's decisions of 3 November
-  (one reed frog example, the full modelling cycle, the delta method in a box only, DHARMa
-  without tests, leave-one-out cross-validation). Its last stage moves the durable
-  decisions into this file.
-- Chapter 6 has two stopgap sections that earlier pages link to: `#sec-makeadfun` (what
-  RTMB calculates for `optim()`, with a collapsed technical detail box on automatic
-  differentiation; the main text does not use the word tape) and `#sec-delta-method`.
-  Its first fit goes through `MakeADFun()` like every other fit, with no comparison with
-  a plain function. "Information criteria" recalls AIC from Chapter 4 with $K$ and adds
-  BIC, cross-validation and goodness of fit, not AICc.
-- Not converted: the practicals of Chapters 6 and 7 and the Chapter 7 theory still use
-  `%~%`, one parameter list, data read from the workspace and `obj$he()`; Chapter 8
-  passes plain functions to `optim()` with `hessian = TRUE`; the learning goals of
-  Chapters 6 and 7 keep the old format.
+- **One running example in the theory** (author's decision of 3 November): the reed frog
+  functional response (`emdbook::ReedfrogFuncresp`, 16 tanks, Vonesh and Bolker 2005),
+  the backdrop of Chapter 5, now fitted. No second data set, not even for the comparison.
+  The `shapes*.csv` files are no longer used by Chapter 6 (`shapes1.csv` stays for Chapter
+  7). Principles over examples, as in Chapter 4: no detail of the experiment that does not
+  support a general point; keep the theory below about 1,900 source lines.
+- **Parameterisation:** the Holling type II form, $p(N)=\alpha/(1+\alpha HN)$ for the
+  probability that a tadpole is killed, optimised as $\operatorname{logit}(\alpha)$ and
+  $\log(H)$, from the values read by eye in Chapter 5 ($\alpha=0.5$, $H=1/60$). The
+  Michaelis–Menten form $a,b$ appears only to connect to Chapter 5 and in one sentence on
+  correlation (0.98 in $a,b$ against 0.82 in $\alpha,H$). The model is written as
+  $K_i\sim\operatorname{Binomial}(N_i,p(N_i))$; the term "conditional distribution" is left
+  to Chapter 7.
+- **One modelling cycle on one data set:** Binomial fit → standard errors, correlation and
+  likelihood profile intervals ($\alpha$, $H$, and $1/H$ by transforming the endpoints) →
+  pointwise confidence band of the curve from `ADREPORT()` on a grid, on the logit scale →
+  simulation with `OBS()` and scaled quantile residuals from DHARMa, which show
+  overdispersion → Beta-Binomial with the same curve (precision $\kappa$) → comparison →
+  interpretation. Four candidate models: constant probability ($H=0$) and Holling type II,
+  each with a Binomial and a Beta-Binomial distribution, all fitted to the 16 tanks.
+- **Delta method:** a statistical detail box only (several parameters), no calculation by
+  hand; the band comes from `ADREPORT()`. `#sec-delta-method` is the section "Uncertainty
+  of the fitted curve" and `#sec-makeadfun` "The gradient and automatic differentiation"
+  (with a collapsed technical detail box); other pages link to both IDs. RTMB 2.0 refuses
+  an `if` on a parameter (`MakeADFun()` stops with "Comparison is generally unsafe for AD
+  types"); the text and the lecture say so.
+- **Residuals: DHARMa only**, from `obj$simulate()` and `createDHARMa()`. `plot()` stays
+  with its printed tests (author's decision of 4 November); the plots and the dispersion
+  statistic are exploratory, and one sentence says why the course does not rest decisions
+  on p-values. `plotResiduals(form = ...)` is named but not run in the theory.
+- **Comparison:** AIC and AICc recalled, BIC added, and leave-one-out cross-validation with
+  the log score (every parameter refitted to the other 15 tanks from fixed starts; no
+  random folds; other folds named once as "5-fold or 10-fold", never "$K$-fold", which
+  clashes with $K$; no RMSE). $n$ in AICc and BIC is the
+  16 tanks for all four models; whether it could be the tadpoles is left to Chapter 7
+  (author's decision of 4 November). The criteria disagree on the curve under the
+  Beta-Binomial (AIC, AICc and BIC prefer Holling type II, leave-one-out the constant
+  probability), and the text keeps the disagreement so that students see it (author's
+  decision); the answer uses the Beta-Binomial Holling type II model.
+- **Coverage and bias by simulation:** only in the practical's extra exercise; the theory
+  says in one sentence that a coverage check works as in Chapter 4.
+- Three numbered Practice callouts (`imp-seedlings-light`, `imp-ladybird-handling`,
+  `imp-fruit-set`), a roadmap table after the learning goals and a recipe callout before
+  the summary, as in Chapter 4. No `%~%`.
+- **Practical:** Exercise 1 (worked on the student page and repeated in full in
+  `solution.qmd`, so that Exercise 4 can use its objects) the myxoma titre
+  (`emdbook::MyxoTiter_sum`, grade 1) with a Ricker curve, Normal and Gamma models;
+  Exercise 2 `Puromycin`, Michaelis–Menten with Normal errors, one curve against one
+  asymptote per state; Exercise 3 fir fecundity (`emdbook::FirDBHFec_sum`), a power law
+  with Poisson and Negative Binomial models; Exercise 4 (extra) bias and coverage of the
+  Wald interval of the time of the peak by simulation, with a skeleton of
+  `simulate_peak_time()` (two gaps). Awaiting the author: `solution.qmd` repeats Exercise 1
+  in full, whereas the solution pages of Chapters 4 and 5 link to their worked exercise;
+  six fecundities that are not whole numbers are rounded with `round()` (dropping them is
+  the alternative); the Wald
+  interval of the peak time is calculated on the original scale (coverage 0.927), because
+  the lesson is the asymmetry that the profile interval captures.
+- **Lecture:** one of 150 minutes; its demo shows the modelling cycle for the Binomial
+  model with the Holling type II curve, from the fit to the residuals, without model
+  comparison (author's decision of 3 November).
+
+### Chapters 7 and 8
+
+- They predate the rewrite of Chapters 4 to 6 and received consistency fixes only; the
+  full rewrite is a separate plan. Where their terms differ from Chapters 4 and 6, follow
+  Chapters 4 and 6 in new work.
+- Chapter 7 introduces `shapes1.csv` (light response of five leaves) itself; it no longer
+  relies on Chapter 6 for these data or for the `%~%` notation.
+- Not converted: the Chapter 7 theory and practical still use `%~%`, one parameter list,
+  data read from the workspace and `obj$he()`; Chapter 8 passes plain functions to
+  `optim()` with `hessian = TRUE`; the learning goals of Chapter 7 keep the old format.
 - Chapter 4 points to Chapter 7 for REML, which Chapter 7 does not cover yet.
 
 ### Other
@@ -429,13 +501,15 @@ glossary.
   without introduction.
 - Figures that the author decided to keep outside the plotting rules: the `theme_bw()`
   figure of the Chapter 3 theory and the two starting-value figures of the Chapter 5
-  theory (base R, `plot()` with `curve()`).
+  theory (base R, `plot()` with `curve()`). Awaiting the author's confirmation: the DHARMa
+  residual plots of Chapter 6 (theory and lecture) are the package's own base-graphics
+  plots, shown with visible code because the tool is the lesson.
 - The glossary was updated for RTMB.
 - **Numbered practice callouts** (author's decision, issue 8): the `Practice` callouts of
-  the theory pages of Chapters 2 to 5 are numbered per page ("Practice 3"), so that
+  the theory pages of Chapters 2 to 6 are numbered per page ("Practice 3"), so that
   students' scripts and the lectures can refer to them; the chapter number is not shown
   on the page and is added by hand when a reference must be unique across the book. The
-  supplements and Chapters 6 to 8 are not numbered yet. The Chapter 2 lecture (slides,
+  supplements and Chapters 7 and 8 are not numbered yet. The Chapter 2 lecture (slides,
   script and handoff) names the callouts by number; `lecture-script.pdf` was not
   regenerated. The pattern is in `STYLE_GUIDE.md`.
 
@@ -469,8 +543,10 @@ glossary.
 - Before Chapter 7, grouped or nested observations (visits to the same nest, neighbouring
   quadrats, visits to the same stream site) are treated as i.i.d.; the exercise says that
   this is a simplification and points to Chapter 7.
-- Where topics live: method of moments in Chapter 3; AIC and AICc in Chapter 4; BIC,
-  cross-validation and the explanation of the delta method in Chapter 6; bounds,
+- Where topics live: method of moments in Chapter 3; AIC and AICc in Chapter 4; the delta
+  method as a box in Chapter 4 (one parameter) and in Chapter 6 (several parameters,
+  applied to a fitted curve through `ADREPORT()`), never calculated by hand in R; BIC,
+  leave-one-out cross-validation and scaled quantile residuals in Chapter 6; bounds,
   `optimize()`, scaling, sensitivity to starting values, local maxima, Hessian problems
   and the effect of parameterisation on optimisation in Chapter 8 (Chapter 4 only uses
   transformations and points forward).
@@ -487,14 +563,14 @@ glossary.
 - Settings shared by every build belong in `_quarto.yml`; the complete render and sidebar
   lists belong in the mutually exclusive `_quarto-dev.yml` and `_quarto-prod.yml`, so
   that profile merging cannot duplicate navigation.
-- The production build renders Chapters 1 to 5 and five supplements; Chapters 6 to 8 are
-  rendered only by the dev profile.
+- The production build renders Chapters 1 to 6 (with the lectures of Chapters 1 to 4 and
+  6) and five supplements; Chapters 7 and 8 are rendered only by the dev profile.
 - Every package loaded in a rendered page must be in `.github/workflows/publish.yml`, or
   the production build fails. Production needs `MASS`, `ggplot2`, `patchwork`, `dplyr`,
   `RTMB`, `RTMBdist`, `TMB` (for `tmbprofile()`), `quarto`, `glmmTMB` (`Salamanders`,
   `Owls`, the `glmmTMB` supplement), `boot` (`fir`), `emdbook` (Chapter 4 practical,
-  Chapter 5), `knitr` and `rmarkdown`. `DHARMa`, `DEoptim` and `GA` stay for Chapters 6
-  to 8. `VGAM`, `gtools` and `COMPoissonReg` were removed because no page loads them.
+  Chapters 5 and 6), `DHARMa` (Chapter 6), `knitr` and `rmarkdown`. `DEoptim` and `GA`
+  stay for Chapter 8. `VGAM`, `gtools` and `COMPoissonReg` were removed because no page loads them.
 - Do not install packages during rendering.
 
 ## Repository workflow
