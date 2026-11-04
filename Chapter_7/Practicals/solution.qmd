@@ -55,21 +55,78 @@ is the variance of these deviations among tanks.
 1. On paper, write the marginal probability of the number of survivors of one tank as an
    integral over its deviation. Each tank is observed once: what does the random effect
    describe, and how does this model differ from a Beta-Binomial model with the same effect
-   of predators?
-2. Fit the model with tank effects with `random = "u"`, and the Beta-Binomial model, with
-   `dbetabinom()` of RTMBdist and the precision $\kappa$ of Chapter 6, in which the mean
-   probability of survival has the same effect of predators on the logit scale. Check the
-   convergence and report the estimates.
-3. Compare the two models with AIC. Why can AIC compare a model with random effects and a
-   model without them here?
+   of predators? Hint: start from the Binomial probability of $X_i$ for a given $u_i$ and
+   average it over the distribution of $u_i$ ("The marginal likelihood" in
+   [Maximum marginal likelihood](../Theory.qmd#sec-marginal-likelihood)). A tank holds $n_i$
+   tadpoles, and the Beta-Binomial distribution is a marginal distribution of the same kind
+   ([Conditional and marginal distributions](../Theory.qmd#sec-conditional)): compare
+   the distribution that each model gives to the probabilities of the tanks, and how its
+   integral is calculated.
+2. Fit two models to the 48 tanks and check the convergence of both: the model above, with
+   `random = "u"`, and a Beta-Binomial model without tank deviations, with the precision
+   $\kappa$ of Chapter 6, whose mean probability of survival $p_i$ has the same linear
+   predictor, $\operatorname{logit}(p_i)=\beta_0+\beta_{\mathrm{pred}}P_i$. Report the
+   estimates of $\beta_0$, $\beta_{\mathrm{pred}}$, $\sigma_{\mathrm{tank}}$ and $\kappa$.
+   Hint: the list of data holds the survivors, the initial numbers and an indicator of
+   predators, `as.numeric(ReedfrogPred$pred == "pred")`. There is one tank per row, so `u`
+   has 48 elements and needs no index vector. The mixed model follows
+   [Random effects in RTMB](../Theory.qmd#sec-random-effects-rtmb), with `plogis()` for the
+   probability. The Beta-Binomial model follows
+   [A model for overdispersed proportions](../../Chapter_6/Theory.qmd#sec-beta-binomial-fit)
+   in Chapter 6: `dbetabinom()` of RTMBdist takes the shape parameters $\kappa p_i$ and
+   $\kappa(1-p_i)$. Logits of zero (a probability of 0.5) are good starting values for
+   $\beta_0$ and $\beta_{\mathrm{pred}}$ in both models.
+3. Compare the two models with AIC. The theory calls a comparison between models with and
+   without random effects only an approximate guide: why does that reason not apply here?
+   Hint: what do the two likelihoods describe, and is one model a special case of the other
+   at the boundary of a parameter
+   ([Comparing grouped models](../Theory.qmd#sec-grouped-comparison))?
 4. Calculate the probability of survival of a typical tank ($u_i=0$) with and without
-   predators. Then set seed 721 and calculate the mean probability of survival over tanks,
-   by simulating one million tank deviations from their distribution. Why do the typical
-   and the mean probability differ without predators and hardly with them? Compare both
-   with the mean probabilities of the Beta-Binomial model.
-5. Plot the predicted tank effects against the initial density, with a different symbol
-   for each combination of predators and size of the tadpoles. Does a property of the
-   tanks seem to explain part of the variation among them?
+   predators. Then set seed 721, simulate one million tank deviations from their estimated
+   distribution, and calculate the mean probability of survival over tanks with and without
+   predators. Why do the typical and the mean probability differ without predators and
+   hardly with them? Compare both with the mean probabilities of the Beta-Binomial model.
+   Hint: proceed as in the practice "sapling growth in forest stands" in
+   [Curves for observed and new plants](../Theory.qmd#sec-new-groups), with `plogis()` in
+   place of `exp()`. For the difference, look at the shape of the inverse logit near each
+   typical probability (the box on Jensen's inequality in
+   [Chapter 4](../../Chapter_4/Theory.qmd#sec-wald-constrained)).
+5. Calculate the predicted tank effects, plot them against the initial density with the
+   code below the questions, and calculate the mean predicted effect of each of the four
+   combinations of predators and size of the tadpoles. Does a property of the tanks seem to
+   explain part of the variation among them? Hint: the predicted effects are the rows of
+   `summary()` with `select = "random"` ("Variance components and predicted plant effects"
+   in [Maximum marginal likelihood](../Theory.qmd#sec-marginal-likelihood)). `tapply()`
+   (Exercise 1, question 5) calculates the means, with
+   `list(ReedfrogPred$size, ReedfrogPred$pred)` as its second argument.
+
+The code below draws the plot of question 5. It needs the predicted tank effects, the
+result of `summary()` with `select = "random"`, in an object called `tank_effects`; if you
+gave it another name, change it in the code. `paste()` joins the level of predators and the
+size of each tank into one name, such as `"pred small"`, and `match()` gives the position of
+that name in `combination_names`, a number from 1 to 4 that selects the symbol and the
+shift of each tank. Each density has 16 tanks, so the shift keeps the symbols of the four
+combinations apart along the axis of density.
+
+```{r}
+#| eval: false
+# Combination of predators and size of each tank, its symbol and a small shift along x.
+combination = paste(ReedfrogPred$pred, ReedfrogPred$size)
+combination_names = c("no small", "no big", "pred small", "pred big")
+combination_number = match(combination, combination_names)
+shift = c(-1.2, -0.4, 0.4, 1.2)
+symbols = c(1, 2, 16, 17)
+
+# Predicted effects against the shifted densities; ylim leaves room for the legend above
+# the points.
+plot(ReedfrogPred$density + shift[combination_number], tank_effects[, "Estimate"],
+     pch = symbols[combination_number], ylim = c(-1.6, 2.4),
+     xlab = "Initial density (tadpoles per tank)", ylab = "Predicted tank effect (logit)")
+abline(h = 0, lty = 2)
+legend("top", legend = c("No predators, small", "No predators, big",
+                         "Predators, small", "Predators, big"),
+       pch = symbols, ncol = 2, bty = "n")
+```
 
 ## Solution
 
@@ -208,9 +265,9 @@ log-likelihood:
 
 ```{r}
 # AIC of the two models, with K = 3 parameters each.
-k_tanks = c(mixed = length(tank_fit$par), betabinomial = length(betabinomial_fit$par))
+K_tanks = c(mixed = length(tank_fit$par), betabinomial = length(betabinomial_fit$par))
 nll_tanks = c(mixed = tank_fit$value, betabinomial = betabinomial_fit$value)
-2 * k_tanks + 2 * nll_tanks
+2 * K_tanks + 2 * nll_tanks
 ```
 
 AIC prefers the model with Normal tank deviations on the logit scale by about 8 units. AIC
@@ -271,17 +328,21 @@ probabilities has another shape than the Normal distribution on the logit scale.
 
 ### Question 5
 
-The predicted tank effects are the rows of `summary()` with `select = "random"`. To keep
-the symbols of the four combinations apart, we shift them slightly along the axis of
-density:
+The predicted tank effects are the rows of `summary()` with `select = "random"`, one row
+for each tank, with their standard errors:
+
+```{r}
+# Predicted tank effects and the range of their standard errors.
+tank_effects = summary(tank_sd, select = "random")
+range(tank_effects[, "Std. Error"])
+```
+
+With the effects in `tank_effects`, the code given with the questions draws the plot, and
+`tapply()` calculates the mean predicted effect of each combination:
 
 ```{r}
 #| label: fig-tank_effects
 #| fig-cap: "Predicted effect of each of the 48 tanks on the logit scale of the probability of survival, against the initial density of tadpoles, for the four combinations of predators and size of the tadpoles (shifted slightly along the axis to avoid overlap)."
-# Predicted tank effects and their standard errors.
-tank_effects = summary(tank_sd, select = "random")
-range(tank_effects[, "Std. Error"])
-
 # Combination of predators and size of each tank, its symbol and a small shift along x.
 combination = paste(ReedfrogPred$pred, ReedfrogPred$size)
 combination_names = c("no small", "no big", "pred small", "pred big")
@@ -289,6 +350,8 @@ combination_number = match(combination, combination_names)
 shift = c(-1.2, -0.4, 0.4, 1.2)
 symbols = c(1, 2, 16, 17)
 
+# Predicted effects against the shifted densities; ylim leaves room for the legend above
+# the points.
 plot(ReedfrogPred$density + shift[combination_number], tank_effects[, "Estimate"],
      pch = symbols[combination_number], ylim = c(-1.6, 2.4),
      xlab = "Initial density (tadpoles per tank)", ylab = "Predicted tank effect (logit)")
@@ -345,32 +408,63 @@ where $\mu_0$ is the expected number of calls at a visit at midnight to a depriv
 a typical nest. Nests also differ in the number of nestlings (`BroodSize`), which we do not
 model; the nest deviations include its effect.
 
-1. What is the observational unit, and what is the group? Which predictors are measured on
-   the visits and which on the nests? Count the visits per nest, and plot the number of
-   calls against the time of arrival, with a different symbol for each food treatment.
-2. Fit the model without nest deviations (with $u_j=0$ for all nests) and with them, with
-   `dnbinom2()` of RTMBdist. Check the convergence, report the effects of food and time as
-   factors by which they multiply the expected number of calls, and compare the two models
-   with AIC. What does $\hat\sigma_{\mathrm{nest}}$ say about the nests?
+1. What is the observational unit, and what is the group? Which of the food treatment, the
+   time of arrival and the number of nestlings are measured on the visits and which on the
+   nests? Count the visits per nest, and plot the number of calls against the time of
+   arrival, with a different symbol for each food treatment. Hint: see
+   [Observations in groups](../Theory.qmd#sec-grouped-observations) and the definition of a
+   group-level predictor in
+   [Group-level predictors and shrinkage](../Theory.qmd#sec-group-predictors). `table()` of
+   the index of the nests counts the visits, and `table()` of the index and the indicator
+   of satiated broods shows whether the food treatment changes within a nest. The levels of
+   `Nest` are the names of the nests in alphabetical order, so `as.numeric(Owls$Nest)`
+   gives an index from 1 to 27 whose names are `levels(Owls$Nest)`; `match()` as in
+   Exercise 1 works as well. For the symbols, use `pch = ifelse(...)` as in Exercise 2 of
+   the [Chapter 6 practical](../../Chapter_6/Practicals/no_solution.qmd).
+2. Fit the model without nest deviations (with $u_j=0$ for all nests) and the model with
+   them, with `dnbinom2()` of RTMBdist, and check the convergence. For the model with nest
+   deviations, report the effects of food and of one hour of time as factors by which they
+   multiply the expected number of calls, with 95% Wald intervals. How do these factors and
+   the shape $k$ change when the nest deviations are left out? Compare the two models with
+   AIC. What does $\hat\sigma_{\mathrm{nest}}$ say about the nests? At midnight, between
+   which values lies the expected number of calls of a deprived brood in 95% of new nests?
+   Hint: `u[nest]` is the
+   deviation of the nest of each visit, as `A[tree]` was the asymptote of the tree of each
+   measurement in Exercise 1. Calculate the Wald intervals on the log scale and transform
+   the endpoints with `exp()`, as for the factors of chilling in
+   [Group-level predictors and shrinkage](../Theory.qmd#sec-group-predictors), here from the
+   rows `beta_sat` and `beta_time` of `summary()` with `select = "fixed"`. For
+   $\hat\sigma_{\mathrm{nest}}$, see "Variance components and predicted plant effects" in
+   [Maximum marginal likelihood](../Theory.qmd#sec-marginal-likelihood). A nest deviation
+   multiplies the expected number of calls, so in 95% of new nests it lies between the
+   typical value $\hat\mu_0$ multiplied by $e^{-1.96\,\hat\sigma_{\mathrm{nest}}}$ and by
+   $e^{1.96\,\hat\sigma_{\mathrm{nest}}}$, as the asymptotes of new trees in question 4 of
+   Exercise 1 (see also
+   [Curves for observed and new plants](../Theory.qmd#sec-new-groups)).
 3. Fit the model with one log mean $\log(\mu_{0j})$ for each nest and no distribution of
    nest values (no pooling), with the same effects of food and time. Plot, against the
    number of visits of each nest, its log mean without pooling and its predicted log mean
    $\log(\hat\mu_0)+\hat u_j$ under the mixed model, with a line at the typical value
-   $\log(\hat\mu_0)$. Which nests are pulled most towards the typical value, and why?
-4. Draw the expected number of calls against the time of arrival for deprived and for
-   satiated broods in a typical nest, with the range that contains the curves of 95% of new
-   nests, over the observations.
+   $\log(\hat\mu_0)$. Which nests are pulled most towards the typical value, and why? Hint:
+   write the no-pooling NLL as in
+   [Three ways to share information](../Theory.qmd#sec-pooling): `log_mu0` starts as a
+   vector of 27 values, `log_mu0[nest]` selects the value of the nest of each visit, and
+   `names(fit$par) == "log_mu0"` selects the 27 estimates from `par`. For the reasons, see
+   [Shrinkage](../Theory.qmd#sec-shrinkage).
 
 ## Solution
 
 ### Question 1
 
 The observational unit is one visit of a parent to a nest, and the group is the nest: the
-visits to a nest share its brood, its site and its parents. `Nest` is an unordered factor,
-so `as.numeric()` gives the position of the level of each visit, a number from 1 to 27. We
-put the calls, an indicator of satiated broods, the time of arrival and the nest in a list
-of data, and count the visits of each nest and the nests that have visits under both food
-treatments:
+visits to a nest share its brood, its site and its parents. The levels of `Nest` are the
+names of the nests in alphabetical order, so `as.numeric()` gives the position of the nest
+of each visit among them, a number from 1 to 27, and `levels(Owls$Nest)` gives the names in
+the same order. We put the calls, an indicator of satiated broods, the time of arrival and
+the nest in a list of data. `table()` of the index of the nests counts the visits of each
+nest, and `table()` of the index and the indicator of satiated broods counts the visits of
+each nest under each treatment, so a zero in it would be a nest without visits under one
+of the treatments:
 
 ```{r}
 # Load the owl data and put the calls, the food treatment (1 satiated, 0 deprived), the
@@ -388,12 +482,14 @@ owl_data = list(
 n_visits = as.numeric(table(owl_data$nest))
 range(n_visits)
 
-# Number of nests with visits under both food treatments.
+# Visits of each nest (rows) under each food treatment (columns 0 deprived, 1 satiated),
+# and the number of zeros in this table.
 nest_food = table(owl_data$nest, owl_data$satiated)
-sum(nest_food[, 1] > 0 & nest_food[, 2] > 0)
+sum(nest_food == 0)
 ```
 
-Every nest has visits under both treatments, so the food treatment changes within a nest
+The table has no zeros, so every nest has visits under both treatments: the food treatment
+changes within a nest
 and is measured on the visits, as the time of arrival is. The number of nestlings is
 measured on the nests: it is the same at every visit to a nest. The nests have between 4
 and 52 visits, so they contribute very different amounts of information.
@@ -479,17 +575,20 @@ exp(cbind(
     critical_value * nest_summary[effect_rows, "Std. Error"]
 ))
 
-# The other estimates on the original scale, next to those without nest deviations.
-rbind(
-  owl = c(exp(owl_fit$par[c("log_mu0", "log_k")]), owl_fit$par[effect_rows], sd_nest = NA),
-  nest = c(exp(nest_fit$par[c("log_mu0", "log_k")]), nest_fit$par[effect_rows],
-           sd_nest = exp(nest_fit$par[["log_sd_nest"]]))
-)
+# Typical mean at midnight (deprived), the two factors and the shape k, without and with
+# nest deviations: the exponentials of the estimates.
+owl_rows = c("log_mu0", "beta_sat", "beta_time", "log_k")
+owl_compare = exp(rbind(without = owl_fit$par[owl_rows], with = nest_fit$par[owl_rows]))
+colnames(owl_compare) = c("mu0", "food_factor", "time_factor", "k")
+owl_compare
+
+# Standard deviation among nests (log scale of the mean).
+exp(nest_fit$par[["log_sd_nest"]])
 
 # AIC of the two models.
-k_owls = c(owl = length(owl_fit$par), nest = length(nest_fit$par))
+K_owls = c(owl = length(owl_fit$par), nest = length(nest_fit$par))
 nll_owls = c(owl = owl_fit$value, nest = nest_fit$value)
-2 * k_owls + 2 * nll_owls
+2 * K_owls + 2 * nll_owls
 ```
 
 In a typical nest, satiated broods make half as many calls as deprived broods (a factor of
@@ -500,16 +599,31 @@ A deprived brood in a typical nest makes about 8.5 calls at a visit at midnight.
 with nest deviations has an AIC about 24 units lower; as in Exercise 1, the model without
 them is the special case $\sigma_{\mathrm{nest}}=0$ at the boundary, so the difference is
 an approximate guide, but a large one. Without nest deviations the effect of food is weaker
-(a factor of 0.62) and the shape $k$ is smaller (0.77 against 0.89): part of the
-variation among nests was counted as variation among visits, and part of it was
-attributed to the food treatment.
+(a factor of 0.62 against 0.50) and the shape $k$ is smaller (0.77 against 0.89), whereas
+the effect of time hardly changes: part of the variation among nests was counted as
+variation among visits, and part of it was attributed to the food treatment.
 
 $\hat\sigma_{\mathrm{nest}}\approx0.42$ is a standard deviation on the log scale of the
-mean. It is not small, so it is no longer close to a coefficient of variation: 95% of the
-nests have a typical number of calls between $e^{-1.96\times0.42}\approx0.44$ and
-$e^{1.96\times0.42}\approx2.3$ times that of the typical nest. So a nest near the upper end
-of this range has about five times as many calls as one near the lower end, in the same
-conditions, which is a larger difference than that between satiated and deprived broods.
+mean. It is not small, so it is no longer close to a coefficient of variation. A nest
+deviation multiplies the expected number of calls, so in 95% of new nests the expected
+number lies between the typical value multiplied by $e^{-1.96\,\hat\sigma_{\mathrm{nest}}}$
+and by $e^{1.96\,\hat\sigma_{\mathrm{nest}}}$. For a deprived brood at midnight the typical
+value is $\hat\mu_0$:
+
+```{r}
+# Factors that give the range of 95% of new nests, and the range of the expected number
+# of calls at midnight of a deprived brood.
+new_nest_factor = exp(qnorm(p = c(0.025, 0.975)) * exp(nest_fit$par[["log_sd_nest"]]))
+new_nest_factor
+exp(nest_fit$par[["log_mu0"]]) * new_nest_factor
+```
+
+In 95% of nests the expected number of calls lies between 0.44 and 2.3 times that of the
+typical nest: at midnight, between about 4 and 19 calls for a deprived brood. So a nest
+near the upper end of this range has about five times as many calls as one near the lower
+end, in the same conditions, which is a larger difference than that between satiated and
+deprived broods. The range describes the variation among nests at the estimates and leaves
+out the uncertainty of the estimates themselves.
 
 ### Question 3
 
@@ -542,11 +656,12 @@ separate_fit$convergence
 
 The fit converged. The predicted log mean of a nest under the mixed model is
 $\log(\hat\mu_0)+\hat u_j$, from the rows of `summary()` with `select = "random"`. We plot
-both log means against the number of visits and join those of each nest with a line:
+both log means against the number of visits, so the two values of a nest lie above each
+other:
 
 ```{r}
 #| label: fig-owl_shrinkage
-#| fig-cap: "Log mean number of calls at midnight of a deprived brood in each of 27 barn owl nests, against the number of visits of the nest: without pooling (open circles) and predicted by the model with nest deviations (filled circles), joined by a line. The dashed line is the typical value of the mixed model."
+#| fig-cap: "Log mean number of calls at midnight of a deprived brood in each of 27 barn owl nests, against the number of visits of the nest: without pooling (open circles) and predicted by the model with nest deviations (filled circles). The dashed line is the typical value of the mixed model."
 # Log means without pooling and predicted by the mixed model.
 log_mu0_separate = separate_fit$par[names(separate_fit$par) == "log_mu0"]
 log_mu0_typical = nest_fit$par[["log_mu0"]]
@@ -555,7 +670,6 @@ log_mu0_predicted = log_mu0_typical + summary(nest_sd, select = "random")[, "Est
 plot(n_visits, log_mu0_separate, xlab = "Number of visits",
      ylab = "Log mean number of calls at midnight (deprived)")
 points(n_visits, log_mu0_predicted, pch = 16)
-segments(n_visits, log_mu0_separate, n_visits, log_mu0_predicted)
 abline(h = log_mu0_typical, lty = 2)
 legend("bottomright", legend = c("No pooling", "Mixed model"), pch = c(1, 16), bty = "n")
 
@@ -582,49 +696,6 @@ typical value as well as on its number of visits, and among the nests with 10 to
 the pattern is irregular: their counts are very variable ($\hat k\approx0.89$), so the
 number of visits is only a rough measure of how much a nest tells about itself.
 
-### Question 4
-
-The typical curve of each food treatment has $u_j=0$, and the curves of 95% of new nests
-lie between the typical curve multiplied by $e^{-1.96\,\hat\sigma_{\mathrm{nest}}}$ and by
-$e^{1.96\,\hat\sigma_{\mathrm{nest}}}$, because a nest deviation multiplies the whole
-curve:
-
-```{r}
-#| label: fig-owl_curves
-#| fig-cap: "Number of calls against the time of arrival of the parent, with the expected number of calls in a typical nest (solid lines) and the range that contains the curves of 95% of new nests (dashed lines), for deprived (black) and satiated broods (vermillion), under the Negative Binomial model with nest deviations."
-# Expected number of calls in a typical nest at time t (hours) for a food treatment.
-typical_calls = function(t, satiated) {
-  exp(nest_fit$par[["log_mu0"]] + nest_fit$par[["beta_sat"]] * satiated +
-        nest_fit$par[["beta_time"]] * (t - 24))
-}
-
-# Factors that give the range of 95% of new nests.
-new_nest_factor = exp(qnorm(p = c(0.025, 0.975)) * exp(nest_fit$par[["log_sd_nest"]]))
-new_nest_factor
-
-# Observations, then the typical curve and the range of new nests for each treatment.
-plot(calls ~ time, data = owl_data, col = "grey60",
-     xlab = "Time of arrival (hours)", ylab = "Number of calls")
-for (s in c(0, 1)) {
-  line_colour = c("black", "#D55E00")[s + 1]
-  curve(typical_calls(x, satiated = s), add = TRUE, col = line_colour, lwd = 2)
-  curve(new_nest_factor[1] * typical_calls(x, satiated = s), add = TRUE,
-        col = line_colour, lty = 2)
-  curve(new_nest_factor[2] * typical_calls(x, satiated = s), add = TRUE,
-        col = line_colour, lty = 2)
-}
-legend("topright", legend = c("Deprived", "Satiated"), col = c("black", "#D55E00"),
-       lty = 1, lwd = 2, bty = "n")
-```
-
-In a typical nest, a deprived brood is expected to make about 11 calls when a parent
-arrives at the start of the night and about 5 at its end, and a satiated brood half as many.
-The ranges of new nests are wide: at midnight the expected number of calls of a deprived
-brood lies between about 4 and 19 calls in 95% of nests, so the ranges of the two
-treatments overlap widely. The curves describe expected numbers; the calls at single visits
-vary much more around them, as the Negative Binomial distribution with a shape below one
-allows, which is why most of the points lie far from the curves.
-
 # Exercise 4: Salamanders at mined and unmined sites
 
 The data set `Salamanders` in the package `glmmTMB` contains counts of salamanders at 23
@@ -650,19 +721,47 @@ X_{ij}\mid u_j\sim\operatorname{Poisson}\left(\lambda_j\right),
 \log(\lambda_j)=\log(\lambda_0)+\beta_{\mathrm{mined}}M_j+\beta_{\mathrm{cover}}C_j+u_j.
 $$
 
-1. Fit the Poisson model with the effects of mining and cover and without site deviations.
-   Set seed 741, simulate 1,000 hypothetical samples and calculate the scaled quantile
-   residuals with DHARMa. Report the dispersion statistic and the residuals of the sites.
-   What do they show?
-2. Fit the model with site deviations. Check the convergence, report the effects of mining
-   and cover as factors on the expected count and $\hat\sigma_{\mathrm{site}}$, and compare
-   the two models with AIC.
-3. Set seed 742, and calculate the scaled quantile residuals of the model with site
-   deviations, for the counts and for the sites. Compare them with those of question 1.
+1. Calculate the mean count at mined and at unmined sites. Fit the Poisson model with the
+   effects of mining and cover and without site deviations ($u_j=0$ for all sites). Set
+   seed 741, simulate 1,000 hypothetical samples from the fit and calculate the scaled
+   quantile residuals of the counts with DHARMa. Report the dispersion statistic and the
+   residuals of the sites. What do they show? Hint: `site` is an ordered factor, so build
+   the index of the sites with `match()`, as for the trees in Exercise 1. The two predictors
+   are properties of the sites, so put them in the list of data as vectors with one value
+   per site, taken from the first count of each site, as origin and treatment in
+   [Group-level predictors and shrinkage](../Theory.qmd#sec-group-predictors); in the NLL,
+   `lambda[site]` is then the mean of each count. For the residuals, mark the counts with
+   `OBS()` and follow [Checking a grouped model](../Theory.qmd#sec-grouped-residuals), with
+   `integerResponse = TRUE` because the counts are whole numbers (as in
+   [Checking the fitted model](../../Chapter_6/Theory.qmd#sec-response-residuals) in
+   Chapter 6). Without site deviations, the expected value of a count is the mean of its
+   site. How many of the 23 site residuals would you expect below 0.05 or above 0.95 by
+   chance?
+2. Fit the model with site deviations and check the convergence. Report the effects of
+   mining and of one unit of cover as factors by which they multiply the expected count,
+   with 95% Wald intervals, the expected count at a typical unmined site of average cover,
+   and $\hat\sigma_{\mathrm{site}}$. Compare the two models with AIC. Hint: the NLL of
+   question 1 gains the density of `u`, before the line that uses it, and `+ u` in the log
+   mean of the sites ([Random effects in RTMB](../Theory.qmd#sec-random-effects-rtmb)). The
+   Wald intervals are calculated as in question 2 of Exercise 3, with `critical_value` of
+   that exercise.
+3. Set seed 742 and simulate 1,000 hypothetical samples from the model with site
+   deviations, calculate the scaled quantile residuals of the counts, and report the
+   dispersion statistic and the residuals of the sites. Compare them with those of
+   question 1. Hint:
+   the simulations now draw new site deviations, so the expected value of a count is the
+   typical mean ($u_j=0$) of its site
+   ([Checking a grouped model](../Theory.qmd#sec-grouped-residuals)).
 4. Fit the same model with
    `glmmTMB::glmmTMB(count ~ mined + cover + (1 | site), family = poisson, data = ...)`,
    without attaching the package. Compare the log-likelihood and the estimates with those
-   of question 2. Why do the intercept and the effect of mining differ?
+   of question 2. Why do the intercept and the effect of mining differ? Hint: `data` is the
+   data frame of the counts of the spring salamander, whose columns have the names used in
+   the formula. `logLik()`, `glmmTMB::fixef()` and `glmmTMB::VarCorr()` return the
+   log-likelihood, the fixed effects and the standard deviation among sites (see the
+   [`glmmTMB` supplement](../../Supplements/canned.qmd#sec-glmmtmb)). For the difference,
+   compare `levels(spring$mined)` with your indicator of mining, and see "Two ways to encode
+   groups" in [Group-level predictors and shrinkage](../Theory.qmd#sec-group-predictors).
 
 ## Solution
 
@@ -813,7 +912,8 @@ site_poisson_sd = sdreport(site_poisson_obj)
 site_poisson_summary = summary(site_poisson_sd, select = "fixed")
 site_poisson_summary
 
-# Factors of mining and of one unit of cover, with 95% Wald intervals from the log scale.
+# Factors of mining and of one unit of cover, with 95% Wald intervals from the log scale
+# (critical_value from Exercise 3).
 effect_rows = c("beta_mined", "beta_cover")
 exp(cbind(
   factor = site_poisson_summary[effect_rows, "Estimate"],
@@ -827,9 +927,9 @@ exp(cbind(
 exp(site_poisson_fit$par[c("log_lambda0", "log_sd_site")])
 
 # AIC of the two models.
-k_salamanders = c(poisson = length(poisson_fit$par), site = length(site_poisson_fit$par))
+K_salamanders = c(poisson = length(poisson_fit$par), site = length(site_poisson_fit$par))
 nll_salamanders = c(poisson = poisson_fit$value, site = site_poisson_fit$value)
-2 * k_salamanders + 2 * nll_salamanders
+2 * K_salamanders + 2 * nll_salamanders
 ```
 
 A typical unmined site with average cover is expected to give about 1.9 spring salamanders
@@ -855,10 +955,6 @@ The simulations of the mixed model draw new deviations for the 23 sites and then
 counts, and the expected value of a count is the typical mean ($u_j=0$) of its site:
 
 ```{r}
-#| label: fig-salamander_residuals
-#| fig-width: 9
-#| fig-height: 4.5
-#| fig-cap: "Scaled quantile residuals of the 92 counts of spring salamanders under the Poisson model with site deviations, from 1,000 hypothetical samples with new site deviations. Left: quantile–quantile plot against a uniform distribution. Right: residuals against the rank of the typical mean of each count."
 # 1,000 hypothetical samples: new site deviations, then new counts for them.
 site_poisson_simulations = matrix(NA, nrow = length(salamander_data$count), ncol = n_sim)
 set.seed(seed = 742)
@@ -878,10 +974,7 @@ site_poisson_residuals = DHARMa::createDHARMa(
   fittedPredictedResponse = site_poisson_lambda[salamander_data$site],
   integerResponse = TRUE
 )
-plot(site_poisson_residuals)
-```
 
-```{r}
 # Dispersion statistic, and one residual per site.
 DHARMa::testDispersion(site_poisson_residuals, plot = FALSE)$statistic
 site_scaled = residuals(
@@ -891,8 +984,7 @@ names(site_scaled) = site_names
 round(site_scaled, 3)
 ```
 
-The quantile–quantile plot follows the line and the residuals show no pattern against the
-expected count. The dispersion statistic falls from 2.2 to 1.5, because the simulations now
+The dispersion statistic falls from 2.2 to 1.5, because the simulations now
 include the variation among sites. The residuals of the sites are less extreme than in
 question 1: two sites have residuals below 0.05 (R-7 and R-9) and one above 0.95 (VF-2),
 close to what we expect among 23 sites. A dispersion statistic above one still suggests
@@ -900,9 +992,8 @@ that the counts of the visits to one site vary somewhat more than a Poisson dist
 allows. The visits differed in conditions that this model leaves out (the data set also
 records, for example, the days since the last rain and the water temperature of each
 visit), so predictors measured on the visits, or a Negative Binomial distribution for a
-given site deviation, are candidates to compare with this model. As always, we read these
-plots and statistics as exploratory evidence and not the tests that DHARMa prints with
-them.
+given site deviation, are candidates to compare with this model. As always, we read the
+residuals and the dispersion statistic as exploratory evidence.
 
 ### Question 4
 
@@ -923,9 +1014,9 @@ salamander_glmmtmb = glmmTMB::glmmTMB(
 # Log-likelihoods of the two fits.
 c(glmmtmb = as.numeric(logLik(salamander_glmmtmb)), rtmb = -site_poisson_fit$value)
 
-# Fixed effects and the standard deviation among sites of glmmTMB.
+# Fixed effects and the standard deviation among sites (column Std.Dev.) of glmmTMB.
 glmmTMB::fixef(salamander_glmmtmb)$cond
-sqrt(glmmTMB::VarCorr(salamander_glmmtmb)$cond$site[1, 1])
+glmmTMB::VarCorr(salamander_glmmtmb)
 
 # The same quantities from the RTMB fit.
 site_poisson_fit$par
@@ -984,18 +1075,32 @@ fill in.
 1. Complete the two gaps of the function `simulate_group_variance()` below: the fit by
    maximum likelihood, with the site deviations integrated out, and the fit by REML, with
    the mean integrated out as well. Set seed 751 and simulate 500 hypothetical samples with
-   six sites. How many fits failed?
+   six sites. In how many samples did a fit fail (a convergence code other than zero)?
+   Hint: Gap 1 is the fit of
+   [Random effects in RTMB](../Theory.qmd#sec-random-effects-rtmb), and Gap 2 the fit of
+   [Restricted maximum likelihood](../Theory.qmd#sec-reml), where the only fixed effect is
+   `mu`. The column `converged` of the result is `TRUE` when both fits of a sample
+   converged.
 2. Calculate the mean of the estimates of $\sigma^2_{\mathrm{site}}$ and of
    $\sigma^2_{\mathrm{obs}}$ by maximum likelihood and by REML, with their Monte Carlo
    standard errors, and compare them with the variances used to simulate. Which estimator
    of the variance among sites is closer to being unbiased? Why do the two estimates of
-   $\sigma^2_{\mathrm{obs}}$ hardly differ?
+   $\sigma^2_{\mathrm{obs}}$ hardly differ? Hint: the Monte Carlo standard error of a mean
+   of 500 values is their standard deviation divided by $\sqrt{500}$ (Exercise 4 of the
+   [Chapter 6 practical](../../Chapter_6/Practicals/no_solution.qmd)). For the last
+   question, ask which observations inform each variance and which of them the estimate of
+   $\mu$ uses up ([Restricted maximum likelihood](../Theory.qmd#sec-reml)).
 3. How many estimates of $\sigma^2_{\mathrm{site}}$ are below 0.01, by each method? What
    does a variance among sites close to zero mean for the predicted site effects, and why
    can it occur with six sites although the sites of the data generating process vary?
-4. Set seed 752 and run the simulation again with 12 sites. How does the bias of the
-   maximum likelihood estimate change, and why? What do the results say about the number of
-   groups that a study needs to estimate a variance among groups?
+   Hint: see the weight of the observed deviation of a group in the practice "wing length
+   of chicks in nests" in [Shrinkage](../Theory.qmd#sec-shrinkage), and recall that each
+   site mean is the mean of only five quadrats.
+4. Set seed 752 and run the simulation again with 12 sites, and repeat the calculations of
+   questions 1 to 3. How does the bias of the maximum likelihood estimate change, and why?
+   What do the results say about the number of groups that a study needs to estimate a
+   variance among groups? Hint: the bias comes from the fixed effect that is estimated from
+   the same site deviations ([Restricted maximum likelihood](../Theory.qmd#sec-reml)).
 
 The function below needs `site_nll()` and the helper `cmb()`. For a given number of sites,
 it builds the design (five quadrats per site), processes the NLL at the parameter values

@@ -81,7 +81,16 @@ which stays until the author removes it.
   Poisson with a random effect per site, refitted with `glmmTMB::glmmTMB()`, called with
   the prefix because attaching it masks functions of RTMBdist); 5 (extra) a simulation of
   the variance among groups by ML and REML. The solutions page links to the worked
-  Exercise 1.
+  Exercise 1. Every question of Exercises 2 to 5 ends with a hint that names the section of
+  the theory (or of Chapter 6) that it needs, as in the Chapter 6 practical, and the
+  questions name every quantity that the solution reports; `tapply()` is introduced in the
+  worked Exercise 1 (question 5) and reused later (student-perspective review of
+  4 November). To fit the core into about 6 hours (author's decision of 4 November):
+  Exercise 3 has three questions, and the range of new nests is one number in its question
+  2 (no plot of curves); question 3 of Exercise 4 reports the dispersion statistic and the
+  site residuals without a residual plot; the code of the plot of tank effects (Exercise 2,
+  question 5) is given below the questions. Leave-one-group-out cross-validation is not
+  practised in the practical.
 - **Lecture:** one of 150 minutes (31 slides, 116 minutes of slides, 14 of slack, two
   breaks of 10) with the demo above.
 - The simulated `shapes*.csv` files were removed with the `Data/` folder that held only
