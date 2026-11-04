@@ -1199,3 +1199,34 @@ Each stage adds one line: date, stage, what is done, what is next.
   `$4.4\times10^{-6}$` expression. For Stage 6: slide 22 is the demo (2 + 16 min, section
   0 during the break after slide 21); the breaks stand after slides 12 and 21. Next:
   Stage 6.
+- 4 November 2026: Stage 6 done. `Chapter_8/Lecture/lecture-script.md` (about 1,110 lines)
+  written from the 31 slides as Stage 5 left them (116 minutes of slides in blocks of 35, 30
+  and 51, 14 of slack, 2 breaks after slides 12 and 21: 150), in the format of
+  `STYLE_GUIDE_LECTURE.md` and of the Chapter 7 script: opening (draft; figures by slide with
+  `figures.R`), timing table, one section per slide (slides 1 and 2 together), expected
+  answers for Practices 1 to 3 (the chapter's solutions), for both discussions (slide 12: the
+  three CO₂ stops and the check that decides each; slide 28: five symptoms matched with
+  boundary or ridge, multiple starts, scaling, identifiability, another optimiser) and for the
+  two closing questions; the demo section with section 0 during the break and a walkthrough of
+  `demo-diagnosis.R` (3 + 4 + 4 + 4 + 1 = 16 minutes, three questions with answers); and
+  "Adjustments during delivery" (keeps slides 5, 7, 9, 10, 14, 16, 17 and 27; the demo is kept
+  whole and takes the slack first). Provenance of `CO2` once (slide 5). No first-person
+  opinion. **Checks:** slide titles, minutes and the total compared mechanically with
+  `lecture.qmd` and its `data-timing` (all agree); `demo-diagnosis.R` run in a clean session
+  (R 4.6.1, 1.5 s), and every number of the walkthrough is its output (code 0, 318.68; 27.21,
+  $5.2\times10^{11}$, 49.9, 10.75 = mean and root mean square deviation of the uptakes;
+  gradient $5.2\times10^{-6}$ with rate and location elements exactly 0; `pdHess` `FALSE`,
+  `NaN`; slice rise 12.3 at 0.0145 L/µL; the 50-start table 17/1/17/14/1; 296.2557, `pdHess`
+  `TRUE`, se 0.044, 0.309, 21.7, 0.077; profile −26.6 to 75.0 µL/L with the harmless
+  `confint()` warning; best fit 32.5, 0.0095, 45.9, 8.23); `plot()` of a `tmbprofile` object
+  checked in TMB's source (NLL with dotted lines at 1.92 and at the interval ends), as the
+  walkthrough says; Practice 3 values (6.40, −7.60, −100, 3.00; −1.70, −0.27). The other
+  numbers come from the chapter and the Stage 1 to 5 log. **New fact, for the author:** the
+  check question of slide 9 asks whether a smaller `reltol` cures the wrong stops; checked in
+  R, `reltol` of $10^{-12}$ leaves the ridge (318.68) and the curve at zero (402.79), but the
+  early plateau continues to 296.2557 (along its negative curvature). The script says so and
+  keeps the course rule (never set `reltol`; diagnose). The chapter makes no claim about this,
+  so nothing changes there. PDF made with `quarto render Chapter_8/Lecture/lecture-script.md
+  --to typst` (25 pages; the `.quarto/` folder it created was removed); the PDF pages could
+  not be inspected as images (no PDF renderer in this environment). No new open question.
+  `AGENTS.md` and `.claude/docs/` unchanged (Stage 7 records the decisions). Next: Stage 7.
