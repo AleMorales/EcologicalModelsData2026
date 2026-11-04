@@ -640,9 +640,9 @@ About two minutes. Steps 1 to 5 are the recap of slide 4, so only point at steps
 
 ## Slide 29 — The Chapter 4 R practical
 
-The practical has five exercises. Exercises 1 to 4 are the core and Exercise 5 is extra practice. Exercise 1, on reed frog tadpoles, is worked on the page: questions 3 to 6 are the standard error (calculated by hand from the Hessian of `optim()`
+The practical has five exercises. Exercises 1 to 4 are the core and Exercise 5 is extra practice. Exercise 1, on reed frog tadpoles, is worked on the page: questions 3 to 6 are the standard error (from the Hessian of `optim()`
 and with `sdreport()`), the likelihood interval with `TMB::tmbprofile()`, a check of the adequacy of the Binomial model, and a comparison of one survival probability with one per predator treatment, with AIC and AICc and the standard error of the difference. Exercise 2, on glacier lily seedlings, includes the
-joint confidence region, the Wald and profile intervals of $k$, and AIC and AICc for the Negative Binomial and the Poisson model. Exercise 3 asks students to write a zero-inflated Poisson mass function by hand and to verify it against the one of RTMBdist. Exercise 4 fits a Gamma model to the volume of black cherry trees and a LogNormal model to the body mass of penguins, with attention to units. Exercise 5 simulates the coverage of a Wald interval, with a
+joint confidence region, the Wald and profile intervals of $k$, and AIC and AICc for the Negative Binomial and the Poisson model. Exercise 3 asks students to write a zero-inflated Poisson mass function by hand and to verify it against the one of RTMBdist. Exercise 4 fits a Gamma model to the volume of black cherry trees, with a slice and a likelihood profile of its shape. Exercise 5 simulates the bias of the estimators and the coverage of a Wald interval, with a
 skeleton function that students complete.
 
 Try each exercise before checking the solution.

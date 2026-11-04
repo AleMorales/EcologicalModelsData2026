@@ -76,8 +76,8 @@ data (Gentoo penguin flipper length and body mass, Chapters 2 and 3), overdisper
 quadrats, mean 2.14, Chapters 3 and 4) and the Negative Binomial model (`Owls`, Chapters
 3 and 4). The hypothetical Normal model of tree heights (22 m, 4 m) is not used anywhere;
 the hypothetical Binomial seed-survival example stays in Chapter 2. A practical may use
-another species of the data set of its theory (Chinstrap in Chapter 2, Adelie in Chapter
-4). `penguins` of `datasets` needs R 4.5.0 or later; a footnote at the first use says so.
+another species of the data set of its theory (Chinstrap in Chapter 2); the Adelie
+penguins appear only in the Chapter 8 practical. `penguins` of `datasets` needs R 4.5.0 or later; a footnote at the first use says so.
 Grouped data have one running example in the theory, the CO₂ uptake curves of 12 plants
 (`CO2`, Chapter 7), and the practical of Chapter 7 returns to the reed frog tanks, owl
 nests and salamander sites that earlier chapters treated as i.i.d. The simulated

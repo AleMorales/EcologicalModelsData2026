@@ -113,21 +113,33 @@ Moved from AGENTS.md. Read this before working on the pages it covers; AGENTS.md
 - **Practice callouts:** four remain ("crab burrows", back to the ecological scale, an
   interval from the log scale, waiting for a pollinator).
 - **Practical:** reed frog tadpole survival (`emdbook::ReedfrogPred`), glacier lily
-  seedlings (`emdbook::Lily_sum`), black cherry volume (`trees`), Adelie body mass
-  (`penguins`). Exercise 1 is worked on the student page and shows both routes for the
-  standard error (the Hessian by hand, then `sdreport()`); it is the only place in the
-  chapter where the Hessian is taken from `optim()` (author's decision of 3 November); its
-  likelihood interval comes
-  from `tmbprofile()` only. Its question 6 compares one probability of
-  survival for all 48 tanks with one per predator treatment (AIC, AICc, and the
-  difference with its standard error from `ADREPORT()` and a Wald interval; awaits
-  confirmation). Exercise 2: the profile interval of $k$ with `tmbprofile()`, compared
-  with the Wald interval. Exercise 3: students write `my_dzipois()` by hand and verify it
-  against `dzipois()`. Exercises 3 to 5 use only the TMB tools. Exercises 1 to 4 are the
-  core; Exercise 5 is extra practice with a skeleton of `simulate_gamma_samples()`
-  (two gaps). It simulates the coverage of the Wald interval only, because the profile
-  interval would need `tmbprofile()` in every sample (author's decision of 3 November; the
-  question says so). The Gamma fits start at shape 1 and rate $1/\bar x$, because from the
-  method-of-moments estimates they stop one step from the maximum without `reltol`; the
-  solution says why (awaits confirmation).
+  seedlings (`emdbook::Lily_sum`), black cherry volume (`trees`). The penguin questions of
+  Exercise 4 (Gamma fit in grams and kilograms, LogNormal comparison) and the Wald interval
+  of the tree shape at the start of Exercise 5 were removed because the practical was too
+  long (author's decision of 4 November); the stalled Gamma fit of the Adelie masses is now
+  introduced in Exercise 2 of the Chapter 8 practical. Do not add them back. Exercise 1 is
+  worked on the student page and shows both routes for the standard error of
+  $\operatorname{logit}p$ (the Hessian of `optim(hessian = TRUE)`, then `sdreport()`); it
+  is the only place in the chapter where the Hessian is taken from `optim()` (author's
+  decision of 3 November); question 3 also asks for the standard error of $\hat p$ with
+  `ADREPORT()`, which question 6 needs; its likelihood interval comes from `tmbprofile()`
+  only. Question 6 compares one probability of survival for all 48 tanks with one per
+  predator treatment and asks for the difference with its standard error and 95% Wald
+  intervals for both probabilities and the difference (author's decision of 4 November).
+  Exercise 2: the profile interval of $k$ with `tmbprofile()`, compared with the Wald
+  interval. Exercise 3: students write `my_dzipois()` by hand and verify it against
+  `dzipois()`. Exercises 3 to 5 use only the TMB tools. Exercises 1 to 4 are the core;
+  Exercise 5 is extra practice with one chunk of code after each of questions 1 and 2
+  (author's decision of 4 November): every gap is an `NA` that students replace, with a
+  comment above it, and no other `NA` appears in the chunks (the data frame starts with
+  zeros). The chunk of question 1 defines `simulate_gamma_samples()` (fit of one sample:
+  `sim_obj`, `fit`, `shape_ml`; it stores `se_log_shape` from `sdreport()`) and calls it
+  (shape and rate as gaps); the chunk of question 2 calculates `lower`, `upper` and
+  `covered` from the columns of `trees_31`, outside the loop. Exercise 4, question 1 fixes
+  the names `gamma_nll()`, `log_shape`, `log_rate` and `x`, on which the chunk relies. It
+  simulates 31 trees (seed 801) and then 150 trees (seed 802) from the same model, and
+  the coverage of the Wald interval only, because the profile interval would need
+  `tmbprofile()` in every sample (author's decision of 3 November; the question says so).
+  The simulated fits start at shape 1 and rate $1/\bar x$. Grid ranges for the contour
+  questions are given in the questions.
 

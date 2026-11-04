@@ -78,8 +78,8 @@ find it by itself, and how to tell whether it has. Since Chapter 4 every fit has
 negative log-likelihood (NLL) with `optim()`, the BFGS method and the gradient that RTMB
 supplies, and from the starting values that we chose this has usually worked. An optimiser can,
 however, stop somewhere other than the maximum and still report a convergence code of zero. The
-practical of Chapter 4 met this with a Gamma model of penguin body masses whose fit stopped after
-a single step, and the practical of Chapter 7 with fits that stopped at a practically zero
+practical of this chapter shows this with a Gamma model of penguin body masses whose fit stops after
+a single step, and the practical of Chapter 7 met it with fits that stopped at a practically zero
 variance among sites although the maximum lay at a positive variance.
 
 The lecture is organised by problem, as the chapter is. Each part states a difficulty in general
@@ -1016,9 +1016,9 @@ loblolly pines (`Loblolly`, built into R), is worked on the page: the growth cur
 of the Chapter 7 practical, fitted from a start with $k=0.1$/year that is as plausible as the start of
 Chapter 7, stops at a curve that is practically zero at every age; the exercise diagnoses it with the
 gradient, `sdreport()` and a slice, repairs it with 20 random starts, `nlminb()` and differential
-evolution followed by BFGS, and confirms the estimates of Chapter 7. Exercise 2 returns to the Gamma
-model of the body masses of Adelie penguins (`penguins`, built into R from version 4.5.0) of the Chapter
-4 practical, whose fit in grams stops after one step: the stopping rule of slide 9, the tilted valley of
+evolution followed by BFGS, and confirms the estimates of Chapter 7. Exercise 2 fits a Gamma model to
+the body masses of Adelie penguins (`penguins`, built into R from version 4.5.0), whose fit in grams
+stops after one step: the stopping rule of slide 9, the tilted valley of
 slide 20, and three remedies (kilograms, the mean and the shape, `nlminb()`). Exercise 3 takes the REML
 fits of the simulation of a variance among sites from the Chapter 7 practical, some of which stop at a
 practically zero variance, and tells apart the fits whose maximum is at zero from those that missed a

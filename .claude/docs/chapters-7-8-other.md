@@ -135,8 +135,9 @@ author reviews it.
   $c$). **Bounds are only mentioned** (L-BFGS-B and `nlminb()` accept them; the course keeps
   transformations); the only `lower` and `upper` in code are the box of `DEoptim()`.
 - **Practical:** three exercises, each a full diagnosis (symptom, diagnosis, remedy,
-  confirmation) of a fit from an earlier practical: Exercise 1 (worked) the loblolly pines of
-  Chapter 7 with a poor start; 2 the Adelie Gamma fit in grams of Chapter 4 (the relative
+  confirmation) of a fit: Exercise 1 (worked) the loblolly pines of Chapter 7 with a poor
+  start; 2 a Gamma fit to the Adelie masses in grams, new in Chapter 8 since the Chapter 4
+  practical dropped its penguin questions (author's decision of 4 November; the relative
   stopping rule; units, the mean–shape parameterisation and `nlminb()` as remedies); 3 the
   REML simulation of Chapter 7 (which practically zero variances among sites are maxima),
   with the closed form of the balanced Normal design labelled as a special case. Seeds:
