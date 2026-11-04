@@ -111,9 +111,21 @@ glossary.
   (`emdbook::MyxoTiter_sum`, grade 1) with a Ricker curve, Normal and Gamma models;
   Exercise 2 `Puromycin`, Michaelis–Menten with Normal errors, one curve against one
   asymptote per state; Exercise 3 fir fecundity (`emdbook::FirDBHFec_sum`), a power law
-  with Poisson and Negative Binomial models; Exercise 4 (extra) bias and coverage of the
-  Wald interval of the time of the peak by simulation, with a skeleton of
-  `simulate_peak_time()` (two gaps). Awaiting the author: `solution.qmd` repeats Exercise 1
+  with Poisson and Negative Binomial models, the profile interval of the exponent
+  (transformed to $2^b$) and, in question 6, the pointwise band of the mean fecundity from
+  `ADREPORT()` of its logarithm on a grid of diameters (the only practice of recipe step
+  6); Exercise 4 (extra) bias and coverage of the Wald interval of the time of the peak by
+  simulation, with a skeleton of `simulate_peak_time()` (two gaps). Leave-one-out
+  cross-validation in Exercise 2, question 5 is a skeleton with two gaps (the refit and
+  the score); the text above it explains that `as.list(fit$par)` fails for the vector
+  `log_a`, so the held-out observation is scored with `MakeADFun()` and `fn()`. No
+  restart from other starting values in this practical (a Chapter 8 skill). Questions of
+  Exercises 2 to 4 end with inline "Hint:" sentences that name the theory section in
+  quotes with a link to its `sec-` ID; the intro says to work in one R session (`cmb()`,
+  `critical_value` and `n_sim` carry over). The Monte Carlo standard error is defined in
+  the hints of Exercise 4 (it is not taught earlier). Estimated time of the core for an
+  average student: about 5 to 5.5 hours. Awaiting the author: the hints, the skeleton of
+  Exercise 2 and Exercise 3, question 6 (drafts of 4 November); `solution.qmd` repeats Exercise 1
   in full, whereas the solution pages of Chapters 4 and 5 link to their worked exercise;
   six fecundities that are not whole numbers are rounded with `round()` (dropping them is
   the alternative); the Wald
