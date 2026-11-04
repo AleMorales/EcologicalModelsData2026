@@ -1138,3 +1138,56 @@ Each stage adds one line: date, stage, what is done, what is next.
   author (the comparison code, about 200 lines, and the 10 quiz questions are the
   largest parts). The `sec-` IDs that other pages may link to are unchanged. No new
   open question. `AGENTS.md` unchanged (Stage 7 records the decisions). Next: Stage 5.
+- 4 November 2026: Stage 5 done. `Chapter_7/Lecture/` has `lecture.qmd` (31 slides),
+  `lecture.scss` (unchanged copy of `Chapter_6/Lecture/lecture.scss`, identical to Chapter
+  3's), `demo-pooling.R` and `lecture-assets/` with `figures.R` and five PNGs (192 dpi):
+  `co2-data.png` (slide 5), `laplace.png` (14), `shrinkage.png` (19, 7 × 6),
+  `new-plants.png` (23) and `residuals-grouped.png` (25, DHARMa's `plot()` through `png()`,
+  9 × 4.5). `figures.R` runs the chapter's chunks unchanged in order (seed 701) in a clean
+  session in about 13 s; the DHARMa copy is byte-identical to
+  `_freeze/Chapter_7/Theory/figure-html/fig-residuals_grouped-1.png`, the ggplot2 copies
+  were compared by eye with the frozen figures (same content; only the device's rendering
+  of dashes differs). **Slides differ from the table above** (the slides hold for Stage 6):
+  (1) the order of slides 8 to 11 follows the chapter, where the model with $u_j$, the
+  names fixed/random and then Practice 1 all stand in `#sec-conditional` before the
+  pooling section: 8 "A model with a random asymptote", 9 "Fixed effects and random
+  effects", 10 "Practice 1: two seedlings in one quadrat", 11 "Three ways to share
+  information" (the plan had 8 Practice 1, 9 fixed/random, 10 pooling, 11 model);
+  (2) Practice 3 (sapling growth in forest stands) is slide 24, directly after the curves
+  for new groups, where its callout stands in `#sec-new-groups`, and "Checking a grouped
+  model" is slide 25 (the plan had them the other way round); (3) two titles name the
+  concept and not the plants: slide 5 "Response curves measured on the same groups", slide
+  23 "Curves for observed and new groups" (the learning goal's wording). Minutes per slide
+  as planned: blocks of 35 (slides 1 to 12), 30 (13 to 20) and 51 (21 to 31) minutes, 116
+  of slides, 14 of slack, 20 of breaks = 150; every `data-timing` equals the minutes.
+  Slide 12 (discussion) uses newts counted five times in 20 ponds, with four questions
+  (which pond has most newts: no or partial pooling; variation among ponds and a pond not
+  surveyed: partial pooling; the effect of pond area, a group-level predictor: partial
+  pooling with area as a fixed effect, complete pooling overstating its precision); Stage 6
+  gives these as the expected answers. Slide 28 shows the chapter's differences table
+  (Model, $K$, ΔAIC, ΔLOO; five rows) in an `.example` box. **Checks:** every chunk of the
+  theory run in a clean session (`knitr::purl()`, R 4.6.1, RTMB 2.0, DHARMa 0.5.0): every
+  number on the slides agrees with the chapter and the Stage 1 to 4 log (σ_obs 8.2 and
+  1.9; asymptotes 14.2 to 45.0; Laplace 0.3% and 0.003; σ_plant 0.34 → 0.079; â 30.9;
+  predicted effects −0.370, −0.755, −0.422; chilling factors 0.90 and 0.59; NLL 192.086;
+  Mc2 14.2 → 14.5 and → 15.6, typical 18.5; profile 0.045 to 0.139, variance 0.0020 to
+  0.019; REML 0.105; new plants 15.8 to 21.5; dispersion 0.80; Mc2 group residual 0.010;
+  ΔAIC 200.34, 19.15, 25.04, 8.64, 0 and ΔLOO −96.97, −22.19, −3.03, −0.33, 0; 60
+  leave-one-plant-out fits converged). `demo-pooling.R` (sections 0 to 5: data and a base
+  R plot of the 12 plants; complete pooling; no pooling; `random = "u"`, the estimates,
+  `summary(sdreport(), "fixed")` and `"random"`; origin × chilling, σ_plant 0.34 and
+  0.079, chilling factors with Wald intervals, the shrinkage plot in base R; the curves of
+  Mc1 to Mc3, the typical curve and the range of new plants in base R) ran in a clean
+  session in 2.2 s with the chapter's numbers; its three plots were inspected. `quarto
+  render Chapter_7/Lecture/lecture.qmd --to revealjs` ran without warnings (the generated
+  `lecture.html` was deleted afterwards); all 31 slides were inspected at 1440 × 900 with
+  fragments shown (headless Edge). Fixed after inspection: slides 4, 6, 11, 14, 16, 17, 19,
+  23, 25 and 28 ran into the footer (text shortened; the captions of slides 14 and 19 moved
+  into the figure column; the example of slide 25 moved beside the figure); the wide
+  display equations of slides 7 and 8 were split over two lines; the code of slide 15 was
+  shortened to 17 lines (the standard deviations inline, as in the chapter's hidden
+  Laplace chunk). General-first audit: no number of the example outside an `.example`
+  box, a caption or a code comment (the $u_j=0.1$ of slide 8 and the 1.96 of slide 23 are
+  part of the general statements). For the author: the DHARMa panels of slide 25 are
+  small at slide size (an unchanged copy, as in Chapter 6). No new open question.
+  `AGENTS.md` unchanged (Stage 7 records the decisions). Next: Stage 6.
