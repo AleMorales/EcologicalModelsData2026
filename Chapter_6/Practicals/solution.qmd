@@ -3,733 +3,1378 @@ title: "Chapter 6: Fitting ecological response curves — solutions"
 date: today
 ---
 
-# Introduction
+These solutions use the same data, tasks and seeds as the
+[student practical page](no_solution.qmd). Exercise 1 is worked in full on both pages,
+because Exercise 4 continues with its objects. Exercises 1 to 3 are the core of the
+practical and Exercise 4 is extra practice.
 
-These six files are simulated ecological datasets supplied as CSV files. You
-can download them from the
-[`Data` folder](https://github.com/AleMorales/EcologicalModelsData2026/tree/main/Data)
-in the course GitHub repository. Treat their generating models and parameters
-as unknown while analysing them. In this Quarto website, this practical runs
-from its own folder, so use `read.csv("../../Data/shapes2.csv")`. The
-[theory](../Theory.qmd) develops the methods, and the
-[function reference](../../Supplements/deterministic-functions.qmd)
-summarises candidate curves.
+As on that page, we load RTMB first and RTMBdist second:
 
-Complete **Exercises 1â€“3** before moving to Chapter 7. **Exercises 4â€“6
-are further practice**: they give you more time with repeated
-measurements, a time series, and a dataset whose context is withheld.
-Each exercise asks for maximum likelihood estimates and at least one
-confidence interval. Run the code yourself, inspect the output, and
-explain what the estimates mean. You will need the DHARMa package for
-the scaled residual checks; install it in your R environment before
-working through those steps. The core exercises also use RTMB: install
-it in your R environment before starting. Begin with an ordinary R
-likelihood in Exercise 1, then use RTMB for the remaining core fits.
+```{r}
+#| message: false
+# Load RTMB first and RTMBdist second.
+library(RTMB)
+library(RTMBdist)
+```
 
+# Exercise 1: Virus titre in infected rabbits
 
-# Exercise 2: Diameter and pine-cone counts
+The data set `MyxoTiter_sum` in the package `emdbook` contains the titre of the myxoma
+virus in the blood of European rabbits on different days after infection, for viruses of
+four grades (Fenner and McIntyre 1956; the values were read from a figure in Dwyer et al.
+1990). The titre measures the concentration of virus and is expressed as the logarithm in
+base 10 of the number of rabbit infectious doses. As in the Chapter 5 practical, we keep
+the 27 observations of grade 1, which were taken between 2 and 9 days after infection, and
+put the day and the titre of each observation in a list of data:
 
-The file `shapes3.csv` records tree diameter `x` and pine-cone count `y`.
-Some entries are missing. Begin with an [allometric](../../Supplements/deterministic-functions.qmd#sec-fn-power) mean
-$\mu(x)=a x^p$ for $x>0$, where $a>0$, and independent Poisson counts.
+```{r}
+# Load the myxomatosis data from the emdbook package without attaching the package.
+data(MyxoTiter_sum, package = "emdbook")
 
-1. Load the file. Count missing `x` and `y` values and the rows with
-   both values present. Explain why a missing count is not a count of zero.
-   Use complete predictorâ€“response pairs for **both** candidate models.
-2. Plot count against diameter. Write and fit the Poisson
-   likelihood in RTMB for $a$ and $p$. What does $p$ say about a doubling
-   of diameter?
-3. Fit a negative binomial model with the same mean curve and an
-   additional positive shape parameter $k$, for which
-   $\operatorname{Var}(Y_i\mid x_i)=\mu_i+\mu_i^2/k$. Calculate and compare AIC
-   and BIC, counting every estimated parameter.
-4. Calculate a 95% quadratic confidence interval for $p$ from the
-   negative binomial fit. Explain what could make this interval
-   unreliable.
-5. Simulate counts from the fitted negative binomial model and inspect
-   DHARMa scaled residuals against diameter. Explain what the
-   diagnostics can and cannot tell you about the missing values.
+# Keep the observations of virus grade 1: the day after infection and the titre.
+grade_1 = MyxoTiter_sum[MyxoTiter_sum$grade == 1, ]
+titre_data = list(day = grade_1$day, titre = grade_1$titer)
+```
+
+In Exercise 1 of the [Chapter 5 practical](../../Chapter_5/Practicals/no_solution.qmd) we
+described the rise and fall of the titre with the
+[Ricker](../../Supplements/deterministic-functions.qmd#sec-fn-ricker) function,
+$f(x)=a\,x\,e^{-bx}$, where $x$ is the time since infection in days. From a peak read by
+eye on day 6 with a titre of 7.6 we calculated $a=3.44$ units of titre/day and
+$b=1/6\approx0.167$/day. Here we fit the curve to the observations, which we
+treat as independent.
+
+1. On paper, write the model with the Ricker curve for the mean titre and a
+   [Normal](../../Supplements/distributions.qmd#sec-normal) observation model with a
+   constant standard deviation $\sigma$. Give the units of $a$, $b$ and $\sigma$. The
+   titres in these data are all positive; why can a Normal model, which allows any real
+   value, be used for them?
+2. Write the negative log-likelihood (NLL) with $\log(a)$, $\log(b)$ and $\log(\sigma)$ as
+   parameters, and fit it from the values read by eye in the Chapter 5 practical. Check
+   the convergence, report the estimates with their units, and draw the fitted curve over
+   the data together with the curve by eye.
+3. Calculate the standard errors with `sdreport()`. Ask for the time of the peak, $1/b$,
+   and the height of the peak, $a/(be)$, with `ADREPORT()`, and calculate 95% Wald
+   intervals for both. On which scale are these intervals calculated? Then calculate the
+   likelihood profile interval of $b$ with `TMB::tmbprofile()` and `confint()`, and from
+   it an interval for the time of the peak. Compare the two intervals for the time of the
+   peak.
+4. Simulate 1,000 hypothetical samples from the fitted model with `simulate()`, and
+   calculate the scaled quantile residuals with DHARMa. Plot them, also against the day of
+   the observation, and say what they show.
+5. Fit the same curve with a [Gamma](../../Supplements/distributions.qmd#sec-gamma)
+   observation model, with `dgamma()` and the arguments `shape` and `scale = mu / shape`.
+   How does the spread of the titres around the curve differ between the two models?
+   Compare them with AIC, AICc and BIC. Why do the three criteria give the same difference
+   here?
 
 ## Solution
 
-`read.csv()` converts the file's `NA` entries to missing values. The
-complete-pair rule removes a row only after we have counted what is
-missing. It retains 242 of the 371 rows. Removing rows changes the
-population to which our fitted relationship may apply if missingness
-is related to diameter or cone production; these data alone do not
-establish the missingness mechanism.
+### Question 1
 
-```r
-library(RTMB)
-cones_all = read.csv("../../Data/shapes3.csv")
-sum(is.na(cones_all$x))
-sum(is.na(cones_all$y))
-keep = complete.cases(cones_all[, c("x", "y")])
-sum(keep)
-cones = cones_all[keep, c("x", "y")]
-stopifnot(all(cones$x > 0), all(cones$y >= 0))
-
-plot(cones$x, cones$y, pch = 16, cex = 0.6,
-     xlab = "Diameter (recorded units)", ylab = "Pine cones")
-
-cone_mean = function(x, a, p) a * x^p
-
-cone_poisson = function(par) {
-  mu = cone_mean(cones$x, exp(par$log_a), par$p)
-  y = cones$y
-  y %~% dpois(lambda = mu)
-}
-
-start_poisson = list(
-  log_a = log(mean(cones$y) / median(cones$x)^2), p = 2
-)
-poisson_obj = MakeADFun(cone_poisson, start_poisson, silent = TRUE)
-fit_poisson = optim(par = poisson_obj$par, fn = poisson_obj$fn,
-                    gr = poisson_obj$gr, method = "BFGS")
-
-cone_nb = function(par) {
-  mu = cone_mean(cones$x, exp(par$log_a), par$p)
-  size = exp(par$log_size)
-  y = cones$y
-  y %~% dnbinom(size = size, prob = size / (size + mu))
-}
-
-start_nb = as.list(fit_poisson$par)
-start_nb$log_size = log(2)
-nb_obj = MakeADFun(cone_nb, start_nb, silent = TRUE)
-fit_nb = optim(par = nb_obj$par, fn = nb_obj$fn,
-               gr = nb_obj$gr, method = "BFGS")
-c(poisson = fit_poisson$convergence, negative_binomial = fit_nb$convergence)
-c(a = exp(fit_nb$par["log_a"]), p = fit_nb$par["p"],
-  size = exp(fit_nb$par["log_size"]))
-
-x_grid = seq(min(cones$x), max(cones$x), length.out = 200)
-lines(x_grid, cone_mean(x_grid, exp(fit_poisson$par[1]),
-                        fit_poisson$par[2]), lty = 1)
-lines(x_grid, cone_mean(x_grid, exp(fit_nb$par[1]),
-                        fit_nb$par[2]), lty = 2)
-legend("topleft", c("Poisson mean", "Negative binomial mean"),
-       lty = c(1, 2), bty = "n")
-```
-
-RTMB's negative binomial density uses `size` and `prob` here; the
-conversion `prob = size / (size + mu)` keeps $\mu$ as the mean and
-$\mu+\mu^2/\mathrm{size}$ as the variance. For a power law, doubling
-diameter multiplies the expected cone count by $2^p$. The two
-distributions share the same mean-curve form but
-allow different count variation. Their AIC and BIC are comparable
-because both likelihoods include all probability-mass terms for the
-same observed counts:
-
-```r
-n = nrow(cones)
-comparison = data.frame(
-  model = c("Poisson", "Negative binomial"),
-  k = c(2, 3),
-  AIC = c(2 * fit_poisson$value + 2 * 2,
-          2 * fit_nb$value + 2 * 3),
-  BIC = c(2 * fit_poisson$value + log(n) * 2,
-          2 * fit_nb$value + log(n) * 3)
-)
-comparison
-
-hessian_nb = nb_obj$he(fit_nb$par)
-dimnames(hessian_nb) = list(names(fit_nb$par), names(fit_nb$par))
-se_p = sqrt(solve(hessian_nb)["p", "p"])
-p_interval = fit_nb$par["p"] + c(-1, 1) * qnorm(p = 0.975) * se_p
-p_interval
-```
-
-The negative binomial has much lower AIC and BIC for these complete
-cases. Its estimated allometric exponent is approximately 2.32, with
-a quadratic interval of approximately 1.96 to 2.68. That comparison
-indicates that the Poisson version describes these counts poorly
-relative to this negative binomial candidate; it does not identify
-the source of extra variation.
-
-This interval uses local likelihood curvature. If the fit did not
-converge, the Hessian is unstable, or the count distribution is
-unsuitable, its claimed coverage may be poor. It also says nothing
-by itself about why some values are missing.
-
-```r
-set.seed(seed = 704)
-mu_nb = cone_mean(cones$x, exp(fit_nb$par["log_a"]), fit_nb$par["p"])
-size_nb = exp(fit_nb$par["log_size"])
-sim_cones = replicate(
-  500, rnbinom(n = nrow(cones), mu = mu_nb, size = size_nb)
-)
-scaled_cones = DHARMa::createDHARMa(
-  simulatedResponse = sim_cones,
-  observedResponse = cones$y,
-  fittedPredictedResponse = mu_nb,
-  integerResponse = TRUE
-)
-plot(scaled_cones)
-DHARMa::plotResiduals(scaled_cones, predictor = cones$x)
-```
-
-The simulation compares the model with **observed complete cases**.
-It cannot check the unobserved cone counts or prove that excluding
-incomplete rows was harmless.
-
-# Exercise 3: Species presence and interval coverage
-
-The file `shapes6.csv` contains one predictor `x` and a binary
-presence/absence response `y`. To allow presence to be most likely
-at an intermediate predictor value, use the [bounded, hump-shaped curve](../../Chapter_5/Theory.qmd#sec-function-composition)
-$p(x)=\operatorname{logit}^{-1}[h-q(x-c)^2]$, where $q>0$.
-Here $\operatorname{logit}^{-1}(z)=1/(1+e^{-z})$.
-Each response is an independent Bernoulli observation with probability
-$p(x)$.
-
-1. Load and plot the data. What are the possible response values?
-   Explain the ecological meaning of $c$, $h$, and $q$.
-2. Fit $c$, $h$, and $q$ by maximum likelihood with RTMB and `optim()`.
-   Plot the fitted probability curve, checking that it remains between
-   0 and 1.
-3. Calculate a 95% quadratic confidence interval for $c$. Compare
-   AIC with an intercept-only Bernoulli model whose constant
-   presence probability is estimated from the data.
-4. Simulate binary observations from the fitted curve and inspect
-   DHARMa residuals. Why is randomisation needed for a binary response?
-5. Conduct a simulation study at the observed `x` values. Choose
-   generating $c$, $h$, and $q$, simulate and refit at least 300 datasets,
-   and calculate bias, interval coverage, and the number of failed fits.
-   What part of the result is specific to your chosen simulation setting?
-
-## Solution
-
-The response is 0 or 1 at each observation. The probability peaks at
-$x=c$, where it equals $\operatorname{logit}^{-1}(h)$. Larger $q$
-makes the curve narrower. We optimise $\log q$ to keep $q$ positive.
-`plogis()` computes the inverse-logit function for plotting and
-simulation. In the RTMB objective we write the same inverse-logit
-using `exp()`; `dbinom()` with `size = 1` provides the Bernoulli
-likelihood.
-
-```r
-library(RTMB)
-presence = read.csv("../../Data/shapes6.csv")
-stopifnot(all(presence$y %in% c(0, 1)))
-plot(presence$x, presence$y,
-     xlab = "Predictor x (recorded units)",
-     ylab = "Presence (1) or absence (0)")
-
-presence_prob = function(x, c, h, q) {
-  plogis(q = h - q * (x - c)^2)
-}
-
-presence_start = function(x, y) {
-  centre = if (any(y == 1)) median(x[y == 1]) else median(x)
-  list(c = centre, h = qlogis(p = 0.8), log_q = log(0.5))
-}
-
-make_presence_obj = function(x, y) {
-  objective = function(par) {
-    q = exp(par$log_q)
-    p = 1 / (1 + exp(-(par$h - q * (x - par$c)^2)))
-    y %~% dbinom(size = 1, prob = p)
-  }
-  MakeADFun(objective, presence_start(x, y), silent = TRUE)
-}
-
-presence_obj = make_presence_obj(presence$x, presence$y)
-fit_presence = optim(par = presence_obj$par, fn = presence_obj$fn,
-                     gr = presence_obj$gr, method = "BFGS")
-fit_presence$convergence
-c(c = fit_presence$par["c"], h = fit_presence$par["h"],
-  q = exp(fit_presence$par["log_q"]))
-
-x_grid = seq(min(presence$x), max(presence$x), length.out = 200)
-lines(x_grid, presence_prob(x_grid, fit_presence$par["c"],
-                            fit_presence$par["h"],
-                            exp(fit_presence$par["log_q"])))
-
-hessian_presence = presence_obj$he(fit_presence$par)
-dimnames(hessian_presence) = list(names(fit_presence$par),
-                                  names(fit_presence$par))
-se_c = sqrt(solve(hessian_presence)["c", "c"])
-c_interval = fit_presence$par["c"] +
-  c(-1, 1) * qnorm(p = 0.975) * se_c
-c_interval
-
-p_constant = mean(presence$y)
-constant_nll = -sum(dbinom(x = presence$y, size = 1,
-                            prob = p_constant, log = TRUE))
-data.frame(
-  model = c("Constant probability", "Response curve"),
-  AIC = c(2 * constant_nll + 2 * 1,
-          2 * fit_presence$value + 2 * 3)
-)
-```
-
-The intercept-only model estimates one probability; the response
-curve estimates three parameters. The peaked curve has the lower AIC
-(approximately 47.4 versus 69.3). Its fitted optimum is near
-$x=5.02$, with an approximate quadratic interval of 4.73 to 5.31
-in the predictor's recorded units. The comparison remains conditional
-on the Bernoulli observation model.
-
-```r
-set.seed(seed = 705)
-p_hat = presence_prob(presence$x, fit_presence$par["c"],
-                      fit_presence$par["h"],
-                      exp(fit_presence$par["log_q"]))
-sim_presence = replicate(
-  500, rbinom(n = nrow(presence), size = 1, prob = p_hat)
-)
-scaled_presence = DHARMa::createDHARMa(
-  simulatedResponse = sim_presence,
-  observedResponse = presence$y,
-  fittedPredictedResponse = p_hat,
-  integerResponse = TRUE
-)
-plot(scaled_presence)
-DHARMa::plotResiduals(scaled_presence, predictor = presence$x)
-```
-
-There are only two possible observed responses, so many simulated
-values tie with an observation. The scaled-residual method
-randomises ties to avoid two piles of identical residual values.
-With 50 binary observations, diagnostic patterns may be hard to see.
-
-For the simulation study, the chosen values below are **generating
-values for this exercise**; they are not claimed to be the values that
-generated `shapes6.csv`. Every repetition generates new outcomes at
-the same predictor values and repeats the fit and interval calculation.
-
-```r
-set.seed(seed = 706)
-true_c = 5.5
-true_h = 2
-true_q = 0.65
-n_studies = 300
-true_p = presence_prob(presence$x, true_c, true_h, true_q)
-
-one_study = function() {
-  y_sim = rbinom(n = length(true_p), size = 1, prob = true_p)
-  result = tryCatch({
-    obj = make_presence_obj(presence$x, y_sim)
-    fit = optim(par = obj$par, fn = obj$fn, gr = obj$gr,
-                method = "BFGS")
-    list(obj = obj, fit = fit)
-  }, error = function(e) NULL)
-  if (is.null(result) || result$fit$convergence != 0) {
-    return(c(estimate = NA_real_, covered = NA_real_))
-  }
-  variance_c = tryCatch(
-    solve(result$obj$he(result$fit$par))[1, 1],
-    error = function(e) NA_real_
-  )
-  if (!is.finite(variance_c) || variance_c <= 0) {
-    return(c(estimate = NA_real_, covered = NA_real_))
-  }
-  limits = result$fit$par["c"] +
-    c(-1, 1) * qnorm(p = 0.975) * sqrt(variance_c)
-  c(estimate = unname(result$fit$par["c"]),
-    covered = as.numeric(limits[1] <= true_c && true_c <= limits[2]))
-}
-
-study_results = replicate(n_studies, one_study())
-successful = is.finite(study_results["estimate", ])
-number_failed = sum(!successful)
-bias = mean(study_results["estimate", successful]) - true_c
-coverage = mean(study_results["covered", successful])
-c(number_failed = number_failed, bias = bias, coverage = coverage)
-```
-
-Coverage here is conditional on successful fits; always report
-`number_failed` alongside it. The result changes with predictor
-values, generating parameters, study size, interval method, and
-number of repetitions. The Monte Carlo estimate of coverage also
-varies slightly with the random seed. With the stated seed and 300
-studies, the estimated bias is about $-0.014$ and coverage about
-0.967; no fit failed in this run.
-
-# Exercise 4: Five leaves along a light gradient
-
-The file `shapes1.csv` contains photosynthesis measurements at 11 light
-intensities for **five leaves on different plants**. Each leaf contributes
-measurements along a curve, but the file has no leaf identifier linking
-its rows across intensities. Fit a pooled *working model* for the mean
-response,
+Let $Y_i$ be the titre of observation $i$ and $x_i$ the day after infection on which it
+was measured. The curve describes the mean titre on each day, and the titres vary around
+it according to a Normal distribution:
 
 $$
-m(x)=r+a(1-e^{-kx}), \qquad a,k>0,
+Y_i \sim \operatorname{Normal}\left(f(x_i),\,\sigma^2\right),
+\qquad
+f(x)=a\,x\,e^{-bx},
+\qquad i=1,\ldots,27,
 $$
 
-with normal observation errors of standard deviation $\sigma$.
+where $f(x_i)$ is the mean titre on day $x_i$ and $\sigma$ is the standard deviation of the
+titres around the curve, the same on every day ($\sigma^2$ is the variance of the model).
+The mean of a Normal distribution can take any real value, so the curve needs no outer
+function to give it the right range (see
+[From a response curve to a model for observations](../Theory.qmd#sec-response-observation)).
+The units of $a$ and $b$ are those of Chapter 5: $b$ is in 1/day, because $bx$ is the
+argument of an exponential and has no units, and $a$ is in units of titre/day, because $ax$
+must have the units of the titre. The standard deviation $\sigma$ measures the spread of
+the observations, so it has the units of the titre (log10 infectious doses).
 
-1. Load and plot the data, including the five responses at each light
-   intensity. Why might $r$ be below zero for net photosynthesis?
-2. Fit $r$, $a$, $k$, and $\sigma$ by maximum likelihood under the
-   working assumption that rows are independent. Plot the fitted
-   curve and interpret its baseline and upper limit.
-3. Calculate a 95% quadratic confidence interval for $a$. State
-   precisely which assumption makes this interval provisional.
-4. Simulate from the fitted pooled model and inspect scaled residuals
-   against light intensity. Explain why these plots cannot check
-   within-leaf dependence without leaf identifiers.
+A Normal model gives a positive probability to negative titres, which do not occur in these
+data. This does not matter when that probability is negligible. The titres lie between 4.2
+and 8.5 and vary by about one unit among the observations of the same day, so if the curve
+passes near the observations its value lies many standard deviations above zero. We check
+this after the fit.
 
-## Solution
+### Question 2
 
-Net photosynthesis can be negative when respiration exceeds carbon
-fixation at low light. The parameter $r$ is the mean response at
-zero light, while $r+a$ is the upper limit. We use every row for a
-pooled mean curve, but the repeated measurements on each leaf mean
-the independent-error likelihood is a simplification.
+The NLL has the form of the theory: a list of parameters, with the logarithms of the three
+positive parameters, and a list of data, with the predictor (`day`) and the response
+(`titre`). Because `day` is a vector, the line of the curve returns the mean titre of every
+observation, and `dnorm()` uses the mean of each observation:
 
-```r
-light = read.csv("../../Data/shapes1.csv")
-table(light$x)
-plot(light$x, light$y,
-     xlab = "Light intensity (recorded units)",
-     ylab = "Net photosynthesis (recorded units)")
-
-light_mean = function(x, r, a, k) {
-  r + a * (1 - exp(-k * x))
+```{r}
+# Negative log-likelihood of the Ricker curve with a Normal observation model.
+normal_nll = function(parms, data) {
+  # Make the elements of both lists available by name.
+  getAll(parms, data)
+  # Transform the parameters to the original scale.
+  a = exp(log_a)
+  b = exp(log_b)
+  sigma = exp(log_sigma)
+  # Mean titre on the day of each observation.
+  mu = a * day * exp(-b * day)
+  -sum(dnorm(x = titre, mean = mu, sd = sigma, log = TRUE))
 }
-light_nll = function(par, data) {
-  r = par[1]
-  a = exp(par[2])
-  k = exp(par[3])
-  sigma = exp(par[4])
-  mu = light_mean(data$x, r, a, k)
-  -sum(dnorm(x = data$y, mean = mu, sd = sigma, log = TRUE))
-}
-
-start_r = mean(light$y[light$x == 0])
-fit_light = optim(
-  par = c(r = start_r,
-          log_a = log(max(light$y) - start_r),
-          log_k = log(1 / 100),
-          log_sigma = log(sd(light$y))),
-  fn = light_nll, data = light, method = "BFGS", hessian = TRUE
-)
-fit_light$convergence
-c(r = fit_light$par["r"], a = exp(fit_light$par["log_a"]),
-  k = exp(fit_light$par["log_k"]),
-  sigma = exp(fit_light$par["log_sigma"]))
-
-x_grid = seq(min(light$x), max(light$x), length.out = 200)
-lines(x_grid, light_mean(x_grid, fit_light$par["r"],
-                         exp(fit_light$par["log_a"]),
-                         exp(fit_light$par["log_k"])))
-abline(h = fit_light$par["r"] + exp(fit_light$par["log_a"]),
-       lty = 2)
-
-se_log_a = sqrt(solve(fit_light$hessian)["log_a", "log_a"])
-a_interval = exp(fit_light$par["log_a"] +
-                   c(-1, 1) * qnorm(p = 0.975) * se_log_a)
-a_interval
 ```
 
-The interval is valid only as an approximation **under the working
-independent-row model**. Rows from the same leaf may share deviations
-from the pooled curve, so the effective information can be less than
-55 independent measurements would provide. Because the CSV has no
-leaf IDs, we cannot reconstruct each leaf's trajectory reliably or
-fit a leaf-level model from this file.
+We start from the values read by eye in Chapter 5. For $\sigma$ we take 1 unit of titre,
+roughly the spread of the observations of one day. We give the starting values to
+`MakeADFun()` on the log scale and fit the model:
 
-```r
-set.seed(seed = 707)
-mu_light = light_mean(light$x, fit_light$par["r"],
-                      exp(fit_light$par["log_a"]),
-                      exp(fit_light$par["log_k"]))
-sim_light = replicate(
-  500, rnorm(n = nrow(light), mean = mu_light,
-             sd = exp(fit_light$par["log_sigma"]))
+```{r}
+# Connect a likelihood to a data set.
+cmb = function(f, d) function(p) f(p, d)
+
+# Starting values: the values read by eye in the Chapter 5 practical, and sigma = 1.
+titre_start = list(log_a = log(3.44), log_b = log(1 / 6), log_sigma = log(1))
+
+# Process the NLL, minimise it with BFGS and check the convergence code.
+normal_obj = MakeADFun(cmb(normal_nll, titre_data), titre_start, silent = TRUE)
+normal_fit = optim(
+  par = normal_obj$par,
+  fn = normal_obj$fn,
+  gr = normal_obj$gr,
+  method = "BFGS"
 )
-scaled_light = DHARMa::createDHARMa(
-  simulatedResponse = sim_light,
-  observedResponse = light$y,
-  fittedPredictedResponse = mu_light,
+normal_fit$convergence
+
+# Estimates on the original scale.
+a_mle = exp(normal_fit$par[["log_a"]])
+b_mle = exp(normal_fit$par[["log_b"]])
+sigma_mle = exp(normal_fit$par[["log_sigma"]])
+c(a = a_mle, b = b_mle, sigma = sigma_mle)
+```
+
+The convergence code is 0. The estimates are $\hat a\approx3.42$ units of titre/day,
+$\hat b\approx0.165$/day and $\hat\sigma\approx0.67$ units of titre. The first two are
+close to the values read by eye (3.44 and 0.167). We can now check the argument of
+question 1. The lowest mean titre in the data is the one of day 2, and the probability
+that the fitted model gives to a negative titre on that day is the cumulative probability
+of zero:
+
+```{r}
+# Ricker function: initial slope a and rate b.
+ricker = function(x, a = 1, b = 1) {
+  a * x * exp(-b * x)
+}
+
+# Mean titre on day 2 under the fitted model, and the probability of a negative titre.
+ricker(2, a = a_mle, b = b_mle)
+pnorm(q = 0, mean = ricker(2, a = a_mle, b = b_mle), sd = sigma_mle)
+```
+
+The mean titre on day 2 is 4.9, more than seven standard deviations above zero, and the
+probability of a negative titre is of the order of $10^{-13}$. The Normal model can be used
+here because the titres are far from zero compared with their spread.
+
+We draw the fitted curve over the data, together with the curve by eye of Chapter 5
+(@fig-titre_fit):
+
+```{r}
+#| label: fig-titre_fit
+#| fig-cap: "Titre of the myxoma virus of grade 1 against the time since infection, with the Ricker curve fitted by maximum likelihood under a Normal model (solid line) and the curve read by eye in Chapter 5 (dashed line)."
+# Observations, with axes that start at zero.
+plot(titre ~ day, data = titre_data, xlim = c(0, 10), ylim = c(0, 10),
+     xlab = "Time since infection (days)", ylab = "Virus titre (log10 infectious doses)")
+
+# Fitted curve and curve by eye.
+curve(ricker(x, a = a_mle, b = b_mle), add = TRUE, col = "#D55E00")
+curve(ricker(x, a = 3.44, b = 1 / 6), add = TRUE, lty = 2)
+legend("bottomright", legend = c("Maximum likelihood", "By eye (Chapter 5)"),
+       lty = c(1, 2), col = c("#D55E00", "black"), bty = "n")
+```
+
+The two curves are almost the same. The peak that we read by eye happened to be close to
+the peak of the fitted curve, and in the Ricker function the peak determines both
+parameters.
+
+### Question 3
+
+The time and the height of the peak are quantities calculated from the parameters, so we
+ask for their standard errors with `ADREPORT()` inside the NLL, as in
+[Uncertainty of the fitted curve](../Theory.qmd#sec-delta-method). We also mark the titres
+with `OBS()`, which question 4 needs in order to simulate. We process the new NLL and fit
+it again (the estimates do not change):
+
+```{r}
+# The NLL with the time and the height of the peak in ADREPORT(), and the titres marked
+# as observations for the simulations of question 4.
+normal_nll = function(parms, data) {
+  getAll(parms, data)
+  titre = OBS(titre)
+  a = exp(log_a)
+  b = exp(log_b)
+  sigma = exp(log_sigma)
+  # Time (days) and height (units of titre) of the peak of the curve.
+  peak_time = 1 / b
+  peak_titre = a / (b * exp(1))
+  ADREPORT(peak_time)
+  ADREPORT(peak_titre)
+  mu = a * day * exp(-b * day)
+  -sum(dnorm(x = titre, mean = mu, sd = sigma, log = TRUE))
+}
+
+# Process the new NLL and fit it again.
+normal_obj = MakeADFun(cmb(normal_nll, titre_data), titre_start, silent = TRUE)
+normal_fit = optim(
+  par = normal_obj$par,
+  fn = normal_obj$fn,
+  gr = normal_obj$gr,
+  method = "BFGS"
+)
+normal_fit$convergence
+```
+
+`summary()` of the result of `sdreport()` has one row for each parameter, on the scale
+that was optimised, and one row for each quantity in `ADREPORT()`, on the scale on which
+it was calculated. `cov2cor()` gives the correlations between the estimates of the
+parameters:
+
+```{r}
+# Standard errors of the parameters (log scale) and of the two quantities of the peak.
+normal_sd = sdreport(normal_obj)
+summary(normal_sd)
+cov2cor(normal_sd$cov.fixed)
+```
+
+The standard errors on the log scale are about 0.06 for $\log(\hat a)$ and $\log(\hat b)$,
+so both parameters are estimated to within a few percent, and 0.14 for
+$\log(\hat\sigma)$. The estimates of $\log(a)$ and $\log(b)$ are strongly correlated
+(0.95): a curve with a steeper initial rise (a larger $a$) must also decline sooner (a
+larger $b$) to keep its peak at the height of the observations.
+
+The time and the height of the peak were calculated on their original scale, in days and
+in units of titre, so their Wald intervals are calculated on that scale. Both are positive
+quantities whose estimates lie many standard errors away from zero, so an interval on the
+original scale cannot cross the bound:
+
+```{r}
+# 95% Wald intervals of the time and the height of the peak, on the original scale.
+critical_value = qnorm(p = 0.975)
+peak_summary = summary(normal_sd, select = "report")
+cbind(
+  estimate = peak_summary[, "Estimate"],
+  lower = peak_summary[, "Estimate"] - critical_value * peak_summary[, "Std. Error"],
+  upper = peak_summary[, "Estimate"] + critical_value * peak_summary[, "Std. Error"]
+)
+```
+
+The peak is estimated on day 6.05 (95% Wald interval from 5.30 to 6.80 days) at a titre of
+7.61 (from 7.32 to 7.91). The height is well determined because many observations lie near
+the peak.
+
+For the likelihood profile interval we profile $\log(b)$, transform the endpoints back
+with `exp()`, and obtain the interval for the time of the peak from that of $b$. The
+function $1/b$ decreases as $b$ increases, so the endpoints swap:
+
+```{r}
+#| warning: false
+# Profile of log(b). The profile contains the estimate twice, so confint() warns that it
+# collapses repeated values; the warning can be ignored.
+normal_profile_b = TMB::tmbprofile(normal_obj, name = "log_b", trace = FALSE)
+
+# 95% interval for b (1/day), and for the time of the peak (days).
+b_interval = exp(confint(normal_profile_b))
+b_interval
+rev(1 / b_interval)
+```
+
+The likelihood profile interval of $b$ goes from 0.144/day to 0.186/day, almost
+symmetrically around the estimate of 0.165. The corresponding interval for the time of the
+peak goes from 5.36 to 6.95 days: it extends 0.69 days below the estimate and 0.89 days
+above it, because $1/b$ is a curve that stretches the values of $b$ below the estimate more
+than those above it. The Wald interval for the time of the peak (5.30 to 6.80 days) is
+symmetric by construction, because the delta method treats $1/b$ as a straight line near
+the estimate. So, compared with the profile interval, it is shifted towards earlier days.
+The two intervals differ by less than a fifth of a day at each end, which is small compared
+with their width, but Exercise 4 shows that the difference matters for the coverage.
+
+### Question 4
+
+The titres are marked with `OBS()`, so the function `simulate()` of the object draws one
+hypothetical sample of 27 titres, on the same days as the data, for the parameter values
+that we give it. We store 1,000 hypothetical samples in a matrix with one row per
+observation:
+
+```{r}
+# 1,000 hypothetical samples of the 27 titres at the estimates: one row per observation
+# and one column per hypothetical sample.
+n_sim = 1000
+normal_simulations = matrix(NA, nrow = length(titre_data$titre), ncol = n_sim)
+set.seed(seed = 611)
+for (j in seq_len(n_sim)) {
+  normal_simulations[, j] = normal_obj$simulate(normal_fit$par)$titre
+}
+```
+
+`DHARMa::createDHARMa()` calculates the residuals from the simulations, with the arguments
+of the [theory](../Theory.qmd#sec-response-residuals). The expected value of each
+observation is the mean titre of its day, and the titres are continuous, so
+`integerResponse = FALSE`: two titres are almost never equal, and no ties need to be drawn
+at random. `plot()` draws the two standard panels (@fig-titre_residuals), and
+`DHARMa::plotResiduals()` with the argument `form` draws the residuals against the day
+(@fig-titre_residuals_day):
+
+```{r}
+#| label: fig-titre_residuals
+#| fig-width: 9
+#| fig-height: 4.5
+#| fig-cap: "Scaled quantile residuals of the Normal model with the Ricker curve, from 1,000 hypothetical samples. Left: quantile–quantile plot against a uniform distribution. Right: residuals against the rank of the expected titre."
+# Expected titre of each observation under the fitted model.
+normal_expected = ricker(titre_data$day, a = a_mle, b = b_mle)
+
+# Scaled quantile residuals from the simulations, and the two standard panels.
+normal_residuals = DHARMa::createDHARMa(
+  simulatedResponse = normal_simulations,
+  observedResponse = titre_data$titre,
+  fittedPredictedResponse = normal_expected,
   integerResponse = FALSE
 )
-plot(scaled_light)
-DHARMa::plotResiduals(scaled_light, predictor = light$x)
+plot(normal_residuals)
 ```
 
-These simulations reproduce the pooled model's independent errors.
-They do not reproduce possible correlations within a leaf, so an
-apparently even pooled residual plot cannot settle that issue.
+```{r}
+#| label: fig-titre_residuals_day
+#| fig-cap: "Scaled quantile residuals of the Normal model with the Ricker curve against the day of the observation."
+# Residuals against the day of the observation.
+DHARMa::plotResiduals(normal_residuals, form = titre_data$day)
+```
 
-# Exercise 5: Population size through time
+In the quantile–quantile plot the residuals follow the line, so their distribution is
+close to uniform, and none lies outside the range of its simulations. The right panel of
+@fig-titre_residuals orders the observations by their expected titre, which first increases
+and then decreases with the day, so the pattern in time is clearer in
+@fig-titre_residuals_day. There the residuals tend to lie above 0.5 on the first days and
+on the last days, and below 0.5 around the peak: the observations lie slightly above the
+curve at both ends and slightly below it in the middle. This agrees with what we saw by eye
+in Chapter 5: the titre levels off after day 6, while the Ricker curve must decline after
+its peak. DHARMa draws the lines of the quartiles in red because one of its tests gives a
+small p-value. As in the theory, we read the plot as exploratory evidence and not as a
+decision: with 27 observations and one to six per day the pattern rests on few
+observations, but it suggests that the Ricker curve describes the titre after the peak only
+approximately. A curve with a third parameter, such as the
+[generalised Ricker](../../Supplements/deterministic-functions.qmd#sec-fn-generalised-ricker)
+function, could be fitted and compared with it.
 
-The file `shapes4.csv` records population `size` at `time`. Treat the
-recorded size as a count and begin with a [logistic](../../Supplements/deterministic-functions.qmd#sec-fn-logistic) expected size
-$m(t)=K/[1+e^{-r(t-t_0)}]$, where $K,r>0$. As a working model,
-assume each count is Poisson with that mean.
+DHARMa also calculates a dispersion statistic, but for a Normal model it is not informative:
+$\sigma$ is estimated from the spread of the observations around the curve, so the
+simulated spread matches the observed spread almost by construction.
 
-1. Plot size against time. Identify the upper limit $K$, the
-   midpoint time $t_0$, and the role of $r$ in the mean curve.
-2. Fit all three parameters by maximum likelihood and calculate
-   a 95% quadratic confidence interval for $K$.
-3. Fit a [Gompertz](../../Supplements/deterministic-functions.qmd#sec-fn-gompertz) mean curve
-   $g(t)=K\exp[-\exp\{-r(t-t_0)\}]$ with the same Poisson
-   observation model. Compare AIC and BIC on the same 25 counts.
-4. Hold out the observations after time 62, fit both models to
-   earlier observations, and score the later counts with their
-   Poisson log probabilities. What does this check that a random
-   fold split would not check?
-5. Inspect scaled residuals in time order. Which assumptions are
-   especially uncertain when repeated sizes of one population are
-   treated as independent counts?
+### Question 5
+
+A Gamma distribution with shape $k$ and scale $\mu/k$ has mean $\mu$ and variance
+$k(\mu/k)^2=\mu^2/k$, so its standard deviation is $\mu/\sqrt{k}$: the spread of the titres
+is proportional to the mean, with a coefficient of variation $1/\sqrt{k}$ that is the same
+on every day. In the Normal model the spread is the same on every day, whatever the mean.
+The Gamma model also gives a probability of zero to negative titres. The NLL takes the
+logarithm of the shape as its third parameter; we start from the values by eye and a shape
+of 10:
+
+```{r}
+# Negative log-likelihood of the Ricker curve with a Gamma observation model.
+gamma_nll = function(parms, data) {
+  getAll(parms, data)
+  a = exp(log_a)
+  b = exp(log_b)
+  shape = exp(log_shape)
+  mu = a * day * exp(-b * day)
+  # A scale of mu / shape gives each observation the mean mu.
+  -sum(dgamma(x = titre, shape = shape, scale = mu / shape, log = TRUE))
+}
+
+# Process the NLL and fit it.
+gamma_obj = MakeADFun(
+  cmb(gamma_nll, titre_data),
+  list(log_a = log(3.44), log_b = log(1 / 6), log_shape = log(10)),
+  silent = TRUE
+)
+gamma_fit = optim(
+  par = gamma_obj$par,
+  fn = gamma_obj$fn,
+  gr = gamma_obj$gr,
+  method = "BFGS"
+)
+gamma_fit$convergence
+
+# Estimates on the original scale.
+exp(gamma_fit$par)
+```
+
+The fit converged, with $\hat a\approx3.56$ units of titre/day, $\hat b\approx0.171$/day
+and a shape of about 90, which gives a coefficient of variation of about 0.11 (a standard
+deviation of about 0.8 units of titre at the peak and 0.5 on day 2). Both models have
+three parameters and are fitted to the same 27 titres in the same units, so we can compare
+them with the criteria of the theory, with $n=27$:
+
+```{r}
+# AIC, AICc and BIC of the two models, with K = 3 parameters and n = 27 observations.
+n_obs = length(titre_data$titre)
+k_models = c(normal = 3, gamma = 3)
+nll_models = c(normal = normal_fit$value, gamma = gamma_fit$value)
+aic = 2 * k_models + 2 * nll_models
+aicc = aic + 2 * k_models * (k_models + 1) / (n_obs - k_models - 1)
+bic = k_models * log(n_obs) + 2 * nll_models
+rbind(aic = aic, aicc = aicc, bic = bic)
+```
+
+All three criteria prefer the Normal model, by 4.0 units. The difference is the same for
+the three criteria because the two models have the same number of parameters and are
+fitted to the same observations: the penalty is the same for both models within each
+criterion, and the difference between the models is twice the difference between their
+maximum log-likelihoods. So the comparison says that the titres are more probable under a
+spread that is the same on every day than under a spread that grows with the mean. On the
+logarithmic scale of the titre this is plausible, although with 27 observations the
+evidence is moderate. The curve itself hardly depends on the choice: the estimates of $a$
+and $b$ differ by a few percent between the two models.
+
+# Exercise 2: Enzyme kinetics
+
+The data set `Puromycin` of base R contains the rate of an enzymatic reaction (`rate`, in
+counts/min/min) at six concentrations of the substrate (`conc`, in parts per million,
+ppm), measured in cells that were treated with the antibiotic puromycin (12 observations)
+and in untreated cells (11 observations) (Treloar 1974, in Bates and Watts 1988). The
+column `state` says to which of the two groups an observation belongs. Load the data with
+`data(Puromycin, package = "datasets")`.
+
+In Exercise 6 of the Chapter 5 practical we placed a
+[Michaelis–Menten](../../Supplements/deterministic-functions.qmd#sec-fn-michaelis-menten)
+curve, $f(x)=ax/(b+x)$, by eye over the observations of each state: $a=210$ counts/min/min
+for the treated cells and $a=165$ counts/min/min for the untreated cells, with $b=0.06$
+ppm for both. By eye, the states differed in the asymptote and not in the half-maximum. In
+this exercise we fit and compare two models with a Normal observation model with a constant
+standard deviation $\sigma$, and treat the 23 observations as independent.
+
+1. Write the model with one Michaelis–Menten curve for both states, with the units of $a$,
+   $b$ and $\sigma$. Fit it, starting from values close to those read by eye, check the
+   convergence, and draw the curve over the data with a different symbol for each state.
+2. Fit a model in which each state has its own asymptote $a$, with a common $b$ and
+   $\sigma$. Use an index vector with the number of the state of each observation, as in
+   question 6 of Exercise 1 of the
+   [Chapter 4 practical](../../Chapter_4/Practicals/no_solution.qmd). Draw both curves
+   over the data. How does the estimate of $\sigma$ change, and why?
+3. Ask for the difference between the two asymptotes with `ADREPORT()`, and calculate a 95%
+   Wald interval for it. On which scale do you calculate the interval, and why? What does
+   the treatment with puromycin do to the maximum rate of the reaction?
+4. Calculate the likelihood profile interval of $b$ in the model of question 2 and compare
+   it with the Wald interval from the log scale. Why do the two intervals agree so much
+   better than those for the handling time of the reed frogs in the theory?
+5. Compare the two models with AIC, AICc and BIC, and with leave-one-out cross-validation
+   (23 fits for each model). Do the criteria agree?
+6. Simulate 1,000 hypothetical samples from the model that the criteria prefer, calculate
+   the scaled quantile residuals with DHARMa, and plot them against the concentration of the
+   substrate. What do you see, and what can you conclude from 23 observations?
 
 ## Solution
 
-The logistic reaches half of $K$ at $t_0$; a larger $r$ makes the
-increase steeper around that time. The Gompertz curve has a different
-shape near its inflection point. Both means remain positive, which
-is required by the Poisson observation model.
+### Question 1
 
-```r
-population = read.csv("../../Data/shapes4.csv")
-plot(population$time, population$size,
-     xlab = "Time (recorded units)", ylab = "Population size")
+Let $Y_i$ be the rate of the reaction in observation $i$ and $x_i$ the concentration of the
+substrate. With one curve for both states, the model is
 
-logistic_mean = function(time, K, r, t0) {
-  K * plogis(q = r * (time - t0))
-}
-gompertz_mean = function(time, K, r, t0) {
-  K * exp(-exp(-r * (time - t0)))
-}
-growth_nll = function(par, data, curve) {
-  K = exp(par[1])
-  r = exp(par[2])
-  t0 = par[3]
-  mu = curve(data$time, K, r, t0)
-  -sum(dpois(x = data$size, lambda = mu, log = TRUE))
-}
-growth_start = function(data) {
-  c(log_K = log(max(data$size)), log_r = log(0.1),
-    t0 = median(data$time))
-}
+$$
+Y_i \sim \operatorname{Normal}\left(f(x_i),\,\sigma^2\right),
+\qquad
+f(x)=\frac{ax}{b+x},
+\qquad i=1,\ldots,23,
+$$
 
-fit_logistic = optim(
-  par = growth_start(population), fn = growth_nll,
-  data = population, curve = logistic_mean,
-  method = "BFGS", hessian = TRUE
+where $a$ is the asymptote, the maximum rate of the reaction (counts/min/min), $b$ is the
+half-maximum, the concentration at which the rate is $a/2$ (ppm), and $\sigma$ is the
+standard deviation of the rates around the curve (counts/min/min). The mean of a Normal
+distribution can take any value, and the curve is positive anyway for positive $a$ and
+$b$. All three parameters are positive, so we optimise their logarithms.
+
+The list of data holds the concentration, the rate and the number of the state of each
+observation, which question 2 needs. `as.numeric()` of a factor returns the position of
+each level, so 1 is a treated cell and 2 an untreated cell. Question 6 checks the model
+that the criteria prefer, which we do not know yet, so we mark the rates with `OBS()` in
+both NLLs:
+
+```{r}
+# Load the data and put the concentration (ppm), the rate (counts/min/min) and the number
+# of the state of each observation (1 treated, 2 untreated) in a list of data.
+data(Puromycin, package = "datasets")
+levels(Puromycin$state)
+enzyme_data = list(
+  conc = Puromycin$conc,
+  rate = Puromycin$rate,
+  state = as.numeric(Puromycin$state)
 )
-fit_gompertz = optim(
-  par = growth_start(population), fn = growth_nll,
-  data = population, curve = gompertz_mean,
-  method = "BFGS", hessian = TRUE
+
+# Negative log-likelihood of one Michaelis–Menten curve for both states.
+pooled_nll = function(parms, data) {
+  getAll(parms, data)
+  rate = OBS(rate)
+  a = exp(log_a)
+  b = exp(log_b)
+  sigma = exp(log_sigma)
+  mu = a * conc / (b + conc)
+  -sum(dnorm(x = rate, mean = mu, sd = sigma, log = TRUE))
+}
+```
+
+As starting values we take an asymptote of 190 counts/min/min, between the two values read
+by eye, the half-maximum of 0.06 ppm read by eye and a standard deviation of 10
+counts/min/min:
+
+```{r}
+# Starting values, process the NLL and fit it.
+pooled_start = list(log_a = log(190), log_b = log(0.06), log_sigma = log(10))
+pooled_obj = MakeADFun(cmb(pooled_nll, enzyme_data), pooled_start, silent = TRUE)
+pooled_fit = optim(
+  par = pooled_obj$par,
+  fn = pooled_obj$fn,
+  gr = pooled_obj$gr,
+  method = "BFGS"
 )
-c(logistic = fit_logistic$convergence,
-  Gompertz = fit_gompertz$convergence)
-c(K = exp(fit_logistic$par["log_K"]),
-  r = exp(fit_logistic$par["log_r"]),
-  t0 = fit_logistic$par["t0"])
+pooled_fit$convergence
 
-time_grid = seq(min(population$time), max(population$time),
-                length.out = 200)
-lines(time_grid, logistic_mean(time_grid,
-      exp(fit_logistic$par["log_K"]),
-      exp(fit_logistic$par["log_r"]), fit_logistic$par["t0"]),
-      lty = 1)
-lines(time_grid, gompertz_mean(time_grid,
-      exp(fit_gompertz$par["log_K"]),
-      exp(fit_gompertz$par["log_r"]), fit_gompertz$par["t0"]),
-      lty = 2)
-legend("bottomright", c("Logistic", "Gompertz"),
-       lty = c(1, 2), bty = "n")
+# Estimates on the original scale: a and sigma in counts/min/min, b in ppm.
+exp(pooled_fit$par)
+```
 
-se_log_K = sqrt(solve(fit_logistic$hessian)["log_K", "log_K"])
-K_interval = exp(fit_logistic$par["log_K"] +
-                   c(-1, 1) * qnorm(p = 0.975) * se_log_K)
-K_interval
+The fit converged, with $\hat a\approx191$ counts/min/min, $\hat b\approx0.060$ ppm and
+$\hat\sigma\approx17.8$ counts/min/min. We draw the curve over the data
+(@fig-puromycin_pooled):
 
-data.frame(
-  model = c("Logistic", "Gompertz"),
-  AIC = 2 * c(fit_logistic$value, fit_gompertz$value) + 2 * 3,
-  BIC = 2 * c(fit_logistic$value, fit_gompertz$value) +
-    log(nrow(population)) * 3
+```{r}
+#| label: fig-puromycin_pooled
+#| fig-cap: "Rate of an enzymatic reaction against the concentration of the substrate in cells treated with puromycin (filled circles) and in untreated cells (open circles), with one Michaelis–Menten curve for both states fitted by maximum likelihood."
+# Michaelis–Menten function: asymptote a and half-maximum b.
+michaelis_menten = function(x, a = 1, b = 1) {
+  a * x / (b + x)
+}
+
+# Observations, with a filled symbol for the treated cells, and the fitted curve.
+plot(rate ~ conc, data = Puromycin,
+     pch = ifelse(Puromycin$state == "treated", 16, 1),
+     xlab = "Concentration of substrate (ppm)", ylab = "Rate (counts/min/min)")
+curve(michaelis_menten(x, a = exp(pooled_fit$par[["log_a"]]),
+                       b = exp(pooled_fit$par[["log_b"]])),
+      add = TRUE, col = "#D55E00")
+legend("bottomright", legend = c("treated", "untreated"), pch = c(16, 1), bty = "n")
+```
+
+The curve passes between the two groups: above 0.1 ppm, most treated cells lie above it and
+most untreated cells below it.
+
+### Question 2
+
+In the second model the parameter `log_a` is a vector with the logarithms of the two
+asymptotes, and `a[state]` selects the asymptote of the state of each observation. The NLL
+also asks for the difference between the two asymptotes with `ADREPORT()`, which we use in
+question 3. We start from the two asymptotes read by eye:
+
+```{r}
+# Negative log-likelihood with one asymptote for each state and a common b and sigma.
+state_nll = function(parms, data) {
+  getAll(parms, data)
+  rate = OBS(rate)
+  a = exp(log_a)
+  b = exp(log_b)
+  sigma = exp(log_sigma)
+  # Difference between the asymptotes of the treated and the untreated cells.
+  difference = a[1] - a[2]
+  ADREPORT(difference)
+  # a[state] is the asymptote of the state of each observation.
+  mu = a[state] * conc / (b + conc)
+  -sum(dnorm(x = rate, mean = mu, sd = sigma, log = TRUE))
+}
+
+# Starting values: the asymptotes read by eye (treated, untreated), b and sigma as before.
+state_start = list(log_a = log(c(210, 165)), log_b = log(0.06), log_sigma = log(10))
+state_obj = MakeADFun(cmb(state_nll, enzyme_data), state_start, silent = TRUE)
+state_fit = optim(
+  par = state_obj$par,
+  fn = state_obj$fn,
+  gr = state_obj$gr,
+  method = "BFGS"
+)
+state_fit$convergence
+
+# Estimates on the original scale.
+a_state = unname(exp(state_fit$par[names(state_fit$par) == "log_a"]))
+b_state = exp(state_fit$par[["log_b"]])
+sigma_state = exp(state_fit$par[["log_sigma"]])
+c(a_treated = a_state[1], a_untreated = a_state[2], b = b_state, sigma = sigma_state)
+```
+
+The fit converged. The asymptote is about 209 counts/min/min for the treated cells and 167
+for the untreated cells, the half-maximum is 0.058 ppm, and $\hat\sigma$ has fallen from
+17.8 to 9.9 counts/min/min (@fig-puromycin_state). With one curve for both states, the
+difference between the states is part of the spread of the rates around the curve. With
+one asymptote for each state the curves describe that difference, and the spread that
+remains is about half as large.
+
+```{r}
+#| label: fig-puromycin_state
+#| fig-cap: "The same observations with a Michaelis–Menten curve for each state, with separate asymptotes and a common half-maximum, fitted by maximum likelihood: treated cells (filled circles, solid line) and untreated cells (open circles, dashed line)."
+# Observations and one fitted curve for each state.
+plot(rate ~ conc, data = Puromycin,
+     pch = ifelse(Puromycin$state == "treated", 16, 1),
+     xlab = "Concentration of substrate (ppm)", ylab = "Rate (counts/min/min)")
+curve(michaelis_menten(x, a = a_state[1], b = b_state), add = TRUE, lty = 1, col = "#D55E00")
+curve(michaelis_menten(x, a = a_state[2], b = b_state), add = TRUE, lty = 2, col = "#D55E00")
+legend("bottomright", legend = c("treated", "untreated"),
+       pch = c(16, 1), lty = c(1, 2), bty = "n")
+```
+
+### Question 3
+
+The row `difference` of the summary of `sdreport()` holds the estimate and the standard
+error of the difference. A difference between two asymptotes can be positive or negative
+and has no bound, so we calculate the Wald interval on the original scale, as for the
+difference between two probabilities in the Chapter 4 practical:
+
+```{r}
+# Standard errors, and the 95% Wald interval of the difference between the asymptotes.
+state_sd = sdreport(state_obj)
+state_summary = summary(state_sd)
+state_summary
+state_summary["difference", "Estimate"] +
+  c(-1, 1) * critical_value * state_summary["difference", "Std. Error"]
+```
+
+The asymptote of the treated cells is higher by 42 counts/min/min, with a 95% Wald
+interval from 31 to 54 counts/min/min. So in this model the treatment with puromycin raises
+the maximum rate of the reaction by about a quarter ($208.6/166.6\approx1.25$), while the
+concentration at which the reaction reaches half of its maximum rate is the same in both
+states. That the half-maximum is shared is an assumption of the model; a model with one
+$b$ for each state could be fitted and compared with it in the same way as in question 5.
+
+### Question 4
+
+We profile $\log(b)$ and transform the endpoints back with `exp()`, and we calculate the
+Wald interval from the row `log_b`, on the log scale, with its endpoints transformed back:
+
+```{r}
+#| warning: false
+# Profile of log(b) and its 95% interval, transformed back (ppm). confint() warns about
+# repeated values, as in Exercise 1.
+state_profile_b = TMB::tmbprofile(state_obj, name = "log_b", trace = FALSE)
+rbind(
+  profile = exp(confint(state_profile_b))[1, ],
+  wald = exp(
+    state_summary["log_b", "Estimate"] +
+      c(lower = -1, upper = 1) * critical_value * state_summary["log_b", "Std. Error"]
+  )
 )
 ```
 
-The Gompertz model has the lower full-data AIC and BIC here, by about
-3.2 points on each score. This is a comparison of the two Poisson
-working models, not evidence that their independence assumption holds.
+The likelihood profile interval goes from 0.047 to 0.071 ppm and the Wald interval from
+0.048 to 0.071 ppm, so the two agree to the second decimal. The difference from the reed
+frogs is in the design. The concentrations of the experiment go from 0.02 to 1.1 ppm, about
+19 times the half-maximum, so the observations cover the rise of the curve and also the
+part where it levels off. Both parameters are then well determined, and the log-likelihood
+is close to a parabola on the log scale, which is the approximation behind the Wald
+interval. In the reed frog experiment the densities stopped below the half-maximum, so the
+tanks said little about the asymptote, and the profile of the handling time was strongly
+asymmetric.
 
-For future prediction, the assessment times must follow the
-training times. The later-time score asks whether a fitted early
-trajectory can predict later observations; a random split would
-allow later sizes to influence the fit used to predict earlier ones.
+### Question 5
 
-```r
-early = population[population$time <= 62, ]
-later = population[population$time > 62, ]
-early_logistic = optim(
-  par = growth_start(early), fn = growth_nll,
-  data = early, curve = logistic_mean, method = "BFGS"
-)
-early_gompertz = optim(
-  par = growth_start(early), fn = growth_nll,
-  data = early, curve = gompertz_mean, method = "BFGS"
-)
-stopifnot(early_logistic$convergence == 0,
-          early_gompertz$convergence == 0)
+The first model has $K=3$ parameters and the second $K=4$, and both are fitted to the same
+23 observations, so $n=23$ in AICc and BIC:
 
-predict_later = function(fit, curve) {
-  curve(later$time, exp(fit$par["log_K"]),
-        exp(fit$par["log_r"]), fit$par["t0"])
+```{r}
+# AIC, AICc and BIC of the two models, with n = 23 observations.
+n_enzyme = length(enzyme_data$rate)
+k_enzyme = c(pooled = 3, state = 4)
+nll_enzyme = c(pooled = pooled_fit$value, state = state_fit$value)
+aic_enzyme = 2 * k_enzyme + 2 * nll_enzyme
+aicc_enzyme = aic_enzyme + 2 * k_enzyme * (k_enzyme + 1) / (n_enzyme - k_enzyme - 1)
+bic_enzyme = k_enzyme * log(n_enzyme) + 2 * nll_enzyme
+rbind(aic = aic_enzyme, aicc = aicc_enzyme, bic = bic_enzyme)
+```
+
+For leave-one-out cross-validation we need to fit each model 23 times, each time without
+one observation. As in the theory, we write a function that fits a model to a list of data
+from given starting values, a function that keeps some of the observations in the list of
+data, and a list with the NLL and the starting values of each model:
+
+```{r}
+# Fit one model to one list of data, from the given starting values.
+fit_model = function(nll, start, data) {
+  obj = MakeADFun(cmb(nll, data), start, silent = TRUE)
+  optim(par = obj$par, fn = obj$fn, gr = obj$gr, method = "BFGS")
 }
+
+# Keep only the given observations in the list of data.
+subset_observations = function(data, rows) {
+  data$conc = data$conc[rows]
+  data$rate = data$rate[rows]
+  data$state = data$state[rows]
+  data
+}
+
+# The NLL and the starting values of each model.
+enzyme_models = list(
+  pooled = list(nll = pooled_nll, start = pooled_start),
+  state = list(nll = state_nll, start = state_start)
+)
+```
+
+In the theory we scored the held-out tank by calling the NLL directly with
+`as.list(fit$par)`. Here that does not work for the second model, because its parameter
+`log_a` is a vector, and `as.list()` would split it into two elements with the same name.
+Instead we process the NLL for the held-out observation with `MakeADFun()` and evaluate its
+function `fn` at the estimates, which takes the vector of estimates as it is. The result is
+the NLL of the held-out observation, that is, minus its log density under the model fitted
+to the other 22:
+
+```{r}
+# Leave-one-out log score of each model: fit to 22 observations, score the one held out.
+loo_enzyme = c(pooled = NA, state = NA)
+n_failed = 0
+for (m in seq_along(enzyme_models)) {
+  score = 0
+  for (i in seq_len(n_enzyme)) {
+    fit = fit_model(
+      enzyme_models[[m]]$nll,
+      enzyme_models[[m]]$start,
+      subset_observations(enzyme_data, -i)
+    )
+    n_failed = n_failed + (fit$convergence != 0)
+    # The NLL of the held-out observation at these estimates is minus its log density.
+    heldout_obj = MakeADFun(
+      cmb(enzyme_models[[m]]$nll, subset_observations(enzyme_data, i)),
+      enzyme_models[[m]]$start,
+      silent = TRUE
+    )
+    score = score - heldout_obj$fn(fit$par)
+  }
+  loo_enzyme[m] = score
+}
+n_failed
+loo_enzyme
+```
+
+All 46 fits converged. Every criterion prefers the model with one asymptote for each state:
+by 25.1 units of AIC, 24.1 of AICc and 24.0 of BIC, and by 11.8 units of log score, which
+corresponds to about 24 units on the scale of AIC. The criteria agree, and by a wide margin:
+the extra parameter improves the fit far more than any of the penalties, and the model
+with one asymptote for each state also predicts held-out observations better. This agrees
+with the halving of $\hat\sigma$ in question 2.
+
+### Question 6
+
+We simulate from the model with one asymptote for each state, as in Exercise 1. The
+expected rate of each observation is the curve of its state at its concentration. As well
+as the quantile–quantile plot, which `DHARMa::plotQQunif()` draws on its own, we draw the
+residuals against the concentration with `DHARMa::plotResiduals()`:
+
+```{r}
+#| fig-width: 5
+#| fig-height: 4.5
+# 1,000 hypothetical samples of the 23 rates at the estimates.
+state_simulations = matrix(NA, nrow = n_enzyme, ncol = n_sim)
+set.seed(seed = 621)
+for (j in seq_len(n_sim)) {
+  state_simulations[, j] = state_obj$simulate(state_fit$par)$rate
+}
+
+# Expected rate of each observation, and the scaled quantile residuals.
+state_expected = michaelis_menten(enzyme_data$conc, a = a_state[enzyme_data$state],
+                                  b = b_state)
+state_residuals = DHARMa::createDHARMa(
+  simulatedResponse = state_simulations,
+  observedResponse = enzyme_data$rate,
+  fittedPredictedResponse = state_expected,
+  integerResponse = FALSE
+)
+
+# Quantile-quantile plot, and residuals against the concentration of the substrate.
+DHARMa::plotQQunif(state_residuals)
+DHARMa::plotResiduals(state_residuals, form = enzyme_data$conc)
+```
+
+The quantile–quantile plot follows the line, so the residuals as a whole are close to
+uniform. Against the concentration they show a pattern: they tend to lie above 0.5 at the
+lowest concentration and at the two highest, and below 0.5 at the intermediate
+concentrations. That is, the observed rates lie above the curves at both ends and below
+them in the middle, as if the rate bent towards its maximum more gradually than a
+Michaelis–Menten curve can. However, there are only three or four observations at each
+concentration, and a pattern of this size can arise by chance with 23 observations (DHARMa
+draws one quartile in red, but its combined test does not flag the pattern), so the plot is
+a hint and not a conclusion. If the question required it, a curve with a third
+parameter that changes how gradually the curve bends could be fitted and compared with the
+criteria of question 5.
+
+# Exercise 3: Fecundity of fir trees
+
+The data set `FirDBHFec_sum` in the package `emdbook` contains the diameter at breast
+height (`DBH`, in cm) and the fecundity (`fecundity`) of 333 balsam fir trees (*Abies
+balsamea*) on Whiteface Mountain, New York (Silvertown and Dodd 1999; Dodd and Silvertown
+2000). Fecundity was measured as the number of cone rachises on a tree: the rachis is the
+axis of a cone, which stays on the branch after the cone has fallen apart. Load the data
+with `data(FirDBHFec_sum, package = "emdbook")`.
+
+In Exercise 7 of the Chapter 5 practical we described the mean fecundity with a
+[power law](../../Supplements/deterministic-functions.qmd#sec-fn-power),
+$\mu(x)=ax^b$, where $x$ is the diameter, and read $a=0.5$ and $b=2$ from two points of the
+cloud. The trees come from two populations (the column `pop`). We do not model this
+grouping: we treat the trees as independent observations of one curve, which is a
+simplification ([Chapter 7](../../Chapter_7/Theory.qmd) deals with observations that come
+in groups).
+
+1. Remove the trees with a missing diameter or fecundity explicitly, and count the trees
+   that remain. Why can a missing value not be replaced by zero? Some fecundities are not
+   whole numbers: find them and decide what to do with them before you fit a model for
+   counts.
+2. Write a [Poisson](../../Supplements/distributions.qmd#sec-poisson) model whose mean
+   follows the power law, with the units of $a$. Fit it from the values read by eye in
+   the Chapter 5 practical, and check it with scaled quantile residuals from DHARMa.
+3. Fit a [Negative Binomial](../../Supplements/distributions.qmd#sec-negative_binomial)
+   model with the same curve, with `dnbinom2()` of RTMBdist (mean and shape $k$). Check
+   that the fit reaches the same maximum from another set of starting values. Check its
+   residuals, and draw the curves of both models over the data.
+4. Compare the two models with AIC, AICc and BIC.
+5. For the model that the criteria prefer, calculate the likelihood profile interval of the
+   exponent $b$. Ask for the factor $2^b$, by which the mean fecundity changes when the
+   diameter doubles, with `ADREPORT()`, and calculate its 95% Wald interval. Compare it with
+   the interval obtained by transforming the endpoints of the profile interval of $b$. Do
+   the data support a fecundity proportional to the cross-sectional area of the trunk
+   ($b=2$)?
+
+## Solution
+
+### Question 1
+
+We count the missing values in each column with `is.na()`, keep the trees for which both
+are known, and look for fecundities that are not whole numbers:
+
+```{r}
+# Load the fir data and count the missing diameters and fecundities.
+data(FirDBHFec_sum, package = "emdbook")
+nrow(FirDBHFec_sum)
+colSums(is.na(FirDBHFec_sum[, c("DBH", "fecundity")]))
+
+# Keep the trees with both a diameter and a fecundity.
+complete = !is.na(FirDBHFec_sum$DBH) & !is.na(FirDBHFec_sum$fecundity)
+fir = FirDBHFec_sum[complete, ]
+nrow(fir)
+
+# Fecundities that are not whole numbers.
+fir$fecundity[fir$fecundity != round(fir$fecundity)]
+```
+
+The diameter is missing for 22 trees and the fecundity for none, so 311 trees remain. A
+missing value means that the quantity was not recorded. Replacing it by zero would add
+observations that were never made (a tree with a diameter of zero, or without any cones)
+and would pull the curve towards them. Removing the incomplete rows assumes instead that
+whether a value was recorded does not depend on the fecundity of the tree.
+
+Six fecundities are not whole numbers, for example 206.5. The help page does not explain
+them, but in the full data set `FirDBHFec` of the same package the yearly counts of these
+six trees include fractions (such as 32.5 cones in one year). The Poisson and Negative
+Binomial distributions describe whole numbers, so we round the six values to the nearest
+whole number, which changes each of them by at most half a rachis. The list of data holds
+the diameter (cm) and the number of rachises:
+
+```{r}
+# Diameter (cm) and fecundity, rounded to whole numbers of rachises.
+fir_data = list(dbh = fir$DBH, cones = round(fir$fecundity))
+```
+
+### Question 2
+
+Let $Y_i$ be the number of rachises of tree $i$ and $x_i$ its diameter. The model is
+
+$$
+Y_i \sim \operatorname{Poisson}\left(\mu(x_i)\right),
+\qquad
+\mu(x)=a\,x^b,
+\qquad i=1,\ldots,311.
+$$
+
+The mean of a Poisson distribution must be positive, and the power law is positive for any
+$b$ when $a$ and $x$ are positive, so we optimise $\log(a)$ and leave the exponent $b$
+untransformed: it can take any real value. The units of $a$ follow from the curve: $ax^b$
+is a number of rachises and $x^b$ is in cm$^b$, so $a$ is in rachises/cm$^b$, units that
+depend on the estimate of the exponent (rachises/cm² for $b=2$). This makes $a$ hard to
+interpret on its own, and we will interpret $b$ and quantities calculated from it. We mark
+the counts with `OBS()` for the residuals and start from the values read by eye:
+
+```{r}
+# Negative log-likelihood of the power law with a Poisson observation model.
+poisson_nll = function(parms, data) {
+  getAll(parms, data)
+  cones = OBS(cones)
+  a = exp(log_a)
+  # Mean number of rachises of a tree of each diameter.
+  mu = a * dbh^b
+  -sum(dpois(x = cones, lambda = mu, log = TRUE))
+}
+
+# Process the NLL from the values read by eye in the Chapter 5 practical, and fit it.
+poisson_obj = MakeADFun(
+  cmb(poisson_nll, fir_data),
+  list(log_a = log(0.5), b = 2),
+  silent = TRUE
+)
+poisson_fit = optim(
+  par = poisson_obj$par,
+  fn = poisson_obj$fn,
+  gr = poisson_obj$gr,
+  method = "BFGS"
+)
+poisson_fit$convergence
+c(a = exp(poisson_fit$par[["log_a"]]), b = poisson_fit$par[["b"]])
+```
+
+The fit converged, with $\hat b\approx1.98$, close to the exponent of 2 read by eye. We
+simulate 1,000 hypothetical samples of the 311 trees and calculate the residuals. The
+counts are whole numbers, so `integerResponse = TRUE`:
+
+```{r}
+#| label: fig-fir_poisson_residuals
+#| fig-width: 9
+#| fig-height: 4.5
+#| fig-cap: "Scaled quantile residuals of the Poisson model with a power law for the fecundity of 311 fir trees, from 1,000 hypothetical samples. Stars mark trees whose counts lie outside the range of their simulated values."
+# Power law: a is the value at x = 1 and b is the exponent.
+power_law = function(x, a = 1, b = 1) {
+  a * x^b
+}
+
+# 1,000 hypothetical samples of the 311 trees at the estimates.
+n_trees = length(fir_data$cones)
+poisson_simulations = matrix(NA, nrow = n_trees, ncol = n_sim)
+set.seed(seed = 631)
+for (j in seq_len(n_sim)) {
+  poisson_simulations[, j] = poisson_obj$simulate(poisson_fit$par)$cones
+}
+
+# Scaled quantile residuals and the two standard panels.
+poisson_residuals = DHARMa::createDHARMa(
+  simulatedResponse = poisson_simulations,
+  observedResponse = fir_data$cones,
+  fittedPredictedResponse = power_law(fir_data$dbh, a = exp(poisson_fit$par[["log_a"]]),
+                                      b = poisson_fit$par[["b"]]),
+  integerResponse = TRUE
+)
+plot(poisson_residuals)
+
+# Trees outside the range of their simulations, and the dispersion statistic.
+sum(poisson_residuals$scaledResiduals %in% c(0, 1))
+DHARMa::testDispersion(poisson_residuals, plot = FALSE)$statistic
+```
+
+The Poisson model does not describe these data. The residuals are far from uniform: most of
+them are close to 0 or 1, and 147 of the 311 trees have counts outside the range of all
+their 1,000 simulated values. The dispersion statistic is about 23, so the counts vary
+around the curve about 23 times as much (as a variance) as the Poisson distribution allows.
+Trees of the same diameter differ in fecundity for many reasons that the curve does not
+contain, and the Poisson model, whose variance equals its mean, leaves no room for them.
+
+### Question 3
+
+The Negative Binomial model keeps the curve for the mean and adds the shape $k$, which is
+positive, so we optimise $\log(k)$. `dnbinom2()` of RTMBdist takes the mean in `mu` and the
+shape in `size`. The NLL also asks for the factor $2^b$ with `ADREPORT()`, which we use in
+question 5. We start from the values by eye and a shape of 1:
+
+```{r}
+# Negative log-likelihood of the power law with a Negative Binomial observation model.
+nbinom_nll = function(parms, data) {
+  getAll(parms, data)
+  cones = OBS(cones)
+  a = exp(log_a)
+  k = exp(log_k)
+  # Factor by which the mean fecundity changes when the diameter doubles.
+  doubling_factor = 2^b
+  ADREPORT(doubling_factor)
+  mu = a * dbh^b
+  -sum(dnbinom2(x = cones, mu = mu, size = k, log = TRUE))
+}
+
+# Process the NLL from the values read by eye and a shape of 1, and fit it.
+nbinom_obj = MakeADFun(
+  cmb(nbinom_nll, fir_data),
+  list(log_a = log(0.5), b = 2, log_k = log(1)),
+  silent = TRUE
+)
+nbinom_fit = optim(
+  par = nbinom_obj$par,
+  fn = nbinom_obj$fn,
+  gr = nbinom_obj$gr,
+  method = "BFGS"
+)
+nbinom_fit$convergence
+c(a = exp(nbinom_fit$par[["log_a"]]), b = nbinom_fit$par[["b"]],
+  k = exp(nbinom_fit$par[["log_k"]]))
+```
+
+A convergence code of zero means that the optimiser stopped where it could no longer lower
+the NLL, which is not always the maximum of the likelihood
+([Chapter 8](../../Chapter_8/Theory.qmd) explains why). A simple check is to fit the model
+again from other starting values and compare the minima of the NLL. We use the function
+`fit_model()` of Exercise 2:
+
+```{r}
+# The same model from other starting values: the minimum and the estimates.
+nbinom_check = fit_model(
+  nbinom_nll,
+  list(log_a = -2, b = 2.5, log_k = 1),
+  fir_data
+)
+c(convergence = nbinom_check$convergence, nll = nbinom_check$value,
+  nll_first = nbinom_fit$value)
+nbinom_check$par
+```
+
+Both fits reach the same minimum of the NLL, 1445.53, with the same estimates to the second
+decimal, so this is the maximum of the likelihood. The estimates are $\hat b\approx1.80$
+and $\hat k\approx1.84$. We check the residuals as for the Poisson model:
+
+```{r}
+#| label: fig-fir_nbinom_residuals
+#| fig-width: 9
+#| fig-height: 4.5
+#| fig-cap: "Scaled quantile residuals of the Negative Binomial model with a power law for the fecundity of 311 fir trees, from 1,000 hypothetical samples."
+# 1,000 hypothetical samples of the 311 trees at the estimates.
+nbinom_simulations = matrix(NA, nrow = n_trees, ncol = n_sim)
+set.seed(seed = 632)
+for (j in seq_len(n_sim)) {
+  nbinom_simulations[, j] = nbinom_obj$simulate(nbinom_fit$par)$cones
+}
+
+# Scaled quantile residuals, the two standard panels and the dispersion statistic.
+nbinom_residuals = DHARMa::createDHARMa(
+  simulatedResponse = nbinom_simulations,
+  observedResponse = fir_data$cones,
+  fittedPredictedResponse = power_law(fir_data$dbh, a = exp(nbinom_fit$par[["log_a"]]),
+                                      b = nbinom_fit$par[["b"]]),
+  integerResponse = TRUE
+)
+plot(nbinom_residuals)
+DHARMa::testDispersion(nbinom_residuals, plot = FALSE)$statistic
+```
+
+The Negative Binomial model describes the variation among trees far better. The
+quantile–quantile plot follows the line, and only one tree (the star) lies outside the
+range of its simulations. A smaller disagreement remains. The dispersion statistic is below
+one, so the counts vary around the curve somewhat less than the model allows, and in the
+right panel the lower quartile of the residuals rises from below 0.25 for the trees with
+the smallest expected fecundity to above 0.25 for the largest: large trees seldom have the
+very low counts that the model expects for some of them. Under a Negative Binomial model
+with one shape the variance, $\mu+\mu^2/k$, grows with the square of the mean, and the
+residuals suggest that the variation among the largest trees grows less than that. A possible
+revision would let the shape depend on the diameter. For the questions of this exercise,
+which concern the curve, the remaining disagreement is small compared with that of the
+Poisson model.
+
+Both curves are drawn over the data in @fig-fir_curves:
+
+```{r}
+#| label: fig-fir_curves
+#| fig-cap: "Fecundity of 311 balsam fir trees against their diameter at breast height, with the power law fitted by maximum likelihood under a Negative Binomial model (solid line) and under a Poisson model (dashed line)."
+# Observations and the two fitted curves.
+plot(fecundity ~ DBH, data = fir,
+     xlab = "Diameter at breast height (cm)", ylab = "Fecundity (cone rachises)")
+curve(power_law(x, a = exp(nbinom_fit$par[["log_a"]]), b = nbinom_fit$par[["b"]]),
+      add = TRUE, lty = 1, col = "#D55E00")
+curve(power_law(x, a = exp(poisson_fit$par[["log_a"]]), b = poisson_fit$par[["b"]]),
+      add = TRUE, lty = 2)
+legend("topleft", legend = c("Negative Binomial", "Poisson"),
+       lty = c(1, 2), col = c("#D55E00", "black"), bty = "n")
+```
+
+The two curves are almost the same for trees up to about 10 cm, and above that the
+Negative Binomial curve lies below the Poisson curve. The two models weight the trees
+differently. Under the
+Negative Binomial model the variance grows with the square of the mean, so the large counts
+of the largest trees are less informative about the curve than under the Poisson model,
+whose variance grows only in proportion to the mean.
+
+### Question 4
+
+The Poisson model has $K=2$ parameters and the Negative Binomial model $K=3$, and $n$ is the
+number of trees, 311:
+
+```{r}
+# AIC, AICc and BIC of the two models, with n = 311 trees.
+k_fir = c(poisson = 2, nbinom = 3)
+nll_fir = c(poisson = poisson_fit$value, nbinom = nbinom_fit$value)
+aic_fir = 2 * k_fir + 2 * nll_fir
+aicc_fir = aic_fir + 2 * k_fir * (k_fir + 1) / (n_trees - k_fir - 1)
+bic_fir = k_fir * log(n_trees) + 2 * nll_fir
+rbind(aic = aic_fir, aicc = aicc_fir, bic = bic_fir)
+```
+
+All three criteria prefer the Negative Binomial model by about 5,000 units. With 311 trees
+the correction of AICc is negligible, and the extra cost of the shape in BIC ($\log(311)$
+instead of 2) is tiny compared with the difference in log-likelihood. The comparison agrees
+with the residuals of questions 2 and 3.
+
+### Question 5
+
+The exponent is not transformed in the NLL, so `confint()` of its profile gives the
+interval of $b$ directly. The factor $2^b$ is in the summary of `sdreport()`, and the
+function $2^b$ increases with $b$, so the endpoints of the interval of $b$ give an interval
+for $2^b$ in the same order:
+
+```{r}
+#| warning: false
+# Standard errors, and the correlation between the estimates.
+nbinom_sd = sdreport(nbinom_obj)
+nbinom_summary = summary(nbinom_sd)
+nbinom_summary
+cov2cor(nbinom_sd$cov.fixed)
+
+# Profile of b and its 95% interval (confint() warns about repeated values, as before).
+nbinom_profile_b = TMB::tmbprofile(nbinom_obj, name = "b", trace = FALSE)
+b_interval_fir = confint(nbinom_profile_b)
+b_interval_fir
+
+# 95% intervals for 2^b: Wald from ADREPORT(), and from the profile interval of b.
+rbind(
+  wald = nbinom_summary["doubling_factor", "Estimate"] +
+    c(lower = -1, upper = 1) * critical_value *
+      nbinom_summary["doubling_factor", "Std. Error"],
+  profile = 2^b_interval_fir[1, ]
+)
+```
+
+The exponent is estimated at 1.80, with a likelihood profile interval from 1.55 to 2.05.
+When the diameter doubles, the mean fecundity is multiplied by about 3.5, with a Wald
+interval from 2.9 to 4.1 and an interval from the profile of $b$ from 2.9 to 4.2. The two
+intervals are close, because $2^b$ is almost a straight line over the interval of $b$.
+The estimates of $\log(a)$ and $b$ are almost perfectly correlated ($-0.99$), because $a$
+is the mean fecundity of a tree with a diameter of 1 cm, far below the smallest tree of the
+data, so any change in the exponent must be compensated by a change in $a$ for the curve to
+pass through the trees.
+
+The value $b=2$, for which the fecundity would be proportional to the cross-sectional area
+of the trunk, lies inside the interval of $b$, close to its upper end. So the data do not
+rule out this proportionality, but they favour a smaller exponent, for which the mean
+fecundity increases by a factor of about 3.5 and not 4 when the diameter doubles. Note that
+the Poisson model, with $\hat b\approx1.98$, would have suggested an exponent of 2 with an
+interval that is much too narrow, because it treats the trees as far less variable than
+they are.
+
+# Exercise 4: Coverage of an interval for the time of the peak
+
+This exercise is extra practice. In Exercise 1 the Wald interval and the likelihood profile
+interval for the time of the peak differed, and from one sample we cannot tell how often
+either of them contains the time of the peak of the data generating process. As in
+Exercise 5 of the [Chapter 4 practical](../../Chapter_4/Practicals/no_solution.qmd), we
+can find out by simulating hypothetical samples from a model whose parameters we know:
+here the Normal model fitted in Exercise 1, with the estimates as its parameters (see
+"Coverage checked by simulation" in
+[Chapter 4](../../Chapter_4/Theory.qmd#sec-likelihood-uncertainty)). This exercise
+continues with the objects of Exercise 1. The function that runs the simulation is given
+below the questions with two gaps, which you fill in.
+
+1. Complete the first gap of the function `simulate_peak_time()` below. Set seed 641 and
+   simulate 2,000 hypothetical samples of the 27 titres, on the same days, from the fitted
+   Normal model. Each sample is fitted from the values read by eye, as the data were. How
+   many fits failed? Calculate the bias of the estimator of the time of the peak, with its
+   Monte Carlo standard error, and compare the standard deviation of the estimates with
+   the standard error of Exercise 1.
+2. Complete the second gap, which calculates the 95% Wald interval for the time of the
+   peak from the row of `ADREPORT()`, and calculate the coverage of the interval with its
+   Monte Carlo standard error. (The coverage of the likelihood profile interval would need
+   `tmbprofile()` in every sample, which takes much longer, so we do not simulate it
+   here.)
+3. In how many samples does the interval lie entirely below the time of the peak that was
+   used to simulate, and in how many entirely above it? What does this suggest, given the
+   two intervals of question 3 of Exercise 1?
+4. Why do these results only approximate the behaviour of the interval for the real
+   rabbits?
+
+The function below needs `normal_nll()`, `normal_obj`, `normal_fit`, `titre_data` and
+`titre_start` from Exercise 1, the helper `cmb()`, and the object `critical_value` (the
+critical value of the standard Normal distribution for a 95% interval). It draws every
+sample with the function `simulate()` of the fitted object, and stores the results of
+every sample in one row of a data frame. In each gap, replace `NA` by your own code. The
+lines that follow a gap use the names of the objects that the gap creates, so keep those
+names.
+
+```{r}
+#| eval: false
+# Hypothetical samples of the 27 titres from the Normal model fitted in Exercise 1. For
+# each sample: the estimate of the time of the peak, its 95% Wald interval, and whether
+# the fit converged.
+simulate_peak_time = function(n_samples) {
+  results = data.frame(
+    estimate = rep(NA, times = n_samples),
+    lower = rep(NA, times = n_samples),
+    upper = rep(NA, times = n_samples),
+    converged = rep(NA, times = n_samples)
+  )
+  for (i in seq_len(n_samples)) {
+    # One hypothetical sample: titres on the same days, simulated at the estimates.
+    titre_sim = normal_obj$simulate(normal_fit$par)$titre
+
+    # GAP 1: connect normal_nll() to the days and the simulated titres and process it
+    # with MakeADFun(), starting from titre_start, and store the result in an object
+    # called sim_obj. Then fit it with optim() and method = "BFGS", and store the result
+    # in an object called sim_fit.
+    sim_obj = NA
+    sim_fit = NA
+
+    # GAP 2: from the row peak_time of summary(sdreport(sim_obj), select = "report"),
+    # the estimate of the time of the peak and the endpoints of its 95% Wald interval on
+    # the original scale, in objects called estimate, lower and upper.
+    estimate = NA
+    lower = NA
+    upper = NA
+
+    results$estimate[i] = estimate
+    results$lower[i] = lower
+    results$upper[i] = upper
+    results$converged[i] = sim_fit$convergence == 0
+  }
+  results
+}
+```
+
+## Solution
+
+### Question 1
+
+Here is the function with its two gaps filled in. For each sample, gap 1 fits the model to
+the simulated titres exactly as Exercise 1 fitted it to the data, with `cmb()`,
+`MakeADFun()` and `optim()` from the values read by eye. Gap 2 takes the estimate and the
+standard error of the time of the peak from the row of `ADREPORT()` and calculates the Wald
+interval on the original scale, as in question 3 of Exercise 1:
+
+```{r}
+# Hypothetical samples of the 27 titres from the Normal model fitted in Exercise 1. For
+# each sample: the estimate of the time of the peak, its 95% Wald interval, and whether
+# the fit converged.
+simulate_peak_time = function(n_samples) {
+  results = data.frame(
+    estimate = rep(NA, times = n_samples),
+    lower = rep(NA, times = n_samples),
+    upper = rep(NA, times = n_samples),
+    converged = rep(NA, times = n_samples)
+  )
+  for (i in seq_len(n_samples)) {
+    # One hypothetical sample: titres on the same days, simulated at the estimates.
+    titre_sim = normal_obj$simulate(normal_fit$par)$titre
+
+    # Gap 1: fit the model to the simulated titres from the values read by eye.
+    sim_obj = MakeADFun(
+      cmb(normal_nll, list(day = titre_data$day, titre = titre_sim)),
+      titre_start,
+      silent = TRUE
+    )
+    sim_fit = optim(par = sim_obj$par, fn = sim_obj$fn, gr = sim_obj$gr, method = "BFGS")
+
+    # Gap 2: estimate and 95% Wald interval of the time of the peak, on the original scale.
+    sim_report = summary(sdreport(sim_obj), select = "report")
+    estimate = sim_report["peak_time", "Estimate"]
+    lower = estimate - critical_value * sim_report["peak_time", "Std. Error"]
+    upper = estimate + critical_value * sim_report["peak_time", "Std. Error"]
+
+    results$estimate[i] = estimate
+    results$lower[i] = lower
+    results$upper[i] = upper
+    results$converged[i] = sim_fit$convergence == 0
+  }
+  results
+}
+```
+
+The time of the peak that the samples are simulated from is $1/\hat b$ of Exercise 1. We
+run the simulation (about half a minute) and count the failed fits, both those with a
+convergence code other than zero and those for which `sdreport()` could not calculate a
+standard error:
+
+```{r}
+# 2,000 hypothetical samples from the model fitted in Exercise 1.
+set.seed(seed = 641)
+n_samples = 2000
+peak_samples = simulate_peak_time(n_samples)
+
+# Time of the peak used to simulate (days), and the number of failed fits.
+peak_time_sim = 1 / b_mle
+peak_time_sim
+sum(!peak_samples$converged | is.na(peak_samples$lower))
+```
+
+No fit failed. Had some failed, we would report how many and count them in the coverage
+(for example as intervals that miss), because leaving them out silently would hide the
+samples in which the method breaks down. The bias is the mean of the estimates minus the
+time of the peak used to simulate. Its Monte Carlo standard error, the standard error of a
+mean of 2,000 values, is the standard deviation of the estimates divided by
+$\sqrt{2000}$:
+
+```{r}
+# Bias of the estimator of the time of the peak, its Monte Carlo standard error, and the
+# standard deviation of the estimates next to the standard error of Exercise 1.
 c(
-  logistic = sum(dpois(x = later$size,
-    lambda = predict_later(early_logistic, logistic_mean), log = TRUE)),
-  Gompertz = sum(dpois(x = later$size,
-    lambda = predict_later(early_gompertz, gompertz_mean), log = TRUE))
+  bias = mean(peak_samples$estimate) - peak_time_sim,
+  mc_se_bias = sd(peak_samples$estimate) / sqrt(n_samples),
+  sd_estimates = sd(peak_samples$estimate),
+  se_exercise_1 = summary(normal_sd, select = "report")["peak_time", "Std. Error"]
 )
-
-set.seed(seed = 708)
-mu_logistic = logistic_mean(population$time,
-  exp(fit_logistic$par["log_K"]),
-  exp(fit_logistic$par["log_r"]), fit_logistic$par["t0"])
-sim_population = replicate(
-  500, rpois(n = nrow(population), lambda = mu_logistic)
-)
-scaled_population = DHARMa::createDHARMa(
-  simulatedResponse = sim_population,
-  observedResponse = population$size,
-  fittedPredictedResponse = mu_logistic,
-  integerResponse = TRUE
-)
-plot(scaled_population)
-DHARMa::plotResiduals(scaled_population,
-                      predictor = population$time)
 ```
 
-The later-time log scores are very close (about $-19.11$ for logistic
-and $-19.22$ for Gompertz). This one holdout provides little reason
-to prefer either curve for later-time prediction.
+The bias is 0.019 days, about two Monte Carlo standard errors (0.0085 days) from zero. So
+the estimator may be slightly biased upwards, but by about 0.3% of the time of the peak,
+which is negligible compared with its standard error. The standard deviation of the
+estimates across the hypothetical samples, 0.381 days, agrees with the standard error that
+`sdreport()` calculated from the curvature of the log-likelihood of the data, 0.383 days.
+With 27 observations the standard error describes the spread of the estimator well.
 
-The model assumes Poisson variation and conditional independence
-between recorded times. Successive sizes of the same population may
-instead be correlated, and measurement error may differ from Poisson
-variation. A residual trend or run of high and low values warrants
-further investigation. Even a quiet plot cannot establish
-independence with only 25 observations.
+### Question 2
 
-# Exercise 6: A mystery response curve
+The interval contains the time of the peak used to simulate when its lower endpoint is
+below that value and its upper endpoint above it. The coverage is the fraction of samples
+in which this is the case, and its Monte Carlo standard error is that of a proportion:
 
-The ecological context of `shapes5.csv` is deliberately withheld.
-Use `x` as the single predictor and `y` as the response. The `no`
-column is a row index; leave `group` out of this chapter's models.
-Do not infer a biological meaning for either field from its name.
-
-1. Load the file, examine missing values and the response's possible
-   values, and plot `y` against `x`. Propose a suitable observation
-   distribution and two plausible mean curves from the plotted shape.
-2. As one defensible comparison, fit independent Poisson counts with
-   either an [exponential](../../Supplements/deterministic-functions.qmd#sec-fn-exponential) $m_E(x)=a e^{-bx}$ or a
-   [hyperbolic](../../Supplements/deterministic-functions.qmd#sec-fn-hyperbolic) $m_H(x)=a/(1+bx)$, where $a,b>0$.
-   Estimate each model by maximum likelihood and plot both curves.
-3. Compare AIC and BIC, then calculate a 95% quadratic interval for
-   $b$ in the lower-AIC model. Interpret $b$ for that curve without
-   assigning an ecological meaning to the response.
-4. Simulate from that fitted model and inspect scaled residuals
-   against `x`. Explain what a poor residual pattern would mean for
-   your conclusion and why ignoring `group` limits this analysis.
-
-## Solution
-
-The response takes non-negative integer values, so a Poisson model
-is a reasonable **starting assumption**. The plotted decline supports
-trying both curves, but the context is unknown and neither curve
-should be given a biological interpretation from its shape alone.
-
-```r
-mystery = read.csv("../../Data/shapes5.csv")
-colSums(is.na(mystery))
-sort(unique(mystery$y))
-plot(mystery$x, mystery$y,
-     xlab = "Predictor x (recorded units)",
-     ylab = "Response count y")
-
-exp_mean = function(x, a, b) a * exp(-b * x)
-hyper_mean = function(x, a, b) a / (1 + b * x)
-
-mystery_nll = function(par, data, curve) {
-  a = exp(par[1])
-  b = exp(par[2])
-  mu = curve(data$x, a, b)
-  -sum(dpois(x = data$y, lambda = mu, log = TRUE))
-}
-
-start = c(log_a = log(mean(mystery$y[mystery$x < 1])),
-          log_b = log(0.2))
-fit_exponential = optim(
-  par = start, fn = mystery_nll, data = mystery,
-  curve = exp_mean, method = "BFGS", hessian = TRUE
-)
-fit_hyperbolic = optim(
-  par = start, fn = mystery_nll, data = mystery,
-  curve = hyper_mean, method = "BFGS", hessian = TRUE
-)
-c(exponential = fit_exponential$convergence,
-  hyperbolic = fit_hyperbolic$convergence)
-
-x_grid = seq(min(mystery$x), max(mystery$x), length.out = 200)
-lines(x_grid, exp_mean(x_grid, exp(fit_exponential$par[1]),
-                            exp(fit_exponential$par[2])), lty = 1)
-lines(x_grid, hyper_mean(x_grid, exp(fit_hyperbolic$par[1]),
-                              exp(fit_hyperbolic$par[2])), lty = 2)
-legend("topright", c("Exponential", "Hyperbolic"),
-       lty = c(1, 2), bty = "n")
-
-fits = list(exponential = fit_exponential,
-            hyperbolic = fit_hyperbolic)
-curves = list(exponential = exp_mean, hyperbolic = hyper_mean)
-scores = data.frame(
-  model = names(fits),
-  AIC = vapply(fits, function(fit) 2 * fit$value + 2 * 2, 0.0),
-  BIC = vapply(fits, function(fit) {
-    2 * fit$value + log(nrow(mystery)) * 2
-  }, 0.0)
-)
-scores
-chosen_name = scores$model[which.min(scores$AIC)]
-chosen_fit = fits[[chosen_name]]
-chosen_curve = curves[[chosen_name]]
-se_log_b = sqrt(solve(chosen_fit$hessian)["log_b", "log_b"])
-b_interval = exp(chosen_fit$par["log_b"] +
-                   c(-1, 1) * qnorm(p = 0.975) * se_log_b)
-b_interval
+```{r}
+# Coverage of the Wald interval, and its Monte Carlo standard error.
+covered = peak_samples$lower <= peak_time_sim & peak_time_sim <= peak_samples$upper
+coverage = mean(covered)
+c(coverage = coverage, mc_se = sqrt(coverage * (1 - coverage) / n_samples))
 ```
 
-The exponential has the lower AIC and BIC in this two-curve comparison.
-For its fitted $b$, the approximate quadratic interval is 0.305 to
-0.393 in inverse predictor units. Those numbers describe the pooled
-statistical relationship only.
+The coverage is 0.927, with a Monte Carlo standard error of 0.006, so it lies about four
+standard errors below the nominal 0.95. The Wald interval of the time of the peak contains
+the value used to simulate slightly less often than its confidence level states: with 27
+observations it is an approximation.
 
-For the exponential curve, $\log(2)/b$ is the predictor increase
-needed to halve its expected response. For the hyperbolic curve,
-$1/b$ is the predictor value at which its mean is half of $a$.
-Both AIC and BIC have the same penalty for these two-parameter
-models. A smaller score gives a preference within this comparison,
-subject to the Poisson assumption.
+### Question 3
 
-```r
-set.seed(seed = 709)
-mu_mystery = chosen_curve(mystery$x,
-  exp(chosen_fit$par["log_a"]), exp(chosen_fit$par["log_b"]))
-sim_mystery = replicate(
-  500, rpois(n = nrow(mystery), lambda = mu_mystery)
+An interval lies entirely below the value used to simulate when its upper endpoint is
+below that value, and entirely above it when its lower endpoint is above it:
+
+```{r}
+# Intervals that miss on each side of the time of the peak used to simulate.
+c(
+  below = sum(peak_samples$upper < peak_time_sim),
+  above = sum(peak_samples$lower > peak_time_sim)
 )
-scaled_mystery = DHARMa::createDHARMa(
-  simulatedResponse = sim_mystery,
-  observedResponse = mystery$y,
-  fittedPredictedResponse = mu_mystery,
-  integerResponse = TRUE
-)
-plot(scaled_mystery)
-DHARMa::plotResiduals(scaled_mystery, predictor = mystery$x)
 ```
 
-If the residuals are non-uniform or vary with `x`, the selected
-curve and Poisson distribution do not reproduce some aspect of the
-observed responses. The `group` column was intentionally excluded:
-this pooled fit cannot estimate differences between groups, and
-unmodelled group structure may affect fit and uncertainty.
+Of the 147 intervals that miss, 104 lie below the time of the peak used to simulate and 43
+above it. A good interval would miss about equally often on both sides (about 50 times on
+each side in 2,000 samples). The Wald interval is symmetric around the estimate, whereas
+in question 3 of Exercise 1 the likelihood profile interval extended further above the
+estimate than below it, which is what an interval needs in order to miss less often on the
+low side. This suggests that the profile interval would have a coverage closer to 95% and
+that it would miss more evenly on both sides. Only a simulation that calculates the profile
+interval in every sample could show this.
+
+### Question 4
+
+The simulation describes the behaviour of the interval when the data generating process is
+the fitted model: titres that follow a Ricker curve exactly, with the estimates of Exercise
+1 as its parameters, and that vary around it according to a Normal distribution with the
+same standard deviation on every day, independently of each other. The parameters of the
+process that generated the real titres are unknown and differ from the estimates, and the
+coverage would be somewhat different with other parameter values. The model is also an
+approximation: the residuals of Exercise 1 suggested that the titre levels off after its
+peak, which a Ricker curve cannot do, and the titres of the real rabbits need not be
+independent or Normal. With a misspecified model the properties of estimators and
+intervals change (see [Misspecified models](../../Chapter_4/Theory.qmd#sec-misspecified)),
+which this simulation does not explore. So the results approximate the behaviour of the
+interval for the real rabbits, and the approximation is better the closer the fitted model
+is to the data generating process.

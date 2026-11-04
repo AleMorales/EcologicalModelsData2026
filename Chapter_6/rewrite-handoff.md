@@ -839,6 +839,21 @@ Answered by the author on 4 November (decisions; later stages keep them):
 - **Three numbered Practice callouts** (`imp-seedlings-light`, `imp-ladybird-handling`,
   `imp-fruit-set`); the lecture adjusts its Practice slides to three.
 
+Added by Stage 3 (conservative choice applied; awaiting the author):
+
+- **Fir fecundities that are not whole numbers.** Six of the 311 trees have a fecundity such
+  as 206.5; `?FirDBHFec_sum` does not explain them, and in `FirDBHFec` the yearly counts of
+  these trees contain fractions (e.g. 32.5). Exercise 3 rounds them with `round()` (each
+  changes by at most half a rachis) and says why. Dropping them is the alternative.
+- **`solution.qmd` repeats the worked Exercise 1 in full**, as this plan asks ("contains all
+  four"), so that Exercise 4 can use its objects. The solution pages of Chapters 4 and 5
+  leave out their worked exercise and link to the student page instead.
+- **The Wald interval of the peak time is calculated on the original scale** (from
+  `ADREPORT(peak_time)`), as the plan's question 3 implies; Exercise 4 finds a coverage of
+  0.927 with misses mostly below the true value. A Wald interval from the log scale would
+  be the course's usual choice for a positive quantity; the exercise uses the original
+  scale because its lesson is the asymmetry that the profile interval captures.
+
 ## Progress log
 
 Each stage adds one line: date, stage, what is done, what is next.
@@ -900,3 +915,45 @@ Each stage adds one line: date, stage, what is done, what is next.
   0.00187 to 0.0376, $1/H$ 26.6 to 533. Citations added: Dunn and Smyth (1996), Hartig (DHARMa
   0.5.0, from `citation("DHARMa")`), Schwarz (1978), Stone (1977). Four questions added under
   "Open questions". Next: Stage 3.
+- 4 November 2026: Stage 3 done. `Chapter_6/Practicals/no_solution.qmd` (589 lines: opening,
+  worked Exercise 1, questions of Exercises 2 to 4 and the skeleton of
+  `simulate_peak_time()` with two gaps) and `solution.qmd` (1,380 lines: all four exercises;
+  the question blocks were copied from the student page and checked to be identical) replace
+  the old `shapes*.csv` practical. Both render with `--profile dev` (R 4.6.1, RTMB 2.0,
+  RTMBdist 1.1.0, TMB 1.9.25, emdbook 1.3.14, DHARMa 0.5.0): exit 0, no warnings, no stderr
+  output, no unresolved cross-references; every relative link and anchor exists. The
+  solution page takes about a minute (Exercise 4 about 30 s). Every number quoted in prose
+  was checked against the rendered output and every DHARMa plot was inspected. **Names:**
+  Exercise 1 `titre_data` (`day`, `titre`), `titre_start`, `normal_nll` (second version with
+  `OBS(titre)` and `ADREPORT()` of `peak_time` and `peak_titre`), `normal_obj`, `normal_fit`,
+  `normal_sd`, `normal_profile_b`, `a_mle`, `b_mle`, `sigma_mle`, `ricker()`,
+  `critical_value`, `n_sim`, `normal_simulations` (seed 611), `normal_residuals`,
+  `gamma_nll`, `gamma_obj`, `gamma_fit`; Exercise 2 `enzyme_data` (`conc`, `rate`, `state`),
+  `pooled_nll`/`state_nll` (both with `OBS()`; `state_nll` with `ADREPORT(difference)`),
+  `pooled_start`, `state_start`, `michaelis_menten()`, `fit_model()`,
+  `subset_observations()`, `enzyme_models`, `state_profile_b`, `state_simulations` (seed
+  621); Exercise 3 `fir`, `fir_data` (`dbh`, `cones` rounded), `power_law()`,
+  `poisson_nll`, `nbinom_nll` (with `ADREPORT(doubling_factor)`), `poisson_simulations`
+  (seed 631), `nbinom_simulations` (seed 632), `nbinom_sd`, `nbinom_profile_b`; Exercise 4
+  `simulate_peak_time()`, `peak_samples` (seed 641, 2,000 samples). In Exercise 2 the
+  held-out observation is scored with `fn` of an object processed for that observation,
+  because `as.list(fit$par)` (the theory's route) breaks when `log_a` is a vector; the
+  solution says why. Exercise 2, question 6 uses `plotQQunif()` and `plotResiduals()` instead
+  of `plot()`, whose quantile regression prints qgam warnings with 23 observations.
+  **Numbers** (agree with the plan): Ricker Normal $\hat a$ 3.418, $\hat b$ 0.1652,
+  $\hat\sigma$ 0.670, NLL 27.500; peak 6.05 days (Wald 5.30 to 6.80; from the profile of
+  $b$, 0.144 to 0.186/day, 5.36 to 6.95), height 7.61 (7.32 to 7.91); Gamma NLL 29.509,
+  shape 90.5, all three criteria 4.0 in favour of the Normal; residuals against the day
+  U-shaped and flagged by DHARMa (read as exploratory). Puromycin NLL 98.840 and 85.296
+  ($\hat a$ 208.6 and 166.6, $\hat b$ 0.0580, $\hat\sigma$ 9.87); difference 42.0 (Wald 30.5
+  to 53.5); $b$ profile 0.0469 to 0.0710 ppm, Wald 0.0476 to 0.0707; differences AIC 25.1,
+  AICc 24.1, BIC 24.0, leave-one-out 11.8 (scores −102.17, −90.32; 46 fits converged).
+  Fir: 311 trees; Poisson NLL 3957.1, $\hat b$ 1.98, dispersion 22.9, 147 trees outside their
+  simulations; Negative Binomial NLL 1445.53 ($\hat a$ 1.00, $\hat b$ 1.80, $\hat k$ 1.84),
+  the same from a second start (`log_a = -2`, `b = 2.5`, `log_k = 1`), so $\log(\hat a)\approx0$
+  is the maximum and not a stalled fit; dispersion 0.66, one outlier; AIC difference about
+  5,021; $b$ profile 1.55 to 2.05; $2^b$ 3.49 (Wald 2.88 to 4.10, from the profile 2.92 to
+  4.15); correlation of $\log(\hat a)$ and $\hat b$ −0.99. Exercise 4: no failed fit; bias
+  0.019 days (Monte Carlo SE 0.0085); SD of estimates 0.381 against SE 0.383; coverage 0.927
+  (SE 0.006); misses 104 below, 43 above. Three questions added under "Open questions".
+  Next: Stage 4.
