@@ -826,7 +826,18 @@ short report in the progress log: what was checked, what was changed, what remai
 
 Stages add questions here; they do not wait for an answer.
 
-- (none yet)
+Answered by the author on 4 November (decisions; later stages keep them):
+
+- **Disagreement among the criteria stays.** Under the Beta-Binomial models AIC, AICc and BIC
+  prefer the Holling type II curve (2.7, 1.6 and 2.0 units) and the leave-one-out score the
+  constant probability (0.9). The theory says so and answers with the Beta-Binomial Holling
+  type II model; students should see that model comparison criteria can disagree.
+- **DHARMa's `plot()` stays**, with its printed tests and the sentence on why the course does
+  not rest decisions on p-values. `plotResiduals(form = ...)` is named but not run.
+- **$n$ in AICc and BIC is 16 tanks for all four models.** Whether $n$ could be the 610 tadpoles
+  for the Binomial models is not discussed in Chapter 6; it belongs to Chapter 7.
+- **Three numbered Practice callouts** (`imp-seedlings-light`, `imp-ladybird-handling`,
+  `imp-fruit-set`); the lecture adjusts its Practice slides to three.
 
 ## Progress log
 
@@ -858,3 +869,34 @@ Each stage adds one line: date, stage, what is done, what is next.
   near 50 tadpoles per tank and widens towards both ends (the text says so; it is not narrowest
   at low density). `confint()` warns "collapsing to unique 'x' values" because each profile
   holds the estimate twice; that chunk has `warning: false` with a comment. Next: Stage 2.
+- 4 November 2026: Stage 2 done. `Chapter_6/Theory.qmd` part B written (the old part B and the
+  Stage 2 comment removed; the page is 1,701 lines). Sections: "Checking the fitted model"
+  (`#sec-response-residuals`, with "Simulating from the fitted model" and "Scaled quantile
+  residuals"), "A model for overdispersed proportions" (`#sec-beta-binomial-fit`), "Comparing
+  candidate models" (`#sec-response-comparison`, with "Information criteria",
+  "Cross-validation" and "Comparing the four models"), the recipe callout, "Summary" and a quiz
+  of 10 questions. Rendered with `--profile dev` (R 4.6.1, RTMB 2.0, RTMBdist 1.1.0, TMB 1.9.25,
+  emdbook 1.3.14, DHARMa 0.5.0): no warnings, no unresolved cross-references, Practice 1 to 3
+  numbered. Every number quoted in part B was checked against the rendered output. **Names:**
+  `binomial_nll` gains `killed = OBS(killed)` (refitted); `n_sim`, `binomial_simulations`
+  (seed 601), `binomial_expected`, `binomial_residuals` (figure `fig-residuals_binomial`, visible
+  code, DHARMa's own `plot()`); `betabinomial_nll` (with `OBS()`), `betabinomial_obj`,
+  `betabinomial_fit`, `betabinomial_sd`, `alpha_bb`, `H_bb`, `betabinomial_simulations` (seed
+  602), `betabinomial_expected`, `betabinomial_residuals`; `constant_binomial_nll`,
+  `constant_betabinomial_nll` (parameter `logit_alpha`, plus `log_kappa`); `fit_model()`,
+  `models` (list of `nll` and `start`), `comparison` (columns `K`, `loglik`, `convergence`,
+  `aic`, `aicc`, `bic`, `loo`), `n_tanks`, `subset_tanks()`, `n_failed`;
+  `betabinomial_profile_alpha`, `betabinomial_profile_H`, `betabinomial_intervals`. The held-out
+  tank is scored by calling the NLL directly with `as.list(fit$par)`; this works with `OBS()`
+  and `ADREPORT()` in the NLL. Practice 3: `imp-fruit-set`. **Numbers:** dispersion statistic
+  2.93 (Binomial, seed 601; the plan's 2.89 used seed 1) and 0.92 (Beta-Binomial; the tank with
+  5 of 50 killed has a residual of 0.009, inside its simulations); Beta-Binomial $\hat\alpha$
+  0.540, $\hat H$ 0.0180, $\hat\kappa$ 26.4, NLL 42.367, standard errors 0.377 (`logit_alpha`)
+  and 0.462 (`log_H`), correlation 0.77 (not quoted); constant Beta-Binomial NLL 44.727;
+  differences from the best (AIC, AICc, BIC, leave-one-out): constant Binomial 15.70, 13.99,
+  14.16, −8.17; Holling Binomial 6.71, 5.63, 5.94, −4.21; constant Beta-Binomial 2.72, 1.64,
+  1.95, 0; Holling Beta-Binomial 0, 0, 0, −0.94 (leave-one-out scores −55.93, −51.98, −47.76,
+  −48.70; all 64 fits converged); Beta-Binomial profile intervals $\alpha$ 0.378 to 0.759, $H$
+  0.00187 to 0.0376, $1/H$ 26.6 to 533. Citations added: Dunn and Smyth (1996), Hartig (DHARMa
+  0.5.0, from `citation("DHARMa")`), Schwarz (1978), Stone (1977). Four questions added under
+  "Open questions". Next: Stage 3.

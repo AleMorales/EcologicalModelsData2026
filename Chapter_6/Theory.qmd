@@ -838,258 +838,864 @@ samples in which the first contains $H$, so it has the same coverage.
 :::
 ::::
 
-<!-- Stage 2 of Chapter_6/rewrite-handoff.md replaces everything below this comment. -->
+# Checking the fitted model {#sec-response-residuals}
 
-# Compare candidate models {#sec-response-comparison}
+A fitted model describes the whole distribution of every observation, and not only its
+expected value. **Checking** the model means comparing that description with the data. In
+[Chapter 3](../Chapter_3/Theory.qmd) the observations had a common distribution, so we
+could compare their empirical distribution with the model distribution. With a response
+curve each observation has a distribution of its own, and only one observation comes from
+each of them. We therefore simulate many values from the distribution of each observation
+and see where the observed value falls among them.
 
-An ecological question may support several curves. A Holling type II
-([Michaelis–Menten](../Supplements/deterministic-functions.qmd#sec-fn-michaelis-menten))
-function and a
-[saturating exponential](../Supplements/deterministic-functions.qmd#sec-fn-monomolecular)
-can both increase towards a plateau, but differ between low and high prey
-density. Compare candidates that represent plausible explanations and use the
-same observational unit and response. When one curve is a special case of
-another, the two are nested, as described in
+## Simulating from the fitted model
+
+With its parameters at the estimates, a fitted model is a data generating process from which
+we can simulate. As in "Coverage checked by simulation" in
+[Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood-uncertainty), we mark the response with
+`OBS()` inside the NLL, and the function `simulate()` of the processed object then draws one
+hypothetical sample for the parameter values that we give it. A hypothetical sample has the
+same design as the data: the same observations, with the same values of the predictor. Each
+simulated value is drawn from the distribution of its observation, so the simulation
+contains the variation of the observations around the curve, which is what the check needs.
+
+For the reed frogs, the NLL gains one line, `killed = OBS(killed)`. We process it and fit it
+again (the estimates do not change):
+
+```{r}
+# The Binomial NLL with one more line.
+binomial_nll = function(parms, data) {
+  getAll(parms, data)
+  # Mark the response as observations, so that they can be simulated.
+  killed = OBS(killed)
+  alpha = plogis(logit_alpha)
+  H = exp(log_H)
+  p = alpha / (1 + alpha * H * initial)
+  p_grid = alpha / (1 + alpha * H * initial_grid)
+  logit_p_grid = qlogis(p_grid)
+  ADREPORT(logit_p_grid)
+  -sum(dbinom(x = killed, size = initial, prob = p, log = TRUE))
+}
+
+# Process the new NLL and fit it again.
+binomial_obj = MakeADFun(
+  cmb(binomial_nll, frog_data),
+  list(logit_alpha = qlogis(0.5), log_H = log(1 / 60)),
+  silent = TRUE
+)
+binomial_fit = optim(
+  par = binomial_obj$par,
+  fn = binomial_obj$fn,
+  gr = binomial_obj$gr,
+  method = "BFGS"
+)
+binomial_fit$convergence
+```
+
+Each call to `simulate()` returns the numbers killed in 16 simulated tanks with the initial
+numbers of the experiment. We store 1,000 hypothetical samples in a matrix with one row per
+tank and one column per hypothetical sample:
+
+```{r}
+# 1,000 hypothetical samples of the 16 tanks at the estimates: one row per tank and one
+# column per hypothetical sample.
+n_sim = 1000
+binomial_simulations = matrix(NA, nrow = length(frog_data$killed), ncol = n_sim)
+set.seed(seed = 601)
+for (j in seq_len(n_sim)) {
+  binomial_simulations[, j] = binomial_obj$simulate(binomial_fit$par)$killed
+}
+
+# The first five hypothetical samples of the first four tanks (5, 5, 10 and 10 tadpoles).
+binomial_simulations[1:4, 1:5]
+```
+
+## Scaled quantile residuals
+
+The **scaled quantile residual** of an observation is the fraction of its simulated values
+that are smaller than the observed value. An observation in the middle of its simulated
+values has a residual close to 0.5, one below all of them a residual of 0 and one above all
+of them a residual of 1. For a discrete response, the observed value is often equal to some
+of the simulated values, and the residual is then drawn at random between the fraction of
+simulated values that are smaller and the fraction that are smaller or equal. If the model
+describes the data generating process, each observation behaves like one more draw from its
+own distribution, so it is equally likely to fall anywhere among its simulated values. The
+residuals are then approximately uniform between 0 and 1, whatever the distribution of the
+observations and whatever the values of the predictor. This is what makes them useful for
+response curves: they put observations with different distributions on one common
+scale.^[Dunn and Smyth (1996) defined these residuals from the cumulative probability
+function of the model and transformed them to the scale of a standard Normal distribution:
+Dunn, P. K. and Smyth, G. K. (1996), "Randomized quantile residuals", *Journal of
+Computational and Graphical Statistics* 5: 236–244. The package DHARMa calculates them from
+simulations and keeps them between 0 and 1: Hartig, F. (2026), *DHARMa: Residual
+diagnostics for hierarchical (multi-level / mixed) regression models*, R package version
+0.5.0.]
+
+Three kinds of pattern show that the model disagrees with the data:
+
+- a distribution of the residuals that is not uniform: too many residuals near 0 and 1 mean
+  that the observations vary more around the curve than the model allows, and too many near
+  0.5 that they vary less;
+- a trend of the residuals against the predictor or against the fitted values, which means
+  that the curve misses a systematic change of the response;
+- residuals of exactly 0 or 1, from observations outside the range of all their simulated
+  values, which DHARMa marks as outliers.
+
+The function `DHARMa::createDHARMa()` calculates the residuals from simulations that we
+supply. Its arguments are:
+
+- `simulatedResponse`, the matrix of simulated values, with one row per observation;
+- `observedResponse`, the observed values;
+- `fittedPredictedResponse`, the expected value of each observation under the fitted model,
+  which DHARMa uses in its plots and in the dispersion statistic below;
+- `integerResponse = TRUE` for a discrete response, so that ties are drawn at random as
+  described above.
+
+`plot()` of the result draws two panels: on the left a quantile–quantile plot of the
+residuals against a uniform distribution, and on the right the residuals against the
+fitted values, on the scale of their ranks, with the quartiles 0.25, 0.5 and 0.75 as
+dashed lines. `DHARMa::plotResiduals()` with the argument `form` draws the residuals against
+any predictor. For the reed frogs the expected number killed increases with the initial
+number of tadpoles, so the right panel already shows the residuals in the order of the
+densities. We calculate the expected number killed in each tank and the residuals:
+
+```{r}
+#| label: fig-residuals_binomial
+#| fig-width: 9
+#| fig-height: 4.5
+#| fig-cap: "Scaled quantile residuals of the Binomial model with the Holling type II curve fitted to the 16 tanks, from 1,000 hypothetical samples, as drawn by DHARMa. Left: quantile–quantile plot against a uniform distribution. Right: residuals against the rank of the expected number killed, with the quartiles of a uniform distribution (dashed lines) and lines fitted to the quartiles of the residuals. The star marks a tank whose observed number lies outside the range of its simulated values."
+# Expected number killed in each tank under the fitted model.
+binomial_expected = frog_data$initial * alpha_mle /
+  (1 + alpha_mle * H_mle * frog_data$initial)
+
+# Scaled quantile residuals from the simulations, and the two standard panels.
+binomial_residuals = DHARMa::createDHARMa(
+  simulatedResponse = binomial_simulations,
+  observedResponse = frog_data$killed,
+  fittedPredictedResponse = binomial_expected,
+  integerResponse = TRUE
+)
+plot(binomial_residuals)
+```
+
+The residuals do not follow a uniform distribution: in the quantile–quantile plot the upper
+half of the residuals lies above the line, so more tanks than expected have residuals close
+to 1, and one tank, with 50 tadpoles of which 5 were killed, lies below all its simulated
+values (the star). In the right panel the lines fitted to the quartiles of the residuals
+lie on or outside the dashed lines, the upper one well above 0.75: the tanks spread further from
+the middle of their simulated values than the model allows. There is no clear trend against
+density, so the curve itself does not miss a systematic change.
+
+DHARMa summarises the spread with a **dispersion statistic**: the variance of the observed
+values around their expected values, divided by the average of the same variance in the
+simulated samples. It is close to one when the model allows the right amount of variation.
+The function `DHARMa::testDispersion()` calculates it; we keep only its element `statistic`:
+
+```{r}
+# Observed spread around the curve relative to the simulated spread.
+DHARMa::testDispersion(binomial_residuals, plot = FALSE)$statistic
+```
+
+The numbers killed vary around the curve almost three times as much (as a variance) as the
+Binomial model allows. This is **overdispersion** relative to the Binomial distribution,
+which [Chapter 2](../Chapter_2/Theory.qmd) introduced for counts relative to the Poisson
+distribution ("Overdispersion"). The two tanks with 50 tadpoles, with 5 and 21 killed, show
+it in the data: under the Binomial model they share the same distribution, in which 5
+killed is very unlikely. The model assumes that every tadpole of a tank has the same
+probability of being killed, independently of the other tadpoles, and these tanks differ
+more than that assumption allows.
+
+DHARMa also prints tests with p-values, on its plots and in functions such as
+`testDispersion()`. We read the plots and the dispersion statistic as exploratory evidence
+and do not rest decisions on the p-values, for the reasons given in
+[Chapter 1](../Chapter_1/Theory.qmd) and at the end of
+[Chapter 4](../Chapter_4/Theory.qmd#sec-aic): with 16 tanks a large p-value mainly says
+that there are few data, and a small one does not say how much the disagreement matters.
+
+::: {.callout-warning title="What a residual check can and cannot show"}
+A residual check shows where a fitted model disagrees with the data. It does not say which
+assumption is wrong: overdispersion can come from the distribution, from a predictor that is
+missing from the curve, or from observations that are not independent. Nor does a plot
+without a pattern show that the model is right or that the observations are independent;
+with few observations only large disagreements are visible.
+:::
+
+# A model for overdispersed proportions {#sec-beta-binomial-fit}
+
+When the probability of an outcome varies among sampling units beyond what the predictor
+explains, the counts vary more than a Binomial model allows. The
+[Beta-Binomial](../Supplements/distributions.qmd#sec-beta_binomial) distribution describes
+this situation: the probability of each sampling unit is drawn from a Beta distribution,
+and the count of that unit follows a Binomial distribution with this probability. With a
+response curve we parameterise it with the mean probability $p$, which the curve gives,
+and the **precision** $\kappa$ ($\kappa=a+b$ in the supplement, where $a$ and $b$ are the
+shape parameters of the Beta distribution, and so $a=\kappa p$ and $b=\kappa(1-p)$). For a
+unit with $N$ trials the mean and the variance of the count are
+
+$$
+E[K]=Np,
+\qquad
+\operatorname{Var}(K)=Np(1-p)\,\frac{\kappa+N}{\kappa+1},
+$$
+
+where $Np(1-p)$ is the variance of a Binomial distribution with the same mean. The factor
+$(\kappa+N)/(\kappa+1)$ is larger than one whenever $N>1$ and approaches one as $\kappa$
+grows, so a small $\kappa$ means much variation among units and a large $\kappa$ gives
+almost a Binomial distribution. Note that the factor grows with $N$: the variation of the
+probability among units matters more when each unit has more trials. The precision is
+positive, so we optimise $\log(\kappa)$.
+
+The curve does not change: only the observation model is revised, so that the probability
+that a tadpole is killed varies among tanks around $p(N)$. This is the step of the modelling
+cycle of [Chapter 1](../Chapter_1/Theory.qmd) in which a check sends us back to the model.
+For the tanks,
+
+$$
+K_i \sim \operatorname{Beta-Binomial}\left(N_i,\,\kappa\,p(N_i),\,\kappa\left(1-p(N_i)\right)\right),
+\qquad
+p(N)=\frac{\alpha}{1+\alpha HN}.
+$$
+
+The NLL uses `dbetabinom()` of RTMBdist, whose arguments `shape1` and `shape2` are the two
+shape parameters. We include `OBS()` from the start, because we will check this model too:
+
+```{r}
+# Negative log-likelihood of the Beta-Binomial model with the Holling type II curve.
+betabinomial_nll = function(parms, data) {
+  getAll(parms, data)
+  killed = OBS(killed)
+  alpha = plogis(logit_alpha)
+  H = exp(log_H)
+  kappa = exp(log_kappa)
+  # Mean probability that a tadpole is killed, at the density of each tank.
+  p = alpha / (1 + alpha * H * initial)
+  -sum(dbetabinom(
+    x = killed, size = initial, shape1 = kappa * p, shape2 = kappa * (1 - p), log = TRUE
+  ))
+}
+```
+
+We start from the estimates of the Binomial model and a precision of 10, fit the model and
+calculate the standard errors:
+
+```{r}
+# Process the NLL, starting from the Binomial estimates and kappa = 10, and fit it.
+betabinomial_obj = MakeADFun(
+  cmb(betabinomial_nll, frog_data),
+  list(
+    logit_alpha = binomial_fit$par[["logit_alpha"]],
+    log_H = binomial_fit$par[["log_H"]],
+    log_kappa = log(10)
+  ),
+  silent = TRUE
+)
+betabinomial_fit = optim(
+  par = betabinomial_obj$par,
+  fn = betabinomial_obj$fn,
+  gr = betabinomial_obj$gr,
+  method = "BFGS"
+)
+betabinomial_fit$convergence
+
+# Standard errors on the optimised scales, and the estimates on the original scale.
+betabinomial_sd = sdreport(betabinomial_obj)
+summary(betabinomial_sd)
+alpha_bb = plogis(betabinomial_fit$par[["logit_alpha"]])
+H_bb = exp(betabinomial_fit$par[["log_H"]])
+c(alpha = alpha_bb, H = H_bb, kappa = exp(betabinomial_fit$par[["log_kappa"]]))
+```
+
+The estimates of the curve hardly change ($\hat\alpha\approx0.54$ per experiment against
+0.53 under the Binomial model, and $\hat H\approx0.018$ against 0.017 experiments per
+tadpole killed), but their standard errors on the optimised scales are larger: 0.38 against
+0.29 for $\operatorname{logit}(\hat\alpha)$ and 0.46 against 0.29 for $\log(\hat H)$. The
+Binomial model treated every tadpole as an independent trial, so it took the tanks as more
+informative than they are. When the probability varies among tanks, the tadpoles of a tank
+share part of their fate, and the information about the curve depends more on the number
+of tanks than on the number of tadpoles. So the standard errors of the Binomial model were
+too small. The estimated precision, $\hat\kappa\approx26$, gives a variance factor of about
+1.3 for a tank with 10 tadpoles and about 4.6 for a tank with 100 tadpoles.
+
+To check the revised model we repeat the simulation and the residuals with the new object:
+
+```{r}
+# 1,000 hypothetical samples from the fitted Beta-Binomial model.
+betabinomial_simulations = matrix(NA, nrow = length(frog_data$killed), ncol = n_sim)
+set.seed(seed = 602)
+for (j in seq_len(n_sim)) {
+  betabinomial_simulations[, j] = betabinomial_obj$simulate(betabinomial_fit$par)$killed
+}
+
+# Residuals and dispersion statistic.
+betabinomial_expected = frog_data$initial * alpha_bb /
+  (1 + alpha_bb * H_bb * frog_data$initial)
+betabinomial_residuals = DHARMa::createDHARMa(
+  simulatedResponse = betabinomial_simulations,
+  observedResponse = frog_data$killed,
+  fittedPredictedResponse = betabinomial_expected,
+  integerResponse = TRUE
+)
+DHARMa::testDispersion(betabinomial_residuals, plot = FALSE)$statistic
+```
+
+The dispersion statistic is now close to one, and the tank with 5 of 50 tadpoles killed lies
+within the range of its simulated values: the Beta-Binomial model allows about as much
+variation among tanks as the data show.
+
+:::: {#imp-fruit-set .callout-important title="fruit set in inflorescences"}
+
+Each inflorescence of a shrub has 20 flowers, and the mean probability that a flower sets
+fruit is 0.4. Calculate the variance of the number of fruits per inflorescence under a
+Binomial model and under a Beta-Binomial model with $\kappa=5$. Which value of $\kappa$
+would make the variance of the Beta-Binomial model only 10% larger than that of the
+Binomial model? Verify the variance for $\kappa=5$ in R from the probability mass.
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+The Binomial variance is $20\times0.4\times0.6=4.8$. With $\kappa=5$ the factor is
+$(5+20)/(5+1)\approx4.17$, so the variance is $4.8\times25/6=20$, more than four
+times larger. For a variance 10% larger the factor must be 1.1:
+$(\kappa+20)/(\kappa+1)=1.1$ gives $\kappa+20=1.1\kappa+1.1$, so $\kappa=189$. In R, the
+variance is the sum of the squared distances from the mean (8 fruits) weighted by the
+probability mass, with shape parameters $5\times0.4=2$ and $5\times0.6=3$:
+
+```{r}
+# Variance of the Beta-Binomial model from its probability mass.
+fruit_values = 0:20
+sum((fruit_values - 8)^2 * dbetabinom(x = fruit_values, size = 20, shape1 = 2, shape2 = 3))
+```
+
+:::
+::::
+
+# Comparing candidate models {#sec-response-comparison}
+
+The candidate models of a comparison should represent plausible ecological or statistical
+alternatives, and they must all be fitted to the same observations: the same rows, the same
+response and the same units. Often some candidates are nested in others: a model is nested
+in another when it is the special case obtained by fixing a parameter of the other at a
+particular value, as for the curves of
 [Chapter 5](../Chapter_5/Theory.qmd#sec-nested-functions).
+
+For the reed frogs we have two questions. Does the probability that a tadpole is killed
+decrease with density? And do the tanks vary more than a Binomial model allows? Each
+question gives two alternatives, and together they give four candidates:
+
+| Curve | Binomial | Beta-Binomial |
+|---|---|---|
+| Constant probability, $p(N)=\alpha$ | $\alpha$ ($K=1$) | $\alpha$, $\kappa$ ($K=2$) |
+| Holling type II, $p(N)=\alpha/(1+\alpha HN)$ | $\alpha$, $H$ ($K=2$) | $\alpha$, $H$, $\kappa$ ($K=3$) |
+
+: The four candidate models and their parameters. $K$ is the number of parameters.
+
+The constant probability is the Holling type II curve with $H=0$: the larvae kill the same
+fraction of the tadpoles at every density, so the expected number killed, $\alpha N$,
+increases in proportion to the density. The Binomial distribution is the limit of the
+Beta-Binomial distribution as $\kappa$ grows without bound. So the model with a constant
+probability and a Binomial distribution is nested in each of the others, and each Binomial
+model is nested in the Beta-Binomial model with the same curve. The Holling type II curve
+with a Binomial distribution and the constant probability with a Beta-Binomial distribution
+are not nested in each other, but they can still be compared, because they are fitted to the
+same observations. The special values $H=0$ and $\kappa=\infty$ cannot be reached on the
+optimised scales (they would be $\log(H)=-\infty$ and $\log(\kappa)=\infty$), so the two
+models with a constant probability have NLLs of their own:
+
+```{r}
+# Negative log-likelihoods of the two models with a constant probability.
+constant_binomial_nll = function(parms, data) {
+  getAll(parms, data)
+  alpha = plogis(logit_alpha)
+  -sum(dbinom(x = killed, size = initial, prob = alpha, log = TRUE))
+}
+
+constant_betabinomial_nll = function(parms, data) {
+  getAll(parms, data)
+  alpha = plogis(logit_alpha)
+  kappa = exp(log_kappa)
+  -sum(dbetabinom(
+    x = killed, size = initial, shape1 = kappa * alpha, shape2 = kappa * (1 - alpha),
+    log = TRUE
+  ))
+}
+```
+
+We will fit each model many times, to all the tanks and to subsets of them, so we write a
+small function that processes an NLL for a list of data and minimises it from the starting
+values that we give it, and a list with the NLL and the starting values of every candidate
+(the values read by eye in Chapter 5 and a precision of 10):
+
+```{r}
+# Fit one model to one list of data, from the given starting values.
+fit_model = function(nll, start, data) {
+  obj = MakeADFun(cmb(nll, data), start, silent = TRUE)
+  optim(par = obj$par, fn = obj$fn, gr = obj$gr, method = "BFGS")
+}
+
+# The NLL and the starting values of each candidate.
+models = list(
+  constant_binomial = list(
+    nll = constant_binomial_nll,
+    start = list(logit_alpha = qlogis(0.5))
+  ),
+  holling_binomial = list(
+    nll = binomial_nll,
+    start = list(logit_alpha = qlogis(0.5), log_H = log(1 / 60))
+  ),
+  constant_betabinomial = list(
+    nll = constant_betabinomial_nll,
+    start = list(logit_alpha = qlogis(0.5), log_kappa = log(10))
+  ),
+  holling_betabinomial = list(
+    nll = betabinomial_nll,
+    start = list(logit_alpha = qlogis(0.5), log_H = log(1 / 60), log_kappa = log(10))
+  )
+)
+```
+
+A loop fits the four candidates to the 16 tanks and stores, for each of them, the number of
+parameters, the maximum log-likelihood (minus the element `value` of the fit) and the
+convergence code:
+
+```{r}
+# Fit every candidate to the 16 tanks.
+comparison = data.frame(model = names(models), K = NA, loglik = NA, convergence = NA)
+for (m in seq_along(models)) {
+  fit = fit_model(models[[m]]$nll, models[[m]]$start, frog_data)
+  comparison$K[m] = length(fit$par)
+  comparison$loglik[m] = -fit$value
+  comparison$convergence[m] = fit$convergence
+}
+comparison
+```
+
+All four fits converged. As it must be for nested models, the maximum log-likelihood is
+highest for the model with the most parameters, which is why we need criteria that take the
+number of parameters into account.
 
 ## Information criteria
 
-A model with more free parameters can often fit the observed data more
-closely. Information criteria balance fit against model complexity.
-[Chapter 4](../Chapter_4/Theory.qmd#sec-aic) introduced the Akaike
-information criterion (AIC); here we recall it and add the Bayesian
-information criterion (BIC). For $K$ estimated parameters, $n$
-observations and maximised log-likelihood $\hat\ell$,
+[Chapter 4](../Chapter_4/Theory.qmd#sec-aic) introduced AIC and its corrected version AICc,
 
 $$
-\mathrm{AIC}=2K-2\hat\ell,
+\mathrm{AIC}=2K-2\,\ell(\hat\theta),
 \qquad
-\mathrm{BIC}=K\log(n)-2\hat\ell.
+\mathrm{AICc}=\mathrm{AIC}+\frac{2K(K+1)}{n-K-1},
 $$
 
-Both use the same fitted likelihood, but BIC's penalty per parameter
-grows with sample size. Count observation-distribution parameters such as
-$\sigma$ or a negative binomial shape parameter in $K$. On our `optim()`
-fits, `intake_fit$value` is the *negative* log-likelihood, so
-`2 * K + 2 * intake_fit$value` calculates AIC. A lower value is preferred by
-that criterion **among the candidates compared**. The value does not
-measure absolute model adequacy.
+where $K$ is the number of estimated parameters, $n$ the number of observations and
+$\ell(\hat\theta)$ the maximum log-likelihood. With 16 observations and up to three
+parameters the correction of AICc is not negligible. The **Bayesian information criterion**
+(BIC)^[Schwarz, G. (1978), "Estimating the dimension of a model", *Annals of Statistics* 6:
+461–464. The name comes from its derivation, as a large-sample approximation in Bayesian
+inference, but it is used in the same way as AIC.] has a penalty that grows with the number
+of observations:
 
-Only compare likelihoods computed for the same observed response on the
-same scale, using the same rows and compatible probability masses or
-densities. For example, dropping missing rows for one model but not
-another makes an AIC comparison misleading. AIC and BIC can rank
-misspecified candidates, so residual checks remain necessary. These
-conditions also appear in [R's AIC documentation](https://search.r-project.org/R/refmans/stats/html/AIC.html).
+$$
+\mathrm{BIC}=K\log(n)-2\,\ell(\hat\theta),
+$$
 
-::: {.callout-note title="What a small difference means"}
-A small AIC or BIC difference gives little reason to claim that one
-curve has a clearly preferable score. Neither criterion identifies a
-biological mechanism or assigns a probability that a candidate is true.
-:::
+with the same symbols. Each parameter costs $\log(n)$ units instead of two, which is more
+than two when $n$ is larger than $e^2\approx7.4$, so for most data sets BIC penalises
+additional parameters more strongly than AIC. The two criteria also have different aims.
+AIC estimates how well the fitted model would predict new data from the same process. BIC
+tends, as the sample grows, to select the model with the fewest parameters among the
+candidates that contain the data generating process. So in large samples BIC tends to
+prefer simpler models than AIC does. Like AIC, BIC is used as a difference between models
+fitted to the same observations, the lowest value is preferred, and it ranks the candidates
+without showing that the best of them describes the data well.
+
+In AICc and BIC, $n$ is the number of independent observations, which is the number of
+tanks, 16, and not the 610 tadpoles that they contained: under the Beta-Binomial model the
+tadpoles of a tank share the probability of that tank, so they are not independent
+observations. The same $n$ must be used for every model that is compared. We add the three
+criteria to the table:
+
+```{r}
+# AIC, AICc and BIC, with the number of tanks as the number of observations.
+n_tanks = length(frog_data$killed)
+comparison$aic = 2 * comparison$K - 2 * comparison$loglik
+comparison$aicc = comparison$aic +
+  2 * comparison$K * (comparison$K + 1) / (n_tanks - comparison$K - 1)
+comparison$bic = comparison$K * log(n_tanks) - 2 * comparison$loglik
+```
 
 ## Cross-validation
 
-**Cross-validation** checks prediction on observations that were not used
-to estimate a model's parameters. In five-fold cross-validation, divide
-the observations into five parts. For each part, fit each candidate to
-the other four parts, then score the held-out observations. Repeat until
-every part has been held out once.
+**Cross-validation** estimates how well a model predicts observations that were not used to
+fit it. The observations are split into parts, the model is fitted to all but one part and
+scored on the part that was held out, and this is repeated until every part has been held
+out once. In **leave-one-out cross-validation** each part is a single observation: every
+parameter of the model is estimated again from the other $n-1$ observations, and the
+held-out observation is scored by its **log score**, the log probability (or log density)
+that the refitted model assigns to it. The score of the model is the sum of the log scores
+of the $n$ observations, and a larger (less negative) score is better.
 
-A useful score here is the sum of held-out log probabilities or densities.
-It uses the whole predictive distribution, so it can assess continuous,
-count, and binary models. Prefer the *larger* held-out log score. Refit
-all parameters, including $\sigma$ or dispersion, within each training
-set. Using the full-data estimates for held-out predictions would leak
-information across the split.
+The log score uses the whole distribution of the observation, and not only its distance
+from the curve, so it can be calculated for any observation model, and it rewards a model
+that describes the spread of the observations as well as their mean. A model that adapts
+too closely to the data used to fit it predicts the held-out observations badly, so
+cross-validation needs no penalty for the number of parameters. Leave-one-out
+cross-validation and AIC agree in large samples: AIC is approximately $-2$ times the
+leave-one-out log score.^[Stone, M. (1977), "An asymptotic equivalence of choice of model by
+cross-validation and Akaike's criterion", *Journal of the Royal Statistical Society, Series
+B* 39: 44–47.] When fitting the model $n$ times takes too long, the observations are split
+into $K$ groups (often 5 or 10) that are held out in turn, which is called $K$-fold
+cross-validation. When the observations are ordered in time or space, so that neighbouring
+observations are similar, each held-out part should be a block of neighbouring observations;
+otherwise its neighbours in the fit make it look easier to predict than a new observation
+would be.
 
-Random folds suit observations that can reasonably be treated as
-independent. For population measurements ordered in time, training on
-later measurements to predict earlier ones answers a different question.
-If the goal is future prediction, hold out later times and fit to earlier
-times. [Time-based resampling guidance](https://rsample.tidymodels.org/articles/Common_Patterns.html)
-uses this ordering for the same reason.
+For the reed frogs we leave out one tank at a time. A function keeps some of the tanks in the
+list of data (the grid of densities stays):
 
-:::: {.callout-important title="Try it: score a held-out observation"}
-A model assigns probability $0.8$ to a held-out species presence. Another
-assigns probability $0.3$. Which model receives the higher log score
-for this observation?
-
-::: {.callout-tip title="Answer" collapse="true"}
-The first: $\log(0.8)>\log(0.3)$. This one observation does not establish
-which model predicts better across the whole dataset.
-:::
-::::
-
-# Check the fitted observation model {#sec-response-residuals}
-
-An ordinary residual such as $y_i-\hat\mu_i$ changes its meaning across
-response distributions. It may also change its spread with the predictor
-even when a count model is correct. **Simulation-based scaled quantile
-residuals** provide a common scale: values between 0 and 1.
-
-For each observation, simulate many possible responses from the fitted
-model at its predictor value. Locate the observed response within those
-simulations. An observation near the lower end gives a residual near 0;
-one near the upper end gives a residual near 1. When the simulation
-matches the observation process, the residuals should be approximately
-uniform across 0 to 1 and show no systematic pattern against the
-predictor. For discrete responses, randomisation handles ties. This is
-the approach used by [DHARMa's scaled quantile residuals](https://search.r-project.org/CRAN/refmans/DHARMa/html/getQuantile.html).
-
-Our fits are ordinary `optim()` results, for which DHARMa does not know
-the response distribution. We therefore generate a matrix with one row
-per observation and one column per simulation, then supply it to
-`DHARMa::createDHARMa()`:
-
-```r
-# Fix the random simulation sequence for a reproducible residual check.
-set.seed(seed = 701)
-# Calculate fitted means, then simulate complete intake measurements.
-mu_hat = intake_curve(
-  x = intake_data$x,
-  a = estimates["a"], b = estimates["b"]
-)
-sigma_hat = estimates["sigma"]
-simulated_rates = replicate(
-  n = 500,
-  expr = rnorm(n = nrow(intake_data), mean = mu_hat, sd = sigma_hat)
-)
-# Create scaled residuals from the simulations and plot them against density.
-scaled = DHARMa::createDHARMa(
-  simulatedResponse = simulated_rates,
-  observedResponse = intake_data$y,
-  fittedPredictedResponse = mu_hat,
-  integerResponse = FALSE
-)
-plot(scaled)
-DHARMa::plotResiduals(scaled, predictor = intake_data$x)
+```{r}
+# Keep only the given tanks in the list of data.
+subset_tanks = function(data, tanks) {
+  data$initial = data$initial[tanks]
+  data$killed = data$killed[tanks]
+  data
+}
 ```
 
-Run this code after installing DHARMa in your R environment. For counts or
-presence/absence, simulate with `rpois()` or `rbinom()` as specified by the
-fitted model and set `integerResponse = TRUE`. The package's
-[`createDHARMa()` documentation](https://search.r-project.org/CRAN/refmans/DHARMa/html/createDHARMa.html)
-describes this interface for custom simulations.
+For each model and each tank, we fit the model to the other 15 tanks, from the same starting
+values as before. The NLL of the held-out tank at these estimates is minus the log
+probability of that tank, so we calculate it by calling the NLL directly with two lists: the
+estimates (`as.list()` turns the vector `par` into a list) and the data of the held-out tank.
+A negative index removes the tank from the data, and we count the fits that did not
+converge:
 
-Look for a non-uniform residual distribution, a trend against $x$, changing
-spread, or unusual concentrations near 0 or 1. For time measurements,
-also plot against time in order. A diagnostic indicates where the model
-disagrees with observations; it does not, on its own, tell us whether the
-curve, observation distribution, dependence assumption, or data quality
-caused the disagreement. Randomisation and a finite number of simulations
-also make the exact plot vary between runs, so set a seed.
+```{r}
+# Leave-one-out log score of each model: fit to 15 tanks, score the tank held out.
+comparison$loo = NA
+n_failed = 0
+for (m in seq_along(models)) {
+  score = 0
+  for (i in seq_len(n_tanks)) {
+    fit = fit_model(models[[m]]$nll, models[[m]]$start, subset_tanks(frog_data, -i))
+    n_failed = n_failed + (fit$convergence != 0)
+    # Minus the NLL of the held-out tank is its log probability.
+    score = score - models[[m]]$nll(as.list(fit$par), subset_tanks(frog_data, i))
+  }
+  comparison$loo[m] = score
+}
+n_failed
+```
 
-::: {.callout-warning title="What was simulated?"}
-Simulate complete observations from the fitted distribution at each
-predictor value. Simulating only the fitted mean curve produces no
-observation-level variation and cannot support this residual check.
+All 64 fits converged.
+
+## Comparing the four models
+
+Only differences between models matter for each criterion, so we calculate the difference
+of each model from the best one: the lowest AIC, AICc and BIC, and the highest
+leave-one-out score (whose differences are therefore zero or negative):
+
+```{r}
+# Differences from the best model for each criterion.
+data.frame(
+  model = comparison$model,
+  K = comparison$K,
+  loglik = round(comparison$loglik, 2),
+  delta_aic = round(comparison$aic - min(comparison$aic), 2),
+  delta_aicc = round(comparison$aicc - min(comparison$aicc), 2),
+  delta_bic = round(comparison$bic - min(comparison$bic), 2),
+  delta_loo = round(comparison$loo - max(comparison$loo), 2)
+)
+```
+
+Recall that a difference of one unit in the log score corresponds to about two units of AIC.
+For the variation among tanks the criteria agree: with either curve, every criterion
+prefers the Beta-Binomial model to the Binomial model, by 6.7 (Holling type II) and 13.0
+(constant probability) units of AIC, and by 3.3 and 8.2 units of log score. This agrees with
+the residuals of @sec-response-residuals.
+
+For the density dependence of the risk the answer depends on the distribution. Under the
+Binomial models, the Holling type II curve is clearly better than a constant probability (9.0
+units of AIC, 4.0 of log score). Under the Beta-Binomial models the difference is small, and
+the criteria do not agree on its sign: AIC, AICc and BIC prefer the Holling type II curve by
+2.7, 1.6 and 2.0 units, whereas the leave-one-out score prefers the constant probability by
+0.9 units. The Binomial models overstated the evidence for density dependence for the same
+reason that they understated the standard errors: they treated the tadpoles as independent
+trials. With 16 tanks that vary among themselves, the data say clearly that a tadpole is
+killed with a probability of about one half at low density, and that the tanks vary more
+than a Binomial model allows, but they hardly distinguish a probability that decreases with
+density from a constant one over densities of 5 to 100 tadpoles per tank.
+
+For the ecological answer we use the Beta-Binomial model with the Holling type II curve,
+which three of the four criteria prefer and which contains the constant probability as the
+case $H=0$, and we calculate likelihood profile intervals for its parameters as in
+@sec-curve-uncertainty:
+
+```{r}
+#| warning: false
+# Profiles of logit(alpha) and log(H) of the Beta-Binomial model (confint() warns
+# about repeated values, as before).
+betabinomial_profile_alpha = TMB::tmbprofile(
+  betabinomial_obj, name = "logit_alpha", trace = FALSE
+)
+betabinomial_profile_H = TMB::tmbprofile(betabinomial_obj, name = "log_H", trace = FALSE)
+
+# 95% intervals on the original scale; 1 / H decreases with H, so the endpoints swap.
+H_interval_bb = exp(confint(betabinomial_profile_H))
+betabinomial_intervals = rbind(
+  plogis(confint(betabinomial_profile_alpha)),
+  H_interval_bb,
+  rev(1 / H_interval_bb)
+)
+dimnames(betabinomial_intervals) = list(c("alpha", "H", "1/H"), c("lower", "upper"))
+betabinomial_intervals
+```
+
+The attack rate is estimated at 0.54 per experiment, with an interval from 0.38 to 0.76: at
+low density, between about two fifths and three quarters of the tadpoles are killed in
+the 14 days. The handling time is estimated at 0.018 experiments per tadpole killed, but its
+interval runs from 0.0019 to 0.038, so the largest number of tadpoles that three larvae
+could kill in one experiment, about 56, has an interval from 27 to more than 500. The lower
+end of the interval of $H$ is close to zero, which is the constant probability, and this
+agrees with the comparison. The tanks rule out a low maximum but say little about how high
+it is, as we found in @sec-curve-uncertainty, and allowing for the variation among tanks
+widens the interval further. To estimate the handling time, an experiment would need tanks
+with densities well above the half-maximum, where the curve levels off.
+
+# A recipe for a response curve
+
+The steps of this chapter extend the recipe of
+[Chapter 4](../Chapter_4/Theory.qmd#sec-aic) to models in which a curve describes a
+parameter of the distribution of each observation:
+
+::: {.callout-note title="A recipe for a response curve"}
+1. Choose the curve from what is known about the process and from a plot of the data
+   ([Chapter 5](../Chapter_5/Theory.qmd)), and the observation model, with the parameter
+   that the curve describes and the range that this parameter requires.
+2. Write the NLL with the predictor and the response in the list of data, transforming
+   every constrained parameter inside it.
+3. Read starting values for the parameters of the curve from a plot of the data.
+4. Fit the model with `MakeADFun()` and `optim()`, check that `convergence` is zero, and
+   plot the fitted curve over the data.
+5. Calculate standard errors and correlations with `sdreport()`, and likelihood profile
+   intervals with `TMB::tmbprofile()` and `confint()` for the parameters that the question
+   is about.
+6. Calculate the curve on a grid of the predictor with `ADREPORT()`, and its confidence band
+   from Wald intervals on a scale on which the curve is unbounded.
+7. Mark the response with `OBS()`, simulate hypothetical samples with `obj$simulate()`, and
+   check the scaled quantile residuals with DHARMa.
+8. Revise the curve or the observation model where the residuals show a disagreement, and
+   check the revised model in the same way.
+9. Compare the candidate models, fitted to the same observations, with AIC, AICc, BIC and
+   leave-one-out cross-validation.
+10. Interpret the estimates and intervals of the preferred model in units, in terms of the
+    ecological question, and say what the data leave uncertain.
 :::
 
-# A fitting workflow
+# Summary
 
-1. Plot the observations and check their units, support, missing values,
-   repeated measurements, and predictor range.
-2. Choose a small set of plausible mean curves and observation models.
-3. Write the likelihood, check it at sensible parameter values, process it
-   with `MakeADFun()`, fit every parameter, inspect convergence, and plot
-   fitted curves against the data.
-4. Estimate confidence intervals for ecologically meaningful parameters, and
-   ask for quantities calculated from them with `ADREPORT()`.
-5. Compare compatible candidates by AIC or BIC and, when appropriate,
-   cross-validated predictive scores.
-6. Simulate observations from the fitted model and inspect scaled
-   residuals. Revise the model or qualify the conclusion when a pattern
-   remains.
+A response curve describes one parameter of the distribution of each observation, usually
+its mean or, for a Binomial distribution, its probability, as a function of a predictor. The
+curve must return values in the range of that parameter. The observations are treated as
+independent, but each has its own distribution. The log-likelihood is the sum of the log
+probabilities of the observations, each calculated at its own value of the predictor, and it
+is maximised with the tools of Chapter 4, with the predictor in the list of data and
+starting values read from a plot. RTMB calculates the gradient of the NLL exactly by
+automatic differentiation, which BFGS, `sdreport()` and `ADREPORT()` all rely on.
+
+The parameters of a curve are often strongly correlated, and how precisely each of them is
+estimated depends on where the observations lie along the predictor: observations inform a
+parameter where the curve responds to it. Likelihood profile intervals follow the asymmetry
+of a poorly determined parameter, and their endpoints can be transformed to give intervals
+for quantities such as an asymptote. The uncertainty of the curve itself comes from
+`ADREPORT()` on a grid of the predictor, as a pointwise confidence band calculated on an
+unbounded scale.
+
+A fitted model can be checked by simulating hypothetical samples from it and calculating
+scaled quantile residuals, which are approximately uniform between 0 and 1 when the model
+describes the data generating process. Their patterns show where the model disagrees with
+the data, but not why. For the reed frogs they showed overdispersion relative to the
+Binomial distribution, and a Beta-Binomial model with the same curve described the
+variation among tanks. Candidate models fitted to the same observations are compared with
+AIC, AICc, BIC and leave-one-out cross-validation, with the number of independent
+observations as $n$. The criteria rank the candidates; what they mean for the question, and
+what remains uncertain, is a matter of interpretation in ecological terms.
+
+In this chapter every tank was an independent observation. In
+[Chapter 7](../Chapter_7/Theory.qmd) the observations come in groups, such as repeated
+measurements on the same individuals or sites, and the parameters of the curve vary among
+groups.
 
 # Chapter quiz
 
-:::: {.callout-important title="Question 1: the missing component"}
-You have written $m(x)=ax/(b+x)$ and plotted it over the data. What must
-you add before calculating a likelihood?
+The questions below follow the order of the chapter. Try each question before opening its
+solution.
+
+:::: {.callout-important title="Question 1: hatching success and temperature"}
+
+The number of eggs that hatch out of each clutch is described with a Binomial model, and a
+Ricker curve of temperature, $aTe^{-bT}$, is proposed for the parameter of the distribution
+that depends on temperature. Which parameter is that, and what can go wrong with this
+curve? How could the curve be written so that it always has the right range?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-Specify a distribution for observations around the curve, its remaining
-parameters, and the dependence assumptions for the observational units.
+
+The curve describes the probability that an egg hatches, which must lie between 0 and 1.
+The Ricker curve has its maximum $a/(be)$ at $T=1/b$, and nothing stops this maximum from
+exceeding 1 during the fit, in which case the Binomial probability is not defined. One
+solution is to write the curve with its maximum as a parameter, $p(T)=h\,(T/c)\,e^{1-T/c}$,
+whose peak has height $h$ at $T=c$, and to optimise $h$ on the logit scale so that it stays
+between 0 and 1. Another is to pass a curve through the inverse logit.
+
 :::
 ::::
 
-:::: {.callout-important title="Question 2: a positive parameter"}
-Why might you estimate $\log b$ rather than $b$ directly? On which scale
-should the final ecological interval be reported?
+:::: {.callout-important title="Question 2: a threshold in the NLL"}
+
+A colleague fits a hockey-stick curve, which increases linearly up to a threshold $c$ and
+is flat above it, and writes the NLL with an `if` that applies one formula or the other to
+each observation depending on whether its predictor is below $c$. The threshold is a
+parameter. What goes wrong when RTMB processes this NLL?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-Exponentiating an unconstrained estimate keeps $b$ positive. Calculate
-the interval consistently on the fitted scale, then transform its
-endpoints back to the units of the predictor.
+
+RTMB records the calculations of the NLL at the starting values. For each observation only
+the side of the `if` that was taken at the starting value of $c$ is recorded, so during the
+fit every observation stays on that side, whatever value of $c$ the optimiser tries, and
+the estimate of the threshold is meaningless. Moreover, the curve has a sharp bend at $c$,
+where its derivative does not exist. A smooth curve that approximates the bend avoids both
+problems, and the RTMB documentation describes other solutions.
+
 :::
 ::::
 
-:::: {.callout-important title="Question 3: comparing models"}
-Two models use different subsets of rows because only one removed
-missing responses. Can their AIC values be compared as calculated?
+:::: {.callout-important title="Question 3: photosynthesis at low light"}
+
+The rate of photosynthesis of leaves was measured at light intensities from 0 to
+200 µmol/m²/s, where the response still increases almost linearly, and a Michaelis–Menten
+curve was fitted. Which quantity of the curve do the data determine well, and which
+parameters do they determine poorly? What would you expect of the correlation between the
+estimates, and how would you improve the design?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-No. Fit both to the same observed responses and rows before comparing
-their AIC values.
+
+The data cover only the initial rise of the curve, so they determine its initial slope,
+$a/b$, well, but the asymptote $a$ and the half-saturation constant $b$ poorly: many
+combinations with the same ratio give similar curves over the range of the data. The
+estimates of $a$ and $b$ will therefore be strongly and positively correlated, and their
+likelihood profile intervals wide and asymmetric. Measurements at higher light, where the
+curve levels off, would determine the asymptote.
+
 :::
 ::::
 
-:::: {.callout-important title="Question 4: held-out prediction"}
-Why must an observation held out in cross-validation be absent from
-*every* estimation step for its fold?
+:::: {.callout-important title="Question 4: a band for survival"}
+
+The estimated probability that a seedling survives at a given soil moisture is 0.97, with a
+standard error of 0.02 on the original scale. Calculate the Wald interval on the original
+scale. Why do we calculate the confidence band of a probability on the logit scale?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-Using it to choose parameters or dispersion would let information from
-the assessment observation influence its own prediction.
+
+On the original scale the interval is $0.97\pm1.96\times0.02$, from 0.931 to 1.009, and its
+upper endpoint is not a probability. On the logit scale the curve is unbounded, the Wald
+interval cannot cross a bound, and the log-likelihood is usually closer to a parabola, so
+the interval is more accurate. Its endpoints are transformed back with `plogis()`, which
+keeps them between 0 and 1.
+
 :::
 ::::
 
-:::: {.callout-important title="Question 5: scaled residuals"}
-A residual plot slopes upwards as the predictor increases. What can you
-conclude, and what can you not conclude?
+:::: {.callout-important title="Question 5: fruits on shrubs"}
+
+A report shows the expected number of fruits per shrub as a function of shrub height, with
+a pointwise 95% confidence band. A reader expects about 95% of the shrubs to lie inside the
+band. Is that right?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-The simulated model does not reproduce how the observations change with
-the predictor. The plot alone does not identify which assumption or
-ecological process caused that pattern.
+
+No. The band describes the uncertainty of the curve, the expected number of fruits: at each
+height, the interval contains the expected number of the model at that height in about 95%
+of hypothetical samples. The numbers of fruits of individual shrubs vary around the curve
+according to the distribution of the observations, which is much wider than the band, so
+many shrubs lie outside it.
+
 :::
 ::::
 
-:::: {.callout-important title="Question 6: coverage"}
-What must be known to estimate a confidence interval's coverage in a
-simulation study, and why is this unavailable for an ordinary dataset?
+:::: {.callout-important title="Question 6: seedlings along a light gradient"}
+
+The scaled quantile residuals of a Poisson model for the number of seedlings per quadrat,
+with an exponential curve of light, are mostly below 0.5 at low light and mostly above 0.5
+at high light. What does this mean? Does it tell you that the Poisson distribution is
+wrong?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-We must know the fixed generating parameter and repeat sampling and
-interval construction. The generating parameter is unknown in an
-ordinary dataset.
+
+The observed counts are lower than the model predicts at low light and higher at high
+light, so the curve misses a systematic change of the expected count with light: its shape
+is wrong, or a predictor that changes with light is missing. The pattern does not say which,
+and it says nothing in particular about the Poisson distribution. Revise the curve and check
+the residuals again.
+
 :::
 ::::
 
-:::: {.callout-important title="Question 7: automatic differentiation"}
-What does RTMB provide to the optimiser, and why might a response curve with
-an unknown sharp threshold need extra care?
+:::: {.callout-important title="Question 7: germination in pots"}
+
+A Binomial model is fitted to the number of seeds that germinate out of 25 in each pot, and
+DHARMa gives a dispersion statistic of 0.45. What does this mean? Would a Beta-Binomial
+model help?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-RTMB calculates the gradient of the NLL accurately by automatic
-differentiation, and `optim()` receives it as `gr`.
-At a sharp threshold the derivative may be undefined, and of a branch
-chosen according to a parameter only the side taken at the starting values is
-used. Check the NLL in R and consider a smooth curve or a different
-fitting strategy for that model.
+
+The numbers germinated vary around the curve less than a Binomial model allows, about half
+as much as a variance: this is underdispersion. The seeds of a pot do not behave as
+independent trials with the same probability (for example, because of competition within
+the pot). A Beta-Binomial model cannot help, because its variance is always at least that
+of the Binomial model with the same mean.
+
 :::
 ::::
 
-:::: {.callout-important title="Question 8: the delta method"}
-A fit gives $\log\hat b=2.40$ with a standard error of 0.11. What is the
-approximate standard error of $\hat b$, and which line of the NLL makes
-`sdreport()` report it?
+:::: {.callout-important title="Question 8: three models for germination"}
+
+The germination of seeds in trays at five temperatures is described with three models: (a)
+a Binomial model with a constant probability; (b) a Binomial model whose probability is the
+inverse logit of $a+bT$; (c) a Beta-Binomial model with the same curve as (b). Which models
+are nested in which, and how many parameters does each have?
 
 ::: {.callout-tip title="Answer" collapse="true"}
-By the delta method it is the standard error on the log scale multiplied by
-the slope of the exponential at the estimate, which is $\hat b=e^{2.40}\approx
-11.0$: approximately $11.0\times0.11\approx1.2$, in the units of prey density.
-The line `ADREPORT(b)` inside the NLL asks for it.
+
+Model (a) is model (b) with $b=0$, so it is nested in (b). Model (b) is the limit of model
+(c) as $\kappa$ grows without bound, so it is nested in (c). Model (a) is also nested in (c).
+The models have one, two and three parameters: the probability; $a$ and $b$; and $a$, $b$
+and $\kappa$.
+
+:::
+::::
+
+:::: {.callout-important title="Question 9: clutches of eggs"}
+
+A Beta-Binomial model with three parameters is fitted to the number of hatched eggs in 30
+clutches of 4 eggs each, and its maximum log-likelihood is $-41.2$. What is $n$ in BIC, and
+what is the BIC of the model?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+The independent observations are the clutches, because the eggs of a clutch share its
+probability of hatching, so $n=30$ and not 120 eggs. Then
+$\mathrm{BIC}=3\log(30)+2\times41.2\approx10.20+82.4=92.6$.
+
+:::
+::::
+
+:::: {.callout-important title="Question 10: a shortcut in cross-validation"}
+
+To save time, a colleague estimates the precision $\kappa$ of a Beta-Binomial model from
+all 40 plots, and then runs leave-one-out cross-validation in which only the parameters of
+the curve are refitted, with $\kappa$ fixed at that estimate. What is wrong?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+Every held-out plot contributed to the estimate of $\kappa$ that is used to predict it, so
+information from the held-out observation enters its own prediction. The score is then too
+optimistic, and the comparison favours this model unfairly. Every parameter must be
+estimated again without the held-out observation.
+
 :::
 ::::
