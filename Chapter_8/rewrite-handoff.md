@@ -1124,3 +1124,47 @@ Each stage adds one line: date, stage, what is done, what is next.
   the earlier exercises go to `no_solution.qmd` pages (Chapter 7 Exercise 1 and Exercise 5,
   Chapter 4 Exercise 4) and to Chapter 4's `solution.qmd`. `AGENTS.md` and `.claude/docs/`
   unchanged (Stage 7 records the decisions). Next: Stage 4.
+- 4 November 2026: Stage 4 done (independent review; the reviewer did not write the pages).
+  **Checked:** the three pages render in the dev profile without warnings, before and after
+  the fixes (no unresolved `?@`, no warning text in the output); every chunk of the three
+  pages purled and run in a clean session (theory 5 s, student page 14 s, solutions 23 s),
+  and every number in the prose compared with the output; the claims that no chunk prints
+  recalculated in a separate session: BFGS without `gr` from the three poor starts (318.682,
+  402.792, 302.323); the slow-rise start with $\sigma$ 10 (296.256); the ridge slice (rise
+  12.30 at 0.0145 L/µL, flat within 0.004 above 0.2 L/µL); eigenvalues at the three wrong
+  stops (zero fit: three practically zero; ridge: two; early plateau: one negative); the
+  slice along `c0` alone (minimum at 90.3); `c0` of the 17 best starts (45.0 to 46.8); the
+  standard errors and correlations of the full fit (se of `c0` 21.7, of `log_rate` 0.309,
+  correlation 0.84); the reed frog counts (6 gradient evaluations, five steps) and the first
+  step from $\alpha=0.01$ (`logit_alpha` 199); the reed frog correlation 0.82; the DEoptim
+  refit against Chapter 7; for the practical, the line search of the failed pine start (the
+  first accepted trial has `log_A` −17.3), the start with $\sigma_{\mathrm{obs}}=5$ ft
+  (162.817), the mixed pine model from Chapter 7's start (116.669, so the hidden check
+  compares with the maximum), the mean Adelie mass (3,700.7 g), the kilogram first step
+  (decrease $1.642\times10^{-5}$, as in grams) and the 19 samples of Exercise 3 that do not
+  move (`nlminb()` lowers the NLL by at most 0.0032). Statements about `optim()` checked
+  against `?optim` and `vmmin`/`nmmin` (stopping rules, `counts`, central differences,
+  `ndeps`, the line search with factor 0.2, the Nelder–Mead test and its warning in one
+  dimension); `nlminb()`, `optimize()` and DEoptim as described; the citations (Nocedal and
+  Wright 2006; Storn and Price 1997, *J. Global Optim.* 11: 341–359; Mullen et al. 2011,
+  *JSS* 40(6)) are correct; every link target exists, and the linked passages say what
+  Chapter 8 attributes to them (Chapter 5's "responds to it", the units of $\alpha$ and $H$ in
+  Chapter 6, Chapter 4's 66.09 and $151\times\log(1000)$, Chapter 7's conclusion on the REML
+  bias). Statistics, scope and alignment as listed in "Stage 4": no findings beyond the
+  fixes below. Question text of Exercises 2 and 3 identical on both pages (`diff`).
+  **Changed:** (1) theory, `#sec-wrong-place`: "an optimiser can stop at any of the others"
+  included maxima; now a local minimum, near a saddle point, or on a ridge; (2)
+  `#sec-diagnosis`: the fit at zero is flat in three directions, and the reason now names the
+  asymptote as well as the rate and the location; (3) `#sec-search`: "Newton's method is not
+  lost for us" made formal; (4) "Other local optimisers": three of the 50 Nelder–Mead fits
+  stopped at the limit of 500 iterations (code 1), which the explanation of its imprecision
+  left out; now said in a parenthesis; (5) "Parameterisation": "the mean is what the data
+  determine best" softened to "the data usually determine the mean well"; (6) quiz, Question
+  1: removed a sentence that repeated the warning on code 0 (Question 2 and the callout keep
+  it); (7) Question 7: a correlation of 0.15 makes the surface "nearly round"; (8) student
+  page: one source line of 124 characters rewrapped; (9) solutions, Exercise 3, Question 3:
+  the checks "can be used for" any model instead of "work for" any model. **Remains:** the
+  size of the theory (1,941 lines; open question of Stage 2, unchanged); the code 0 caveat
+  appears, besides the callout, in the summary and Question 2 (planned), which is within the
+  rule. `AGENTS.md` and `.claude/docs/` unchanged (no new durable decision; Stage 7 records
+  the chapter's decisions). Next: Stage 5.
