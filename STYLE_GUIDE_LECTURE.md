@@ -21,7 +21,8 @@ Each lecture lives in `Chapter_N/Lecture/`:
   regenerate it after changing the script and never edit it.
 - `lecture.scss`: presentation styling. Copy the Chapter 3 file and keep the class names
   below; do not restyle per lecture. Its demo rules are used by the lectures with demos
-  (Chapters 2 and 4).
+  (Chapters 2, 4 and 6). It gives the first column of every table 40% of the width, so
+  a table of more than three columns overflows the slide.
 - `demo-<topic>.R` (only for a lecture with a demo from a standalone script): the code
   of the demo, in numbered sections that match the steps on the demo slide, runnable in a
   clean R session and following the R rules of `STYLE_GUIDE.md`. Its object names are
@@ -63,7 +64,9 @@ copy in each `lecture-assets/`. The subtitle, footer and `pagetitle` name the le
   during delivery" lists the chunks that fit. The Chapter 2 lecture has three demos from
   the chapter's code. Each Chapter 4 lecture has one demo of 18 minutes from a standalone
   script (author's decision of 3 November): a slice and the profile with TMB in Lecture 1,
-  the properties of estimators by simulation in Lecture 2. A demo slide's `data-timing`
+  the properties of estimators by simulation in Lecture 2. The Chapter 6 lecture has one
+  demo of the same length from `demo-cycle.R`: the modelling cycle for one model, from
+  the fit to the residuals, without model comparison. A demo slide's `data-timing`
   includes its demo, and the table of the script shows the two parts ("2 + 16").
 - **Breaks** are rows of the table without a slide number, and the line under the table
   totals slides, slack and breaks.
@@ -208,7 +211,9 @@ data-timing="240"}`, and the class to the image:
   wide figure of several panels may instead take the full width of the slide, without
   columns, with the caption and a short list (or an equation beside the list, in two
   columns) below it. Reveal.js shrinks such a figure to the height left by the text, so
-  keep each line below it to one line and check the slide at full size.
+  keep each line below it to one line and check the slide at full size. A two-panel figure
+  of about 9 × 4 inches with a list below it becomes too small to read; put it in a 60 to
+  64% column beside the list instead (Chapter 6, slides 14 and 21).
 - `.diagram-slide`: the author's own diagrams (`.cycle-diagram`, `.estimation-diagram`
   on the image). The modelling cycle may stand alone with a caption.
 - `.dense`, `.with-footline`: for slides with more text or a footline; not used so far.

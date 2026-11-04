@@ -3,334 +3,587 @@ title: "Chapter 6: Fitting ecological response curves"
 date: today
 ---
 
-# Introduction
+The exercises fit response curves to three data sets that the Chapter 5 practical used as a
+backdrop for curves placed by eye: the titre of a virus in infected rabbits (Exercise 1),
+the rate of an enzymatic reaction (Exercise 2) and the fecundity of fir trees (Exercise 3).
+Exercise 4 simulates hypothetical samples from the model fitted in Exercise 1. Exercises 1
+to 3 are the core of the practical and Exercise 4 is extra practice. Work through the
+first exercise, which is worked in full on this page, before trying the remaining ones.
+The ideas and notation are introduced in the [Chapter 6 theory](../Theory.qmd).
 
-These six files are simulated ecological datasets supplied as CSV files. You
-can download them from the
-[`Data` folder](https://github.com/AleMorales/EcologicalModelsData2026/tree/main/Data)
-in the course GitHub repository. Treat their generating models and parameters
-as unknown while analysing them. In this Quarto website, this practical runs
-from its own folder, so use `read.csv("../../Data/shapes2.csv")`. The
-[theory](../Theory.qmd) develops the methods, and the
-[function reference](../../Supplements/deterministic-functions.qmd)
-summarises candidate curves.
+As in the theory, every model is written and fitted with the packages RTMB and RTMBdist,
+which you installed in the Chapter 1 practical together with `emdbook`, where the data of
+Exercises 1 and 3 are. The scaled quantile residuals are calculated with the package
+DHARMa, which you need to install once with `install.packages("DHARMa")`. Load RTMB first
+and RTMBdist second:
 
-Complete **Exercises 1â€“3** before moving to Chapter 7. **Exercises 4â€“6
-are further practice**: they give you more time with repeated
-measurements, a time series, and a dataset whose context is withheld.
-Each exercise asks for maximum likelihood estimates and at least one
-confidence interval. Run the code yourself, inspect the output, and
-explain what the estimates mean. You will need the DHARMa package for
-the scaled residual checks; install it in your R environment before
-working through those steps. The core exercises also use RTMB: install
-it in your R environment before starting. Begin with an ordinary R
-likelihood in Exercise 1, then use RTMB for the remaining core fits.
+```{r}
+#| message: false
+# Load RTMB first and RTMBdist second.
+library(RTMB)
+library(RTMBdist)
+```
 
-# Exercise 1: Predator intake and model comparison
+# Exercise 1: Virus titre in infected rabbits
 
-The file `shapes2.csv` contains prey density `x` and a predator's measured
-intake rate `y`. Begin with the [Holling type II](../../Supplements/deterministic-functions.qmd#sec-fn-michaelis-menten) mean curve
-$m(x)=ax/(b+x)$ and independent normal observation errors with standard
-deviation $\sigma$.
+The data set `MyxoTiter_sum` in the package `emdbook` contains the titre of the myxoma
+virus in the blood of European rabbits on different days after infection, for viruses of
+four grades (Fenner and McIntyre 1956; the values were read from a figure in Dwyer et al.
+1990). The titre measures the concentration of virus and is expressed as the logarithm in
+base 10 of the number of rabbit infectious doses. As in the Chapter 5 practical, we keep
+the 27 observations of grade 1, which were taken between 2 and 9 days after infection, and
+put the day and the titre of each observation in a list of data:
 
-1. Load the file and plot intake against prey density. State the
-   observational unit and what $a$, $b$, and $\sigma$ describe.
-2. Write a negative log-likelihood and fit it with `optim()`. Express
-   the same model in RTMB, fit with its gradient, compare the two
-   negative log-likelihood values, check convergence, and draw the curve.
-3. Calculate an approximate 95% quadratic confidence interval for $a$
-   on its log scale, then express the endpoints in intake-rate units.
-4. Use RTMB to fit a [saturating exponential](../../Supplements/deterministic-functions.qmd#sec-fn-monomolecular) mean curve
-   $m_E(x)=A(1-e^{-kx})$ with the same normal observation model.
-   Calculate AIC and BIC for both fits. Which has the lower scores?
-   Count the error standard deviation as a fitted parameter.
-5. Use five-fold cross-validation to compare their *held-out* normal
-   log densities. Refit each model inside each fold and explain any
-   agreement or disagreement with the information criteria.
-6. Simulate observations from the chosen fitted model, make scaled
-   quantile residual plots with DHARMa, and describe any pattern.
+```{r}
+# Load the myxomatosis data from the emdbook package without attaching the package.
+data(MyxoTiter_sum, package = "emdbook")
+
+# Keep the observations of virus grade 1: the day after infection and the titre.
+grade_1 = MyxoTiter_sum[MyxoTiter_sum$grade == 1, ]
+titre_data = list(day = grade_1$day, titre = grade_1$titer)
+```
+
+In Exercise 1 of the [Chapter 5 practical](../../Chapter_5/Practicals/no_solution.qmd) we
+described the rise and fall of the titre with the
+[Ricker](../../Supplements/deterministic-functions.qmd#sec-fn-ricker) function,
+$f(x)=a\,x\,e^{-bx}$, where $x$ is the time since infection in days. From a peak read by
+eye on day 6 with a titre of 7.6 we calculated $a=3.44$ units of titre/day and
+$b=1/6\approx0.167$/day. Here we fit the curve to the observations, which we
+treat as independent.
+
+1. On paper, write the model with the Ricker curve for the mean titre and a
+   [Normal](../../Supplements/distributions.qmd#sec-normal) observation model with a
+   constant standard deviation $\sigma$. Give the units of $a$, $b$ and $\sigma$. The
+   titres in these data are all positive; why can a Normal model, which allows any real
+   value, be used for them?
+2. Write the negative log-likelihood (NLL) with $\log(a)$, $\log(b)$ and $\log(\sigma)$ as
+   parameters, and fit it from the values read by eye in the Chapter 5 practical. Check
+   the convergence, report the estimates with their units, and draw the fitted curve over
+   the data together with the curve by eye.
+3. Calculate the standard errors with `sdreport()`. Ask for the time of the peak, $1/b$,
+   and the height of the peak, $a/(be)$, with `ADREPORT()`, and calculate 95% Wald
+   intervals for both. On which scale are these intervals calculated? Then calculate the
+   likelihood profile interval of $b$ with `TMB::tmbprofile()` and `confint()`, and from
+   it an interval for the time of the peak. Compare the two intervals for the time of the
+   peak.
+4. Simulate 1,000 hypothetical samples from the fitted model with `simulate()`, and
+   calculate the scaled quantile residuals with DHARMa. Plot them, also against the day of
+   the observation, and say what they show.
+5. Fit the same curve with a [Gamma](../../Supplements/distributions.qmd#sec-gamma)
+   observation model, with `dgamma()` and the arguments `shape` and `scale = mu / shape`.
+   How does the spread of the titres around the curve differ between the two models?
+   Compare them with AIC, AICc and BIC. Why do the three criteria give the same difference
+   here?
 
 ## Solution
 
-The response is one measured intake rate at an offered prey density.
-The model treats the rows as conditionally independent. The parameter
-$a$ is the limiting rate, $b$ is the half-saturation prey density, and
-$\sigma$ describes observation-level spread around the curve. This
-plot and fit use the same rows for every comparison.
+### Question 1
 
-```r
-library(RTMB)
-intake = read.csv("../../Data/shapes2.csv")
-plot(intake$x, intake$y,
-     xlab = "Prey density", ylab = "Predator intake rate")
+Let $Y_i$ be the titre of observation $i$ and $x_i$ the day after infection on which it
+was measured. The curve describes the mean titre on each day, and the titres vary around
+it according to a Normal distribution:
 
-type_ii = function(x, a, b) a * x / (b + x)
-sat_exp = function(x, A, k) A * (1 - exp(-k * x))
+$$
+Y_i \sim \operatorname{Normal}\left(f(x_i),\,\sigma^2\right),
+\qquad
+f(x)=a\,x\,e^{-bx},
+\qquad i=1,\ldots,27,
+$$
 
-nll_ii = function(par, data) {
-  a = exp(par[1])
-  b = exp(par[2])
-  sigma = exp(par[3])
-  mu = type_ii(x = data$x, a = a, b = b)
-  -sum(dnorm(x = data$y, mean = mu, sd = sigma, log = TRUE))
+where $f(x_i)$ is the mean titre on day $x_i$ and $\sigma$ is the standard deviation of the
+titres around the curve, the same on every day ($\sigma^2$ is the variance of the model).
+The mean of a Normal distribution can take any real value, so the curve needs no outer
+function to give it the right range (see
+[From a response curve to a model for observations](../Theory.qmd#sec-response-observation)).
+The units of $a$ and $b$ are those of Chapter 5: $b$ is in 1/day, because $bx$ is the
+argument of an exponential and has no units, and $a$ is in units of titre/day, because $ax$
+must have the units of the titre. The standard deviation $\sigma$ measures the spread of
+the observations, so it has the units of the titre (log10 infectious doses).
+
+A Normal model gives a positive probability to negative titres, which do not occur in these
+data. This does not matter when that probability is negligible. The titres lie between 4.2
+and 8.5 and vary by about one unit among the observations of the same day, so if the curve
+passes near the observations its value lies many standard deviations above zero. We check
+this after the fit.
+
+### Question 2
+
+The NLL has the form of the theory: a list of parameters, with the logarithms of the three
+positive parameters, and a list of data, with the predictor (`day`) and the response
+(`titre`). Because `day` is a vector, the line of the curve returns the mean titre of every
+observation, and `dnorm()` uses the mean of each observation:
+
+```{r}
+# Negative log-likelihood of the Ricker curve with a Normal observation model.
+normal_nll = function(parms, data) {
+  # Make the elements of both lists available by name.
+  getAll(parms, data)
+  # Transform the parameters to the original scale.
+  a = exp(log_a)
+  b = exp(log_b)
+  sigma = exp(log_sigma)
+  # Mean titre on the day of each observation.
+  mu = a * day * exp(-b * day)
+  -sum(dnorm(x = titre, mean = mu, sd = sigma, log = TRUE))
 }
-
-start_ii = function(data) {
-  c(log_a = log(max(data$y)),
-    log_b = log(median(data$x)),
-    log_sigma = log(sd(data$y)))
-}
-manual_ii = optim(par = start_ii(intake), fn = nll_ii,
-                  data = intake, method = "BFGS")
-
-# The same normal likelihood can be used with either smooth mean curve.
-fit_intake = function(data, curve, initial_scale) {
-  x = data$x
-  y = data$y
-  objective = function(par) {
-    mu = curve(x, exp(par$log_a), exp(par$log_scale))
-    y %~% dnorm(mean = mu, sd = exp(par$log_sigma))
-  }
-  parameters = list(
-    log_a = log(max(y)), log_scale = log(initial_scale),
-    log_sigma = log(sd(y))
-  )
-  obj = MakeADFun(objective, parameters, silent = TRUE)
-  fit = optim(par = obj$par, fn = obj$fn, gr = obj$gr,
-              method = "BFGS")
-  list(obj = obj, fit = fit)
-}
-
-ii_result = fit_intake(intake, type_ii, median(intake$x))
-exp_result = fit_intake(intake, sat_exp, 1 / median(intake$x))
-fit_ii = ii_result$fit
-fit_exp = exp_result$fit
-c(manual = manual_ii$convergence,
-  type_ii = fit_ii$convergence, exponential = fit_exp$convergence)
-c(manual = manual_ii$value, RTMB = fit_ii$value)
-exp(fit_ii$par)
-exp(fit_exp$par)
-
-x_grid = seq(min(intake$x), max(intake$x), length.out = 200)
-lines(x_grid, type_ii(x_grid, exp(fit_ii$par[1]),
-                      exp(fit_ii$par[2])), lty = 1)
-lines(x_grid, sat_exp(x_grid, exp(fit_exp$par[1]),
-                      exp(fit_exp$par[2])), lty = 2)
-legend("bottomright", c("Holling type II", "Saturating exponential"),
-       lty = c(1, 2), bty = "n")
 ```
 
-The optimiser works on log parameters to keep them positive. The
-displayed estimates are back on the ecological scale. In the RTMB
-helper, `log_scale` represents $b$ for Holling type II and $k$ for the
-exponential. `%~%` adds the complete normal negative log-likelihood;
-`obj$gr` supplies derivatives to `optim()`. The manual and RTMB
-objective values should agree closely. Check convergence before using
-Hessians or scores. For $a$, calculate the interval on the log scale:
+We start from the values read by eye in Chapter 5. For $\sigma$ we take 1 unit of titre,
+roughly the spread of the observations of one day. We give the starting values to
+`MakeADFun()` on the log scale and fit the model:
 
-```r
-hessian_ii = ii_result$obj$he(fit_ii$par)
-dimnames(hessian_ii) = list(names(fit_ii$par), names(fit_ii$par))
-se_log_ii = sqrt(diag(solve(hessian_ii)))
-a_interval = exp(fit_ii$par["log_a"] +
-                   c(-1, 1) * qnorm(p = 0.975) * se_log_ii["log_a"])
-a_interval
+```{r}
+# Connect a likelihood to a data set.
+cmb = function(f, d) function(p) f(p, d)
 
-k_ii = length(fit_ii$par)
-k_exp = length(fit_exp$par)
-scores = data.frame(
-  model = c("Holling type II", "Saturating exponential"),
-  AIC = c(2 * fit_ii$value + 2 * k_ii,
-          2 * fit_exp$value + 2 * k_exp),
-  BIC = c(2 * fit_ii$value + log(nrow(intake)) * k_ii,
-          2 * fit_exp$value + log(nrow(intake)) * k_exp)
+# Starting values: the values read by eye in the Chapter 5 practical, and sigma = 1.
+titre_start = list(log_a = log(3.44), log_b = log(1 / 6), log_sigma = log(1))
+
+# Process the NLL, minimise it with BFGS and check the convergence code.
+normal_obj = MakeADFun(cmb(normal_nll, titre_data), titre_start, silent = TRUE)
+normal_fit = optim(
+  par = normal_obj$par,
+  fn = normal_obj$fn,
+  gr = normal_obj$gr,
+  method = "BFGS"
 )
-scores
+normal_fit$convergence
+
+# Estimates on the original scale.
+a_mle = exp(normal_fit$par[["log_a"]])
+b_mle = exp(normal_fit$par[["log_b"]])
+sigma_mle = exp(normal_fit$par[["log_sigma"]])
+c(a = a_mle, b = b_mle, sigma = sigma_mle)
 ```
 
-Both models estimate two curve parameters and one error parameter, so
-their penalty terms are equal. Here a score difference comes from how
-closely the fitted normal distributions describe the same 50 rates.
-The Holling type II fit has the lower AIC and BIC (approximately 169.3
-and 175.0, compared with 181.0 and 186.8). The scores compare only
-these candidates; they do not establish that either is adequate.
+The convergence code is 0. The estimates are $\hat a\approx3.42$ units of titre/day,
+$\hat b\approx0.165$/day and $\hat\sigma\approx0.67$ units of titre. The first two are
+close to the values read by eye (3.44 and 0.167). We can now check the argument of
+question 1. The lowest mean titre in the data is the one of day 2, and the probability
+that the fitted model gives to a negative titre on that day is the cumulative probability
+of zero:
 
-For cross-validation, each fold is held out once. The start values,
-curve parameters, and error standard deviation come only from its
-training rows. Sum log densities over all held-out rows:
-
-```r
-set.seed(seed = 702)
-fold = sample(rep(1:5, length.out = nrow(intake)))
-held_out_log = matrix(NA_real_, nrow = 5, ncol = 2,
-                      dimnames = list(NULL, c("type_ii", "exponential")))
-
-for (j in 1:5) {
-  train = intake[fold != j, ]
-  test = intake[fold == j, ]
-  train_ii = fit_intake(train, type_ii, median(train$x))$fit
-  train_exp = fit_intake(train, sat_exp, 1 / median(train$x))$fit
-  stopifnot(train_ii$convergence == 0, train_exp$convergence == 0)
-
-  mu_ii = type_ii(test$x, exp(train_ii$par[1]),
-                  exp(train_ii$par[2]))
-  mu_exp = sat_exp(test$x, exp(train_exp$par[1]),
-                   exp(train_exp$par[2]))
-  held_out_log[j, "type_ii"] = sum(dnorm(
-    x = test$y, mean = mu_ii, sd = exp(train_ii$par[3]), log = TRUE
-  ))
-  held_out_log[j, "exponential"] = sum(dnorm(
-    x = test$y, mean = mu_exp, sd = exp(train_exp$par[3]), log = TRUE
-  ))
+```{r}
+# Ricker function: initial slope a and rate b.
+ricker = function(x, a = 1, b = 1) {
+  a * x * exp(-b * x)
 }
-colSums(held_out_log)
+
+# Mean titre on day 2 under the fitted model, and the probability of a negative titre.
+ricker(2, a = a_mle, b = b_mle)
+pnorm(q = 0, mean = ricker(2, a = a_mle, b = b_mle), sd = sigma_mle)
 ```
 
-The Holling type II model also has the **larger** held-out log score
-for these folds (approximately $-91.1$ versus $-108.9$). AIC and BIC
-use the full-data fit; the
-cross-validation score uses repeated training fits. Small differences
-can change with a different fold assignment.
+The mean titre on day 2 is 4.9, more than seven standard deviations above zero, and the
+probability of a negative titre is of the order of $10^{-13}$. The Normal model can be used
+here because the titres are far from zero compared with their spread.
 
-The following simulates full intake observations from the fitted
-Holling model. Use the same construction with `sat_exp()` if that is
-the model you choose to inspect. The matrix has 50 rows, one per
-observed rate, and 500 simulated datasets in its columns.
+We draw the fitted curve over the data, together with the curve by eye of Chapter 5
+(@fig-titre_fit):
 
-```r
-set.seed(seed = 703)
-mu_ii = type_ii(intake$x, exp(fit_ii$par[1]), exp(fit_ii$par[2]))
-sim_ii = replicate(500, rnorm(n = nrow(intake), mean = mu_ii,
-                               sd = exp(fit_ii$par[3])))
-scaled_ii = DHARMa::createDHARMa(
-  simulatedResponse = sim_ii,
-  observedResponse = intake$y,
-  fittedPredictedResponse = mu_ii,
+```{r}
+#| label: fig-titre_fit
+#| fig-cap: "Titre of the myxoma virus of grade 1 against the time since infection, with the Ricker curve fitted by maximum likelihood under a Normal model (solid line) and the curve read by eye in Chapter 5 (dashed line)."
+# Observations, with axes that start at zero.
+plot(titre ~ day, data = titre_data, xlim = c(0, 10), ylim = c(0, 10),
+     xlab = "Time since infection (days)", ylab = "Virus titre (log10 infectious doses)")
+
+# Fitted curve and curve by eye.
+curve(ricker(x, a = a_mle, b = b_mle), add = TRUE, col = "#D55E00")
+curve(ricker(x, a = 3.44, b = 1 / 6), add = TRUE, lty = 2)
+legend("bottomright", legend = c("Maximum likelihood", "By eye (Chapter 5)"),
+       lty = c(1, 2), col = c("#D55E00", "black"), bty = "n")
+```
+
+The two curves are almost the same. The peak that we read by eye happened to be close to
+the peak of the fitted curve, and in the Ricker function the peak determines both
+parameters.
+
+### Question 3
+
+The time and the height of the peak are quantities calculated from the parameters, so we
+ask for their standard errors with `ADREPORT()` inside the NLL, as in
+[Uncertainty of the fitted curve](../Theory.qmd#sec-delta-method). We also mark the titres
+with `OBS()`, which question 4 needs in order to simulate. We process the new NLL and fit
+it again (the estimates do not change):
+
+```{r}
+# The NLL with the time and the height of the peak in ADREPORT(), and the titres marked
+# as observations for the simulations of question 4.
+normal_nll = function(parms, data) {
+  getAll(parms, data)
+  titre = OBS(titre)
+  a = exp(log_a)
+  b = exp(log_b)
+  sigma = exp(log_sigma)
+  # Time (days) and height (units of titre) of the peak of the curve.
+  peak_time = 1 / b
+  peak_titre = a / (b * exp(1))
+  ADREPORT(peak_time)
+  ADREPORT(peak_titre)
+  mu = a * day * exp(-b * day)
+  -sum(dnorm(x = titre, mean = mu, sd = sigma, log = TRUE))
+}
+
+# Process the new NLL and fit it again.
+normal_obj = MakeADFun(cmb(normal_nll, titre_data), titre_start, silent = TRUE)
+normal_fit = optim(
+  par = normal_obj$par,
+  fn = normal_obj$fn,
+  gr = normal_obj$gr,
+  method = "BFGS"
+)
+normal_fit$convergence
+```
+
+`summary()` of the result of `sdreport()` has one row for each parameter, on the scale
+that was optimised, and one row for each quantity in `ADREPORT()`, on the scale on which
+it was calculated. `cov2cor()` gives the correlations between the estimates of the
+parameters:
+
+```{r}
+# Standard errors of the parameters (log scale) and of the two quantities of the peak.
+normal_sd = sdreport(normal_obj)
+summary(normal_sd)
+cov2cor(normal_sd$cov.fixed)
+```
+
+The standard errors on the log scale are about 0.06 for $\log(\hat a)$ and $\log(\hat b)$,
+so both parameters are estimated to within a few percent, and 0.14 for
+$\log(\hat\sigma)$. The estimates of $\log(a)$ and $\log(b)$ are strongly correlated
+(0.95): a curve with a steeper initial rise (a larger $a$) must also decline sooner (a
+larger $b$) to keep its peak at the height of the observations.
+
+The time and the height of the peak were calculated on their original scale, in days and
+in units of titre, so their Wald intervals are calculated on that scale. Both are positive
+quantities whose estimates lie many standard errors away from zero, so an interval on the
+original scale cannot cross the bound:
+
+```{r}
+# 95% Wald intervals of the time and the height of the peak, on the original scale.
+critical_value = qnorm(p = 0.975)
+peak_summary = summary(normal_sd, select = "report")
+cbind(
+  estimate = peak_summary[, "Estimate"],
+  lower = peak_summary[, "Estimate"] - critical_value * peak_summary[, "Std. Error"],
+  upper = peak_summary[, "Estimate"] + critical_value * peak_summary[, "Std. Error"]
+)
+```
+
+The peak is estimated on day 6.05 (95% Wald interval from 5.30 to 6.80 days) at a titre of
+7.61 (from 7.32 to 7.91). The height is well determined because many observations lie near
+the peak.
+
+For the likelihood profile interval we profile $\log(b)$, transform the endpoints back
+with `exp()`, and obtain the interval for the time of the peak from that of $b$. The
+function $1/b$ decreases as $b$ increases, so the endpoints swap:
+
+```{r}
+#| warning: false
+# Profile of log(b). The profile contains the estimate twice, so confint() warns that it
+# collapses repeated values; the warning can be ignored.
+normal_profile_b = TMB::tmbprofile(normal_obj, name = "log_b", trace = FALSE)
+
+# 95% interval for b (1/day), and for the time of the peak (days).
+b_interval = exp(confint(normal_profile_b))
+b_interval
+rev(1 / b_interval)
+```
+
+The likelihood profile interval of $b$ goes from 0.144/day to 0.186/day, almost
+symmetrically around the estimate of 0.165. The corresponding interval for the time of the
+peak goes from 5.36 to 6.95 days: it extends 0.69 days below the estimate and 0.89 days
+above it, because $1/b$ is a curve that stretches the values of $b$ below the estimate more
+than those above it. The Wald interval for the time of the peak (5.30 to 6.80 days) is
+symmetric by construction, because the delta method treats $1/b$ as a straight line near
+the estimate. So, compared with the profile interval, it is shifted towards earlier days.
+The two intervals differ by less than a fifth of a day at each end, which is small compared
+with their width, but Exercise 4 shows that the difference matters for the coverage.
+
+### Question 4
+
+The titres are marked with `OBS()`, so the function `simulate()` of the object draws one
+hypothetical sample of 27 titres, on the same days as the data, for the parameter values
+that we give it. We store 1,000 hypothetical samples in a matrix with one row per
+observation:
+
+```{r}
+# 1,000 hypothetical samples of the 27 titres at the estimates: one row per observation
+# and one column per hypothetical sample.
+n_sim = 1000
+normal_simulations = matrix(NA, nrow = length(titre_data$titre), ncol = n_sim)
+set.seed(seed = 611)
+for (j in seq_len(n_sim)) {
+  normal_simulations[, j] = normal_obj$simulate(normal_fit$par)$titre
+}
+```
+
+`DHARMa::createDHARMa()` calculates the residuals from the simulations, with the arguments
+of the [theory](../Theory.qmd#sec-response-residuals). The expected value of each
+observation is the mean titre of its day, and the titres are continuous, so
+`integerResponse = FALSE`: two titres are almost never equal, and no ties need to be drawn
+at random. `plot()` draws the two standard panels (@fig-titre_residuals), and
+`DHARMa::plotResiduals()` with the argument `form` draws the residuals against the day
+(@fig-titre_residuals_day):
+
+```{r}
+#| label: fig-titre_residuals
+#| fig-width: 9
+#| fig-height: 4.5
+#| fig-cap: "Scaled quantile residuals of the Normal model with the Ricker curve, from 1,000 hypothetical samples. Left: quantile–quantile plot against a uniform distribution. Right: residuals against the rank of the expected titre."
+# Expected titre of each observation under the fitted model.
+normal_expected = ricker(titre_data$day, a = a_mle, b = b_mle)
+
+# Scaled quantile residuals from the simulations, and the two standard panels.
+normal_residuals = DHARMa::createDHARMa(
+  simulatedResponse = normal_simulations,
+  observedResponse = titre_data$titre,
+  fittedPredictedResponse = normal_expected,
   integerResponse = FALSE
 )
-plot(scaled_ii)
-DHARMa::plotResiduals(scaled_ii, predictor = intake$x)
+plot(normal_residuals)
 ```
 
-Describe whether residuals fill the 0â€“1 range roughly evenly and
-whether their location changes with prey density. A pattern calls
-for a model check; it does not identify the biological cause.
+```{r}
+#| label: fig-titre_residuals_day
+#| fig-cap: "Scaled quantile residuals of the Normal model with the Ricker curve against the day of the observation."
+# Residuals against the day of the observation.
+DHARMa::plotResiduals(normal_residuals, form = titre_data$day)
+```
 
+In the quantile–quantile plot the residuals follow the line, so their distribution is
+close to uniform, and none lies outside the range of its simulations. The right panel of
+@fig-titre_residuals orders the observations by their expected titre, which first increases
+and then decreases with the day, so the pattern in time is clearer in
+@fig-titre_residuals_day. There the residuals tend to lie above 0.5 on the first days and
+on the last days, and below 0.5 around the peak: the observations lie slightly above the
+curve at both ends and slightly below it in the middle. This agrees with what we saw by eye
+in Chapter 5: the titre levels off after day 6, while the Ricker curve must decline after
+its peak. DHARMa draws the lines of the quartiles in red because one of its tests gives a
+small p-value. As in the theory, we read the plot as exploratory evidence and not as a
+decision: with 27 observations and one to six per day the pattern rests on few
+observations, but it suggests that the Ricker curve describes the titre after the peak only
+approximately. A curve with a third parameter, such as the
+[generalised Ricker](../../Supplements/deterministic-functions.qmd#sec-fn-generalised-ricker)
+function, could be fitted and compared with it.
 
-# Exercise 2: Diameter and pine-cone counts
+DHARMa also calculates a dispersion statistic, but for a Normal model it is not informative:
+$\sigma$ is estimated from the spread of the observations around the curve, so the
+simulated spread matches the observed spread almost by construction.
 
-The file `shapes3.csv` records tree diameter `x` and pine-cone count `y`.
-Some entries are missing. Begin with an [allometric](../../Supplements/deterministic-functions.qmd#sec-fn-power) mean
-$\mu(x)=a x^p$ for $x>0$, where $a>0$, and independent Poisson counts.
+### Question 5
 
-1. Load the file. Count missing `x` and `y` values and the rows with
-   both values present. Explain why a missing count is not a count of zero.
-   Use complete predictorâ€“response pairs for **both** candidate models.
-2. Plot count against diameter. Write and fit the Poisson
-   likelihood in RTMB for $a$ and $p$. What does $p$ say about a doubling
-   of diameter?
-3. Fit a negative binomial model with the same mean curve and an
-   additional positive shape parameter $k$, for which
-   $\operatorname{Var}(Y_i\mid x_i)=\mu_i+\mu_i^2/k$. Calculate and compare AIC
-   and BIC, counting every estimated parameter.
-4. Calculate a 95% quadratic confidence interval for $p$ from the
-   negative binomial fit. Explain what could make this interval
-   unreliable.
-5. Simulate counts from the fitted negative binomial model and inspect
-   DHARMa scaled residuals against diameter. Explain what the
-   diagnostics can and cannot tell you about the missing values.
+A Gamma distribution with shape $k$ and scale $\mu/k$ has mean $\mu$ and variance
+$k(\mu/k)^2=\mu^2/k$, so its standard deviation is $\mu/\sqrt{k}$: the spread of the titres
+is proportional to the mean, with a coefficient of variation $1/\sqrt{k}$ that is the same
+on every day. In the Normal model the spread is the same on every day, whatever the mean.
+The Gamma model also gives a probability of zero to negative titres. The NLL takes the
+logarithm of the shape as its third parameter; we start from the values by eye and a shape
+of 10:
 
-# Exercise 3: Species presence and interval coverage
+```{r}
+# Negative log-likelihood of the Ricker curve with a Gamma observation model.
+gamma_nll = function(parms, data) {
+  getAll(parms, data)
+  a = exp(log_a)
+  b = exp(log_b)
+  shape = exp(log_shape)
+  mu = a * day * exp(-b * day)
+  # A scale of mu / shape gives each observation the mean mu.
+  -sum(dgamma(x = titre, shape = shape, scale = mu / shape, log = TRUE))
+}
 
-The file `shapes6.csv` contains one predictor `x` and a binary
-presence/absence response `y`. To allow presence to be most likely
-at an intermediate predictor value, use the [bounded, hump-shaped curve](../../Chapter_5/Theory.qmd#sec-function-composition)
-$p(x)=\operatorname{logit}^{-1}[h-q(x-c)^2]$, where $q>0$.
-Here $\operatorname{logit}^{-1}(z)=1/(1+e^{-z})$.
-Each response is an independent Bernoulli observation with probability
-$p(x)$.
+# Process the NLL and fit it.
+gamma_obj = MakeADFun(
+  cmb(gamma_nll, titre_data),
+  list(log_a = log(3.44), log_b = log(1 / 6), log_shape = log(10)),
+  silent = TRUE
+)
+gamma_fit = optim(
+  par = gamma_obj$par,
+  fn = gamma_obj$fn,
+  gr = gamma_obj$gr,
+  method = "BFGS"
+)
+gamma_fit$convergence
 
-1. Load and plot the data. What are the possible response values?
-   Explain the ecological meaning of $c$, $h$, and $q$.
-2. Fit $c$, $h$, and $q$ by maximum likelihood with RTMB and `optim()`.
-   Plot the fitted probability curve, checking that it remains between
-   0 and 1.
-3. Calculate a 95% quadratic confidence interval for $c$. Compare
-   AIC with an intercept-only Bernoulli model whose constant
-   presence probability is estimated from the data.
-4. Simulate binary observations from the fitted curve and inspect
-   DHARMa residuals. Why is randomisation needed for a binary response?
-5. Conduct a simulation study at the observed `x` values. Choose
-   generating $c$, $h$, and $q$, simulate and refit at least 300 datasets,
-   and calculate bias, interval coverage, and the number of failed fits.
-   What part of the result is specific to your chosen simulation setting?
+# Estimates on the original scale.
+exp(gamma_fit$par)
+```
 
+The fit converged, with $\hat a\approx3.56$ units of titre/day, $\hat b\approx0.171$/day
+and a shape of about 90, which gives a coefficient of variation of about 0.11 (a standard
+deviation of about 0.8 units of titre at the peak and 0.5 on day 2). Both models have
+three parameters and are fitted to the same 27 titres in the same units, so we can compare
+them with the criteria of the theory, with $n=27$:
 
-# Exercise 4: Five leaves along a light gradient
+```{r}
+# AIC, AICc and BIC of the two models, with K = 3 parameters and n = 27 observations.
+n_obs = length(titre_data$titre)
+k_models = c(normal = 3, gamma = 3)
+nll_models = c(normal = normal_fit$value, gamma = gamma_fit$value)
+aic = 2 * k_models + 2 * nll_models
+aicc = aic + 2 * k_models * (k_models + 1) / (n_obs - k_models - 1)
+bic = k_models * log(n_obs) + 2 * nll_models
+rbind(aic = aic, aicc = aicc, bic = bic)
+```
 
-The file `shapes1.csv` contains photosynthesis measurements at 11 light
-intensities for **five leaves on different plants**. Each leaf contributes
-measurements along a curve, but the file has no leaf identifier linking
-its rows across intensities. Fit a pooled *working model* for the mean
-response,
+All three criteria prefer the Normal model, by 4.0 units. The difference is the same for
+the three criteria because the two models have the same number of parameters and are
+fitted to the same observations: the penalty is the same for both models within each
+criterion, and the difference between the models is twice the difference between their
+maximum log-likelihoods. So the comparison says that the titres are more probable under a
+spread that is the same on every day than under a spread that grows with the mean. On the
+logarithmic scale of the titre this is plausible, although with 27 observations the
+evidence is moderate. The curve itself hardly depends on the choice: the estimates of $a$
+and $b$ differ by a few percent between the two models.
 
-$$
-m(x)=r+a(1-e^{-kx}), \qquad a,k>0,
-$$
+# Exercise 2: Enzyme kinetics
 
-with normal observation errors of standard deviation $\sigma$.
+The data set `Puromycin` of base R contains the rate of an enzymatic reaction (`rate`, in
+counts/min/min) at six concentrations of the substrate (`conc`, in parts per million,
+ppm), measured in cells that were treated with the antibiotic puromycin (12 observations)
+and in untreated cells (11 observations) (Treloar 1974, in Bates and Watts 1988). The
+column `state` says to which of the two groups an observation belongs. Load the data with
+`data(Puromycin, package = "datasets")`.
 
-1. Load and plot the data, including the five responses at each light
-   intensity. Why might $r$ be below zero for net photosynthesis?
-2. Fit $r$, $a$, $k$, and $\sigma$ by maximum likelihood under the
-   working assumption that rows are independent. Plot the fitted
-   curve and interpret its baseline and upper limit.
-3. Calculate a 95% quadratic confidence interval for $a$. State
-   precisely which assumption makes this interval provisional.
-4. Simulate from the fitted pooled model and inspect scaled residuals
-   against light intensity. Explain why these plots cannot check
-   within-leaf dependence without leaf identifiers.
+In Exercise 6 of the Chapter 5 practical we placed a
+[Michaelis–Menten](../../Supplements/deterministic-functions.qmd#sec-fn-michaelis-menten)
+curve, $f(x)=ax/(b+x)$, by eye over the observations of each state: $a=210$ counts/min/min
+for the treated cells and $a=165$ counts/min/min for the untreated cells, with $b=0.06$
+ppm for both. By eye, the states differed in the asymptote and not in the half-maximum. In
+this exercise we fit and compare two models with a Normal observation model with a constant
+standard deviation $\sigma$, and treat the 23 observations as independent.
 
+1. Write the model with one Michaelis–Menten curve for both states, with the units of $a$,
+   $b$ and $\sigma$. Fit it, starting from values close to those read by eye, check the
+   convergence, and draw the curve over the data with a different symbol for each state.
+2. Fit a model in which each state has its own asymptote $a$, with a common $b$ and
+   $\sigma$. Use an index vector with the number of the state of each observation, as in
+   question 6 of Exercise 1 of the
+   [Chapter 4 practical](../../Chapter_4/Practicals/no_solution.qmd). Draw both curves
+   over the data. How does the estimate of $\sigma$ change, and why?
+3. Ask for the difference between the two asymptotes with `ADREPORT()`, and calculate a 95%
+   Wald interval for it. On which scale do you calculate the interval, and why? What does
+   the treatment with puromycin do to the maximum rate of the reaction?
+4. Calculate the likelihood profile interval of $b$ in the model of question 2 and compare
+   it with the Wald interval from the log scale. Why do the two intervals agree so much
+   better than those for the handling time of the reed frogs in the theory?
+5. Compare the two models with AIC, AICc and BIC, and with leave-one-out cross-validation
+   (23 fits for each model). Do the criteria agree?
+6. Simulate 1,000 hypothetical samples from the model that the criteria prefer, calculate
+   the scaled quantile residuals with DHARMa, and plot them against the concentration of the
+   substrate. What do you see, and what can you conclude from 23 observations?
 
-# Exercise 5: Population size through time
+# Exercise 3: Fecundity of fir trees
 
-The file `shapes4.csv` records population `size` at `time`. Treat the
-recorded size as a count and begin with a [logistic](../../Supplements/deterministic-functions.qmd#sec-fn-logistic) expected size
-$m(t)=K/[1+e^{-r(t-t_0)}]$, where $K,r>0$. As a working model,
-assume each count is Poisson with that mean.
+The data set `FirDBHFec_sum` in the package `emdbook` contains the diameter at breast
+height (`DBH`, in cm) and the fecundity (`fecundity`) of 333 balsam fir trees (*Abies
+balsamea*) on Whiteface Mountain, New York (Silvertown and Dodd 1999; Dodd and Silvertown
+2000). Fecundity was measured as the number of cone rachises on a tree: the rachis is the
+axis of a cone, which stays on the branch after the cone has fallen apart. Load the data
+with `data(FirDBHFec_sum, package = "emdbook")`.
 
-1. Plot size against time. Identify the upper limit $K$, the
-   midpoint time $t_0$, and the role of $r$ in the mean curve.
-2. Fit all three parameters by maximum likelihood and calculate
-   a 95% quadratic confidence interval for $K$.
-3. Fit a [Gompertz](../../Supplements/deterministic-functions.qmd#sec-fn-gompertz) mean curve
-   $g(t)=K\exp[-\exp\{-r(t-t_0)\}]$ with the same Poisson
-   observation model. Compare AIC and BIC on the same 25 counts.
-4. Hold out the observations after time 62, fit both models to
-   earlier observations, and score the later counts with their
-   Poisson log probabilities. What does this check that a random
-   fold split would not check?
-5. Inspect scaled residuals in time order. Which assumptions are
-   especially uncertain when repeated sizes of one population are
-   treated as independent counts?
+In Exercise 7 of the Chapter 5 practical we described the mean fecundity with a
+[power law](../../Supplements/deterministic-functions.qmd#sec-fn-power),
+$\mu(x)=ax^b$, where $x$ is the diameter, and read $a=0.5$ and $b=2$ from two points of the
+cloud. The trees come from two populations (the column `pop`). We do not model this
+grouping: we treat the trees as independent observations of one curve, which is a
+simplification ([Chapter 7](../../Chapter_7/Theory.qmd) deals with observations that come
+in groups).
 
-# Exercise 6: A mystery response curve
+1. Remove the trees with a missing diameter or fecundity explicitly, and count the trees
+   that remain. Why can a missing value not be replaced by zero? Some fecundities are not
+   whole numbers: find them and decide what to do with them before you fit a model for
+   counts.
+2. Write a [Poisson](../../Supplements/distributions.qmd#sec-poisson) model whose mean
+   follows the power law, with the units of $a$. Fit it from the values read by eye in
+   the Chapter 5 practical, and check it with scaled quantile residuals from DHARMa.
+3. Fit a [Negative Binomial](../../Supplements/distributions.qmd#sec-negative_binomial)
+   model with the same curve, with `dnbinom2()` of RTMBdist (mean and shape $k$). Check
+   that the fit reaches the same maximum from another set of starting values. Check its
+   residuals, and draw the curves of both models over the data.
+4. Compare the two models with AIC, AICc and BIC.
+5. For the model that the criteria prefer, calculate the likelihood profile interval of the
+   exponent $b$. Ask for the factor $2^b$, by which the mean fecundity changes when the
+   diameter doubles, with `ADREPORT()`, and calculate its 95% Wald interval. Compare it with
+   the interval obtained by transforming the endpoints of the profile interval of $b$. Do
+   the data support a fecundity proportional to the cross-sectional area of the trunk
+   ($b=2$)?
 
-The ecological context of `shapes5.csv` is deliberately withheld.
-Use `x` as the single predictor and `y` as the response. The `no`
-column is a row index; leave `group` out of this chapter's models.
-Do not infer a biological meaning for either field from its name.
+# Exercise 4: Coverage of an interval for the time of the peak
 
-1. Load the file, examine missing values and the response's possible
-   values, and plot `y` against `x`. Propose a suitable observation
-   distribution and two plausible mean curves from the plotted shape.
-2. As one defensible comparison, fit independent Poisson counts with
-   either an [exponential](../../Supplements/deterministic-functions.qmd#sec-fn-exponential) $m_E(x)=a e^{-bx}$ or a
-   [hyperbolic](../../Supplements/deterministic-functions.qmd#sec-fn-hyperbolic) $m_H(x)=a/(1+bx)$, where $a,b>0$.
-   Estimate each model by maximum likelihood and plot both curves.
-3. Compare AIC and BIC, then calculate a 95% quadratic interval for
-   $b$ in the lower-AIC model. Interpret $b$ for that curve without
-   assigning an ecological meaning to the response.
-4. Simulate from that fitted model and inspect scaled residuals
-   against `x`. Explain what a poor residual pattern would mean for
-   your conclusion and why ignoring `group` limits this analysis.
+This exercise is extra practice. In Exercise 1 the Wald interval and the likelihood profile
+interval for the time of the peak differed, and from one sample we cannot tell how often
+either of them contains the time of the peak of the data generating process. As in
+Exercise 5 of the [Chapter 4 practical](../../Chapter_4/Practicals/no_solution.qmd), we
+can find out by simulating hypothetical samples from a model whose parameters we know:
+here the Normal model fitted in Exercise 1, with the estimates as its parameters (see
+"Coverage checked by simulation" in
+[Chapter 4](../../Chapter_4/Theory.qmd#sec-likelihood-uncertainty)). This exercise
+continues with the objects of Exercise 1. The function that runs the simulation is given
+below the questions with two gaps, which you fill in.
+
+1. Complete the first gap of the function `simulate_peak_time()` below. Set seed 641 and
+   simulate 2,000 hypothetical samples of the 27 titres, on the same days, from the fitted
+   Normal model. Each sample is fitted from the values read by eye, as the data were. How
+   many fits failed? Calculate the bias of the estimator of the time of the peak, with its
+   Monte Carlo standard error, and compare the standard deviation of the estimates with
+   the standard error of Exercise 1.
+2. Complete the second gap, which calculates the 95% Wald interval for the time of the
+   peak from the row of `ADREPORT()`, and calculate the coverage of the interval with its
+   Monte Carlo standard error. (The coverage of the likelihood profile interval would need
+   `tmbprofile()` in every sample, which takes much longer, so we do not simulate it
+   here.)
+3. In how many samples does the interval lie entirely below the time of the peak that was
+   used to simulate, and in how many entirely above it? What does this suggest, given the
+   two intervals of question 3 of Exercise 1?
+4. Why do these results only approximate the behaviour of the interval for the real
+   rabbits?
+
+The function below needs `normal_nll()`, `normal_obj`, `normal_fit`, `titre_data` and
+`titre_start` from Exercise 1, the helper `cmb()`, and the object `critical_value` (the
+critical value of the standard Normal distribution for a 95% interval). It draws every
+sample with the function `simulate()` of the fitted object, and stores the results of
+every sample in one row of a data frame. In each gap, replace `NA` by your own code. The
+lines that follow a gap use the names of the objects that the gap creates, so keep those
+names.
+
+```{r}
+#| eval: false
+# Hypothetical samples of the 27 titres from the Normal model fitted in Exercise 1. For
+# each sample: the estimate of the time of the peak, its 95% Wald interval, and whether
+# the fit converged.
+simulate_peak_time = function(n_samples) {
+  results = data.frame(
+    estimate = rep(NA, times = n_samples),
+    lower = rep(NA, times = n_samples),
+    upper = rep(NA, times = n_samples),
+    converged = rep(NA, times = n_samples)
+  )
+  for (i in seq_len(n_samples)) {
+    # One hypothetical sample: titres on the same days, simulated at the estimates.
+    titre_sim = normal_obj$simulate(normal_fit$par)$titre
+
+    # GAP 1: connect normal_nll() to the days and the simulated titres and process it
+    # with MakeADFun(), starting from titre_start, and store the result in an object
+    # called sim_obj. Then fit it with optim() and method = "BFGS", and store the result
+    # in an object called sim_fit.
+    sim_obj = NA
+    sim_fit = NA
+
+    # GAP 2: from the row peak_time of summary(sdreport(sim_obj), select = "report"),
+    # the estimate of the time of the peak and the endpoints of its 95% Wald interval on
+    # the original scale, in objects called estimate, lower and upper.
+    estimate = NA
+    lower = NA
+    upper = NA
+
+    results$estimate[i] = estimate
+    results$lower[i] = lower
+    results$upper[i] = upper
+    results$converged[i] = sim_fit$convergence == 0
+  }
+  results
+}
+```

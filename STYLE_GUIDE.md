@@ -186,7 +186,7 @@ order of the chapter, covering what the chapter actually contains. Do not use "A
 studying this chapter, you should be able to:" with assessment verbs. A closing sentence
 may name the distributions or tools of the chapter and point to a supplement. Every
 theory chapter ends with `# Summary` (a few short paragraphs, no new material) before
-`# Chapter quiz`; Chapters 6 and 7 still lack one. Keep cross-chapter promises specific
+`# Chapter quiz`; Chapter 7 still lacks one. Keep cross-chapter promises specific
 and check the destination.
 
 Introduce the general concept before the concrete example; do not open a section with a
@@ -351,8 +351,8 @@ captions, callouts, mathematics and axis labels.
   meet the width.
 
 Theory front matter holds only `title:`. The table of contents and section numbering are
-set once in `_quarto.yml`; do not add per-page `format` or `execute` blocks. Chapters 6
-to 8 still carry them, including a global `eval: false`, and display-only ```` ```r ````
+set once in `_quarto.yml`; do not add per-page `format` or `execute` blocks. Chapters 7
+and 8 still carry them, including a global `eval: false`, and display-only ```` ```r ````
 fences. Before removing such a block, check every chunk: without the global setting,
 chunks are evaluated unless they carry `#| eval: false`. Preserve the other settings of a
 page: practicals use `date: today`, and the Chapter 1 material uses the `wordcount-html`
@@ -397,7 +397,7 @@ result in plain words and never relies on a symbol or result that appears only i
 one. Inside the box the full rigour stays (statement, "where" clause, "In plain English"
 sentence).
 
-**`Practice` callouts on the theory pages of Chapters 2 to 5 are numbered by Quarto.**
+**`Practice` callouts on the theory pages of Chapters 2 to 6 are numbered by Quarto.**
 Each has an ID with the prefix `imp-` and a title without "Practice: ", because
 `_quarto.yml` sets the label of numbered important callouts to "Practice":
 
@@ -409,10 +409,11 @@ The page shows "Practice 1: orchid fruit set"; the numbers restart on each page 
 follow the order of the callouts, so adding or removing one renumbers the rest. Refer to
 a callout in the text with `@imp-orchid-fruit-set`, which prints "Practice 1", and not by
 its title. Give the `imp-` prefix to no other callout, or it is numbered as a practice.
-The supplements and Chapters 6 to 8 keep unnumbered titles.
+The supplements and Chapters 7 and 8 keep unnumbered titles.
 
 Chapter 4 opens with a roadmap table after the learning goals (step, question, R tool,
-example) and closes with a "recipe" callout before the summary. Later theory chapters may
+example) and closes with a "recipe" callout before the summary; Chapter 6 does the same.
+Later theory chapters may
 copy both when the chapter is a sequence of steps that students carry out.
 
 ## Exercises and solution patterns
@@ -555,13 +556,31 @@ fir_fit = optim(par = fir_obj$par, fn = fir_obj$fn, gr = fir_obj$gr, method = "B
   profile and its cutoff, and `TMB::tmbprofile()` with `confint()` does the calculation
   (with the prefix, because RTMB does not export it). Then: `sdreport()` for standard
   errors; `ADREPORT()` for a quantity calculated from the parameters (TMB applies the
-  delta method, which Chapter 6 explains); `OBS()` with
+  delta method, whose formula is a box in Chapter 4; Chapter 6 gives it for several
+  parameters in a box and applies it to a fitted curve); `OBS()` with
   `obj$simulate()` for hypothetical samples (the course does not use
   `checkConsistency()`). Introduce each
   tool where the text needs it, not in the first NLL.
 - **Profiles** are drawn with `ggplot2` from the data frame that `tmbprofile()` returns,
   on the relative log-likelihood scale; in an exercise, `plot()` of the profile object is
   allowed.
+- **Response curves** (from Chapter 6): the predictor is an element of the list of data
+  and the curve is calculated inside the NLL. The uncertainty of the curve comes from a
+  grid of the predictor added to the list of data and the curve on that grid passed to
+  `ADREPORT()` on a scale on which it is unbounded (the logit of a probability, the
+  logarithm of a positive mean); Wald intervals are calculated there and their endpoints
+  transformed back, and the text says that the band is pointwise.
+- **Residuals** are scaled quantile residuals from DHARMa only, never written by hand: the
+  observations are marked with `OBS()`, a matrix of simulations (one row per observation,
+  one column per hypothetical sample) comes from a loop over `obj$simulate()`, and
+  `DHARMa::createDHARMa()` takes it with the observed and expected responses. Read the
+  plots and the dispersion statistic as exploratory evidence; DHARMa's `plot()` also
+  prints tests with p-values, and one sentence says why the course does not rest decisions
+  on them.
+- **Cross-validation** is leave-one-out with the log score: every parameter is refitted
+  to the other observations from the same fixed starting values, and the held-out
+  observation is scored by its log probability or log density under that fit; the score
+  is the sum.
 - When teaching a complete fit, discuss starting values, convergence, constraints and
   uncertainty. A converged optimiser does not establish that the model is adequate.
 
