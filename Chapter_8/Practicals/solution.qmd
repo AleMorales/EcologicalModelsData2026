@@ -37,27 +37,52 @@ $$
 
 where $X_i$ is the body mass of penguin $i$, with $\log(k)$ and $\log(r)$ as the
 parameters. Started at the method-of-moments estimates, the fit to the masses in grams
-stops after a single step and reports convergence code 0. Load the data with `data(penguins, package = "datasets")`,
-keep the Adelie penguins and remove the one missing mass explicitly.
+stops after a single step and reports convergence code 0. Load the data with
+`data(penguins, package = "datasets")`, keep the Adelie penguins and remove the one penguin
+whose mass is missing (`NA`).
 
 1. Fit the Gamma model to the masses in grams with `dgamma()`, starting at the
    method-of-moments estimates $k=\bar x^2/s^2$ and $r=\bar x/s^2$, where $\bar x$ is the
    mean of the masses and $s^2$ their empirical variance with divisor $n$. Report the
    convergence code, the numbers of evaluations of `fn` and `gr`, and the shape at the start
-   and at the end of the search. What do the counts say about the search?
+   and at the end of the search. What do the counts say about the search? Hint: the NLL is
+   the one of Exercise 4 of the Chapter 4 practical. The element `counts` of the result of
+   `optim()` is explained in [Exact and approximate gradients](../Theory.qmd#sec-gradients);
+   BFGS evaluates the gradient at its starting values and again after every step that
+   counts as progress ([Stopping rules and convergence codes](../Theory.qmd#sec-stopping)).
 2. Diagnose the fit with the gradient at the solution and a refit from the solution. How
-   much lower is the NLL at the end of the refit? Use the stopping rule of BFGS in the
-   [theory](../Theory.qmd#sec-stopping) to explain why the search stopped: compare the
-   decrease of the NLL in its single step with the smallest decrease that counts as
-   progress. Why did the step lower the NLL so little? (Look at the gradient at the starting
-   values and at the correlation of the estimates of $\log(k)$ and $\log(r)$.)
-3. Try three remedies, each from the method-of-moments estimates: the masses in kilograms;
-   the parameterisation with the mean $\mu=k/r$ and the shape, with $\log(\mu)$ and
-   $\log(k)$ as the parameters; and `nlminb()` with the masses in grams. Which of them reach
-   the maximum? Compare the correlation of the estimates in the two parameterisations.
-4. Which of the remedies change the problem that the optimiser solves, and which only search
-   again? Why do the estimates of the shape and of the mean not depend on the units, while
-   the minimum of the NLL does?
+   much lower is the NLL at the end of the refit? Then use the stopping rule of BFGS to
+   explain why the first search stopped: compare the decrease of the NLL in its single step
+   with the smallest decrease that counts as progress. Hint: the checks are those of
+   [Diagnosing a fit](../Theory.qmd#sec-diagnosis). The smallest decrease that counts as
+   progress is the formula in
+   [Stopping rules and convergence codes](../Theory.qmd#sec-stopping), where
+   $|{-\ell(\boldsymbol\theta)}|$ is the NLL at the start of the step, `obj$fn(obj$par)`,
+   and `reltol` is `sqrt(.Machine$double.eps)`.
+3. Try three remedies, each from the method-of-moments estimates: (a) the masses in
+   kilograms; (b) the parameterisation with the mean $\mu=k/r$ and the shape, with
+   $\log(\mu)$ and $\log(k)$ as the parameters, starting at the mean of the masses and the
+   method-of-moments estimate of the shape; and (c) `nlminb()` with the masses in grams.
+   Which of them reach the maximum that the refit of question 2 found? Hint: for (a),
+   calculate the method-of-moments estimates again from the masses in kilograms. For (b),
+   the rate is $k/\mu$; Exercise 1 of the Chapter 6 practical wrote the Gamma model with its
+   mean in the same way, through `scale = mu / shape`
+   ([Parameterisation](../Theory.qmd#sec-parameterisation)). For (c), see
+   [Other local optimisers](../Theory.qmd#sec-local-optimisers). The minimum of the NLL in
+   kilograms differs from that in grams, so compare the estimates of the shape, which has no
+   units.
+4. Explain why each remedy reaches the maximum. For the masses in kilograms, calculate the
+   smallest decrease that counts as progress at the starting values and compare it with
+   that in grams and with the decrease of the single step of question 2. Why is the NLL
+   smaller in kilograms? For the parameterisation, compare the correlation of the estimates
+   of $\log(k)$ and $\log(r)$ with that of the estimates of $\log(\mu)$ and $\log(k)$, both
+   at the maximum. Which of the three remedies and the refit of question 2 change the
+   problem that the optimiser solves, and which search the same problem again? Hint: the
+   effect of the units on the log-likelihood is explained in
+   [The likelihood function](../../Chapter_4/Theory.qmd#sec-likelihood) of Chapter 4. The
+   correlations are `cov2cor()` of the element `cov.fixed` of `sdreport()`, as in Exercise 4
+   of the Chapter 4 practical, with `par.fixed` set to the estimates at the maximum. See
+   [Scaling and parameterisation](../Theory.qmd#sec-scaling).
 
 ## Solution
 
@@ -71,8 +96,7 @@ as in Chapter 4, with the data in the element `x`:
 data(penguins, package = "datasets")
 adelie = penguins[penguins$species == "Adelie", ]
 
-# One body mass is missing; remove it explicitly and keep the masses in grams.
-sum(is.na(adelie$body_mass))
+# One body mass is missing; remove it and keep the masses in grams.
 mass_g = adelie$body_mass[!is.na(adelie$body_mass)]
 length(mass_g)
 
@@ -86,21 +110,30 @@ gamma_nll = function(parms, data) {
 ```
 
 The method-of-moments estimates come from $E[X]=k/r$ and $\operatorname{Var}(X)=k/r^2$,
-which give $k=\bar x^2/s^2$ and $r=\bar x/s^2$. We start the fit there and look at the
-counts of evaluations and at the shape before and after the search:
+which give $k=\bar x^2/s^2$ and $r=\bar x/s^2$. Question 3 needs them again for the masses
+in kilograms, so we calculate them with a small function that returns them as starting
+values on the log scale:
 
 ```{r}
-# Method-of-moments estimates: the mean, the variance with divisor n, and the shape and
-# rate (1/g) on the log scale.
-mass_mean = mean(mass_g)
-mass_variance = mean((mass_g - mass_mean)^2)
-moments_start_g = list(
-  log_shape = log(mass_mean^2 / mass_variance),
-  log_rate = log(mass_mean / mass_variance)
-)
+# Method-of-moments estimates of the shape and the rate, as starting values on the log
+# scale; the variance has divisor n.
+gamma_mom_start = function(x) {
+  mu_mom = mean(x)
+  var_mom = mean((x - mu_mom)^2)
+  list(log_shape = log(mu_mom^2 / var_mom), log_rate = log(mu_mom / var_mom))
+}
+```
 
-# Process the NLL of the masses in grams and fit it from these values.
-penguin_obj_g = MakeADFun(cmb(gamma_nll, list(x = mass_g)), moments_start_g, silent = TRUE)
+We fit the model from these values and look at the counts of evaluations and at the shape
+before and after the search:
+
+```{r}
+# Process the NLL of the masses in grams with the method-of-moments estimates, and fit it.
+penguin_obj_g = MakeADFun(
+  cmb(gamma_nll, list(x = mass_g)),
+  gamma_mom_start(mass_g),
+  silent = TRUE
+)
 penguin_fit_g = optim(
   par = penguin_obj_g$par,
   fn = penguin_obj_g$fn,
@@ -118,10 +151,10 @@ c(
 ```
 
 The fit reports code 0, with 8 evaluations of `fn` and a single one of `gr`. BFGS evaluates
-the gradient once at the start and once after every step that counts as progress, so a
-single evaluation of `gr` means that no step counted as progress: the 8 evaluations of `fn`
-are the starting values and seven trial points of one line search. The
-shape changed only from 65.560 to 65.563. So the search took one tiny step and stopped.
+the gradient at its starting values and again after every step that counts as progress, so
+a single evaluation of `gr` means that no step counted as progress: the 8 evaluations of
+`fn` are the starting values and the trial points of one line search. The shape changed
+only from 65.560 to 65.563. So the search took one tiny step and stopped.
 
 ### Question 2
 
@@ -146,8 +179,8 @@ c(
 ```
 
 The gradient, $-0.22$ and $-0.39$, is far from zero, so the search stopped on a slope. The
-refit moves on to a shape of 66.09 and its NLL is 0.0025 lower.
-The difference is small, but it shows that the first fit stopped before the minimum.
+refit moves on to a shape of 66.09, and its NLL is 0.0025 lower. The difference is small,
+but it shows that the first fit stopped before the minimum.
 
 The stopping rule of BFGS in `optim()` counts a step as no progress when it lowers the NLL
 by less than $\texttt{reltol}\times\left(|{-\ell(\boldsymbol\theta)}|+\texttt{reltol}\right)$,
@@ -172,60 +205,34 @@ This was the first step, which already went along the negative gradient, so the 
 stopped at once and returned code 0. The threshold is proportional to the NLL, which is
 about 1138 with the masses in grams.
 
-Why did the step lower the NLL so little? The gradient at the starting values, and the
-correlation of the estimates at the maximum, show it:
-
-```{r}
-# Gradient at the starting values.
-penguin_obj_g$gr(penguin_obj_g$par)
-
-# Correlation of the estimates of log(k) and log(r) at the maximum.
-penguin_sd_g = sdreport(penguin_obj_g, par.fixed = penguin_restart_g$par)
-cov2cor(penguin_sd_g$cov.fixed)
-```
-
-At the method-of-moments estimates the mean of the model, $k/r$, already equals the mean of
-the sample, so the slope with respect to the log rate is zero, and the first step goes along
-the log shape alone. The estimates of $\log(k)$ and $\log(r)$ have a correlation of 0.996:
-the NLL is a narrow valley along which the shape and the rate change together, keeping the
-mean close to the sample mean. A step in the shape alone changes the mean and goes across the
-valley, so the NLL rises steeply even for a short step, and the line search had to shorten
-the step to a change of the shape of about 0.003 before the NLL fell. This is the narrow,
-tilted valley of the [theory](../Theory.qmd#sec-scaling), together with a tolerance that is
-large because the NLL is large.
-
 ### Question 3
 
-For the masses in kilograms the shape has no units and keeps its starting value, and the
-rate in 1/kg is 1000 times the rate in 1/g, so we add $\log(1000)$ to the starting value
-of the log rate. We also calculate the threshold of the stopping rule in kilograms:
+For remedy (a) we divide the masses by 1000 and calculate the method-of-moments estimates
+again from them:
 
 ```{r}
-# The masses in kilograms, and the same method-of-moments estimates in these units.
+# (a) The masses in kilograms, from the method-of-moments estimates in these units.
 mass_kg = mass_g / 1000
-moments_start_kg = list(
-  log_shape = moments_start_g$log_shape,
-  log_rate = moments_start_g$log_rate + log(1000)
+penguin_obj_kg = MakeADFun(
+  cmb(gamma_nll, list(x = mass_kg)),
+  gamma_mom_start(mass_kg),
+  silent = TRUE
 )
-penguin_obj_kg = MakeADFun(cmb(gamma_nll, list(x = mass_kg)), moments_start_kg, silent = TRUE)
 penguin_fit_kg = optim(
   par = penguin_obj_kg$par,
   fn = penguin_obj_kg$fn,
   gr = penguin_obj_kg$gr,
   method = "BFGS"
 )
-
-# Threshold of the stopping rule in kilograms.
-nll_start_kg = penguin_obj_kg$fn(penguin_obj_kg$par)
-reltol * (abs(nll_start_kg) + reltol)
 ```
 
-With the mean as a parameter, the rate is $k/\mu$. We call the NLL `gamma_mean_nll()` and
-start at the mean of the sample and the method-of-moments estimate of the shape, which are
-the same starting values as before, written with other parameters:
+For remedy (b) the NLL takes the mean and the shape, and calculates the rate from them as
+$k/\mu$. We call it `gamma_mean_nll()` and start at the mean of the masses and the
+method-of-moments estimate of the shape, which are the same starting values as before,
+written with other parameters:
 
 ```{r}
-# Negative log-likelihood of the Gamma model with the mean mu (g) and the shape k.
+# (b) Negative log-likelihood of the Gamma model with the mean mu (g) and the shape k.
 gamma_mean_nll = function(parms, data) {
   getAll(parms, data)
   mu = exp(log_mu)
@@ -235,7 +242,7 @@ gamma_mean_nll = function(parms, data) {
 }
 penguin_mean_obj = MakeADFun(
   cmb(gamma_mean_nll, list(x = mass_g)),
-  list(log_mu = log(mass_mean), log_shape = moments_start_g$log_shape),
+  list(log_mu = log(mean(mass_g)), log_shape = gamma_mom_start(mass_g)$log_shape),
   silent = TRUE
 )
 penguin_mean_fit = optim(
@@ -246,10 +253,10 @@ penguin_mean_fit = optim(
 )
 ```
 
-`nlminb()` takes the object of question 1, with the masses in grams:
+Remedy (c), `nlminb()`, takes the object of question 1, with the masses in grams:
 
 ```{r}
-# nlminb() from the method-of-moments estimates, with the masses in grams.
+# (c) nlminb() from the method-of-moments estimates, with the masses in grams.
 penguin_nlminb_g = nlminb(
   start = penguin_obj_g$par,
   objective = penguin_obj_g$fn,
@@ -257,54 +264,73 @@ penguin_nlminb_g = nlminb(
 )
 ```
 
-A table compares the four searches from the method-of-moments estimates. The minima in
-kilograms differ from those in grams by a constant, so we compare the shape, which has the
-same estimate in both units, and the number of evaluations:
+We compare the convergence code and the estimate of the shape of each search with those of
+the refit of question 2:
 
 ```{r}
-# Convergence code, evaluations of fn and gr, and the estimate of the shape of each search.
+# Convergence code and estimate of the shape of each search.
 rbind(
-  grams = c(convergence = penguin_fit_g$convergence, penguin_fit_g$counts,
-            shape = exp(penguin_fit_g$par[["log_shape"]])),
-  kilograms = c(convergence = penguin_fit_kg$convergence, penguin_fit_kg$counts,
+  refit_grams = c(convergence = penguin_restart_g$convergence,
+                  shape = exp(penguin_restart_g$par[["log_shape"]])),
+  kilograms = c(convergence = penguin_fit_kg$convergence,
                 shape = exp(penguin_fit_kg$par[["log_shape"]])),
-  mean_shape = c(convergence = penguin_mean_fit$convergence, penguin_mean_fit$counts,
+  mean_shape = c(convergence = penguin_mean_fit$convergence,
                  shape = exp(penguin_mean_fit$par[["log_shape"]])),
-  nlminb = c(convergence = penguin_nlminb_g$convergence, penguin_nlminb_g$evaluations,
+  nlminb = c(convergence = penguin_nlminb_g$convergence,
              shape = exp(penguin_nlminb_g$par[["log_shape"]]))
 )
+```
+
+All three remedies reach the maximum: each reports code 0 and a shape of 66.09, the
+estimate of the refit of question 2.
+
+### Question 4
+
+For the masses in kilograms we calculate the threshold of the stopping rule at the starting
+values, as in question 2:
+
+```{r}
+# Smallest decrease that counts as progress at the starting values, in kilograms.
+nll_start_kg = penguin_obj_kg$fn(penguin_obj_kg$par)
+c(nll_start = nll_start_kg, threshold = reltol * (abs(nll_start_kg) + reltol))
+```
+
+In kilograms the NLL at the starting values is about 95, against 1138 in grams. A density
+is a probability per unit of the measurement, so the density of each mass in kilograms is
+1000 times larger than in grams, and the log-likelihood rises by $\log(1000)$ for each
+penguin, $151\times\log(1000)\approx1043$ in all. The threshold falls with the NLL, to
+$1.4\times10^{-6}$. The surface in kilograms is that in grams moved by $\log(1000)$ along the
+log rate and lowered by this constant, so the gradient and the first step are the same as in
+grams, and so is its decrease of $1.64\times10^{-5}$. In kilograms this decrease counts as
+progress, and BFGS goes on to the maximum.
+
+For the parameterisation we compare the correlations of the estimates at the maximum, with
+the refit of question 2 for the shape and the rate:
+
+```{r}
+# Correlation of the estimates of log(k) and log(r) at the maximum.
+cov2cor(sdreport(penguin_obj_g, par.fixed = penguin_restart_g$par)$cov.fixed)
 
 # Correlation of the estimates of log(mu) and log(k) at the maximum.
 cov2cor(sdreport(penguin_mean_obj, par.fixed = penguin_mean_fit$par)$cov.fixed)
 ```
 
-All three remedies reach the maximum, with a shape of 66.09. In kilograms the NLL is about
-95, so the threshold is $1.4\times10^{-6}$, and the same first step, whose decrease of
-$1.64\times10^{-5}$ does not depend on the units, now counts as progress. With the mean and
-the shape the search needs only 13 evaluations of `fn` and 3 of `gr`, and the correlation of
-the estimates is practically zero: the contours of the NLL are not tilted, so the first
-step, again along the log shape alone, does not cross a valley. `nlminb()` controls its
-steps differently and reaches the maximum in grams as well.
-
-### Question 4
+With the shape and the rate the correlation is 0.996. The NLL is a narrow valley, tilted
+with respect to the axes, along which the shape and the rate change together and keep the
+mean $k/r$ close to the mean of the masses. The steepest direction points across this
+valley, so a step along it soon goes uphill, and the line search had to shorten the first
+step to a change of the shape of about 0.003 before the NLL fell at all. With the mean and
+the shape the correlation is practically zero: the valley is not tilted, and the steps of
+BFGS can follow it.
 
 The change of units and the change of parameterisation change the problem that the
-optimiser solves. In kilograms the surface has the same shape, because the NLL differs from
-that in grams only by the constant $151\times\log(1000)$, as Chapter 4 showed, but the NLL is
-smaller and so is the threshold of the relative tolerance. With the mean and the shape the
-surface has another shape, and the narrow tilted valley becomes one that is not tilted. The
-restart of question 2 and `nlminb()` solve the same problem again: the restart continues
-from where the first search stopped, and `nlminb()` follows another path on the same
-surface. In this example all of them work, but a change of units or of parameterisation
-helps every later fit of the model, whatever its starting values, and a new search only
-repairs this fit.
-
-The estimates of the shape and of the mean do not depend on the units because they describe
-the same fitted distribution. The shape has no units, and the mean is a mass, 3,701 g or
-3.70 kg; by invariance, the estimate of a function of the parameters is that function of
-their estimates. The minimum of the NLL depends on the units because a density is a
-probability per unit of the measurement: each mass in kilograms has a density 1000 times
-larger than in grams, so the log-likelihood rises by $\log(1000)$ for each penguin.
+optimiser solves. In kilograms the surface has the same shape, but the NLL is smaller and so
+is the threshold of the stopping rule. With the mean and the shape the surface has another
+shape, a valley that is not tilted. The refit of question 2 and `nlminb()` search the same
+problem again: the refit continues from where the first search stopped, and `nlminb()`
+controls its steps differently and follows another path on the same surface. Here all of
+them work, but a change of units or of parameterisation changes the surface for every later
+fit of the model, whereas a new search repairs only this fit.
 
 # Exercise 3: A variance among sites at zero
 
@@ -324,7 +350,8 @@ $\sigma_{\mathrm{site}}=\sigma_{\mathrm{obs}}=1$, and estimated the variances by
 some samples the REML estimate of $\sigma^2_{\mathrm{site}}$ was practically zero. In some of
 these the maximum of the likelihood lies at zero, and in others the fit stopped on its way
 towards zero although the maximum lies at a positive variance. Here we tell the two cases
-apart.
+apart. That exercise was extra practice; if you skipped it, the code below gives you the
+samples, and [Estimates at a boundary](../Theory.qmd#sec-boundaries) explains the two cases.
 
 The code below repeats the simulation with the seed of Chapter 7, so that the samples are the
 same, but fits only REML, and it keeps every sample and the result of its fit. It needs the
@@ -383,13 +410,21 @@ reml_results$var_site = exp(2 * reml_results$log_sd_site)
    0.001, which we call practically zero, and check their convergence codes. For each of
    these samples, process the NLL again with its data, and calculate the largest absolute
    element of the gradient at the estimates and the element `pdHess` of `sdreport()`. What
-   do the two checks show?
-2. Refit each of these samples from 10 sets of random starting values, with both log
-   standard deviations drawn from a Normal distribution with mean 0 and standard deviation
-   1 (set seed 831 once, before the loop over the samples), and keep the refit with the
-   lowest NLL. Fit each sample also with `nlminb()` from the values used to simulate. In
-   how many samples do the refits end at a variance above 0.001 with a lower NLL? Compare
-   these samples with the result of `pdHess` in question 1.
+   do the two checks show? Hint: `which()` gives the numbers of these samples. Process the
+   NLL as in the loop above, with `random = c("u", "mu")`. The checks are those of
+   [Diagnosing a fit](../Theory.qmd#sec-diagnosis); the estimates of a sample are two
+   columns of `reml_results`, which `unlist()` turns into a vector, as in question 3 of
+   Exercise 1, and `sdreport()` needs them as `par.fixed`.
+2. Refit each of these samples from 10 sets of random starting values, with
+   $\sigma_{\mathrm{site}}$ and $\sigma_{\mathrm{obs}}$ (standard deviations of the log
+   biomass) between 0.1 and 10, drawn uniformly on the log scale (set seed 831 once, before
+   the loop over the samples), and keep the refit with the lowest NLL. In how many samples
+   does this refit end at a variance above 0.001 with a lower NLL than the fit of the
+   simulation? Compare these samples with the result of `pdHess` in question 1. Hint: see
+   [Starting values and multiple starts](../Theory.qmd#sec-multistart) and question 3 of
+   Exercise 1. Here the loop over the starting values sits inside the loop over the samples;
+   store the NLL and the estimate of $\log(\sigma_{\mathrm{site}})$ of each of the 10 fits,
+   and `which.min()` finds the best.
 3. Explain why the log scale puts a variance of zero at $-\infty$, and why BFGS stops on
    its way there. When does the maximum of the likelihood lie at zero? For a balanced Normal
    design such as this one, the REML estimate has a closed form,
@@ -397,11 +432,10 @@ reml_results$var_site = exp(2 * reml_results$log_sd_site)
    of the six site means (divisor 5) and $s^2_{\mathrm{w}}$ the variance of the quadrats
    around the means of their sites (divisor 24). This is an exact result of this special
    design, not of REML in general. Calculate it for the samples of question 1 and compare
-   it with the refits.
-4. Replace the estimates of the samples whose refits moved to a positive variance by those of
-   the refits, and calculate the mean of the 500 REML estimates of $\sigma^2_{\mathrm{site}}$
-   before and after. Does the correction change the conclusion of Chapter 7 about the bias
-   of the REML estimator?
+   it with the refits of question 2. Hint: see
+   [Estimates at a boundary](../Theory.qmd#sec-boundaries). For the closed form, `tapply()`
+   (question 5 of Exercise 1 of the Chapter 7 practical) gives the six site means, and
+   `site_means[site_index]` repeats the mean of its site for each of the 30 quadrats.
 
 ## Solution
 
@@ -416,10 +450,9 @@ table(convergence = reml_results$convergence[zero_samples])
 ```
 
 In 28 of the 500 samples the REML estimate of $\sigma^2_{\mathrm{site}}$ is below 0.001,
-and all of these fits report code 0. To check a fit we need its object again. A small
-function processes the NLL of sample `i` as in the simulation, and a loop calculates the two
-checks at the estimates of each of these samples, passing the estimates to `sdreport()` with
-`par.fixed`:
+and all of these fits report code 0. To check a fit we need its object again. Question 2
+needs the objects as well, so a small function processes the NLL of sample `i` as in the
+simulation:
 
 ```{r}
 # The REML object of sample i, processed again with its data.
@@ -431,11 +464,15 @@ reml_object = function(i) {
     silent = TRUE
   )
 }
+```
 
+A loop calculates the two checks at the estimates of each of these samples, passing the
+estimates to `sdreport()` with `par.fixed`:
+
+```{r}
 # Largest absolute gradient and the check of the Hessian at the estimates of each sample.
 zero_checks = data.frame(
   sample = zero_samples,
-  var_site = reml_results$var_site[zero_samples],
   max_gradient = NA,
   pd_hess = NA
 )
@@ -449,76 +486,61 @@ range(zero_checks$max_gradient)
 table(pd_hess = zero_checks$pd_hess)
 ```
 
-Every gradient is small, so the gradient does not tell these fits apart. The check of the
-Hessian does: in 9 samples the Hessian is not positive definite, so these fits did not stop
-at a minimum, and in the other 19 it is positive definite.
+Every gradient is small (at most 0.018), so the gradient does not tell these fits apart.
+The check of the Hessian does: in 9 samples the Hessian is not positive definite, so these
+fits did not stop at a minimum, and in the other 19 it is positive definite.
 
 ### Question 2
 
-For each sample we fit the model from 10 random starting values and keep the fit with the
-lowest NLL, and we fit it with `nlminb()` from the values used to simulate, which are the
-starting values `obj$par` of the object. The seed is set once, before the loop over the
+The box of starting values is the same for both standard deviations, from $\log(0.1)$ to
+$\log(10)$ on the optimised scale. For each sample we fit the model from 10 starting values
+drawn in this box, store the NLL and the estimate of $\log(\sigma_{\mathrm{site}})$ of each
+fit, and keep the fit with the lowest NLL. The seed is set once, before the loop over the
 samples:
 
 ```{r}
-# Refits of each sample from 10 random starting values and with nlminb().
+# Refits of each sample from 10 random starting values: the lowest NLL and its variance
+# among sites.
 refits = data.frame(
   sample = zero_samples,
-  nll_bfgs = reml_results$nll[zero_samples],
-  nll_starts = NA, var_starts = NA,
-  nll_nlminb = NA, var_nlminb = NA
+  nll_simulation = reml_results$nll[zero_samples],
+  nll_best = NA,
+  var_best = NA
 )
 set.seed(831)
 for (j in seq_along(zero_samples)) {
   obj = reml_object(zero_samples[j])
-  # 10 fits from random starting values; keep the one with the lowest NLL.
-  best_nll = Inf
+  start_nll = rep(NA, 10)
+  start_log_sd_site = rep(NA, 10)
   for (r in 1:10) {
-    start = rnorm(2, mean = 0, sd = 1)
+    # Both log standard deviations drawn between log(0.1) and log(10).
+    start = runif(2, min = log(0.1), max = log(10))
     names(start) = names(obj$par)
     fit = optim(par = start, fn = obj$fn, gr = obj$gr, method = "BFGS")
-    if (fit$value < best_nll) {
-      best_nll = fit$value
-      best_par = fit$par
-    }
+    start_nll[r] = fit$value
+    start_log_sd_site[r] = fit$par[["log_sd_site"]]
   }
-  refits$nll_starts[j] = best_nll
-  refits$var_starts[j] = exp(2 * best_par[["log_sd_site"]])
-  # nlminb() from the values used to simulate.
-  fit = nlminb(start = obj$par, objective = obj$fn, gradient = obj$gr)
-  refits$nll_nlminb[j] = fit$objective
-  refits$var_nlminb[j] = exp(2 * fit$par[["log_sd_site"]])
+  # Keep the fit with the lowest NLL.
+  best = which.min(start_nll)
+  refits$nll_best[j] = start_nll[best]
+  refits$var_best[j] = exp(2 * start_log_sd_site[best])
 }
 ```
 
-A sample has moved when a refit ends at a variance above 0.001 with a lower NLL than the fit
-of the simulation. We count these samples for each method and compare them with the check
-of the Hessian:
+A sample has moved when its best refit ends at a variance above 0.001 with a lower NLL than
+the fit of the simulation. We count these samples and compare them with the check of the
+Hessian:
 
 ```{r}
-# Samples in which the refits moved to a positive variance with a lower NLL.
-moved_starts = refits$var_starts > 0.001 & refits$nll_starts < refits$nll_bfgs
-moved_nlminb = refits$var_nlminb > 0.001 & refits$nll_nlminb < refits$nll_bfgs
-table(moved_starts = moved_starts, moved_nlminb = moved_nlminb, pd_hess = zero_checks$pd_hess)
-
-# The samples that moved: the variance before and after, and how much lower the NLL is.
-signif(data.frame(
-  sample = refits$sample,
-  var_bfgs = zero_checks$var_site,
-  var_starts = refits$var_starts,
-  var_nlminb = refits$var_nlminb,
-  nll_lower_by = refits$nll_bfgs - refits$nll_nlminb
-)[moved_nlminb, ], 3)
+# Samples whose best refit moved to a positive variance with a lower NLL.
+moved = refits$var_best > 0.001 & refits$nll_best < refits$nll_simulation
+sum(moved)
+table(moved = moved, pd_hess = zero_checks$pd_hess)
 ```
 
-In 9 of the 28 samples both kinds of refit move to a positive variance with a lower NLL,
-and these are exactly the 9 samples whose Hessian was not positive definite. Their variances
-lie between 0.0016 and 0.16, and the NLL falls by between 0.00003 and 0.47. Where the
-maximum is clear, the best of the 10 random starts and `nlminb()` agree; in the four samples
-with a maximum below 0.01 (110, 156, 221 and 251), where the NLL is very flat, the best
-random start stops a little away from `nlminb()`. In the other 19 samples the variance stays
-below 0.001; the refits of `nlminb()` lower the NLL a little (by at most 0.003) by walking
-further towards zero.
+In 9 of the 28 samples the best refit moves to a positive variance with a lower NLL, and
+these are exactly the 9 samples whose Hessian was not positive definite. In the other 19
+the best refit also ends below 0.001.
 
 ### Question 3
 
@@ -526,19 +548,19 @@ The standard deviation among sites is optimised as $\log(\sigma_{\mathrm{site}})
 $\sigma_{\mathrm{site}}=e^{\log(\sigma_{\mathrm{site}})}$ is positive for every finite value
 of its logarithm. A variance of zero is reached only in the limit
 $\log(\sigma_{\mathrm{site}})\to-\infty$, so it is a boundary that lies at $-\infty$ on the
-optimised scale ([theory](../Theory.qmd#sec-boundaries)). As $\log(\sigma_{\mathrm{site}})$
-falls, the variance shrinks towards zero and the NLL approaches the value of the model
-without site effects ever more slowly. Far enough out, a step lowers or changes the NLL by
-less than the relative tolerance, and BFGS stops with code 0, at a variance that is
-practically zero and depends on where the search happened to stop.
+optimised scale. As $\log(\sigma_{\mathrm{site}})$ falls, the variance shrinks towards zero
+and the NLL approaches the value of the model without site effects ever more slowly. Far
+enough out, a step changes the NLL by less than the relative tolerance, and BFGS stops with
+code 0, at a variance that is practically zero and depends on where the search happened to
+stop.
 
-The same plateau causes both kinds of fits. When the maximum lies at zero, the NLL falls all
-the way towards the plateau: the fit stopped on its way to the maximum, the NLL curves
-upwards there, and the Hessian is positive definite, with a huge standard error of
-$\log(\sigma_{\mathrm{site}})$. When the maximum lies at a positive variance, the NLL has a
-minimum and rises from it towards the plateau, so a search that a long step took past the
-minimum, far out on the plateau, finds no slope to lead it back. There the NLL curves
-downwards as it levels off, and the Hessian is not positive definite.
+The same plateau explains the two kinds of fits of question 1. When the maximum lies at
+zero, the NLL falls all the way towards the plateau, so it curves upwards where the fit
+stopped, and the Hessian is positive definite although the fit is still on its way to the
+maximum. When the maximum lies at a positive variance, the NLL rises from that minimum
+towards the plateau. A search that a long step took past the minimum finds no slope on the
+plateau to lead it back, and there the NLL curves downwards as it levels off, so the Hessian
+is not positive definite.
 
 The maximum lies at zero when the sites differ less than the quadrats alone would make them
 differ. Each site mean is the mean of five quadrats, so even without site effects the site
@@ -558,44 +580,26 @@ for (j in seq_along(zero_samples)) {
   closed_form[j] = max(0, var_means - var_within / 5)
 }
 
-# Closed form against the refit of nlminb(), with the check of the Hessian.
+# Closed form against the best refit of question 2, with the check of the Hessian.
 data.frame(
-  sample = refits$sample,
+  sample = zero_samples,
   closed_form = signif(closed_form, 3),
-  var_nlminb = signif(refits$var_nlminb, 3),
+  var_best = signif(refits$var_best, 3),
   pd_hess = zero_checks$pd_hess
 )
 ```
 
 The closed form is zero in the 19 samples whose Hessian was positive definite. In these the
-maximum lies at zero, the fits of the simulation were on their way to it, and the estimate is
-reported as zero. In the other 9 the closed form is positive and agrees with the refit of
-`nlminb()`: these fits were failures, and the refits found the maximum. The closed form
-exists only for this special design, but the check of the Hessian and the refits tell the
-two cases apart in the same way, and they can be used for any model.
+maximum lies at zero, the fits of the simulation were on their way to it, and the estimate
+is reported as zero. In the other 9 the closed form is positive: these fits were failures,
+and the refits found the maximum. Where the maximum lies above 0.01, the refits agree with
+the closed form to three digits; below 0.01 (samples 110, 156, 221 and 251) they differ by
+up to 15%, because so close to zero the NLL is very flat and the refits stop a little away
+from the maximum. The closed form exists only for this special design, but the check of the
+Hessian and the refits tell the two cases apart in the same way, and they can be used for
+any model.
 
-### Question 4
-
-We replace the estimates of the samples that moved by those of `nlminb()`, and compare the
-mean of the 500 estimates before and after, with the Monte Carlo standard error of the
-mean:
-
-```{r}
-# REML estimates of the variance among sites, with the refits of nlminb() for the samples
-# that moved.
-corrected_var_site = reml_results$var_site
-corrected_var_site[zero_samples[moved_nlminb]] = refits$var_nlminb[moved_nlminb]
-c(
-  before = mean(reml_results$var_site),
-  after = mean(corrected_var_site),
-  mc_se = sd(corrected_var_site) / sqrt(n_samples)
-)
-```
-
-The mean rises from 0.954 to 0.955, a change of less than 0.001, far smaller than its Monte
-Carlo standard error of 0.034. The failed fits were in samples whose maximum lies close to
-zero anyway, so correcting them hardly changes the mean, as Chapter 7 expected, and its
-conclusion stands: in this design REML removes most or all of the bias of maximum
-likelihood. A simulation study should still count the fits that stop at a boundary and say
-how it treated them, because failures in samples with larger variances would bias its
-results.
+The maxima of the failed fits all lie below 0.16, so replacing their estimates could raise
+the mean of the 500 REML estimates by at most $9\times0.16/500\approx0.003$, far less than
+its Monte Carlo standard error of about 0.034 in Chapter 7. The conclusion of Chapter 7 about
+the bias of REML stands.

@@ -53,24 +53,30 @@ the fit reached the maximum. Here we start from another reading of the same plot
    $k=0.1$/year, a curve that reaches 63% of its asymptote 10 years after $t_0$ instead of
    20 years, which is just as plausible a reading of the plot. Compare the convergence codes,
    the minima of the NLL and the estimates on the original scale. What curve does the
-   second fit describe? Plot both curves over the data.
+   second fit describe? Plot both curves over the data. See
+   [A fit that stops in the wrong place](../Theory.qmd#sec-wrong-place).
 2. Diagnose the second fit: its estimates on the optimised scale, the gradient at the
    solution and `sdreport()`. Calculate a slice of the log-likelihood along $\log(k)$
    through the solution, next to the same slice through the first fit, and plot both as
    relative log-likelihoods. Which checks reveal the problem, and which do not? Calculate
    the gradient at the starting values of the second fit: what does it say about the first
-   step of BFGS?
+   step of BFGS? See [Diagnosing a fit](../Theory.qmd#sec-diagnosis) and
+   [How a gradient method searches](../Theory.qmd#sec-search).
 3. Fit the model from 20 sets of random starting values within a box of plausible values:
    $A$ from 30 to 300 ft, $k$ from 0.005 to 0.5/year, $t_0$ from $-5$ to 5 years and
    $\sigma_{\mathrm{obs}}$ from 0.5 to 20 ft, drawn uniformly on the optimised scales (set
    seed 811 before the loop). Where did the fits end, and how many reached the lowest NLL?
-   Restart BFGS from the best fit.
+   Restart BFGS from the best fit. See
+   [Starting values and multiple starts](../Theory.qmd#sec-multistart).
 4. Fit the model from the second set of starting values of question 1 with `nlminb()`.
    Then search the box of question 3 with differential evolution, with
    `DEoptim::DEoptim()`, 40 members and 200 generations (set seed 812), and refine its best
-   member with BFGS. Do both reach the minimum of question 3?
+   member with BFGS. Do both reach the minimum of question 3? See
+   [Other local optimisers](../Theory.qmd#sec-local-optimisers) and
+   [Global search](../Theory.qmd#sec-global).
 5. Confirm the best fit with the gradient and `sdreport()`, and compare its estimates with
-   those of Chapter 7. What would you report about the fits of this exercise?
+   those of Chapter 7. What would you report about the fits of this exercise? See
+   [A recipe for a difficult fit](../Theory.qmd#sec-recipe).
 
 ## Solution
 
@@ -251,9 +257,7 @@ weighs heavily in the NLL. The first step of BFGS goes along the negative gradie
 $\log(A)$. The line search shortens the step until the NLL falls, and the first point where
 it falls already has an asymptote of practically zero: a curve of zero with a large standard
 deviation describes the heights better than the starting curve with $\sigma_{\mathrm{obs}}=2$
-ft. From there no slope leads back. The same start with $\sigma_{\mathrm{obs}}=5$ ft, which
-makes the gradient smaller, reaches the maximum, as a start with a larger standard deviation
-did for the CO₂ model of the theory.
+ft. From there no slope leads back.
 
 ### Question 3
 
@@ -373,35 +377,6 @@ summary(best_sd)
 rbind(best = pine_estimates(best_fit), chapter_7 = pine_estimates(pooled_fit))
 ```
 
-```{r}
-#| include: false
-# Check of the statement below: the model with a random asymptote of the Chapter 7
-# practical reaches its maximum from the start with k = 0.1/year.
-pine_data_tree = c(
-  pine_data,
-  list(tree = match(as.character(pines$Seed), unique(as.character(pines$Seed))))
-)
-mixed_nll = function(parms, data) {
-  getAll(parms, data)
-  sd_tree = exp(log_sd_tree)
-  nll = -sum(dnorm(x = u, mean = 0, sd = sd_tree, log = TRUE))
-  A = exp(log_A + u)
-  k = exp(log_k)
-  sd_obs = exp(log_sd_obs)
-  mu = A[tree] * (1 - exp(-k * (age - t0)))
-  nll - sum(dnorm(x = height, mean = mu, sd = sd_obs, log = TRUE))
-}
-mixed_obj = MakeADFun(
-  cmb(mixed_nll, pine_data_tree),
-  list(log_A = log(80), log_k = log(0.1), t0 = 2, log_sd_obs = log(2),
-       log_sd_tree = log(0.1), u = rep(0, 14)),
-  random = "u",
-  silent = TRUE
-)
-mixed_fit = optim(par = mixed_obj$par, fn = mixed_obj$fn, gr = mixed_obj$gr, method = "BFGS")
-stopifnot(mixed_fit$convergence == 0, abs(mixed_fit$value - 116.669) < 0.001)
-```
-
 The gradient is close to zero, the Hessian is positive definite and the standard errors are
 small, so the best fit passes every check. Its estimates agree with those of Chapter 7: an
 asymptote of 102 ft, a rate of 0.039/year, $t_0=2.06$ years and a standard deviation of
@@ -411,10 +386,7 @@ not.
 In a report we give the estimates of the best fit with their standard errors, and say how
 we know that it is the maximum: BFGS from one plausible start stopped at a curve of zero
 with code 0, 5 of 20 random starts reached the same minimum and none went lower, and
-`nlminb()` and differential evolution confirmed it. The failure belongs to this model and
-these starting values rather than to the curve: the model with a random asymptote of the
-Chapter 7 practical reaches its maximum from the start with $k=0.1$/year (a marginal NLL of
-116.67), because its search follows another path.
+`nlminb()` and differential evolution confirmed it.
 
 # Exercise 2: Body mass of Adelie penguins
 
@@ -432,27 +404,52 @@ $$
 
 where $X_i$ is the body mass of penguin $i$, with $\log(k)$ and $\log(r)$ as the
 parameters. Started at the method-of-moments estimates, the fit to the masses in grams
-stops after a single step and reports convergence code 0. Load the data with `data(penguins, package = "datasets")`,
-keep the Adelie penguins and remove the one missing mass explicitly.
+stops after a single step and reports convergence code 0. Load the data with
+`data(penguins, package = "datasets")`, keep the Adelie penguins and remove the one penguin
+whose mass is missing (`NA`).
 
 1. Fit the Gamma model to the masses in grams with `dgamma()`, starting at the
    method-of-moments estimates $k=\bar x^2/s^2$ and $r=\bar x/s^2$, where $\bar x$ is the
    mean of the masses and $s^2$ their empirical variance with divisor $n$. Report the
    convergence code, the numbers of evaluations of `fn` and `gr`, and the shape at the start
-   and at the end of the search. What do the counts say about the search?
+   and at the end of the search. What do the counts say about the search? Hint: the NLL is
+   the one of Exercise 4 of the Chapter 4 practical. The element `counts` of the result of
+   `optim()` is explained in [Exact and approximate gradients](../Theory.qmd#sec-gradients);
+   BFGS evaluates the gradient at its starting values and again after every step that
+   counts as progress ([Stopping rules and convergence codes](../Theory.qmd#sec-stopping)).
 2. Diagnose the fit with the gradient at the solution and a refit from the solution. How
-   much lower is the NLL at the end of the refit? Use the stopping rule of BFGS in the
-   [theory](../Theory.qmd#sec-stopping) to explain why the search stopped: compare the
-   decrease of the NLL in its single step with the smallest decrease that counts as
-   progress. Why did the step lower the NLL so little? (Look at the gradient at the starting
-   values and at the correlation of the estimates of $\log(k)$ and $\log(r)$.)
-3. Try three remedies, each from the method-of-moments estimates: the masses in kilograms;
-   the parameterisation with the mean $\mu=k/r$ and the shape, with $\log(\mu)$ and
-   $\log(k)$ as the parameters; and `nlminb()` with the masses in grams. Which of them reach
-   the maximum? Compare the correlation of the estimates in the two parameterisations.
-4. Which of the remedies change the problem that the optimiser solves, and which only search
-   again? Why do the estimates of the shape and of the mean not depend on the units, while
-   the minimum of the NLL does?
+   much lower is the NLL at the end of the refit? Then use the stopping rule of BFGS to
+   explain why the first search stopped: compare the decrease of the NLL in its single step
+   with the smallest decrease that counts as progress. Hint: the checks are those of
+   [Diagnosing a fit](../Theory.qmd#sec-diagnosis). The smallest decrease that counts as
+   progress is the formula in
+   [Stopping rules and convergence codes](../Theory.qmd#sec-stopping), where
+   $|{-\ell(\boldsymbol\theta)}|$ is the NLL at the start of the step, `obj$fn(obj$par)`,
+   and `reltol` is `sqrt(.Machine$double.eps)`.
+3. Try three remedies, each from the method-of-moments estimates: (a) the masses in
+   kilograms; (b) the parameterisation with the mean $\mu=k/r$ and the shape, with
+   $\log(\mu)$ and $\log(k)$ as the parameters, starting at the mean of the masses and the
+   method-of-moments estimate of the shape; and (c) `nlminb()` with the masses in grams.
+   Which of them reach the maximum that the refit of question 2 found? Hint: for (a),
+   calculate the method-of-moments estimates again from the masses in kilograms. For (b),
+   the rate is $k/\mu$; Exercise 1 of the Chapter 6 practical wrote the Gamma model with its
+   mean in the same way, through `scale = mu / shape`
+   ([Parameterisation](../Theory.qmd#sec-parameterisation)). For (c), see
+   [Other local optimisers](../Theory.qmd#sec-local-optimisers). The minimum of the NLL in
+   kilograms differs from that in grams, so compare the estimates of the shape, which has no
+   units.
+4. Explain why each remedy reaches the maximum. For the masses in kilograms, calculate the
+   smallest decrease that counts as progress at the starting values and compare it with
+   that in grams and with the decrease of the single step of question 2. Why is the NLL
+   smaller in kilograms? For the parameterisation, compare the correlation of the estimates
+   of $\log(k)$ and $\log(r)$ with that of the estimates of $\log(\mu)$ and $\log(k)$, both
+   at the maximum. Which of the three remedies and the refit of question 2 change the
+   problem that the optimiser solves, and which search the same problem again? Hint: the
+   effect of the units on the log-likelihood is explained in
+   [The likelihood function](../../Chapter_4/Theory.qmd#sec-likelihood) of Chapter 4. The
+   correlations are `cov2cor()` of the element `cov.fixed` of `sdreport()`, as in Exercise 4
+   of the Chapter 4 practical, with `par.fixed` set to the estimates at the maximum. See
+   [Scaling and parameterisation](../Theory.qmd#sec-scaling).
 
 # Exercise 3: A variance among sites at zero
 
@@ -472,7 +469,8 @@ $\sigma_{\mathrm{site}}=\sigma_{\mathrm{obs}}=1$, and estimated the variances by
 some samples the REML estimate of $\sigma^2_{\mathrm{site}}$ was practically zero. In some of
 these the maximum of the likelihood lies at zero, and in others the fit stopped on its way
 towards zero although the maximum lies at a positive variance. Here we tell the two cases
-apart.
+apart. That exercise was extra practice; if you skipped it, the code below gives you the
+samples, and [Estimates at a boundary](../Theory.qmd#sec-boundaries) explains the two cases.
 
 The code below repeats the simulation with the seed of Chapter 7, so that the samples are the
 same, but fits only REML, and it keeps every sample and the result of its fit. It needs the
@@ -531,13 +529,21 @@ reml_results$var_site = exp(2 * reml_results$log_sd_site)
    0.001, which we call practically zero, and check their convergence codes. For each of
    these samples, process the NLL again with its data, and calculate the largest absolute
    element of the gradient at the estimates and the element `pdHess` of `sdreport()`. What
-   do the two checks show?
-2. Refit each of these samples from 10 sets of random starting values, with both log
-   standard deviations drawn from a Normal distribution with mean 0 and standard deviation
-   1 (set seed 831 once, before the loop over the samples), and keep the refit with the
-   lowest NLL. Fit each sample also with `nlminb()` from the values used to simulate. In
-   how many samples do the refits end at a variance above 0.001 with a lower NLL? Compare
-   these samples with the result of `pdHess` in question 1.
+   do the two checks show? Hint: `which()` gives the numbers of these samples. Process the
+   NLL as in the loop above, with `random = c("u", "mu")`. The checks are those of
+   [Diagnosing a fit](../Theory.qmd#sec-diagnosis); the estimates of a sample are two
+   columns of `reml_results`, which `unlist()` turns into a vector, as in question 3 of
+   Exercise 1, and `sdreport()` needs them as `par.fixed`.
+2. Refit each of these samples from 10 sets of random starting values, with
+   $\sigma_{\mathrm{site}}$ and $\sigma_{\mathrm{obs}}$ (standard deviations of the log
+   biomass) between 0.1 and 10, drawn uniformly on the log scale (set seed 831 once, before
+   the loop over the samples), and keep the refit with the lowest NLL. In how many samples
+   does this refit end at a variance above 0.001 with a lower NLL than the fit of the
+   simulation? Compare these samples with the result of `pdHess` in question 1. Hint: see
+   [Starting values and multiple starts](../Theory.qmd#sec-multistart) and question 3 of
+   Exercise 1. Here the loop over the starting values sits inside the loop over the samples;
+   store the NLL and the estimate of $\log(\sigma_{\mathrm{site}})$ of each of the 10 fits,
+   and `which.min()` finds the best.
 3. Explain why the log scale puts a variance of zero at $-\infty$, and why BFGS stops on
    its way there. When does the maximum of the likelihood lie at zero? For a balanced Normal
    design such as this one, the REML estimate has a closed form,
@@ -545,8 +551,7 @@ reml_results$var_site = exp(2 * reml_results$log_sd_site)
    of the six site means (divisor 5) and $s^2_{\mathrm{w}}$ the variance of the quadrats
    around the means of their sites (divisor 24). This is an exact result of this special
    design, not of REML in general. Calculate it for the samples of question 1 and compare
-   it with the refits.
-4. Replace the estimates of the samples whose refits moved to a positive variance by those of
-   the refits, and calculate the mean of the 500 REML estimates of $\sigma^2_{\mathrm{site}}$
-   before and after. Does the correction change the conclusion of Chapter 7 about the bias
-   of the REML estimator?
+   it with the refits of question 2. Hint: see
+   [Estimates at a boundary](../Theory.qmd#sec-boundaries). For the closed form, `tapply()`
+   (question 5 of Exercise 1 of the Chapter 7 practical) gives the six site means, and
+   `site_means[site_index]` repeats the mean of its site for each of the 30 quadrats.

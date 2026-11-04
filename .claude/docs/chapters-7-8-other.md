@@ -151,7 +151,16 @@ author reviews it.
   REML simulation of Chapter 7 (which practically zero variances among sites are maxima),
   with the closed form of the balanced Normal design labelled as a special case. Seeds:
   theory 801 and up, practical 811, 812, 751 and 831. The practical tells students to
-  install DEoptim once.
+  install DEoptim once. Every question names the theory section it needs (a hint in
+  Exercises 2 and 3, "See ..." in the worked Exercise 1), linking to `#sec-parameterisation`,
+  `#sec-local-optimisers` and `#sec-recipe` among others (student-perspective review of 4
+  November). To fit the practical into about 3 hours (author's decision of 4 November):
+  Exercise 2 has four questions without the gradient at the starting values (the zero slope
+  in $\log(r)$); question 4 explains the remedies (threshold in kilograms, correlation
+  0.996 against practically zero) and does not ask about invariance; Exercise 3 has three
+  questions, refits only from 10 random starts drawn with `runif()` between σ = 0.1 and 10
+  (no `nlminb()`, which Exercise 2 practises), and the bias of REML is one sentence in
+  question 3, not a question.
 - **Lecture:** one of 150 minutes (31 slides, 116 minutes of slides, 14 of slack, two
   breaks of 10) with the demo above.
 - **Awaiting the author:** the theory has about 1,940 source lines against a target of
