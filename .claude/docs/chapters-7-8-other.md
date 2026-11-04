@@ -92,6 +92,14 @@ which stays until the author removes it.
   those chapters in new work. Chapter 8 passes plain functions to `optim()` with
   `hessian = TRUE`, carries a page-level `format` and `execute` block and display-only
   fences.
+- The rewrite (theory, practical, one lecture) follows `Chapter_8/rewrite-handoff.md`: seven
+  stages with the author's decisions of 4 November (no new data: the difficulties are shown on
+  models of earlier chapters, mainly the complete-pooling CO₂ model of Chapter 7; organised by
+  problem in five sections; concepts only, no algorithm coded by hand; BFGS, `nlminb()`,
+  Nelder–Mead, `optimize()`, multiple starts and `DEoptim`, without SANN and GA;
+  identifiability; bounds only mentioned; three practical exercises; one lecture of 150
+  minutes with a demo on diagnosing a failed fit). Its last stage moves the durable decisions
+  here and replaces this entry.
 - Technical difficulties of optimisation appear in Chapter 7 only as examples, with a
   pointer to Chapter 8 and no mechanics (author's decision of 4 November). The first is
   Exercise 5 of the Chapter 7 practical: a few REML fits stop at a practically zero
