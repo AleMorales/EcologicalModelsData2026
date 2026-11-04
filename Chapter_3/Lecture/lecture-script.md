@@ -133,8 +133,9 @@ count, however large, but with this mean the probability of more than eight seed
 quadrat is below 0.001, so the comparisons stop at eight.
 
 We treat the 50 counts as independent and identically distributed (i.i.d.). Neighbouring
-quadrats of a grid may be more alike than distant ones, so this is a simplification; models
-for observations that are not independent are the subject of Chapter 7.
+quadrats of a grid may be more alike than distant ones, so this is a simplification. The
+course does not model this spatial dependence; Chapter 7 deals with a related case,
+observations that come in groups.
 
 ## Slide 6 — From frequency to probability
 
@@ -826,8 +827,8 @@ general method of estimation that we use in the rest of the course. The estimato
 but we describe their uncertainty with the concepts of today: standard errors, confidence
 intervals, coverage and asymptotic normality. Chapter 5 turns to the deterministic functions
 that describe ecological responses, which Chapter 6 combines with the distributions. The
-observations that we treated as i.i.d. as a simplification (neighbouring quadrats, visits to
-the same nest) come back in Chapter 7.
+observations that we treated as i.i.d. as a simplification because they come in groups (visits
+to the same nest) come back in Chapter 7.
 
 ## Slide 33 — The Chapter 3 R practical
 

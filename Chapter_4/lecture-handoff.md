@@ -709,8 +709,8 @@ grew from 5 to 12 minutes when slides 6 to 12 of the Phase 1 plan were condensed
       each, compare the mean of the estimates with the value used to simulate. No code.
     - Example: relative bias of $\hat k$: 21%, 2.6% and 0.6% for 20, 122 and 500 visits.
     - Script: the numbers come from the simulation of slide 23 (seed 601), the visible loop of
-      the chapter. The bias corrections footnote (REML is not yet in Chapter 7: check before
-      citing).
+      the chapter. The bias corrections footnote (REML is covered in Chapter 7,
+      `#sec-reml`).
 27. **Misspecified models** [Misspecified models]:
     - General: `.definition` misspecified: the model does not contain the distribution of the
       data generating process, for any parameter values. Bullets: the MLE converges to the

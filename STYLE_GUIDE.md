@@ -186,7 +186,7 @@ order of the chapter, covering what the chapter actually contains. Do not use "A
 studying this chapter, you should be able to:" with assessment verbs. A closing sentence
 may name the distributions or tools of the chapter and point to a supplement. Every
 theory chapter ends with `# Summary` (a few short paragraphs, no new material) before
-`# Chapter quiz`; Chapter 7 still lacks one. Keep cross-chapter promises specific
+`# Chapter quiz`. Keep cross-chapter promises specific
 and check the destination.
 
 Introduce the general concept before the concrete example; do not open a section with a
@@ -275,7 +275,7 @@ of practicals, and matter most where the text teaches a recipe that students wil
 | Probability and likelihood | Probability varies the data for fixed parameters. Likelihood varies the parameters for the observed data and is not a probability distribution over parameters. |
 | Likelihood notation | Keep the bar in $P(X=x\mid\theta)$ and $L(\theta\mid x_1,\ldots,x_n)$, and say at first use that it reads "for a given value of". $\ell$ is the log-likelihood; once the data are fixed write $L(\theta)$ and $\ell(\theta)$. The negative log-likelihood (NLL) is $-\ell$. Draw likelihood figures on the relative scale $\ell(\theta)-\ell(\hat\theta)$, because only differences are meaningful. |
 | Wald and profile intervals | The likelihood profile interval (cutoff 1.92 for one parameter, 3.00 for a joint region of two) is the reference method. The Wald interval is the fast approximation: explain it as a quadratic approximation of the log-likelihood, calculate it on the optimised scale and transform the endpoints back. A standard error cannot be transformed back like an endpoint (see "R coding patterns" for `ADREPORT()`). |
-| Number of parameters in AIC | $K$, because $k$ is the shape of the Negative Binomial: $\mathrm{AIC}=2K-2\ell(\hat\theta)$. Only differences between models fitted to the same observations in the same units are meaningful, and AIC ranks candidates without showing that the best one describes the data well. |
+| Number of parameters in AIC | $K$, because $k$ is the shape of the Negative Binomial: $\mathrm{AIC}=2K-2\ell(\hat\theta)$. In a grouped model $K$ counts the fixed effects and variance parameters, not the random effects. Only differences between models fitted to the same observations in the same units are meaningful, and AIC ranks candidates without showing that the best one describes the data well. |
 | Deterministic functions | Generic parameters $a,b,c,d$ for every function, as positions in a formula; say what each controls. Ecological symbols ($\alpha$ and $H$; $K$, $r$, $n_0$) only for a specific parameterisation. $f'(x)$ and $f''(x)$ in running text, $df/dx$ where the variable matters, $\partial f/\partial a$ for a partial derivative. $\log$ is the natural logarithm. Derive the units of every parameter from the formula: the argument of an exponential or a logarithm has no units, a parameter that multiplies $x$ has the inverse units of $x$, one that divides $x$ has the units of $x$. |
 | Names of functions | Michaelis–Menten (en dash) is the primary name of $ax/(b+x)$; Holling type II is its predator–prey parameterisation; Monod and Beverton–Holt are named in a footnote. The saturating exponential has the ID `sec-fn-monomolecular`. |
 | Half-maximum and reparameterisation | The half-maximum is a value of $x$ at which a saturating function reaches half of its asymptote (a value of $y$). A reparameterisation changes the parameters and not the curve: check it by evaluating both forms at the same $x$. |
@@ -351,8 +351,8 @@ captions, callouts, mathematics and axis labels.
   meet the width.
 
 Theory front matter holds only `title:`. The table of contents and section numbering are
-set once in `_quarto.yml`; do not add per-page `format` or `execute` blocks. Chapters 7
-and 8 still carry them, including a global `eval: false`, and display-only ```` ```r ````
+set once in `_quarto.yml`; do not add per-page `format` or `execute` blocks. Chapter 8
+still carries them, including a global `eval: false`, and display-only ```` ```r ````
 fences. Before removing such a block, check every chunk: without the global setting,
 chunks are evaluated unless they carry `#| eval: false`. Preserve the other settings of a
 page: practicals use `date: today`, and the Chapter 1 material uses the `wordcount-html`
@@ -397,7 +397,7 @@ result in plain words and never relies on a symbol or result that appears only i
 one. Inside the box the full rigour stays (statement, "where" clause, "In plain English"
 sentence).
 
-**`Practice` callouts on the theory pages of Chapters 2 to 6 are numbered by Quarto.**
+**`Practice` callouts on the theory pages of Chapters 2 to 7 are numbered by Quarto.**
 Each has an ID with the prefix `imp-` and a title without "Practice: ", because
 `_quarto.yml` sets the label of numbered important callouts to "Practice":
 
@@ -409,10 +409,11 @@ The page shows "Practice 1: orchid fruit set"; the numbers restart on each page 
 follow the order of the callouts, so adding or removing one renumbers the rest. Refer to
 a callout in the text with `@imp-orchid-fruit-set`, which prints "Practice 1", and not by
 its title. Give the `imp-` prefix to no other callout, or it is numbered as a practice.
-The supplements and Chapters 7 and 8 keep unnumbered titles.
+The supplements and Chapter 8 keep unnumbered titles.
 
 Chapter 4 opens with a roadmap table after the learning goals (step, question, R tool,
-example) and closes with a "recipe" callout before the summary; Chapter 6 does the same.
+example) and closes with a "recipe" callout before the summary; Chapters 6 and 7 do the
+same.
 Later theory chapters may
 copy both when the chapter is a sequence of steps that students carry out.
 
@@ -580,7 +581,23 @@ fir_fit = optim(par = fir_obj$par, fn = fir_obj$fn, gr = fir_obj$gr, method = "B
 - **Cross-validation** is leave-one-out with the log score: every parameter is refitted
   to the other observations from the same fixed starting values, and the held-out
   observation is scored by its log probability or log density under that fit; the score
-  is the sum.
+  is the sum. For grouped data it is leave-one-group-out (below).
+- **Random effects** (from Chapter 7): the NLL is the joint NLL, minus the log density of
+  the random effects plus minus the log density of the observations for given effects;
+  the random effects are an element of the list of parameters (`u`, one starting value per
+  group, usually zero), usually on the log or logit scale of the parameter that varies;
+  the line with their density comes **before** the line that uses them, or
+  `obj$simulate()` fails. `random = "u"` in `MakeADFun()` integrates them out with the
+  Laplace approximation, and `optim()` works as before. The values of `u` are **predicted
+  group effects** from `summary(sdreport(...), "random")`, never called estimates. REML
+  adds the fixed effects to `random`; models with different fixed effects are compared
+  with maximum likelihood fits. `obj$simulate()` draws new group effects (unconditional
+  simulation), and DHARMa residuals per group come from `recalculateResiduals(group = ...)`
+  with an integer index of the groups. Leave-one-group-out cross-validation refits every
+  parameter without the held-out group and scores the group by its marginal
+  log-likelihood: an object for the held-out group with every parameter fixed by `map` at
+  its estimate and `random = "u"`, whose `fn()` is that group's marginal NLL. Grouped
+  models are compared with AIC and leave-one-group-out only, never AICc or BIC.
 - When teaching a complete fit, discuss starting values, convergence, constraints and
   uncertainty. A converged optimiser does not establish that the model is adequate.
 

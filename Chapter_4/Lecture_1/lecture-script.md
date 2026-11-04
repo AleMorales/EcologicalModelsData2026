@@ -148,8 +148,8 @@ The data are the counts of balsam fir seedlings in 50 quadrats of five by five f
 a grid of five rows of ten quadrats (Davison and Hinkley 1997, *Bootstrap Methods and Their
 Application*, Cambridge University Press), which come with R as the data set `fir` of the
 package `boot`. We treat the counts as i.i.d. Neighbouring quadrats of a grid may be more alike
-than distant ones, so this is a simplification; Chapter 7 covers observations that are not
-independent.
+than distant ones, so this is a simplification. The course does not model this spatial
+dependence; Chapter 7 covers a related case, observations that come in groups.
 
 **Optional remark (history)**
 
