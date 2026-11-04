@@ -499,6 +499,12 @@ glossary.
   data read from the workspace and `obj$he()`; Chapter 8 passes plain functions to
   `optim()` with `hessian = TRUE`; the learning goals of Chapter 7 keep the old format.
 - Chapter 4 points to Chapter 7 for REML, which Chapter 7 does not cover yet.
+- Technical difficulties of optimisation appear in Chapter 7 only as examples, with a
+  pointer to Chapter 8 and no mechanics (author's decision of 4 November). The first is
+  Exercise 5 of the Chapter 7 practical: a few REML fits stop at a practically zero
+  variance among sites with convergence code 0. A note callout in Chapter 8 ("Hybrid global
+  and local optimisation") says that several random starting values find the maximum; the
+  rewrite of Chapter 8 works through this example.
 
 ### Other
 

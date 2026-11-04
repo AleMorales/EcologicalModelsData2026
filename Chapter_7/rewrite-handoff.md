@@ -912,10 +912,13 @@ short report in the progress log: what was checked, what was changed, what remai
 
 Stages add questions here; they do not wait for an answer.
 
-- (Stage 3) Exercise 5, question 3 of the practical says in one paragraph that near
-  $\sigma_{\mathrm{site}}=0$ the optimiser can stop at a practically zero variance with
-  convergence code 0, with a pointer to Chapter 8. This is Chapter 8 material; keep the
-  paragraph, or remove it and leave the topic to Chapter 8?
+- (Stage 3, answered by the author on 4 November) Exercise 5, question 3: the fits that
+  stop at a practically zero variance with convergence code 0 are shown only as an example
+  of a technical difficulty, without the mechanics, with a pointer to Chapter 8. A note
+  callout in `Chapter_8/Theory.qmd` ("Hybrid global and local optimisation") says that
+  Chapter 8 returns to this example and that several random starting values find the
+  maximum (checked: 10 random starts on the log scale recover the exact REML maximum in all
+  8 samples). Stage 7 keeps this link.
 
 ## Progress log
 
