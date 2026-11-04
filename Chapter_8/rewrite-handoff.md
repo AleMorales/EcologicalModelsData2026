@@ -1086,3 +1086,41 @@ Each stage adds one line: date, stage, what is done, what is next.
   the two cases apart" for a variance at practically zero (Exercise 3; link
   `Practicals/solution.qmd`). `.claude/docs/` and `AGENTS.md` unchanged (Stage 7 records
   the decisions). Next: Stage 3.
+- 4 November 2026: Stage 3 done. `Chapter_8/Practicals/no_solution.qmd` (about 555 lines:
+  opening paragraph, Exercise 1 worked in five questions, Exercises 2 and 3 with questions,
+  and the given simulation code of Exercise 3) and `solution.qmd` (about 590 lines: link to
+  the worked Exercise 1, `cmb()`, Exercises 2 and 3 with solutions) replace the old practical.
+  Question text of Exercises 2 and 3 identical on both pages (checked with `diff`). Both pages
+  render in the dev profile without warnings (`quarto render ... --profile dev`, about 16 s and
+  22 s), no unresolved `?@`; both pages purled and run in a clean session, every number in the
+  prose compared with the output; the two base R figures inspected. Seeds 811 and 812
+  (Exercise 1), 751 (simulation) and 831 (refits of Exercise 3); Exercise 2 needs none.
+  **Differences from the plan:** (1) Exercise 1: the slice along `log_k` is drawn through both
+  fits (0.02 to 0.08/year, 301 points: the slice through the maximum is too sharp for a wide
+  grid), flat for the failed fit; the solution also prints `obj$gr()` at the failed start
+  (elements 13,534, 6,194, −751, −3,754) to explain the long first step, and says that the
+  same start with $\sigma_{\mathrm{obs}}=5$ ft reaches the maximum; the 20 starts end as
+  planned (5 at 162.82, 2 at 373.11 = constant curve at the mean height 32.4 ft, 12 at
+  425.49, 1 at 551.17); `nlminb()` 33/23 evaluations; DEoptim 8,040, BFGS from `bestmem` at
+  once; the mixed model from the failed start (116.669) is checked in a hidden `stopifnot()`
+  chunk. (2) Exercise 2: the single step lowered the NLL by $1.642\times10^{-5}$ against the
+  threshold `reltol * (|f| + reltol)` = $1.695\times10^{-5}$ in grams and
+  $1.41\times10^{-6}$ in kilograms (the decrease is the same in both units); at the first
+  iteration the approximation of the curvature is already the identity, so `vmmin` stops at
+  once. Chapter 4's solution (lines 975 to 986) agrees with this: nothing to correct there in
+  Stage 7. Remedies from the method-of-moments start: kilograms 32/4, mean and shape 13/3
+  (correlation −1.3e−6 against 0.996), `nlminb()` 15/8, all shape 66.095. (3) Exercise 3:
+  criterion "REML estimate of $\sigma^2_{\mathrm{site}}$ below 0.001": 28 samples, all code
+  0, largest gradients 3.6e−5 to 0.018; `pdHess` is `FALSE` in exactly 9 (69, 110, 130, 156,
+  195, 221, 251, 277, 331), and these are the samples in which both kinds of refit move to a
+  positive variance with a lower NLL and the closed form is positive (0.0016 to 0.16); in the
+  other 19 the closed form is 0 and the refits stay below 0.001. The plan's 6 samples are the
+  ones above about 0.005; the other three (110, 156, 251) have maxima below 0.004. Mean of the
+  500 REML estimates 0.9542 before and 0.9550 after the correction (Monte Carlo standard error
+  0.034). The closed form is in the questions and the solution, labelled as an exact result of
+  this balanced Normal design. **For Stage 7:** DEoptim is not in the install line of the
+  Chapter 1 practical (`Chapter_1/Practicals/material.qmd`, line 372); the Chapter 8 practical
+  tells students to install it once, as the Chapter 6 practical does for DHARMa. The links to
+  the earlier exercises go to `no_solution.qmd` pages (Chapter 7 Exercise 1 and Exercise 5,
+  Chapter 4 Exercise 4) and to Chapter 4's `solution.qmd`. `AGENTS.md` and `.claude/docs/`
+  unchanged (Stage 7 records the decisions). Next: Stage 4.
