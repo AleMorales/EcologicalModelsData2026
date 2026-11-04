@@ -1,451 +1,1098 @@
 ---
 title: "Grouped ecological response curves"
-format:
-  html:
-    toc: true
-    number-sections: true
-execute:
-  echo: true
-  warning: false
-  message: false
-  eval: false
 ---
 
-TODO: Introduce conditional and marginal distribution (we move it from chapter 3 here).
-Note: "chapter 3" is the former chapter on continuous probability, which was merged into
-Chapter 2 and deleted. Chapter 2 now covers joint and marginal distributions and
-independence, so only conditional distributions remain to be introduced here. The parked
-exercise "Two measurements on each tree" has a conditional-distribution task with a
-solution: see `git show df0b8f5:Chapter_3/Practicals/no_solution.qmd` (Exercise 4) and
-`git show df0b8f5:Chapter_3/Practicals/solution.qmd` (L143–251).
-
-TODO: Introduce REML as mentioned in chapter 4. Note that REML may not guarantee unbiased
-estimates
+```{r}
+#| include: false
+# Load ggplot2 for the consistently formatted rendered figures in this chapter.
+library(ggplot2)
+```
 
 # Introduction
 
-In this chapter, we learn how to model repeated measurements with grouped
-ecological response curves. A grouped model lets us estimate a common response
-and variation among groups while recognising that measurements from one group
-need not behave as independent rows.
+In this chapter, we learn how to fit response curves to observations that come in groups.
+Repeated measurements on the same plants, animals, nests or sites share the conditions of
+their group, so they are not independent of each other. A grouped model describes three
+things together: a curve that is common to all the groups, how that curve varies among
+groups, and how the observations vary around the curve of their own group. The variation
+among groups is described by a probability distribution, and the model is fitted by
+maximum likelihood once the deviations of the groups have been integrated out of the
+likelihood.
 
-In Chapter 6, we fitted one response curve to observations that we treated as
-independent. In this chapter we use net-photosynthesis measurements at several
-light levels, in which the observations come in groups: at each light level,
-the five rows belong to the same five leaves, in the same order. This lets us ask how net photosynthesis changes with light and whether
-all leaves follow the same response curve.
-
-That information changes the model. One observational unit is a net
-photosynthesis measurement on a leaf at one light intensity. The grouping unit
-is a leaf, which contributes several observations. Measurements on a leaf can
-share a tendency to lie above or below the common curve.
-
-This chapter compares ways of sharing information between leaves. It then uses
-a grouped likelihood to estimate both the common light response and variation
-among leaves. The practical applies the same ideas to repeated tree-height
-measurements in `datasets::Loblolly`.
+What is new in this chapter is the conditional distribution, which describes the two levels
+of such a model, and the marginal distribution that follows from it; random effects and
+partial pooling, with which a grouped model shares information among groups; maximum
+marginal likelihood and the Laplace approximation, with which the model is fitted; variance
+components and shrinkage; restricted maximum likelihood (REML), which reduces the bias of
+the estimated variances; the curves of observed and of new groups; and how grouped models
+are checked and compared. One example runs through the chapter, the uptake of carbon
+dioxide (CO₂) by 12 plants of a grass, each measured at seven concentrations of CO₂
+(Potvin et al. 1990).^[Potvin, C., Lechowicz, M. J. and Tardif, S. (1990), "The
+statistical analysis of ecophysiological response curves obtained from experiments
+involving repeated measures", *Ecology* 71: 1389–1400. The data are in R as `CO2`.] The
+curve is the saturating exponential and the observations follow a Normal distribution. RTMB
+integrates the deviations of the groups out of the likelihood when we give `MakeADFun()`
+the argument `random`. [Chapter 6](../Chapter_6/Theory.qmd) treated every observation as
+independent; [Chapter 8](../Chapter_8/Theory.qmd) deals with the difficulties of finding the
+maximum of a likelihood.
 
 # Learning goals
 
-After this chapter, you should be able to:
+In this chapter, we will cover:
 
-- identify repeated measurements and distinguish observational and grouping
-  units;
-- explain fixed effects, random effects, mixed-effects, hierarchical, and
-  multilevel models in a concrete example;
-- compare complete pooling, no pooling, and partial pooling for a response
-  curve;
-- interpret shrinkage, regularisation, and the variance components
-  $\sigma^2_{\mathrm{leaf}}$ and $\sigma^2_{\mathrm{obs}}$;
-- explain why a grouped model can use maximum marginal likelihood and the
-  intuition and limitations of Laplace approximation; and
-- fit a grouped RTMB model with `optim()` and interpret its shared parameters,
-  variance components, and conditional group-specific curves.
+- observations in groups;
+- conditional and marginal distributions;
+- fixed and random effects;
+- complete, no and partial pooling;
+- the marginal likelihood and the Laplace approximation;
+- random effects in RTMB;
+- variance components and predicted group effects;
+- group-level predictors and shrinkage;
+- the uncertainty of variance components and REML;
+- curves for observed and new groups;
+- checking a grouped model;
+- comparing grouped models with AIC and leave-one-group-out cross-validation.
 
-# Identify the repeated measurements
+We will use the [Normal](../Supplements/distributions.qmd#sec-normal) entry of the
+distribution supplement and the
+[saturating exponential](../Supplements/deterministic-functions.qmd#sec-fn-monomolecular)
+entry of the function supplement.
 
-The light-response data are in the file `shapes1.csv`. You can
-download `shapes1.csv` from the
-[`Data` folder](https://github.com/AleMorales/EcologicalModelsData2026/tree/main/Data)
-in the course GitHub repository. The CSV file alone does not identify a leaf.
-The author supplied the mapping below from the original experimental record:
-within every set of five rows at a light level, rows 1 to 5 came from leaves 1
-to 5 respectively. This is not a general rule for reconstructing repeated
-measurements from row order.
+The table below is a roadmap of the chapter. Each row is one step, with the question that
+it answers and the R tools that we use for it.
 
-```r
-# Load the supplied light-response data.
-light = read.csv("../Data/shapes1.csv")
-# Attach the leaf mapping supplied from the original experimental record.
-light$leaf_id = factor(rep(1:5, times = 11))
-
-# Check the number of measurements at each light level and for each leaf.
-table(light$x)
-table(light$leaf_id)
-```
-
-The two tables check the supplied structure: there are five measurements at
-each of 11 light levels, and 11 measurements for each derived leaf identifier.
-The following plot joins only observations with the author-supplied same leaf
-identifier. Symbols and line types distinguish leaves as well as colour.
-
-```{r}
-#| echo: false
-#| eval: true
-#| fig-cap: "Net photosynthesis measurements by author-supplied leaf identifier. Lines join repeated measurements from the same leaf."
-# Load the data and apply the author-supplied leaf mapping.
-light = read.csv("../Data/shapes1.csv")
-light$leaf_id = factor(rep(1:5, times = 11))
-# Use both colour and symbol to distinguish the leaf trajectories.
-leaf_colours = c("black", "#0072B2", "#D55E00", "#009E73", "#CC79A7")
-leaf_symbols = c(16, 17, 15, 18, 8)
-old_par = par(mar = c(4, 4, 1, 1))
-# Draw the measurements, then join observations from the same leaf.
-plot(light$x, light$y, type = "n",
-     xlab = "Light intensity (recorded units)",
-     ylab = "Net photosynthesis (recorded units)")
-for (j in seq_along(levels(light$leaf_id))) {
-  leaf_data = light[light$leaf_id == levels(light$leaf_id)[j], ]
-  lines(leaf_data$x, leaf_data$y, lty = j, col = leaf_colours[j])
-  points(leaf_data$x, leaf_data$y, pch = leaf_symbols[j],
-         col = leaf_colours[j])
-}
-legend("bottomright", legend = paste("Leaf", 1:5),
-       col = leaf_colours, pch = leaf_symbols, lty = 1:5, bty = "n")
-# Restore the graphical settings used before this figure.
-par(old_par)
-```
-
-:::: {.callout-important title="Question: what does row order establish?"}
-If this identifier had not been supplied, would repeated point patterns at each
-light level establish five leaf trajectories?
-
-::: {.callout-tip title="Answer" collapse="true"}
-No. Repeated values at each light level show replication at that level, but
-they do not say which observation at one light level belongs with an
-observation at another. The trajectories in the figure depend on the
-author-supplied experimental record.
-:::
-::::
-
-# Three ways to share information
-
-We describe net photosynthesis with a shifted
-[saturating exponential](../Supplements/deterministic-functions.qmd#sec-fn-monomolecular),
-
-$$
-m(x;r,a,k)=r+a(1-e^{-kx}), \qquad a>0,\quad k>0.
-$$
-
-Here $x$ is light intensity, $r$ is expected net photosynthesis at zero light,
-$r+a$ is its limiting expected value, and $k$ controls how quickly the curve
-increases. Net photosynthesis can be negative at low light when respiration
-exceeds carbon fixation.
-
-## Names for the parts of the model
-
-The concrete model helps make common terminology less mysterious:
-
-- **Fixed effects** are the shared, population-level parameters estimated from
-  these data, such as $r$, $a$, and $k$. Fixed does not mean known or causal.
-- **Random effects** are group deviations, such as $u_j$, modelled with a
-  distribution whose variance is estimated.
-- A **mixed-effects model** contains both shared parameters and random effects.
-- A **hierarchical** or **multilevel model** represents observations nested
-  within leaves.
-
-"Random effect" does not mean that leaves were randomly allocated to a
-treatment. It means that the model represents among-leaf variation with a
-distribution, conditional on the chosen curve and the other assumptions.
-
-The table separates three choices about leaf information while keeping the
-same curve and normal observation model.
-
-| Model | Leaf component | Question |
+| Step | Question it answers | In R |
 |---|---|---|
-| Complete pooling | $u_j=0$ for every leaf | What common curve describes the recorded leaves? |
-| No pooling | A separately estimated $r_j$ for every leaf | How do these leaves differ when no information is shared? |
-| Partial pooling | $r_j=r+u_j$, with $u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{leaf}})$ | What common curve and among-leaf variation describe the data? |
+| The groups | Which observations share the conditions of a group? | an integer index of the group of each observation |
+| The model | How does the curve vary among groups, and how do the observations vary around it? | the deviations of the groups as a vector in the list of parameters |
+| Pooling | Should the groups share one curve, have curves of their own, or something in between? | one NLL for each choice |
+| The fit | Which parameter values make the observations most probable, once the deviations of the groups are integrated out? | `MakeADFun()` with `random`, `optim()`, `sdreport()` |
+| Predictors | Do properties of the groups explain part of the variation among them? | fixed effects on the parameter that varies, `ADREPORT()` |
+| Uncertainty and REML | How precisely are the variances estimated, and how biased are they? | `TMB::tmbprofile()`, `random` with the fixed effects |
+| New groups | Which curves do we expect for groups that were not measured? | the distribution of the group deviations, `qnorm()` |
+| Checking | Does the fitted model describe the observations and the groups? | `OBS()`, `obj$simulate()`, `DHARMa::recalculateResiduals()` |
+| Comparison | Which of the candidate models do the data support? | AIC, `map` in `MakeADFun()`, a `for` loop that leaves out one group at a time |
 
-The following conceptual figure uses chosen parameter values, not estimates
-fitted to the light data.
+: Roadmap of the chapter.
+
+# Observations in groups {#sec-grouped-observations}
+
+The **observational unit** is the entity on which one observation is made, such as a
+quadrat, a visit to a nest or a measurement on a plant. In Chapters 4 and 6 the observations
+were independent. Often, however, observations come in **groups** (also called grouping
+units): several observations are made on the same individual, at the same site, in the same
+nest or in the same tank. The observations of one group share conditions that other groups
+do not share (the genotype and condition of an individual, the microhabitat of a site, the
+parents of a brood, the observer of a survey), so they tend to resemble each other more than
+observations of different groups do. The variation among groups is part of the process
+variation of [Chapter 1](../Chapter_1/Theory.qmd): it would remain with perfect
+measurements.
+
+Treating grouped observations as independent overstates the information in the data.
+Another observation of a group that we have already observed tells us less than an
+observation of a new group, because part of what it shows is the condition of its group,
+which we already know something about. A model that treats every observation as
+independent therefore calculates standard errors that are too small and intervals that are
+too narrow, and the evidence for an effect looks stronger than it is. The
+[practical of Chapter 4](../Chapter_4/Practicals/no_solution.qmd) met this problem with
+tadpoles that share a tank, and
+[Chapter 6](../Chapter_6/Theory.qmd#sec-response-comparison) used the number of tanks and
+not the number of tadpoles as the number of observations in AICc and BIC for the same
+reason. A grouped model describes the dependence explicitly: each group has a curve of its
+own, and a distribution describes how the curves vary among groups.
+
+The data of this chapter come from an experiment on the cold tolerance of the grass
+*Echinochloa crus-galli*. Six plants came from Quebec and six from Mississippi, and three
+plants of each origin were chilled overnight before the measurements. The CO₂ uptake of
+every plant (µmol/m²/s) was measured at the same seven ambient concentrations of CO₂,
+from 95 to 1000 µL/L,^[The help page of `CO2` gives the concentration in mL/L, but the
+units stored with the data set (`attr(CO2, "units")`) are µL/L, which is the same as
+parts per million (ppm). An ambient concentration of 1000 mL/L would be pure CO₂.] so the
+design has 2 origins × 2 treatments × 3 plants × 7 concentrations, 84 measurements in
+total. The observational unit is one measurement and the group is the plant.
+
+The uptake rises with the concentration and levels off (@fig-co2_data). We describe it with
+the [saturating exponential](../Supplements/deterministic-functions.qmd#sec-fn-monomolecular)
+shifted along $x$ (see "Shifting and scaling" in
+[Chapter 5](../Chapter_5/Theory.qmd#sec-function-shifts)):
+
+$$
+\mu(x)=a\left(1-e^{-b(x-c)}\right),
+$$
+
+where $\mu(x)$ is the expected uptake (µmol/m²/s) at the concentration $x$ (µL/L), $a$ is
+the asymptote (µmol/m²/s), $b$ is the rate at which the curve approaches it (L/µL), and $c$
+is the concentration at which the expected uptake is zero (µL/L). The curve reaches 63% of
+its asymptote at $x=c+1/b$ (see the supplement entry). The measurements start at 95 µL/L,
+so we use the curve above $c$ only. The asymptote is the uptake of a plant at high
+concentrations of CO₂, a measure of its capacity for photosynthesis, and it is the property
+in which the plants of @fig-co2_data differ most visibly, so it is the parameter that we
+will let vary among plants.
+
+The data set `CO2` is stored as a special kind of data frame for grouped data, which we
+turn into an ordinary data frame with `as.data.frame()`. Its column
+`Plant` names the plant of each measurement: the first letter is the origin (Q or M), the
+second the treatment (n for non-chilled, c for chilled), and the number distinguishes the
+three plants of each combination. `Plant` is an ordered factor whose levels are not in the
+order of the rows, so we build the integer index of the plants ourselves, with `match()`,
+numbering the plants in the order in which they first appear. Plants 1 to 3 are then the
+non-chilled plants from Quebec, 4 to 6 the chilled ones, 7 to 9 the non-chilled plants from
+Mississippi and 10 to 12 the chilled ones. The list of data holds the concentration, the
+uptake and the index of the plant of each measurement:
+
+```{r}
+#| message: false
+# Load RTMB first and RTMBdist second.
+library(RTMB)
+library(RTMBdist)
+
+# CO2 uptake of 12 plants at seven concentrations (see ?CO2), as an ordinary data frame.
+co2 = as.data.frame(CO2)
+
+# Names of the plants in the order of the rows, and the index (1 to 12) of the plant of
+# each measurement.
+plant_names = unique(as.character(co2$Plant))
+plant = match(as.character(co2$Plant), plant_names)
+plant_names
+
+# List of data: the predictor, the response and the plant of each measurement.
+co2_data = list(conc = co2$conc, uptake = co2$uptake, plant = plant)
+```
 
 ```{r}
 #| echo: false
-#| eval: true
-#| fig-cap: "Illustrative complete-pooling, no-pooling, and partial-pooling response curves. The partial-pooling deviations are closer to the common intercept than the no-pooling intercepts."
-# Define the light values and response curve used in this conceptual figure.
-x_grid = seq(from = 0, to = 1000, length.out = 200)
-light_curve = function(x, r, a, k) {
-  r + a * (1 - exp(-k * x))
-}
-# Choose illustrative, rather than fitted, intercepts for five leaves.
-common_r = -2
-leaf_r = c(-4, -3, -2, -1, 0)
-partial_r = common_r + 0.6 * (leaf_r - common_r)
-leaf_colours = c("black", "#0072B2", "#D55E00", "#009E73", "#CC79A7")
-old_par = par(mfrow = c(1, 3), mar = c(4, 4, 2, 1))
-# Draw one shared curve for complete pooling.
-plot(x_grid, light_curve(x_grid, common_r, 11, 0.004), type = "l",
-     ylim = c(-5, 10), lwd = 2,
-     xlab = "Light intensity (recorded units)",
-     ylab = "Expected net photosynthesis (recorded units)",
-     main = "Complete pooling")
-# Draw separately fitted intercepts for no pooling.
-plot(x_grid, light_curve(x_grid, leaf_r[1], 11, 0.004), type = "n",
-     ylim = c(-5, 10), xlab = "Light intensity (recorded units)",
-     ylab = "Expected net photosynthesis (recorded units)",
-     main = "No pooling")
-for (j in 1:5) {
-  lines(x_grid, light_curve(x_grid, leaf_r[j], 11, 0.004),
-        lty = j, col = leaf_colours[j])
-}
-# Draw intercepts pulled towards the common value for partial pooling.
-plot(x_grid, light_curve(x_grid, partial_r[1], 11, 0.004), type = "n",
-     ylim = c(-5, 10), xlab = "Light intensity (recorded units)",
-     ylab = "Expected net photosynthesis (recorded units)",
-     main = "Partial pooling")
-for (j in 1:5) {
-  lines(x_grid, light_curve(x_grid, partial_r[j], 11, 0.004),
-        lty = j, col = leaf_colours[j])
-}
-# Identify the five curves and restore the original graphical settings.
-legend("bottomright", legend = paste("Leaf", 1:5),
-       col = leaf_colours, lty = 1:5, bty = "n", cex = 0.7)
-par(old_par)
+#| label: fig-co2_data
+#| fig-cap: "CO₂ uptake of 12 plants of *Echinochloa crus-galli* against the ambient concentration of CO₂, in four panels for the two origins and the two treatments. Lines join the measurements of the same plant; the line type and symbol distinguish the three plants of each panel."
+# Measurements with the number of each plant within its origin and treatment.
+co2_plot = co2
+co2_plot$plant_number = substr(as.character(co2_plot$Plant), 3, 3)
+co2_plot$Treatment = factor(co2_plot$Treatment, labels = c("Non-chilled", "Chilled"))
+
+ggplot(co2_plot, aes(x = conc, y = uptake, group = Plant)) +
+  geom_line(aes(linetype = plant_number), colour = "#0072B2", alpha = 0.7) +
+  geom_point(aes(shape = plant_number), colour = "#0072B2", alpha = 0.7, size = 2) +
+  facet_grid(Treatment ~ Type) +
+  labs(
+    x = expression("Ambient CO"[2] * " concentration (µL/L)"),
+    y = expression("CO"[2] * " uptake (µmol/m²/s)"),
+    linetype = "Plant",
+    shape = "Plant"
+  ) +
+  theme_classic()
 ```
 
-With complete pooling, every leaf has the same expected curve. With no
-pooling, each leaf receives its own intercept but the curve's increase and
-shape are still shared. These $r_j$ values are ordinary separately fitted
-parameters, not random effects. No pooling is useful for describing these
-recorded leaves, but a lightly measured leaf has no direct way to borrow
-information from the others.
+# Conditional and marginal distributions {#sec-conditional}
 
-For partial pooling, use the model
+[Chapter 2](../Chapter_2/Theory.qmd#sec-joint-independence) introduced the joint
+distribution of two random variables, the marginal distribution of each of them and
+independence. The **conditional distribution** of $X_1$ for a given value $x_2$ of $X_2$
+gives the probabilities of the values of $X_1$ among the outcomes in which $X_2=x_2$:
 
 $$
-\begin{aligned}
-u_j &\sim \operatorname{Normal}(0,\sigma^2_{\mathrm{leaf}}),\\
-Y_{ij}\mid u_j,x_{ij} &\sim
-\operatorname{Normal}\{m(x_{ij};r,a,k)+u_j,\sigma^2_{\mathrm{obs}}\}.
-\end{aligned}
+P(X_1=x_1\mid X_2=x_2)=\frac{P(X_1=x_1,X_2=x_2)}{P(X_2=x_2)},
 $$
 
-$Y_{ij}$ is measurement $i$ on leaf $j$, $x_{ij}$ is its light intensity, and
-$u_j$ is leaf $j$'s deviation from the common curve. Conditional on the
-predictor, shared parameters, and its leaf effect, the normal observation model
-assumes the measurements are independent. It would be wrong to describe all 55
-rows as independent without that qualification.
+where the numerator is the joint probability and the denominator the marginal probability
+of the given value, which must be larger than zero. The bar reads "for a given value of",
+as in the likelihood notation of [Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood); what
+is given now is the value of another random variable. In the table of the two seeds of
+Chapter 2, with $P(X_1=1)=0.6$ and $P(X_2=1)=0.3$, the probability that the first seed does
+not germinate, for a given failure of the second, is
 
-::: {.callout-warning title="More parameters do not remove every dependence"}
-Separate leaf intercepts do not automatically make the normal observation
-model adequate. For example, measurements can still be correlated over time
-within a leaf, or leaves can differ in curve shape rather than only intercept.
-The grouping structure helps us state a better model; it does not prove its
-remaining assumptions.
+$$
+P(X_1=0\mid X_2=0)=\frac{0.28}{0.70}=0.4,
+$$
+
+which equals the marginal probability $P(X_1=0)=0.4$. This is what independence means:
+the conditional distribution of $X_1$ is the same for every value of $X_2$, and equal to
+the marginal distribution, so knowing $X_2$ does not change the probabilities of $X_1$.
+When the two variables are not independent, the conditional distribution changes with the
+given value (@imp-seedlings-quadrat).
+
+Multiplying both sides of the definition by $P(X_2=x_2)$ writes the joint distribution as
+a conditional distribution times a marginal one,
+
+$$
+P(X_1=x_1,X_2=x_2)=P(X_1=x_1\mid X_2=x_2)\,P(X_2=x_2),
+$$
+
+and adding these joint probabilities over all the values of $X_2$ gives the marginal
+distribution of $X_1$, as in the tables of Chapter 2. For continuous random variables the
+same relations hold with densities in place of probabilities and an integral in place of
+the sum
+([Chapter 2](../Chapter_2/Theory.qmd#sec-two_continuous_variables)):
+
+$$
+f_{X\mid Y}(x\mid y)=\frac{f_{X,Y}(x,y)}{f_Y(y)},
+\qquad
+f_{X,Y}(x,y)=f_{X\mid Y}(x\mid y)\,f_Y(y),
+\qquad
+f_X(x)=\int_{-\infty}^{\infty}f_{X\mid Y}(x\mid y)\,f_Y(y)\,dy,
+$$
+
+where $f_{X\mid Y}(x\mid y)$ is the conditional density of $X$ for a given value $y$ of
+$Y$. In plain English, the marginal density of $X$ is the average of its conditional
+densities over all the values of $Y$, each weighted by the density of that value. This is
+the form in which a grouped model is written: first the distribution of the value of a
+group, then the distribution of the observations for a given value; the marginal
+distribution of the observations follows by integration.
+
+We have met a marginal distribution of this kind before. The Beta-Binomial distribution of
+[Chapter 6](../Chapter_6/Theory.qmd#sec-beta-binomial-fit) is the marginal distribution of a
+count that is Binomial for a given probability, when the probability varies among sampling
+units according to a Beta distribution: each reed frog tank had its own probability that a
+tadpole was killed, and the Beta-Binomial distribution describes the counts with those
+probabilities integrated out. For this combination of distributions the integral has a
+closed form, which is why we could write its probability mass directly. A **random effect**
+is the same idea with a Normal distribution for the value of each group, usually on a
+transformed scale (the logarithm of a positive parameter or the logit of a probability).
+For most such models the integral has no closed form, and we need the approximation of
+@sec-marginal-likelihood.
+
+In general, let $Y_{ij}$ be the $i$-th observation of group $j$ and $u_j$ the deviation of
+group $j$ from the common curve. For the CO₂ data the model is
+
+$$
+u_j\sim\operatorname{Normal}\left(0,\sigma^2_{\mathrm{plant}}\right),
+\qquad
+Y_{ij}\mid u_j\sim\operatorname{Normal}\left(\mu_j(x_{ij}),\sigma^2_{\mathrm{obs}}\right),
+\qquad
+\mu_j(x)=a\,e^{u_j}\left(1-e^{-b(x-c)}\right),
+$$
+
+where $j=1,\ldots,12$ are the plants and $i=1,\ldots,7$ the measurements of a plant,
+$x_{ij}$ is the concentration of measurement $i$ of plant $j$, $u_j$ is the deviation of
+plant $j$ on the log scale of the asymptote, $\sigma^2_{\mathrm{plant}}$ is the variance of
+these deviations among plants, $\mu_j(x)$ is the curve of plant $j$, and
+$\sigma^2_{\mathrm{obs}}$ is the variance of the measurements around the curve of their
+plant. The asymptote of plant $j$ is $a_j=a\,e^{u_j}$, that is,
+$\log(a_j)=\log(a)+u_j$, so every asymptote is positive and the deviations act by
+multiplication: a plant with $u_j=0.1$ has an asymptote about 10% above $a$ (because
+$e^{0.1}\approx1.105$). The rate $b$ and the location $c$ are shared by all plants.
+
+The model has two levels. For a given value of $u_j$, the seven measurements of plant $j$
+are independent: each varies around the curve of its plant with variance
+$\sigma^2_{\mathrm{obs}}$. Marginally, that is, without knowing $u_j$, they are not
+independent, because they share $u_j$: a measurement above the common curve makes it more
+probable that the plant has a high asymptote, and so that its other measurements are also
+above the common curve. This is the dependence of grouped observations described in
+@sec-grouped-observations, now written as a model. Measurements of different plants are
+independent, because the deviations of different plants are independent.
+
+The parameters that are shared by all the groups ($a$, $b$ and $c$ here, and the effects of
+the predictors that we add in @sec-group-predictors) are called **fixed effects**. The
+deviations $u_j$, which are described by a distribution, are the **random effects**, and a
+model with both is a **mixed-effects model** (or mixed model). Because it describes the
+data in levels, it is also called a **hierarchical** or **multilevel model**. "Random" says
+that the deviations are described by a distribution; it does not mean that the plants were
+allocated at random, nor that their differences have no cause.
+
+:::: {#imp-seedlings-quadrat .callout-important title="two seedlings in one quadrat"}
+
+The quadrats of a forest floor are either favourable or unfavourable for seedlings, each
+with probability 0.5. In a favourable quadrat a seedling survives its first year with
+probability 0.8, in an unfavourable one with probability 0.2, independently of the other
+seedlings of the quadrat. Two seedlings are planted in a quadrat whose quality was not
+recorded, and $X_1$ and $X_2$ are 1 if the first or the second seedling survives and 0
+otherwise. Calculate the joint distribution of $X_1$ and $X_2$, the marginal probability
+$P(X_1=1)$ and the conditional probability $P(X_1=1\mid X_2=1)$. Are the two seedlings
+independent? Are they independent for a given quality of the quadrat?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+For a given quality the seedlings are independent, so their joint probability is the
+product of their probabilities. The quality was not recorded, so we add these products over
+the two qualities, each weighted by its probability; this is the discrete version of the
+integral of the marginal density. For example,
+
+$$
+P(X_1=1,X_2=1)=0.5\times0.8\times0.8+0.5\times0.2\times0.2=0.32+0.02=0.34.
+$$
+
+In the same way, $P(X_1=1,X_2=0)=P(X_1=0,X_2=1)=0.08+0.08=0.16$ and
+$P(X_1=0,X_2=0)=0.02+0.32=0.34$, which add up to one with the other two. Then
+$P(X_1=1)=0.34+0.16=0.5$, and, because $P(X_2=1)=0.5$ as well,
+$P(X_1=1\mid X_2=1)=0.34/0.5=0.68$. In R:
+
+```{r}
+# Probability of each quality (favourable, unfavourable) and of survival in each.
+p_quality = c(0.5, 0.5)
+p_survive = c(0.8, 0.2)
+
+# Joint probability that both survive: the product for a given quality, added over the
+# qualities. Then the marginal probability that the second survives.
+p_both = sum(p_quality * p_survive * p_survive)
+p_second = sum(p_quality * p_survive)
+
+# Conditional probability that the first survives, for a given survival of the second.
+p_both / p_second
+```
+
+The seedlings are not independent: the survival of one of them makes it more probable that
+the quadrat is favourable, and so that the other one survives too (0.68 against 0.5). For a
+given quality of the quadrat they are independent, by construction. This is the structure
+of a grouped model: independence for a given value of the group effect, and dependence
+when the group effect is integrated out.
+
 :::
+::::
 
-# Shrinkage and variance components
+# Three ways to share information {#sec-pooling}
 
-Partial pooling is a compromise between one common curve and wholly separate
-curves. The normal distribution for $u_j$ makes very large leaf deviations less
-compatible with the group model unless the leaf's data support them. This is
-**regularisation**: it is part of the model and likelihood, not a correction
-applied after fitting.
+When a parameter of a curve may differ among groups, a model can treat it in three ways.
+With **complete pooling**, all the groups share one value of the parameter: the groups are
+ignored and the observations are treated as independent, as in Chapter 6. With **no
+pooling**, each group has its own value, an ordinary parameter estimated from the
+observations of that group, and nothing connects the values of different groups. With
+**partial pooling**, the values of the groups are drawn from a distribution whose variance
+is estimated, as in the model of @sec-conditional: each group has its own value, the values
+of all the groups inform the distribution, and the distribution in turn informs the value of
+each group.
 
-The result is **shrinkage**. A noisy or lightly measured leaf is generally
-pulled further towards the common curve than a precisely measured leaf. How
-much it is pulled depends on its measurements and on the estimated
-$\sigma^2_{\mathrm{leaf}}$. Shrinkage does not show that a leaf equals the
-population mean; it expresses uncertainty about its individual deviation.
+The three ways differ in what they assume and in the question that they answer. Complete
+pooling assumes that the groups do not differ. When they do, the observation variance
+absorbs the variation among groups, and the standard errors are too small because every
+observation is treated as independent. No pooling describes the measured groups, and only
+them: it says how each of these groups responds, but nothing about a group that was not
+measured, because it does not describe how groups vary. Partial pooling describes the
+measured groups and, through the distribution of the group values, groups in general,
+which is usually the question of an ecological study (plants of this species, nests of
+this bird, sites of this habitat). Its costs are an assumption about the shape of that
+distribution, which is Normal in this chapter, and an integral in the likelihood
+(@sec-marginal-likelihood).
 
-::: {.callout-note title="The two variance components"}
-$\sigma^2_{\mathrm{leaf}}$ describes variation in leaf deviations around the
-common curve. $\sigma^2_{\mathrm{obs}}$ describes variation of measurements
-around a leaf's shifted curve. Both have squared net-photosynthesis units.
-Their standard deviations, $\sigma_{\mathrm{leaf}}$ and
-$\sigma_{\mathrm{obs}}$, have net-photosynthesis units, as do the deviations
-$u_j$. R's `dnorm(sd = ...)` takes a standard deviation, so code that estimates
-a standard deviation on a log scale squares it when reporting model variance.
-:::
+For the CO₂ data, complete pooling fits one curve to all 84 measurements. The NLL is that
+of a Normal model with a response curve, as in Chapter 6. The asymptote, the rate and the
+standard deviation are positive, so the optimiser works with their logarithms, `log_asym`,
+`log_rate` and `log_sd_obs`; the location `c0` can take any value and is not transformed:
 
-If the fitted $\sigma^2_{\mathrm{leaf}}$ is near zero, partial pooling
-approaches complete pooling. A variance estimate on this boundary makes usual
-large-sample confidence intervals delicate. The five balanced leaves here also
-give limited opportunity to see unequal shrinkage visually.
-
-# Maximum marginal likelihood
-
-For one candidate leaf effect $u_j$, the joint contribution has two parts: the
-normal densities for that leaf's measurements around its shifted curve and the
-normal density that says how compatible $u_j$ is with the leaf population. The
-leaf effect is unobserved, so maximum marginal likelihood compares shared
-parameters after integrating it out:
-
-$$
-L_{j,\mathrm{marg}}(\boldsymbol\theta\mid\mathbf y_j)=
-\int_{-\infty}^{\infty}
-L_{j,\mathrm{joint}}(\boldsymbol\theta,u_j\mid\mathbf y_j)\,du_j.
-$$
-
-Here $\mathbf y_j$ is all observations from leaf $j$, and
-$\boldsymbol\theta$ contains the shared curve parameters and both variance
-components. The integrand is the joint likelihood contribution from the leaf's
-measurements and its group distribution. The integral considers all possible
-leaf deviations, weighting each by how well it agrees with both the leaf's
-observations and the population model. The full marginal likelihood combines
-these contributions across leaves.
-
-Fitting only the single best $u_j$ as an ordinary fixed parameter is a different
-calculation. Marginal likelihood incorporates uncertainty in unobserved leaf
-effects before comparing shared parameter values. You will interpret this idea;
-you will not calculate the integral by hand.
-
-# Laplace approximation and RTMB
-
-The integral is usually impractical to solve algebraically for a nonlinear
-response curve. **Laplace approximation** uses the fact that the integrand is
-often largest near the leaf effect that balances that leaf's observations and
-the group distribution. Near this peak, a smooth log integrand can be
-approximated by a quadratic. A quadratic log curve has a normal-shaped peak with
-a calculable area, which gives an approximation to the integral.
-
-This approximation can be unreliable when conditional shapes are strongly
-non-normal, information is weak, a parameter is on a boundary, or the
-observation model is unsuitable. In a Gaussian linear random-intercept model,
-the calculation can be exact; that fact does not automatically extend to this
-nonlinear light-response model.
-
-RTMB performs this numerical work. We have processed every likelihood with
-`MakeADFun()` since [Chapter 4](../Chapter_4/Theory.qmd), and
-[Chapter 6](../Chapter_6/Theory.qmd#sec-makeadfun) said more about what it does;
-what is new here is its argument `random`. The following outline uses RTMB's
-`%~%` operator, with which each line adds the negative log density of its
-left-hand side to the objective, so the function returns no sum. In it, `u` is a vector of candidate
-leaf deviations. The `u %~%` line records
-their group distribution, and `random = "u"` tells `MakeADFun()` to integrate
-them out using Laplace approximation. The object then returns the marginal
-objective and its derivatives for `optim()`.
-
-```r
-# Load RTMB before recording the grouped likelihood calculation.
-library(RTMB)
-
-# Create consecutive indices that select each leaf's deviation.
-light$leaf_index = as.integer(light$leaf_id)
-# Define the grouped normal model and its two sources of variation.
-leaf_model = function(par) {
-  a = exp(par$log_a)
-  k = exp(par$log_k)
-  sigma_leaf = exp(par$log_sigma_leaf)
-  sigma_obs = exp(par$log_sigma_obs)
-  mu = par$r + a * (1 - exp(-k * light$x)) + par$u[light$leaf_index]
-  par$u %~% dnorm(mean = 0, sd = sigma_leaf)
-  light$y %~% dnorm(mean = mu, sd = sigma_obs)
+```{r}
+# Negative log-likelihood with one curve for all the plants (complete pooling).
+pooled_nll = function(parms, data) {
+  getAll(parms, data)
+  a = exp(log_asym)
+  b = exp(log_rate)
+  sd_obs = exp(log_sd_obs)
+  # Expected uptake at the concentration of each measurement.
+  mu = a * (1 - exp(-b * (conc - c0)))
+  -sum(dnorm(x = uptake, mean = mu, sd = sd_obs, log = TRUE))
 }
+```
 
-# Supply starting values, including one initial deviation per leaf.
-leaf_parameters = list(
-  r = 0,
-  log_a = log(10),
-  log_k = log(0.01),
-  log_sigma_leaf = log(1),
-  log_sigma_obs = log(1),
-  u = rep(0, 5)
+We read starting values from @fig-co2_data: an asymptote of 30 µmol/m²/s, zero uptake
+at about 50 µL/L, 63% of the asymptote reached about 100 µL/L higher (so $b=1/100$
+L/µL), and a standard deviation of 2 µmol/m²/s:
+
+```{r}
+# Connect a likelihood to a data set.
+cmb = function(f, d) function(p) f(p, d)
+
+# Process the NLL, starting from the values read from the figure, and fit it.
+pooled_obj = MakeADFun(
+  cmb(pooled_nll, co2_data),
+  list(log_asym = log(30), log_rate = log(0.01), c0 = 50, log_sd_obs = log(2)),
+  silent = TRUE
 )
-# Record the marginal objective, then minimise it using its gradient.
-leaf_obj = MakeADFun(leaf_model, leaf_parameters,
-                      random = "u", silent = TRUE)
-leaf_fit = optim(par = leaf_obj$par, fn = leaf_obj$fn,
-                 gr = leaf_obj$gr, method = "BFGS")
+pooled_fit = optim(
+  par = pooled_obj$par,
+  fn = pooled_obj$fn,
+  gr = pooled_obj$gr,
+  method = "BFGS"
+)
+pooled_fit$convergence
 ```
 
-The fitted positive values `sigma_leaf` and `sigma_obs` are standard
-deviations. Their squares are the model variances
-$\sigma^2_{\mathrm{leaf}}$ and $\sigma^2_{\mathrm{obs}}$. Conditional fitted
-leaf effects can help draw curves, but they are not independent leaf maximum
-likelihood estimates. RTMB does not guarantee convergence or establish that the
-model describes the data suitably. Its [introduction vignette](https://cran.r-project.org/web/packages/RTMB/vignettes/RTMB-introduction.html)
-and the [Template Model Builder paper](https://www.jstatsoft.org/article/view/v070i05)
-give technical background.
+Without pooling, each plant has its own asymptote. The parameter `log_asym` becomes a
+vector with one log asymptote per plant, and `a[plant]` selects the asymptote of the plant
+of each measurement, as the asymptote of each state in the practical of Chapter 6. The
+rate, the location and the standard deviation are still shared:
 
-# Interpretation and limits
+```{r}
+# Negative log-likelihood with one asymptote for each plant (no pooling).
+separate_nll = function(parms, data) {
+  getAll(parms, data)
+  a = exp(log_asym)
+  b = exp(log_rate)
+  sd_obs = exp(log_sd_obs)
+  # a[plant] is the asymptote of the plant of each measurement.
+  mu = a[plant] * (1 - exp(-b * (conc - c0)))
+  -sum(dnorm(x = uptake, mean = mu, sd = sd_obs, log = TRUE))
+}
 
-A fitted curve for an observed leaf conditions on its estimated leaf effect. A
-prediction for a new leaf also includes among-leaf variation, so it should be
-more variable. Five leaves provide limited information about a population
-distribution. The normal leaf distribution and common curve shape are model
-assumptions, and a random intercept can miss genuine leaf differences in the
-rate or shape of response.
+# Process the NLL, with the same starting asymptote for every plant, and fit it.
+separate_obj = MakeADFun(
+  cmb(separate_nll, co2_data),
+  list(log_asym = rep(log(30), 12), log_rate = log(0.01), c0 = 50, log_sd_obs = log(2)),
+  silent = TRUE
+)
+separate_fit = optim(
+  par = separate_obj$par,
+  fn = separate_obj$fn,
+  gr = separate_obj$gr,
+  method = "BFGS"
+)
+separate_fit$convergence
+```
 
-The practical now applies this workflow to a distinct dataset of repeated tree
-heights. It fits complete pooling, no pooling, and partial pooling models with
-`MakeADFun()`, and lets RTMB perform the marginalisation with `random =`.
+Both fits converged. We compare the standard deviation of the measurements around the
+curves, and list the asymptotes of the plants without pooling:
 
-# Chapter quiz
+```{r}
+# Standard deviation of the measurements around the curve(s) (µmol/m²/s).
+c(
+  pooled = exp(pooled_fit$par[["log_sd_obs"]]),
+  separate = exp(separate_fit$par[["log_sd_obs"]])
+)
 
-:::: {.callout-important title="Question 1: units"}
-What is the observational unit and what is the grouping unit in the light data?
+# Asymptotes of the 12 plants without pooling (µmol/m²/s).
+separate_asym = exp(separate_fit$par[names(separate_fit$par) == "log_asym"])
+names(separate_asym) = plant_names
+round(separate_asym, 1)
+```
 
-::: {.callout-tip title="Answer" collapse="true"}
-An observational unit is one net-photosynthesis measurement at one light
-intensity on a leaf. A grouping unit is one leaf, which contributes repeated
-measurements.
+Around one common curve the measurements vary with a standard deviation of 8.2 µmol/m²/s,
+and around the curves of their own plants with a standard deviation of 1.9 µmol/m²/s. So
+most of the scatter around the common curve is variation among plants, which complete
+pooling counts as variation of the measurements. The asymptotes range from 14.2 µmol/m²/s
+(Mc2) to 45.0 µmol/m²/s (Qn3), and the three chilled plants from Mississippi have the lowest
+ones. No pooling describes these 12 plants, but it cannot say how much plants of this grass
+vary in their capacity for uptake, or which curve to expect for a plant that was not
+measured. For that we need partial pooling.
+
+# Maximum marginal likelihood {#sec-marginal-likelihood}
+
+## The marginal likelihood
+
+In a mixed model the random effects are not observed. The likelihood of the parameters
+$\boldsymbol\theta$, which are the fixed effects and the variances of the model, is
+therefore the probability of the observations with the random effects integrated out, that
+is, their marginal distribution (@sec-conditional). For group $j$, with its observations
+collected in the vector $\mathbf y_j$, this is
+
+$$
+L_j(\boldsymbol\theta)=\int_{-\infty}^{\infty}
+f(\mathbf y_j\mid u,\boldsymbol\theta)\,f(u\mid\sigma_{\mathrm{group}})\,du,
+$$
+
+where $f(\mathbf y_j\mid u,\boldsymbol\theta)$ is the joint density of the observations of
+group $j$ for a given value $u$ of its random effect (the product of the densities of its
+observations, which are independent for a given $u$), and $f(u\mid\sigma_{\mathrm{group}})$
+is the Normal density of the random effect, with mean zero and standard deviation
+$\sigma_{\mathrm{group}}$. The groups are independent, so the likelihood is the product of
+the $L_j$ over the groups, and the log-likelihood is the sum of their logarithms. This is
+the **marginal likelihood**, and its maximisation is called **maximum marginal
+likelihood**. In plain English, the marginal likelihood of a group averages the likelihood
+of its observations over all the values that its random effect could take, each weighted
+by its density under the distribution of group effects. For the CO₂ data,
+$\boldsymbol\theta$ holds $a$, $b$, $c$, $\sigma_{\mathrm{plant}}$ and
+$\sigma_{\mathrm{obs}}$, and the integral of each plant runs over its deviation $u_j$.
+
+Why not estimate the deviations as parameters? That is no pooling: the $u_j$ would be
+ordinary parameters, and no distribution would connect them. In the marginal likelihood the
+12 deviations are replaced by one parameter, $\sigma_{\mathrm{plant}}$, which describes how
+plants vary. The number of parameters then stays the same however many groups are
+observed, which is one of the conditions under which the large-sample properties of maximum
+likelihood of [Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood-uncertainty) hold.
+
+## The Laplace approximation
+
+The integral of the marginal likelihood has a closed form only in special cases, such as
+the Beta-Binomial distribution and the Normal linear mixed model, so in general it must be
+approximated. The **Laplace approximation** uses the shape of the integrand. As a function
+of $u$, the integrand is the likelihood of the observations of the group multiplied by the
+density of $u$. It has a peak at the value of $u$ that is most probable for these
+observations, and near the peak its logarithm is close to a parabola, so the integrand
+itself is close to a Normal-shaped curve. The area under a Normal-shaped curve is known: it
+depends only on the height of the peak and on the curvature of the logarithm at the peak.
+So the approximation finds the peak, measures its height and its curvature, and replaces
+the integral by the area under the Normal-shaped curve with the same peak and curvature.
+This is the quadratic approximation of the log-likelihood that gave the standard errors of
+[Chapter 4](../Chapter_4/Theory.qmd#sec-curvature), applied to the integrand.
+
+@fig-laplace shows the integrand for plant Mc2, with the parameters at the estimates of the
+model that we fit in @sec-random-effects-rtmb, together with its Laplace approximation.
+
+```{r}
+#| echo: false
+#| label: fig-laplace
+#| fig-cap: "The integrand of the marginal likelihood of plant Mc2 as a function of its deviation u, under the model with a random asymptote and the parameters at their estimates: the joint density of the seven measurements of the plant for a given u, multiplied by the density of u, relative to its value at the peak (solid line). The dashed line is the Normal-shaped curve of the Laplace approximation, with the same peak and the same curvature of its logarithm at the peak."
+# The model with a random asymptote, fitted as in the section on random effects in RTMB.
+laplace_nll = function(parms, data) {
+  getAll(parms, data)
+  nll = -sum(dnorm(x = u, mean = 0, sd = exp(log_sd_plant), log = TRUE))
+  a = exp(log_asym + u)
+  mu = a[plant] * (1 - exp(-exp(log_rate) * (conc - c0)))
+  nll - sum(dnorm(x = uptake, mean = mu, sd = exp(log_sd_obs), log = TRUE))
+}
+laplace_obj = MakeADFun(
+  cmb(laplace_nll, co2_data),
+  list(
+    log_asym = log(30), log_rate = log(0.01), c0 = 50,
+    log_sd_plant = log(0.1), log_sd_obs = log(2), u = rep(0, 12)
+  ),
+  random = "u",
+  silent = TRUE
+)
+laplace_fit = optim(
+  par = laplace_obj$par, fn = laplace_obj$fn, gr = laplace_obj$gr, method = "BFGS"
+)
+laplace_par = as.list(laplace_fit$par)
+
+# Logarithm of the integrand for plant Mc2 (plant 11) at the estimates.
+mc2 = co2_data$plant == 11
+log_integrand = function(u) {
+  sapply(u, function(v) {
+    mu = exp(laplace_par$log_asym + v) *
+      (1 - exp(-exp(laplace_par$log_rate) * (co2_data$conc[mc2] - laplace_par$c0)))
+    sum(dnorm(x = co2_data$uptake[mc2], mean = mu, sd = exp(laplace_par$log_sd_obs),
+              log = TRUE)) +
+      dnorm(x = v, mean = 0, sd = exp(laplace_par$log_sd_plant), log = TRUE)
+  })
+}
+
+# Peak, and curvature of the logarithm at the peak from a second difference.
+u_peak = optimize(function(v) -log_integrand(v), interval = c(-3, 3))$minimum
+step = 1e-4
+curvature = -(log_integrand(u_peak + step) - 2 * log_integrand(u_peak) +
+  log_integrand(u_peak - step)) / step^2
+
+# Areas under the integrand and under its approximation, both relative to the peak.
+area_exact = integrate(
+  function(v) exp(log_integrand(v) - log_integrand(u_peak)),
+  lower = u_peak - 1, upper = u_peak + 1, rel.tol = 1e-10
+)$value
+area_laplace = sqrt(2 * pi / curvature)
+laplace_ratio = area_laplace / area_exact
+
+# Both curves on a grid around the peak.
+u_grid = seq(from = u_peak - 4 / sqrt(curvature), to = u_peak + 4 / sqrt(curvature),
+             length.out = 200)
+laplace_curves = data.frame(
+  u = rep(u_grid, times = 2),
+  value = c(
+    exp(log_integrand(u_grid) - log_integrand(u_peak)),
+    exp(-curvature * (u_grid - u_peak)^2 / 2)
+  ),
+  curve = rep(c("Integrand", "Laplace approximation"), each = length(u_grid))
+)
+
+ggplot(laplace_curves, aes(x = u, y = value, linetype = curve)) +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  scale_linetype_manual(
+    values = c("Integrand" = "solid", "Laplace approximation" = "dashed")
+  ) +
+  labs(
+    x = "Deviation of plant Mc2, u (log scale of the asymptote)",
+    y = "Integrand relative to its peak",
+    linetype = NULL
+  ) +
+  theme_classic() +
+  theme(legend.position = "top")
+```
+
+The two curves almost coincide; the integrand has a slightly longer tail towards low values
+of $u$, which the symmetric approximation cannot follow. The area under the approximation is
+`r round(100 * (1 - laplace_ratio), 1)`% smaller than the area under the integrand, which
+changes the log-likelihood of the plant by `r round(abs(log(laplace_ratio)), 3)`. The
+approximation is accurate when the integrand is close to a Normal-shaped curve: when each
+group has many observations, so that the likelihood of the group dominates the integrand,
+and when the observations are Normal, or close to Normal, for a given value of the random
+effect. For the Normal linear mixed models of the
+[`glmmTMB` supplement](../Supplements/canned.qmd#sec-glmmtmb) it is exact, because there the
+logarithm of the integrand is a parabola. It is less accurate when the groups have few
+observations, and when the observations are counts near zero or binary outcomes, for which
+the integrand can be skewed.
+
+::: {.callout-caution collapse="true" icon=false title="Statistical detail: the Laplace approximation"}
+Let $h(u)=\log\left(f(\mathbf y_j\mid u)\,f(u)\right)$ be the logarithm of the integrand of
+one group, as a function of its random effect $u$, with its maximum at $\hat u$. Close to
+$\hat u$, $h$ is replaced by a parabola. The first derivative of $h$ is zero at a maximum,
+so
+
+$$
+h(u)\approx h(\hat u)-\frac{1}{2}\left(-h''(\hat u)\right)(u-\hat u)^2,
+\qquad
+\int_{-\infty}^{\infty}e^{h(u)}\,du\approx e^{h(\hat u)}
+\int_{-\infty}^{\infty}e^{-\frac{1}{2}\left(-h''(\hat u)\right)(u-\hat u)^2}\,du
+=e^{h(\hat u)}\sqrt{\frac{2\pi}{-h''(\hat u)}},
+$$
+
+where $-h''(\hat u)$ is the curvature of $h$ at its maximum, and the last integral is the
+area under a Normal-shaped curve with variance $1/(-h''(\hat u))$, which is the constant
+that is missing from a Normal density with that variance. In plain English, the integral is
+replaced by the height of the peak times its width.
+
+When the random effects form a vector $\mathbf u$ with $q$ elements, the curvature becomes
+the Hessian matrix $\mathbf H$ of $-h$ at its maximum (see the box on the Hessian in
+[Chapter 4](../Chapter_4/Theory.qmd#sec-curvature)), and $\sqrt{2\pi/(-h''(\hat u))}$
+becomes $(2\pi)^{q/2}/\sqrt{\det(\mathbf H)}$, where the determinant $\det(\mathbf H)$
+measures how sharply the integrand peaks in all directions together. When the groups are
+independent, the matrix has non-zero elements only on its diagonal, and the approximation
+is the product of the approximations of the groups.
+:::
+
+## Random effects in RTMB {#sec-random-effects-rtmb}
+
+In RTMB we do not write the marginal likelihood ourselves. We write the **joint NLL** of the
+observations and the random effects, minus the logarithm of their joint density,
+
+$$
+-\log\left(f(\mathbf y\mid\mathbf u,\boldsymbol\theta)\right)
+-\log\left(f(\mathbf u\mid\sigma_{\mathrm{group}})\right),
+$$
+
+that is, minus the log density (or log probability) of the observations for given random
+effects plus minus the log density of the random effects (the joint density is the
+conditional density times the marginal one, @sec-conditional). `MakeADFun()` then integrates
+the random effects out. Three things change compared with the NLLs of Chapters 4 and 6:
+
+- the random effects are an element of the list of parameters, a vector with one starting
+  value for each group (usually zero);
+- the NLL adds minus the log density of the random effects to minus the log density (or log
+  probability) of the observations, and the line with the density of the random effects
+  comes before the line that uses them (we need this order to simulate from the model);
+- the argument `random` of `MakeADFun()` names the elements of the list of parameters that
+  are random effects, here `random = "u"`. RTMB then integrates them out with the Laplace
+  approximation: the elements `fn` and `gr` of the object are the marginal NLL and its
+  gradient, as functions of the other parameters only, and `par` holds only those other
+  parameters.
+
+So the fit with `optim()` works as before. For the CO₂ data the NLL is the no-pooling NLL
+with the vector `log_asym` replaced by one parameter `log_asym` plus the deviations `u`, and
+with the density of `u`, whose standard deviation $\sigma_{\mathrm{plant}}$ is optimised as
+`log_sd_plant`:
+
+```{r}
+# Joint negative log-likelihood with a random asymptote.
+mixed_nll = function(parms, data) {
+  getAll(parms, data)
+  sd_plant = exp(log_sd_plant)
+  # Minus the log density of the deviations of the plants, before they are used.
+  nll = -sum(dnorm(x = u, mean = 0, sd = sd_plant, log = TRUE))
+  # Asymptote of each plant, and minus the log density of the measurements for given u.
+  a = exp(log_asym + u)
+  b = exp(log_rate)
+  sd_obs = exp(log_sd_obs)
+  mu = a[plant] * (1 - exp(-b * (conc - c0)))
+  nll - sum(dnorm(x = uptake, mean = mu, sd = sd_obs, log = TRUE))
+}
+```
+
+The deviations start at zero, and $\sigma_{\mathrm{plant}}$ at 0.1 (plants that differ by
+about 10%). We process the NLL with `random = "u"` and fit it:
+
+```{r}
+# Process the joint NLL; random = "u" integrates the deviations out of the likelihood.
+mixed_obj = MakeADFun(
+  cmb(mixed_nll, co2_data),
+  list(
+    log_asym = log(30), log_rate = log(0.01), c0 = 50,
+    log_sd_plant = log(0.1), log_sd_obs = log(2), u = rep(0, 12)
+  ),
+  random = "u",
+  silent = TRUE
+)
+
+# Minimise the marginal NLL with BFGS: par holds only the five other parameters.
+mixed_fit = optim(
+  par = mixed_obj$par,
+  fn = mixed_obj$fn,
+  gr = mixed_obj$gr,
+  method = "BFGS"
+)
+mixed_fit$convergence
+mixed_fit$par
+```
+
+The fit converged, and the estimates are those of the five parameters of
+$\boldsymbol\theta$; the deviations of the plants are not among them, because they were
+integrated out.
+
+::: {.callout-caution collapse="true" icon=false title="Technical detail: what RTMB does with random effects"}
+Each time the optimiser calls `fn` with values of $\boldsymbol\theta$, RTMB first carries
+out an **inner optimisation**: it minimises the joint NLL over $\mathbf u$ for these values,
+which gives the peak $\hat{\mathbf u}$ of the integrand, with Newton's method (an
+optimiser that uses second derivatives; see [Chapter 8](../Chapter_8/Theory.qmd)). Automatic
+differentiation ([Chapter 6](../Chapter_6/Theory.qmd#sec-makeadfun)) supplies the first
+and second derivatives that Newton's method needs, and the Hessian with respect to
+$\mathbf u$ at the peak gives the determinant of the Laplace approximation. `fn` returns
+minus the logarithm of the approximation, and `gr` its gradient with respect to
+$\boldsymbol\theta$, which requires derivatives of the inner optimum as well and is also
+obtained by automatic differentiation. So every evaluation of the marginal NLL contains a
+complete optimisation over the random effects, which is why a mixed model takes longer to
+fit than a model without random effects. The method is described by Kristensen et al.
+(2016).^[Kristensen, K., Nielsen, A., Berg, C. W., Skaug, H. and Bell, B. M. (2016),
+"TMB: automatic differentiation and Laplace approximation", *Journal of Statistical
+Software* 70(5): 1–21.]
+:::
+
+## Variance components and predicted plant effects
+
+The variances $\sigma^2_{\mathrm{group}}$ and $\sigma^2_{\mathrm{obs}}$ are the **variance
+components** of the model: $\sigma^2_{\mathrm{group}}$ describes the variation among groups
+and $\sigma^2_{\mathrm{obs}}$ the variation of the observations around the curve of their
+group. Each has the scale and the units of the quantity that it describes, and the NLL takes
+their square roots, the standard deviations. `sdreport()` works on the marginal NLL as on
+any other NLL, and two values of the argument `select` of `summary()` give the two kinds of
+output:
+
+- `summary(sd, select = "fixed")`: the estimates and standard errors of the parameters
+  $\boldsymbol\theta$ on the optimised scales;
+- `summary(sd, select = "random")`: the **predicted group effects**, one row for each
+  group, with their standard errors.
+
+The predicted effect of a group is the peak of its integrand, the most probable value of
+its random effect for the observations of the group and the estimates of
+$\boldsymbol\theta$ (it is also called the conditional mode). The random effects are not
+parameters, so the predicted effects are not estimated by maximum likelihood: they are
+predictions of unobserved quantities. Their standard errors combine the uncertainty about
+the effect of a group for given parameter values with the uncertainty of the estimates of
+the parameters.
+
+For the CO₂ data:
+
+```{r}
+# Standard errors on the optimised scales.
+mixed_sd = sdreport(mixed_obj)
+summary(mixed_sd, select = "fixed")
+
+# Estimates on the original scale.
+c(
+  a = exp(mixed_fit$par[["log_asym"]]),
+  b = exp(mixed_fit$par[["log_rate"]]),
+  c = mixed_fit$par[["c0"]],
+  sd_plant = exp(mixed_fit$par[["log_sd_plant"]]),
+  sd_obs = exp(mixed_fit$par[["log_sd_obs"]])
+)
+```
+
+The measurements vary around the curve of their plant with a standard deviation
+$\hat\sigma_{\mathrm{obs}}\approx2.0$ µmol/m²/s, close to the 1.9 µmol/m²/s without pooling
+and far from the 8.2 µmol/m²/s of complete pooling: the mixed model, like no pooling,
+separates the variation among plants from the variation of the measurements.
+$\hat\sigma_{\mathrm{plant}}\approx0.34$ is a standard deviation on the log scale of the
+asymptote, so it has no units. For small values, a standard deviation on the log scale is
+approximately the coefficient of variation of the quantity on the original scale (its
+standard deviation divided by its mean); 0.34 is not very small, and it means that the
+asymptotes of plants vary around their median by roughly a third. The estimate
+$\hat a\approx30.9$ µmol/m²/s is the asymptote of a plant with $u_j=0$. Because $u_j$ is
+symmetric around zero and the exponential is increasing, half of the plants have a higher
+asymptote and half a lower one, so $\hat a$ is the median asymptote of plants in general.
+It is not their mean, which is larger, because the exponential is not a straight line (see
+the box on Jensen's inequality in
+[Chapter 4](../Chapter_4/Theory.qmd#sec-wald-constrained)).
+
+The predicted plant effects:
+
+```{r}
+# Predicted plant effects (log scale of the asymptote) and their standard errors.
+mixed_effects = summary(mixed_sd, select = "random")
+rownames(mixed_effects) = plant_names
+round(mixed_effects, 3)
+```
+
+The Quebec plants have positive effects, and the chilled plants from Mississippi (Mc1, Mc2
+and Mc3) the most negative ones: their asymptotes are about 31%, 53% and 34% below the
+median ($e^{-0.370}\approx0.69$, $e^{-0.755}\approx0.47$ and $e^{-0.422}\approx0.66$). So
+much of the variation among plants follows their origin and treatment, which the model does
+not know about yet.
+
+# Group-level predictors and shrinkage {#sec-group-predictors}
+
+A **group-level predictor** is measured on the group and not on each observation: the
+origin of a plant, the treatment that it received, the habitat of a site. All the
+observations of a group share its value. In a mixed model it enters as a fixed effect on
+the parameter that varies among groups, where it explains part of the variation among
+groups. The random effects then describe the variation that remains among groups with the
+same values of the predictors, and the variance among groups becomes smaller.
+
+The plants have two group-level predictors, origin and treatment, each with two levels. We
+write their effects on the log asymptote as a baseline plus contrasts, with an interaction:
+
+$$
+\log(a_j)=\log(a)+\beta_{\mathrm{miss}}M_j+\beta_{\mathrm{chill}}C_j
++\beta_{\mathrm{int}}M_jC_j+u_j,
+$$
+
+where $M_j$ is 1 for a plant from Mississippi and 0 for a plant from Quebec, $C_j$ is 1 for
+a chilled plant and 0 otherwise, and $a$ is now the typical asymptote (with $u_j=0$) of the
+baseline group, the non-chilled plants from Quebec (the first levels of the factors `Type`
+and `Treatment`, which R uses as reference levels). $\beta_{\mathrm{miss}}$ is the effect
+of the origin in non-chilled plants, $\beta_{\mathrm{chill}}$ the effect of chilling in
+plants from Quebec, and the **interaction** $\beta_{\mathrm{int}}$ is the difference between
+the effect of chilling in plants from Mississippi and in plants from Quebec. On the log
+scale the effects add up, so on the original scale they multiply the asymptote: chilling
+multiplies the typical asymptote of a Quebec plant by $e^{\beta_{\mathrm{chill}}}$ and that
+of a Mississippi plant by $e^{\beta_{\mathrm{chill}}+\beta_{\mathrm{int}}}$, and
+$e^{\beta_{\mathrm{int}}}$ is the ratio of these two factors.
+
+::: {.callout-note title="Two ways to encode groups"}
+The effects of groups defined by predictors, such as the four combinations of origin and
+treatment, can be written in two ways. With one parameter for each group, each group has
+its own typical value (here, four typical log asymptotes). With a baseline plus effects and
+interactions, one group is the baseline and the other parameters are differences from it
+(here, $\log(a)$, $\beta_{\mathrm{miss}}$, $\beta_{\mathrm{chill}}$ and
+$\beta_{\mathrm{int}}$). Both have the same number of parameters and describe the same
+model: they have the same maximum likelihood and give the same fitted curves, and each set
+of parameters can be calculated from the other. The second form makes the differences
+between treatments parameters, so their estimates, standard errors and intervals come
+directly from the fit, and a simpler model is obtained by leaving a term out (the
+interaction, for example). The first form makes the typical value of each group a
+parameter. Which one to use depends on the question.
+:::
+
+The predictors are properties of the plants, so we add them to the list of data as two
+vectors with one value for each plant, in the order of `plant_names`. We take the origin
+and the treatment of each plant from its first measurement:
+
+```{r}
+# Row of the first measurement of each plant.
+first_row = match(seq_along(plant_names), plant)
+
+# Indicators for each plant: 1 for Mississippi and 0 for Quebec; 1 for chilled and 0
+# for non-chilled.
+co2_data$mississippi = as.numeric(co2$Type[first_row] == "Mississippi")
+co2_data$chilled = as.numeric(co2$Treatment[first_row] == "chilled")
+```
+
+The NLL calculates the log asymptote of each plant from the baseline, the effects of its
+origin and treatment and its deviation. It also reports, with `ADREPORT()`, the logarithms
+of the two factors by which chilling multiplies the asymptote, $\beta_{\mathrm{chill}}$ in
+Quebec plants and $\beta_{\mathrm{chill}}+\beta_{\mathrm{int}}$ in Mississippi plants,
+which answer the ecological question of the experiment:
+
+```{r}
+# Joint NLL with a random asymptote and the effects of origin and chilling.
+treatment_nll = function(parms, data) {
+  getAll(parms, data)
+  sd_plant = exp(log_sd_plant)
+  nll = -sum(dnorm(x = u, mean = 0, sd = sd_plant, log = TRUE))
+  # Log asymptote of each plant: baseline, effects of its origin and treatment, deviation.
+  log_a = log_asym + beta_miss * mississippi + beta_chill * chilled +
+    beta_int * mississippi * chilled + u
+  a = exp(log_a)
+  b = exp(log_rate)
+  sd_obs = exp(log_sd_obs)
+  # Logarithms of the factors by which chilling multiplies the asymptote (Quebec,
+  # Mississippi).
+  log_chill_factor = c(beta_chill, beta_chill + beta_int)
+  ADREPORT(log_chill_factor)
+  mu = a[plant] * (1 - exp(-b * (conc - c0)))
+  nll - sum(dnorm(x = uptake, mean = mu, sd = sd_obs, log = TRUE))
+}
+```
+
+The effects start at zero, the other parameters at the same values as before:
+
+```{r}
+# Process the joint NLL, integrating out u, and fit it.
+treatment_obj = MakeADFun(
+  cmb(treatment_nll, co2_data),
+  list(
+    log_asym = log(30), beta_miss = 0, beta_chill = 0, beta_int = 0,
+    log_rate = log(0.01), c0 = 50,
+    log_sd_plant = log(0.1), log_sd_obs = log(2), u = rep(0, 12)
+  ),
+  random = "u",
+  silent = TRUE
+)
+treatment_fit = optim(
+  par = treatment_obj$par,
+  fn = treatment_obj$fn,
+  gr = treatment_obj$gr,
+  method = "BFGS"
+)
+treatment_fit$convergence
+
+# Standard errors on the optimised scales.
+treatment_sd = sdreport(treatment_obj)
+summary(treatment_sd, select = "fixed")
+```
+
+The fit converged. The rate, the location and $\sigma_{\mathrm{obs}}$ hardly change, because
+the predictors act on the asymptote only. The standard deviation among plants does change:
+
+```{r}
+# Standard deviation of the plant deviations without and with origin and chilling.
+c(
+  without = exp(mixed_fit$par[["log_sd_plant"]]),
+  with = exp(treatment_fit$par[["log_sd_plant"]])
+)
+```
+
+With origin and chilling in the model, $\hat\sigma_{\mathrm{plant}}$ falls from 0.34 to
+0.079, so the variance among plants on the log scale falls by about 94%
+($1-(0.079/0.335)^2\approx0.94$). Origin and chilling explain most of the variation among
+plants, and the asymptotes of plants of the same origin and treatment differ by roughly 8%.
+
+The factors by which chilling multiplies the asymptote come from the rows of
+`ADREPORT()`. As for any positive quantity, we calculate their Wald intervals on the log
+scale and transform the estimates and the endpoints back with `exp()`
+([Chapter 4](../Chapter_4/Theory.qmd#sec-wald-intervals)):
+
+```{r}
+# Rows of log_chill_factor: Quebec, then Mississippi.
+chill_summary = summary(treatment_sd, select = "report")
+
+# Estimates and Wald intervals on the log scale, transformed back.
+critical_value = qnorm(p = 0.975)
+chill_factor = exp(cbind(
+  estimate = chill_summary[, "Estimate"],
+  lower = chill_summary[, "Estimate"] - critical_value * chill_summary[, "Std. Error"],
+  upper = chill_summary[, "Estimate"] + critical_value * chill_summary[, "Std. Error"]
+))
+rownames(chill_factor) = c("Quebec", "Mississippi")
+chill_factor
+```
+
+Chilling lowers the typical uptake capacity of plants from Quebec by about 10%, with an
+interval that runs from a decrease of 21% to an increase of 3%, and that of plants from
+Mississippi by about 41%, with an interval from 32% to 48%. So the plants from the colder
+origin are hardly affected by a cold night, whereas the plants from the warmer origin lose
+about two fifths of their capacity. We return to the uncertainty of these effects, with
+likelihood profile intervals, later in the chapter.
+
+## Shrinkage {#sec-shrinkage}
+
+The predicted effect of a group is a compromise between the observations of that group and
+the distribution of groups. Its observations alone would give the no-pooling estimate; the
+distribution of group effects pulls the prediction towards the typical value of groups with
+the same predictors. This pull is called **shrinkage**. It is stronger when the group has
+few observations, when its observations are noisy compared with what they need to
+determine, and when the variance among groups is small, because the distribution then says
+that groups are alike. A group with many precise observations stays close to its own
+estimate. Shrinkage is a form of **regularisation**: the values of many groups are pulled
+towards a common value, which makes each of them less sensitive to the noise in the
+observations of its group. In a mixed model the shrinkage follows from the model itself,
+through the distribution of the group effects; it is not a correction applied after the fit.
+
+::: {.callout-caution collapse="true" icon=false title="Statistical detail: shrinkage in a Normal linear model"}
+For the Normal linear mixed model with a random intercept, $Y_{ij}=\mu+u_j+\varepsilon_{ij}$
+with $u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{group}})$ and
+$\varepsilon_{ij}\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{obs}})$, the shrinkage has a
+formula. For given values of $\mu$ and of the variances, the predicted effect of group $j$
+is
+
+$$
+\hat u_j=w_j\left(\bar y_j-\mu\right),
+\qquad
+w_j=\frac{n_j\sigma^2_{\mathrm{group}}}{n_j\sigma^2_{\mathrm{group}}+\sigma^2_{\mathrm{obs}}},
+$$
+
+where $n_j$ is the number of observations of group $j$, $\bar y_j$ is their mean, and the
+weight $w_j$ lies between 0 and 1. In plain English, the predicted mean of the group,
+$\mu+\hat u_j$, is a weighted average of the mean of its own observations, with weight
+$w_j$, and of the common mean $\mu$, with weight $1-w_j$. The weight of its own mean grows
+with the number of observations and with the variance among groups, and falls as the
+observation variance grows. For example, with $\sigma^2_{\mathrm{group}}=1$ and
+$\sigma^2_{\mathrm{obs}}=4$, a group with seven observations keeps $7/11\approx0.64$ of its
+distance from $\mu$ and a group with two observations $2/6\approx0.33$. For non-linear
+curves and other distributions there is no such formula, but the same quantities determine
+the shrinkage.
+:::
+
+@fig-shrinkage compares, for each plant, the asymptote without pooling with the asymptote
+predicted by each of the two mixed models. Without the predictors the shrinkage is almost
+invisible. Every plant has seven precise measurements and $\hat\sigma_{\mathrm{plant}}$ is
+large, so the measurements of each plant dominate its prediction: the largest change is
+that of Mc2, from 14.2 to 14.5 µmol/m²/s, towards the median asymptote of 30.9 µmol/m²/s.
+With origin and chilling in the model the distribution of plant effects is narrow, because
+plants of the same origin and treatment are similar, and the shrinkage is visible: the
+asymptote of Mc2 moves from 14.2 to 15.6 µmol/m²/s, about a third of the way towards the
+typical asymptote of 18.5 µmol/m²/s of chilled plants from Mississippi. Mc2 moves most
+because it lies farthest below the typical asymptote of its group, and because its uptake is
+the lowest of all the plants: the same observation error of about 2 µmol/m²/s is a larger
+fraction of its uptake, so its measurements determine its asymptote on the log scale less
+precisely than those of the other plants.
+
+```{r}
+#| echo: false
+#| label: fig-shrinkage
+#| fig-width: 7
+#| fig-height: 6
+#| fig-cap: "Asymptote of each plant without pooling (open circles) and predicted by a mixed model (filled circles), joined by a line where they differ visibly. Top: the model with a random asymptote only, whose dashed line is the median asymptote of plants in general. Bottom: the model with the effects of origin and chilling, whose dashed lines are the typical asymptote (u = 0) of each combination of origin and treatment."
+# Typical asymptote (u = 0) of the group of each plant under the model with predictors.
+treatment_par = treatment_fit$par
+typical_treatment = exp(
+  treatment_par[["log_asym"]] +
+    treatment_par[["beta_miss"]] * co2_data$mississippi +
+    treatment_par[["beta_chill"]] * co2_data$chilled +
+    treatment_par[["beta_int"]] * co2_data$mississippi * co2_data$chilled
+)
+typical_mixed = rep(exp(mixed_fit$par[["log_asym"]]), times = 12)
+
+# Asymptotes without pooling, predicted by each mixed model, and typical.
+shrink_data = data.frame(
+  plant = rep(1:12, times = 2),
+  model = rep(
+    c("Random asymptote", "Random asymptote with origin and chilling"),
+    each = 12
+  ),
+  separate = rep(separate_asym, times = 2),
+  predicted = c(
+    typical_mixed * exp(summary(mixed_sd, select = "random")[, "Estimate"]),
+    typical_treatment * exp(summary(treatment_sd, select = "random")[, "Estimate"])
+  ),
+  typical = c(typical_mixed, typical_treatment)
+)
+
+ggplot(shrink_data) +
+  geom_segment(
+    aes(x = plant - 0.4, xend = plant + 0.4, y = typical, yend = typical),
+    colour = "#D55E00",
+    linetype = "dashed",
+    linewidth = 0.6
+  ) +
+  geom_segment(
+    aes(x = plant, xend = plant, y = separate, yend = predicted),
+    colour = "grey40"
+  ) +
+  geom_point(aes(x = plant, y = separate), colour = "#0072B2", shape = 1, size = 2) +
+  geom_point(aes(x = plant, y = predicted), colour = "#D55E00", size = 2) +
+  facet_wrap(~ model, ncol = 1) +
+  scale_x_continuous(breaks = 1:12, labels = plant_names) +
+  labs(x = "Plant", y = "Asymptote (µmol/m²/s)") +
+  theme_classic()
+```
+
+:::: {#imp-chick-wings .callout-important title="wing length of chicks in nests"}
+
+The wing length of chicks of the same age is described with a Normal model with a random
+effect for each nest. The variance among nests is $\sigma^2_{\mathrm{nest}}=4$ mm² and the
+variance among the chicks of a nest is $\sigma^2_{\mathrm{obs}}=4$ mm². In nest A two chicks
+were measured and in nest B eight, and in both nests the mean wing length is 3 mm above the
+common mean. In this model the predicted deviation of a nest is its observed deviation
+multiplied by the weight $w=n\sigma^2_{\mathrm{nest}}/(n\sigma^2_{\mathrm{nest}}+
+\sigma^2_{\mathrm{obs}})$, where $n$ is the number of chicks measured in the nest. Which
+nest is pulled more towards the common mean, and why? Calculate both predicted deviations,
+and calculate them again for $\sigma^2_{\mathrm{nest}}=1$ mm².
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+Nest A is pulled more, because two chicks say less about their nest than eight do. With
+$\sigma^2_{\mathrm{nest}}=4$ mm² the weights are $8/12\approx0.67$ and $32/36\approx0.89$,
+and with $\sigma^2_{\mathrm{nest}}=1$ mm² they are $2/6\approx0.33$ and $8/12\approx0.67$.
+In R:
+
+```{r}
+# Number of chicks measured in nests A and B, and their observed deviation (mm).
+n_chicks = c(2, 8)
+observed_deviation = 3
+
+# Predicted deviations with a variance among nests of 4 mm² and of 1 mm².
+observed_deviation * n_chicks * 4 / (n_chicks * 4 + 4)
+observed_deviation * n_chicks * 1 / (n_chicks * 1 + 4)
+```
+
+With $\sigma^2_{\mathrm{nest}}=4$ mm² the predicted deviations are 2.0 mm (A) and 2.7 mm
+(B); with $\sigma^2_{\mathrm{nest}}=1$ mm² they are 1.0 mm and 2.0 mm. When nests vary
+less, the model expects a deviation of 3 mm to come partly from the chance variation of the
+few chicks measured, so both nests are pulled more strongly towards the common mean, and
+the nest with fewer chicks most of all.
+
 :::
 ::::
 
-:::: {.callout-important title="Question 2: pooling"}
-How do complete pooling, no pooling, and partial pooling differ?
-
-::: {.callout-tip title="Answer" collapse="true"}
-Complete pooling uses one common curve. No pooling estimates a separate leaf
-intercept without sharing information between those intercepts. Partial pooling
-models leaf deviations from a common intercept with an estimated variance.
-:::
-::::
-
-:::: {.callout-important title="Question 3: shrinkage"}
-Does shrinkage show that a leaf is the same as the population mean?
-
-::: {.callout-tip title="Answer" collapse="true"}
-No. It reflects the compromise between a leaf's data and the estimated
-among-leaf distribution, especially when the leaf provides limited information.
-:::
-::::
-
-:::: {.callout-important title="Question 4: two variances"}
-What do $\sigma^2_{\mathrm{leaf}}$ and $\sigma^2_{\mathrm{obs}}$ describe?
-
-::: {.callout-tip title="Answer" collapse="true"}
-The first describes variation in leaf deviations around the common curve. The
-second describes measurement-to-measurement variation around a leaf's curve.
-:::
-::::
-
-:::: {.callout-important title="Question 5: marginal likelihood"}
-What is integrated over in the marginal likelihood for one leaf?
-
-::: {.callout-tip title="Answer" collapse="true"}
-All possible unobserved values of that leaf's deviation are integrated over,
-with their compatibility with the observations and group distribution included.
-:::
-::::
-
-:::: {.callout-important title="Question 6: Laplace approximation"}
-What is the main intuition behind Laplace approximation?
-
-::: {.callout-tip title="Answer" collapse="true"}
-It approximates the log integrand near its important peak by a quadratic, then
-uses the area of the resulting normal-shaped peak to approximate the integral.
-:::
-::::
-
-:::: {.callout-important title="Question 7: RTMB"}
-What does `random = "u"` mean in `MakeADFun()`?
-
-::: {.callout-tip title="Answer" collapse="true"}
-It tells RTMB to treat `u` as random effects and calculate a marginal objective
-by integrating them out with Laplace approximation.
-:::
-::::
+<!-- Stage 2 of the rewrite (Chapter_7/rewrite-handoff.md) writes part B below this
+comment: uncertainty and REML, curves for observed and new plants, checking, comparison,
+the recipe, the summary and the quiz. -->

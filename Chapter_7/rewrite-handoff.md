@@ -920,3 +920,59 @@ Each stage adds one line: date, stage, what is done, what is next.
   `Chapter_7` fast-forwarded to `9f6e313`, the end of the Chapter 6 rewrite; feasibility of
   every theory and practical model checked in R 4.6.1, see the tables above and the numbers
   under "The practical"; one line added to `AGENTS.md`). Next: Stage 1.
+- 4 November 2026: Stage 1 done. `Chapter_7/Theory.qmd` replaced by part A (front matter
+  `title:` only, hidden `ggplot2` chunk, Introduction, Learning goals, roadmap table, and the
+  sections `#sec-grouped-observations`, `#sec-conditional`, `#sec-pooling`,
+  `#sec-marginal-likelihood` with "The marginal likelihood", "The Laplace approximation",
+  "Random effects in RTMB" `#sec-random-effects-rtmb` and "Variance components and predicted
+  plant effects", and `#sec-group-predictors` with "Shrinkage" `#sec-shrinkage`). The old page
+  is gone; an HTML comment at the end marks where Stage 2 writes part B. Rendered with
+  `--profile dev` (R 4.6.1, RTMB 2.0, RTMBdist 1.1.0, TMB 1.9.25): exit 0, no warnings, no
+  unresolved cross-references; every printed number compared with the prose; the three
+  figures inspected. **Size:** part A is 1,098 lines, so part B has about 800 lines within
+  the 1,900 target (Chapter 6's part B was about 1,000): keep it compact, or accept a page of
+  about 2,000 lines and say so. **Units:** `attr(CO2, "units")` gives µL/L and µmol/m²/s; a
+  footnote says that the help page's mL/L is wrong. Citations checked: Potvin et al. (1990)
+  from `?CO2`; Kristensen et al. (2016, TMB) from `citation("TMB")`, in the technical box.
+  **Names for Stage 2:** `co2` (data frame), `plant_names` (Qn1, Qn2, Qn3, Qc1, Qc2, Qc3,
+  Mn1, Mn2, Mn3, Mc1, Mc2, Mc3: plant 11 is Mc2), `plant` (index 1 to 12 by first
+  appearance), `co2_data` (list: `conc`, `uptake`, `plant`, and, added in
+  `#sec-group-predictors`, the per-plant indicators `mississippi` and `chilled`, length 12;
+  a leave-one-plant-out subset must drop the plant from these too and renumber `plant`),
+  `first_row`, `cmb`; parameters `log_asym`, `log_rate`, `c0`, `log_sd_plant`, `log_sd_obs`,
+  `u`, and `beta_miss`, `beta_chill`, `beta_int` (symbols $a$, $b$, $c$,
+  $\sigma_{\mathrm{plant}}$, $\sigma_{\mathrm{obs}}$, $u_j$, $\beta_{\mathrm{miss}}$,
+  $\beta_{\mathrm{chill}}$, $\beta_{\mathrm{int}}$, indicators $M_j$ and $C_j$; $\beta$
+  because $b$ is the rate); `pooled_nll/obj/fit` (complete pooling), `separate_nll/obj/fit`
+  and `separate_asym` (no pooling; named vector), `mixed_nll/obj/fit/sd` and `mixed_effects`
+  (random asymptote, no predictors; list order `log_asym, log_rate, c0, log_sd_plant,
+  log_sd_obs, u`), `treatment_nll/obj/fit/sd` (random asymptote with origin × chilling; list
+  order `log_asym, beta_miss, beta_chill, beta_int, log_rate, c0, log_sd_plant, log_sd_obs,
+  u`; the NLL has `ADREPORT(log_chill_factor)`, the vector `c(beta_chill, beta_chill +
+  beta_int)`, and no `OBS()` yet: Stage 2 adds `uptake = OBS(uptake)` and refits, as Chapter
+  6 did), `critical_value`, `chill_summary`, `chill_factor` (rows Quebec, Mississippi).
+  Hidden: `laplace_*`, `mc2`, `log_integrand`, `u_peak`, `step`, `curvature`, `area_exact`,
+  `area_laplace`, `laplace_ratio`, `u_grid`, `laplace_curves`, `co2_plot`, `treatment_par`,
+  `typical_treatment`, `typical_mixed`, `shrink_data`. Practice callouts `imp-seedlings-quadrat`
+  (Practice 1, a two-level discrete model: marginal dependence, conditional independence) and
+  `imp-chick-wings` (Practice 2, shrinkage weights, formula stated in the callout); Stage 2
+  adds Practice 3 (new groups or a variance component). **Decisions for Stage 2:** the chilling
+  factors have Wald intervals from the log scale in part A; Stage 2 gives the likelihood
+  profile intervals of `beta_int` and `log_sd_plant` and should link the sentence "We return
+  to the uncertainty of these effects, with likelihood profile intervals, later in the
+  chapter" (end of `#sec-group-predictors`) to `@sec-grouped-uncertainty`. The second bullet
+  of "Random effects in RTMB" says that the density of `u` comes first "(we need this order
+  to simulate from the model)"; Stage 2 explains why in `#sec-grouped-residuals`. "Median,
+  not mean" (link to Chapter 4's Jensen box) is already said for $\hat a$ in "Variance
+  components"; Stage 2 need only recall it. **Numbers** (all agree with the table above):
+  complete pooling NLL 296.256, $\sigma_{\mathrm{obs}}$ 8.23; no pooling NLL 171.438,
+  $\sigma_{\mathrm{obs}}$ 1.86, asymptotes 14.2 (Mc2) to 45.0 (Qn3); random asymptote NLL
+  207.605, $\hat a$ 30.94, $\hat b$ 0.009587, $\hat c$ 48.40, $\sigma_{\mathrm{plant}}$ 0.335,
+  $\sigma_{\mathrm{obs}}$ 2.01, predicted effects of Mc1, Mc2, Mc3 −0.370, −0.755, −0.422;
+  with origin × chilling NLL 192.086, $\sigma_{\mathrm{plant}}$ 0.0790 (variance −94%),
+  $\sigma_{\mathrm{obs}}$ 2.04, chilling factors 0.905 (Wald from the log scale 0.793 to
+  1.032) and 0.594 (0.516 to 0.685); shrinkage of Mc2 14.18 → 14.54 (largest change without
+  predictors) and 14.18 → 15.57 towards 18.46 (about a third of the way); Laplace for Mc2:
+  area 0.3% smaller than the exact integral, log-likelihood changed by 0.003. The one-mean-
+  per-group encoding was checked to give the same NLL (192.086). No new open question.
+  `AGENTS.md` unchanged (Stage 7 records the decisions). Next: Stage 2.
