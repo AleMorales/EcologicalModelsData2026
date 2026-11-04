@@ -1,826 +1,1941 @@
 ---
-title: "Numerical optimisation: local and global search for ecological models"
-format:
-  html:
-    toc: true
-    number-sections: true
-execute:
-  echo: true
-  warning: false
-  message: false
-  eval: false
+title: "Numerical optimisation"
 ---
+
+```{r}
+#| include: false
+# Load ggplot2 for the consistently formatted rendered figures in this chapter.
+library(ggplot2)
+```
 
 # Introduction
 
-In this chapter, we learn how to find and diagnose parameter values that
-minimise a likelihood-based objective function. Numerical optimisation is the
-search a computer performs after we have specified a probability model and its
-likelihood. We examine how an optimiser proposes parameter values, why searches
-can end at different places, and what evidence supports a numerical result.
+In this chapter, we learn how to find the maximum of a likelihood when the optimiser does
+not find it by itself, and how to tell whether it has. Since
+[Chapter 4](../Chapter_4/Theory.qmd#sec-maximum-likelihood) every fit has minimised a
+negative log-likelihood (NLL) with `optim()`, the BFGS method and the gradient that RTMB
+supplies, and from the starting values that we chose this has usually worked. An optimiser
+can, however, stop somewhere other than the maximum and still report a convergence code of
+zero. The [practical of Chapter 4](../Chapter_4/Practicals/solution.qmd) met this with a
+Gamma model of penguin body masses whose fit stopped after a single step, and the
+[practical of Chapter 7](../Chapter_7/Practicals/solution.qmd) with fits that stopped at a
+practically zero variance among sites although the maximum lay at a positive one.
 
-In [Chapter 4](../Chapter_4/Theory.qmd#sec-maximum-likelihood), we constructed
-negative log-likelihoods, processed them with `MakeADFun()` and minimised them
-with `optim()`. Chapters 6 and 7 used
-the same idea for nonlinear response curves and grouped models. This chapter
-looks inside that numerical search.
-
-An optimiser answers a numerical question: which allowed parameter values give
-the smallest objective value it can find? Successful termination does not show
-that the probability model, its independence assumptions, or its ecological
-mechanism are suitable. Numerical convergence and model adequacy are separate
-questions.
+The chapter is organised by problem. Each section states a difficulty in general terms,
+shows it on a fit from an earlier chapter that goes wrong, explains as much of the
+mechanism as we need to understand it, and gives the remedy; there are no new data. What is
+new is how a gradient method searches, the difference between exact and approximate
+gradients, the stopping rules of an optimiser, how to diagnose a fit, multiple starting
+values, identifiability, estimates at a boundary, scaling and parameterisation, the local
+optimisers `nlminb()`, Nelder–Mead and `optimize()`, and global search with differential
+evolution. BFGS with the gradient of RTMB remains the method of the course; the other
+optimisers are the next tool when it fails. This is the last chapter, and it completes the
+line on estimation that started in [Chapter 3](../Chapter_3/Theory.qmd).
 
 # Learning goals
 
-After studying this chapter, you should be able to:
+In this chapter, we will cover:
 
-- define an objective function and parameter space, and distinguish local from
-  global minima and a stopping rule;
-- explore a low-dimensional objective with a grid and use `optimize()` for a
-  bounded one-dimensional problem;
-- choose and use suitable local methods in `optim()` or `nlminb()`;
-- explain how gradients, Hessians, transformations, bounds, and scaling affect
-  a numerical search;
-- recognise difficult objective surfaces and use simulated annealing,
-  differential evolution, or a real-valued genetic algorithm when appropriate;
-- combine broad exploration with local refinement; and
-- diagnose numerical convergence without confusing it with parameter
-  identification or model adequacy.
+- what an optimiser sees of a likelihood;
+- how gradient methods search;
+- exact and approximate gradients;
+- stopping rules and convergence codes;
+- diagnosing a fit;
+- starting values and multiple starts;
+- structural and practical non-identifiability;
+- estimates at a boundary;
+- scaling and parameterisation;
+- other local optimisers;
+- global search with differential evolution;
+- a recipe for a difficult fit.
 
-# The numerical optimisation problem
+The examples are models that we fitted before: the CO₂ uptake curve of Chapter 7, the reed
+frog functional response of Chapter 6, and the owl calls and fir seedlings of Chapter 4.
 
-Let $\boldsymbol\theta$ be a vector of model parameters. We use the objective
+The table below is a roadmap of the chapter. Each row is one problem, with how it shows in
+a fit, what to do about it and the R tools that we use.
+
+| Problem | How it shows | What to do | In R |
+|---|---|---|---|
+| A fit that stops in the wrong place | absurd estimates, a warning that the Hessian is not positive definite | diagnose the fit | `obj$gr()`, `sdreport()`, a slice |
+| Dependence on starting values | different minima from different starts | fit from multiple starting values | a `for` loop over `optim()` |
+| A ridge, or a parameter that the data do not determine | huge standard errors, estimates that stay at their starting values | change the model or the data, or report it | `sdreport()`, `TMB::tmbprofile()` |
+| An estimate at a boundary | a parameter that runs to $\pm\infty$ on the optimised scale | recognise it and report the boundary | the estimates on both scales |
+| Poor scaling or parameterisation | an early stop, highly correlated estimates | rescale or reparameterise | transformations, `parscale` |
+| BFGS keeps failing | failures from many starting values | another optimiser; global search, then local | `nlminb()`, `DEoptim::DEoptim()` |
+
+: Roadmap of the chapter.
+
+# A fit that stops in the wrong place {#sec-wrong-place}
+
+An **optimiser** searches locally. At each point that it evaluates, it knows the value of
+the NLL, $-\ell(\boldsymbol\theta)$, and its gradient there, and nothing else; it never sees
+the whole surface that we drew for two parameters in
+[Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood-surface). The **gradient**
+$\mathbf g(\boldsymbol\theta)$ is the vector of partial derivatives of the NLL with respect
+to the parameters ([Chapter 6](../Chapter_6/Theory.qmd#sec-makeadfun)), and the **Hessian**
+$\mathbf H(\boldsymbol\theta)$ is the matrix of its second derivatives, which measures the
+curvature of the NLL ([Chapter 4](../Chapter_4/Theory.qmd#sec-curvature)). From these local
+quantities the optimiser decides where to go next, so where it ends depends on where it
+started and on the shape of the surface along the way.
+
+A few kinds of points matter for where a search can end. A **local minimum** of the NLL is
+a point that is lower than all the points near it, and the **global minimum** is the lowest
+point of all. A **stationary point** is a point at which the gradient is zero: a minimum, a
+maximum, or a **saddle point**, at which the NLL rises in some directions and falls in
+others. A **ridge** is a direction along which the likelihood, and so the NLL, changes very
+little; on the scale that is optimised it often runs towards $\pm\infty$. The maximum
+likelihood estimate is the global minimum of the NLL, but an optimiser can also stop at a
+local minimum or near a saddle point, and on a ridge, where the gradient is practically zero
+although the point is not a stationary point in the strict sense.
+
+We will use the complete-pooling model of the CO₂ uptake of 12 plants of
+[Chapter 7](../Chapter_7/Theory.qmd#sec-pooling) to illustrate these points. It describes
+all 84 measurements with one saturating exponential,
+$\mu(x)=a\left(1-e^{-b(x-c)}\right)$, where $a$ is the asymptote (µmol/m²/s), $b$ the rate
+(L/µL) and $c$ the concentration at which the expected uptake is zero (µL/L), and with a
+Normal distribution of the measurements around the curve with standard deviation
+$\sigma_{\mathrm{obs}}$. We load the packages and the data, and write the NLL as in Chapter
+7:
+
+```{r}
+#| message: false
+# Load RTMB first and RTMBdist second.
+library(RTMB)
+library(RTMBdist)
+
+# CO2 uptake (µmol/m²/s) of 12 plants at seven concentrations of CO2 (µL/L), see ?CO2.
+co2 = as.data.frame(CO2)
+co2_data = list(conc = co2$conc, uptake = co2$uptake)
+
+# Negative log-likelihood with one curve for all the plants (complete pooling).
+pooled_nll = function(parms, data) {
+  getAll(parms, data)
+  a = exp(log_asym)
+  b = exp(log_rate)
+  sd_obs = exp(log_sd_obs)
+  # Expected uptake at the concentration of each measurement.
+  mu = a * (1 - exp(-b * (conc - c0)))
+  -sum(dnorm(x = uptake, mean = mu, sd = sd_obs, log = TRUE))
+}
+```
+
+Chapter 7 read its starting values from a figure of the data: an asymptote of 30
+µmol/m²/s, zero uptake at 50 µL/L, a rate of 0.01 L/µL and a standard deviation of 2
+µmol/m²/s. From these values BFGS reaches the maximum:
+
+```{r}
+# Connect a likelihood to a data set.
+cmb = function(f, d) function(p) f(p, d)
+
+# Process the NLL with the starting values of Chapter 7, and fit it.
+pooled_obj = MakeADFun(
+  cmb(pooled_nll, co2_data),
+  list(log_asym = log(30), log_rate = log(0.01), c0 = 50, log_sd_obs = log(2)),
+  silent = TRUE
+)
+pooled_fit = optim(
+  par = pooled_obj$par,
+  fn = pooled_obj$fn,
+  gr = pooled_obj$gr,
+  method = "BFGS"
+)
+pooled_fit$convergence
+```
+
+Other starting values are just as plausible readings of the same figure. Several plants are
+still rising at the highest concentration, which suggests a slow approach to the asymptote
+($b=0.001$ L/µL, so that the curve reaches 63% of its asymptote 1000 µL/L above $c$). An
+asymptote of 100 µmol/m²/s assumes that the curve is far from levelling off over the range
+of the data. The chilled plants from Mississippi level off almost at once, at about 10
+µmol/m²/s, which suggests a fast rate ($b=1$ L/µL) and zero uptake just below the lowest
+concentration of 95 µL/L ($c=90$ µL/L). We fit the model from each of these starting
+values, with the same object, by giving `optim()` the starting values on the optimised
+scales:
+
+```{r}
+# Three other sets of starting values on the original scale: asymptote (µmol/m²/s),
+# rate (L/µL), location (µL/L) and standard deviation (µmol/m²/s).
+other_starts = rbind(
+  slow_rise = c(a = 30, b = 0.001, c = 50, sd_obs = 2),
+  high_asymptote = c(a = 100, b = 0.01, c = 50, sd_obs = 2),
+  early_plateau = c(a = 10, b = 1, c = 90, sd_obs = 2)
+)
+
+# Fit the model from each set, transformed to the optimised scales.
+stop_fits = list()
+for (start_name in rownames(other_starts)) {
+  s = other_starts[start_name, ]
+  start = c(
+    log_asym = log(s[["a"]]),
+    log_rate = log(s[["b"]]),
+    c0 = s[["c"]],
+    log_sd_obs = log(s[["sd_obs"]])
+  )
+  stop_fits[[start_name]] = optim(
+    par = start,
+    fn = pooled_obj$fn,
+    gr = pooled_obj$gr,
+    method = "BFGS"
+  )
+}
+```
+
+A small table collects the convergence code, the minimum of the NLL and the estimates on
+the original scale of the four fits:
+
+```{r}
+# Every fit, with the one from the starting values of Chapter 7 first.
+co2_fits = c(list(chapter_7 = pooled_fit), stop_fits)
+
+# Convergence code, minimum of the NLL and estimates on the original scale.
+stop_table = data.frame(
+  convergence = rep(NA, length(co2_fits)),
+  nll = NA, a = NA, b = NA, c = NA, sd_obs = NA,
+  row.names = names(co2_fits)
+)
+for (fit_name in names(co2_fits)) {
+  fit = co2_fits[[fit_name]]
+  stop_table[fit_name, ] = c(
+    fit$convergence,
+    fit$value,
+    exp(fit$par[["log_asym"]]),
+    exp(fit$par[["log_rate"]]),
+    fit$par[["c0"]],
+    exp(fit$par[["log_sd_obs"]])
+  )
+}
+signif(stop_table, 4)
+```
+
+All four fits report convergence code 0, but only the first reaches the minimum of the NLL,
+296.26. The other three stopped in three different places, each with a curve that is easy
+to recognise (@fig-co2_stops):
+
+- From the slow rise, the rate ran to about $5\times10^{11}$ L/µL. The curve then jumps to
+  its asymptote just above $c$ and is flat over all the measured concentrations, so it is
+  the model without a curve: its asymptote, 27.2 µmol/m²/s, is the mean of all 84
+  measurements, and its standard deviation is that of the measurements (NLL 318.68).
+- From the high asymptote, both the asymptote and the rate ran towards zero. The curve
+  predicts no uptake at all, and the standard deviation of 29.3 µmol/m²/s absorbs the whole
+  size of the measurements (NLL 402.79).
+- From the early plateau, the location stopped at 90.3 µL/L, just below the lowest
+  concentration, with a fast rate and an asymptote of 29.7 µmol/m²/s: a curve that rises
+  steeply below the first concentration and is nearly flat above it (NLL 302.32).
+
+In each case BFGS stopped because its stopping rule was satisfied, and the rest of this
+section explains how a search reaches such a point, why it stops there, and how we can tell.
+
+```{r}
+#| echo: false
+#| label: fig-co2_stops
+#| fig-cap: "CO₂ uptake of 12 plants against the concentration of CO₂ (points), with the curve at the end of each of the four fits of the complete-pooling model. The starting values of Chapter 7 lead to the maximum; the slow rise leads to a constant curve (rate towards infinity), the high asymptote to a curve at zero (asymptote towards zero), and the early plateau to a curve with its location just below the lowest concentration."
+# Curve of each fit on a grid of concentrations.
+conc_grid = seq(from = 95, to = 1000, length.out = 300)
+stop_labels = c(
+  chapter_7 = "Chapter 7: maximum",
+  slow_rise = "Slow rise: constant",
+  high_asymptote = "High asymptote: zero",
+  early_plateau = "Early plateau: c near 90 µL/L"
+)
+stop_curves = NULL
+for (fit_name in names(co2_fits)) {
+  p = co2_fits[[fit_name]]$par
+  curve_values = exp(p[["log_asym"]]) *
+    (1 - exp(-exp(p[["log_rate"]]) * (conc_grid - p[["c0"]])))
+  stop_curves = rbind(
+    stop_curves,
+    data.frame(conc = conc_grid, uptake = curve_values, fit = stop_labels[[fit_name]])
+  )
+}
+stop_curves$fit = factor(stop_curves$fit, levels = stop_labels)
+
+ggplot() +
+  geom_point(
+    data = co2,
+    aes(x = conc, y = uptake),
+    colour = "#0072B2",
+    alpha = 0.7,
+    size = 2
+  ) +
+  geom_line(
+    data = stop_curves,
+    aes(x = conc, y = uptake, colour = fit, linetype = fit),
+    linewidth = 0.8
+  ) +
+  scale_colour_manual(values = c("#D55E00", "grey20", "grey20", "grey20")) +
+  scale_linetype_manual(values = c("solid", "dashed", "dotted", "dotdash")) +
+  labs(
+    x = expression("Ambient CO"[2] * " concentration (µL/L)"),
+    y = expression("CO"[2] * " uptake (µmol/m²/s)"),
+    colour = NULL,
+    linetype = NULL
+  ) +
+  theme_classic() +
+  theme(legend.position = "top", legend.direction = "vertical")
+```
+
+## How a gradient method searches {#sec-search}
+
+A **gradient method** moves downhill. The negative gradient,
+$-\mathbf g(\boldsymbol\theta)$, points in the direction in which the NLL falls fastest, so
+the simplest method takes a step in that direction, evaluates the NLL and the gradient at
+the new point, and repeats. How far to step is decided by a **line search**: the method
+tries a step of some length along the chosen direction and shortens it until the NLL falls
+by enough. Following the steepest slope alone is slow in a narrow, tilted valley, such as
+the surface of correlated estimates in
+[Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood-surface), because the steepest direction
+points across the valley rather than along it.
+
+**Newton's method** also uses the curvature. Near a minimum the NLL is close to a parabola,
+the quadratic approximation of
+[Chapter 4](../Chapter_4/Theory.qmd#sec-curvature), and Newton's method jumps to the
+minimum of the parabola that has the gradient and the Hessian of the current point. Close to
+the minimum this is fast, because the parabola describes the NLL well there. Far from it the
+parabola can be a poor description: the jump can be far too long, and where the curvature is
+negative in some direction, the parabola has no minimum and the step can go uphill.
+**BFGS**, the method that we have used since Chapter 4, is a **quasi-Newton** method: it
+takes steps like those of Newton's method, but with an approximation of the curvature that
+it builds from the gradients of successive steps (two nearby gradients that differ show how
+the slope changes, which is what the curvature measures). So it needs only `fn` and `gr`,
+and it becomes about as fast as Newton's method once it is close to a minimum. The method is
+named after Broyden, Fletcher, Goldfarb and Shanno, who published it independently in
+1970.^[Nocedal, J. and Wright, S. J. (2006), *Numerical Optimization*, 2nd edition,
+Springer, describes these methods and their line searches in detail.]
+
+::: {.callout-caution collapse="true" icon=false title="Statistical detail: Newton's method and BFGS"}
+Let $\boldsymbol\theta_t$ be the parameter values after $t$ steps. Newton's method takes
+the step
 
 $$
-Q(\boldsymbol\theta)=-\ell(\boldsymbol\theta),
+\boldsymbol\theta_{t+1}=\boldsymbol\theta_t-\mathbf H(\boldsymbol\theta_t)^{-1}\,
+\mathbf g(\boldsymbol\theta_t),
 $$
 
-where $\ell$ is the log-likelihood for the observed data. Minimising $Q$ is
-equivalent to maximising the likelihood. The likelihood construction is already
-covered in [Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood); here our subject
-is the search across the allowed **parameter space**.
+where $\mathbf g(\boldsymbol\theta_t)$ is the gradient and $\mathbf H(\boldsymbol\theta_t)$
+the Hessian of the NLL at $\boldsymbol\theta_t$. This is the minimum of the parabola
+$-\ell(\boldsymbol\theta_t)+\mathbf g^{\top}\mathbf d+\tfrac12\mathbf d^{\top}\mathbf H\,\mathbf d$
+in the step $\mathbf d=\boldsymbol\theta_{t+1}-\boldsymbol\theta_t$, which exists when
+$\mathbf H$ is positive definite (see the box in @sec-diagnosis). With one parameter the
+step is $-g/H$: the slope divided by the curvature.
 
-The **objective value** is $Q$ at one candidate parameter vector. A **local
-minimum** is lower than nearby points, whereas a **global minimum** is no higher
-than any allowed point. An **iteration** is one update of an algorithm. It may
-require one or many objective or derivative evaluations, so iteration counts
-from different algorithms are not directly comparable.
+BFGS replaces $\mathbf H^{-1}$ by a matrix $\mathbf B_t$ and takes the step
+$\boldsymbol\theta_{t+1}=\boldsymbol\theta_t-\lambda_t\mathbf B_t\,\mathbf g(\boldsymbol\theta_t)$,
+where the step length $\lambda_t$ comes from a line search. After each step, with the change
+in the parameters $\mathbf s_t=\boldsymbol\theta_{t+1}-\boldsymbol\theta_t$ and the change
+in the gradient $\mathbf y_t=\mathbf g(\boldsymbol\theta_{t+1})-\mathbf g(\boldsymbol\theta_t)$,
+the matrix is updated as
 
-A **stopping rule** ends the search when, for example, changes in parameters or
-the objective become sufficiently small, or an evaluation limit is reached.
-The word *convergence* usually means that such a numerical rule was satisfied.
-It does not mean that the global minimum was proved or that the fitted model is
-scientifically convincing.
+$$
+\mathbf B_{t+1}=\left(\mathbf I-\rho_t\,\mathbf s_t\mathbf y_t^{\top}\right)\mathbf B_t
+\left(\mathbf I-\rho_t\,\mathbf y_t\mathbf s_t^{\top}\right)+\rho_t\,\mathbf s_t\mathbf s_t^{\top},
+\qquad
+\rho_t=\frac{1}{\mathbf y_t^{\top}\mathbf s_t},
+$$
 
-::: {.callout-warning title="Convergence is not model checking"}
-A convergence code describes the numerical search, not the ecological model. A
-fit can converge to a local minimum, estimate a weakly identified parameter, or
-rely on an unsuitable observation model.
+where $\mathbf I$ is the identity matrix. The update makes $\mathbf B_{t+1}\mathbf y_t=\mathbf s_t$:
+the new matrix turns the observed change of the gradient into the observed change of the
+parameters, as the inverse of the Hessian would for a parabola. In `optim()`, $\mathbf B_0$
+is the identity matrix, so the first step goes along the negative gradient with a length set
+by the size of the gradient, and the line search starts with $\lambda_t=1$ and divides it by
+5 until the NLL falls by at least a small fraction of the decrease that the slope predicts.
+In plain English, BFGS learns the curvature of the surface from how the slope changes along
+its path, and uses it as Newton's method would.
 :::
 
-We will first use a smooth simulated example. One observational unit is the
-number of grazing insects recorded at one nutrient concentration. Conditional
-on the recorded concentration $x_i$, let the count $Y_i$, which can take values
-$0,1,2,\ldots$, have the model
+Newton's method still has a place in this book: RTMB uses it for the inner optimisation of a model with
+random effects ([Chapter 7](../Chapter_7/Theory.qmd#sec-random-effects-rtmb)), where
+automatic differentiation supplies the exact second derivatives that it needs and the
+search starts close to the minimum.
 
-$$
-Y_i\sim\operatorname{Poisson}(\mu_i),\qquad
-\mu_i=\frac{Ax_i}{h+x_i},
-$$
-
-where $A>0$ is the asymptotic expected insect count and $h>0$ is the nutrient
-concentration at which the expected count is half of $A$. The Poisson model
-assumes that the counts are conditionally independent and that both their mean
-and variance equal $\mu_i$. This resembles the response curves fitted in
-Chapter 6, but our new question concerns the search algorithm. The data below
-are simulated, not field observations.
-
-```r
-sat_mean = function(x, A, h) {
-  A * x / (h + x)
-}
-
-sat_nll = function(par, x, y) {
-  # Transform both positive response-curve parameters to their natural scales.
-  A = exp(par[1])
-  h = exp(par[2])
-  mu = sat_mean(x = x, A = A, h = h)
-  # Sum log probability masses because `optim()` minimises this objective.
-  -sum(dpois(x = y, lambda = mu, log = TRUE))
-}
-
-# Simulate one insect count at each recorded nutrient concentration.
-set.seed(seed = 901)
-nutrient = seq(0.5, 12, length.out = 36)
-expected_count = sat_mean(x = nutrient, A = 22, h = 3)
-insect_count = rpois(n = length(expected_count), lambda = expected_count)
-```
+Whatever the method, the consequence is the same: a gradient method follows the slope from
+wherever it starts, so it ends at the minimum, ridge or boundary to which the slope leads.
+@fig-search_paths shows three searches on the likelihood surface of the reed frog
+functional response of [Chapter 6](../Chapter_6/Theory.qmd#sec-fit-response), a Binomial
+model with the Holling type II curve and two parameters, the attack rate $\alpha$ and the
+handling time $H$. BFGS works with $\operatorname{logit}(\alpha)$ and $\log(H)$, so the
+edges of the figure, $\alpha=1$ and $H=0$, lie at $+\infty$ and $-\infty$ on the scales that
+it searches. From the starting values of Chapter 6 it reaches the maximum in five steps.
+From a small attack rate, the first step goes along the steep gradient and is so long that
+$\alpha$ jumps to practically 1, and the search ends there, on the edge, at an NLL of 59.77
+against 46.72 at the maximum. From a third start the search first runs close to the same
+edge and then jumps to $H$ practically 0, where it ends at 52.22. We return to these two
+fits in @sec-boundaries.
 
 ```{r}
 #| echo: false
-#| eval: true
-#| fig-cap: "A one-dimensional grid through a smooth negative log-likelihood. The filled point is the lowest value on the fine grid."
-sat_mean = function(x, A, h) {
-  A * x / (h + x)
+#| label: fig-search_paths
+#| fig-cap: "Contours of the relative log-likelihood of the reed frog model of Chapter 6, with the attack rate and the handling time on their original scales, and the paths of three BFGS searches. The points are the points at which BFGS evaluated the gradient (the start and the end of each accepted step), and the lines join them in order. From the starting values of Chapter 6 (α = 0.5, H = 1/60) the search reaches the maximum likelihood estimate (circle); from α = 0.01, H = 1/60 it ends at α practically 1, and from α = 0.05, H = 0.03 at H practically 0."
+# Reed frog functional response and the Binomial NLL of Chapter 6.
+data(ReedfrogFuncresp, package = "emdbook")
+frog_data = list(initial = ReedfrogFuncresp$Initial, killed = ReedfrogFuncresp$Killed)
+binomial_nll = function(parms, data) {
+  getAll(parms, data)
+  alpha = plogis(logit_alpha)
+  H = exp(log_H)
+  p = alpha / (1 + alpha * H * initial)
+  -sum(dbinom(x = killed, size = initial, prob = p, log = TRUE))
 }
-sat_nll = function(par, x, y) {
-  A = exp(par[1])
-  h = exp(par[2])
-  mu = sat_mean(x = x, A = A, h = h)
-  -sum(dpois(x = y, lambda = mu, log = TRUE))
-}
-set.seed(seed = 901)
-nutrient = seq(0.5, 12, length.out = 36)
-# Recreate the simulated insect counts used to draw this likelihood slice.
-expected_count = sat_mean(x = nutrient, A = 22, h = 3)
-insect_count = rpois(n = length(expected_count), lambda = expected_count)
-# Hold h fixed to show how the objective changes along the A direction.
-a_grid = seq(12, 32, length.out = 300)
-grid_value = vapply(a_grid, function(A) {
-  sat_nll(par = c(log(A), log(3)), x = nutrient, y = insect_count)
-}, 0.0)
-plot(a_grid, grid_value, type = "l",
-     xlab = "Asymptotic expected insect count, A",
-     ylab = "Negative log-likelihood")
-best_grid = which.min(grid_value)
-points(a_grid[best_grid], grid_value[best_grid], pch = 16)
-```
-
-# Direct exploration and one-dimensional search
-
-A **grid search** evaluates the objective at selected parameter values. A coarse
-grid reveals the broad shape; a fine grid then searches a promising interval.
-The range must be wide enough to include scientifically plausible values, while
-the spacing must be fine enough for the required accuracy. If each of $p$
-parameters has $m$ grid values, a full grid requires $m^p$ evaluations. That
-rapid growth makes grids most useful for one or two parameters and for
-diagnosis rather than routine high-dimensional fitting.
-
-For one continuous parameter, `optimize()` searches a supplied interval using a
-combination of golden-section search and parabolic interpolation. Golden-section
-search repeatedly reduces a bracket containing the minimum. Parabolic
-interpolation uses recent objective values to propose a faster step when their
-curvature is informative.
-
-```r
-one_parameter_nll = function(log_A, h, x, y) {
-  sat_nll(par = c(log_A, log(h)), x = x, y = y)
-}
-
-# Search the log-scale interval while holding the half-saturation value fixed.
-one_fit = optimize(
-  f = one_parameter_nll,
-  interval = log(c(5, 60)),
-  h = 3, x = nutrient, y = insect_count
-)
-c(A = exp(one_fit$minimum), nll = one_fit$objective)
-```
-
-The bounds are part of the problem: `optimize()` does not discover a sensible
-ecological interval for us. `optim(method = "Brent")` provides the same kind of
-bounded one-dimensional search. When there are few parameters, a likelihood
-slice or profile can provide an additional diagnostic; [Chapter 4 explains the
-distinction](../Chapter_4/Theory.qmd#sec-likelihood-surface).
-
-# Smooth local optimisation
-
-For a differentiable objective, the **gradient**
-$\mathbf g(\boldsymbol\theta)$ is the vector of local slopes. At an interior,
-well-identified minimum it should be close to zero. The **Hessian**
-$\mathbf H(\boldsymbol\theta)$ is the matrix of second derivatives, describing
-local curvature and interactions between parameter directions.
-
-Newton's method uses both:
-
-$$
-\boldsymbol\theta_{k+1}
-=\boldsymbol\theta_k-
-\mathbf H(\boldsymbol\theta_k)^{-1}\mathbf g(\boldsymbol\theta_k).
-$$
-
-Near a regular minimum, the objective is close to a parabola (the quadratic
-approximation behind the Wald interval of
-[Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood-uncertainty)), which can make this
-step fast. Far from the minimum, the curvature may point towards a poor step, the
-Hessian may be nearly singular, or the objective may not be approximately
-quadratic.
-
-**BFGS** is a quasi-Newton method. It evaluates gradients but builds an
-approximation to inverse curvature from successive steps rather than requiring
-the full Hessian at every iteration. It is a useful default for a smooth,
-unconstrained, reasonably scaled likelihood, but it remains a local search: its
-result can depend on the starting value.
-
-# Derivatives in practice
-
-An analytical derivative is derived from the objective's equation, using partial
-derivatives with respect to the parameters
-([Chapter 5](../Chapter_5/Theory.qmd#sec-parameter-derivatives)). For the
-saturating Poisson model on the log-parameter scale, one such gradient is:
-
-```r
-sat_gradient = function(par, x, y) {
-  # Evaluate the gradient on the log-A and log-h fitting scale.
-  A = exp(par[1])
-  h = exp(par[2])
-  mu = sat_mean(x = x, A = A, h = h)
-  c(log_A = sum(mu - y),
-    log_h = sum((y - mu) * h / (h + x)))
-}
-
-# Give BFGS the analytical gradient and request its local curvature matrix.
-bfgs_fit = optim(
-  par = c(log_A = log(15), log_h = log(5)),
-  fn = sat_nll, gr = sat_gradient,
-  x = nutrient, y = insect_count,
-  method = "BFGS", hessian = TRUE
-)
-```
-
-If `gr` is omitted, `optim()` can approximate the gradient with finite
-differences (first used in
-[Chapter 5](../Chapter_5/Theory.qmd#sec-function-derivatives)). In one dimension,
-a centred approximation is
-
-$$
-Q'(\theta)\approx
-\frac{Q(\theta+\varepsilon)-Q(\theta-\varepsilon)}{2\varepsilon}.
-$$
-
-A large $\varepsilon$ gives a poor local approximation. An extremely small
-$\varepsilon$ subtracts nearly equal floating-point numbers and can expose
-rounding error. Function noise makes the trade-off worse.
-
-Since [Chapter 4](../Chapter_4/Theory.qmd#sec-maximum-likelihood) RTMB has
-supplied `obj$gr` to `optim()`, and
-[Chapter 6](../Chapter_6/Theory.qmd#sec-makeadfun) explained that it calculates
-`obj$gr` by **automatic
-differentiation**. It applies derivative rules to the recorded calculations and
-avoids choosing a finite-difference step. It does not make a discontinuous model
-smooth or repair an incorrect objective. Whether a gradient is analytical,
-numerical, or automatic, compare it with an independent numerical check while
-developing a model.
-
-The Hessian can guide optimisation and can support the local uncertainty
-approximation taught in
-[Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood-uncertainty). Here we use it
-only as evidence about local geometry: a nearly zero eigenvalue can signal a
-flat direction, while negative curvature would contradict a regular local
-minimum.
-
-# Derivative-free local optimisation
-
-Nelder–Mead maintains a **simplex**: three vertices in two dimensions, four in
-three dimensions, and generally one more vertex than the number of parameters.
-It compares objective values and changes the simplex through:
-
-- **reflection**, moving the worst vertex across the others;
-- **expansion**, moving farther when reflection is promising;
-- **contraction**, taking a smaller step when reflection disappoints; and
-- **shrinkage**, pulling the simplex towards its best vertex.
-
-```{r}
-#| echo: false
-#| eval: true
-#| fig-cap: "A two-dimensional simplex and illustrative reflection of its worst vertex. Nelder–Mead uses objective values at the vertices, not gradients."
-# Define an illustrative simplex and reflect its worst vertex across the centroid.
-simplex = rbind(c(1, 1), c(4, 1.5), c(2.5, 4))
-centroid = colMeans(simplex[1:2, , drop = FALSE])
-reflected = 2 * centroid - simplex[3, ]
-# Draw the current simplex and the proposed reflection.
-plot(rbind(simplex, reflected), type = "n", asp = 1,
-     xlab = "Parameter 1", ylab = "Parameter 2")
-polygon(simplex, border = "#0072B2", lwd = 2)
-segments(simplex[3, 1], simplex[3, 2], reflected[1], reflected[2],
-         lty = 2)
-points(simplex, pch = c(16, 16, 4), col = "#0072B2", cex = 1.2)
-points(reflected[1], reflected[2], pch = 17, col = "#D55E00")
-legend("topright", c("Current simplex", "Worst vertex", "Reflection"),
-       pch = c(NA, 4, 17), lty = c(1, NA, NA),
-       col = c("#0072B2", "#0072B2", "#D55E00"), bty = "n")
-```
-
-Because it needs only objective values, Nelder–Mead can tolerate some
-irregularity and is useful when reliable gradients are unavailable. It is often
-less efficient than BFGS on a smooth problem and remains vulnerable to flat
-regions and competing minima.
-
-```r
-# Start both local methods at the same log-scale parameter values.
-nelder_fit = optim(
-  par = c(log_A = log(15), log_h = log(5)),
-  fn = sat_nll, x = nutrient, y = insect_count,
-  method = "Nelder-Mead"
-)
-c(bfgs = bfgs_fit$value, nelder_mead = nelder_fit$value)
-```
-
-For these simulated data, both searches give $A\approx20.47$,
-$h\approx2.29$, and the same negative log-likelihood to the displayed
-precision. Agreement supports this smooth example, but it is not a universal
-ranking of the algorithms.
-
-# Constraints, transformations, and scaling
-
-Parameter constraints come from the model and ecological question. Two common
-approaches are:
-
-- transform a positive parameter as $\theta=\exp(\eta)$ or a probability as
-  $p=\operatorname{logit}^{-1}(\eta)$, then search over an unconstrained
-  parameter; or
-- give scientifically defensible lower and upper bounds to a box-constrained
-  method.
-
-`optim(method = "L-BFGS-B")` uses box constraints. `nlminb()` is another local
-optimiser that accepts lower and upper bounds and optional gradients and
-Hessians.
-
-```r
-# Define the same defensible parameter region on the log scale.
-lower = log(c(A = 1, h = 0.1))
-upper = log(c(A = 60, h = 20))
-
-# Fit within those bounds using a gradient-based local method.
-bounded_fit = optim(
-  par = c(log_A = log(15), log_h = log(5)),
-  fn = sat_nll, gr = sat_gradient,
-  x = nutrient, y = insect_count,
-  method = "L-BFGS-B", lower = lower, upper = upper
+binomial_obj = MakeADFun(
+  cmb(binomial_nll, frog_data),
+  list(logit_alpha = qlogis(0.5), log_H = log(1 / 60)),
+  silent = TRUE
 )
 
-port_fit = nlminb(
-  start = c(log_A = log(15), log_h = log(5)),
-  objective = sat_nll, gradient = sat_gradient,
-  lower = lower, upper = upper,
-  x = nutrient, y = insect_count
+# Paths of BFGS from three starts: gr is wrapped so that it records where it is called.
+frog_starts = list(
+  "From Chapter 6: maximum" = c(0.5, 1 / 60),
+  "From α = 0.01: α to 1" = c(0.01, 1 / 60),
+  "From α = 0.05, H = 0.03: H to 0" = c(0.05, 0.03)
 )
-
-sat_nll_natural = function(par, x, y) {
-  # This version receives the positive parameters on their natural scales.
-  mu = sat_mean(x = x, A = par[1], h = par[2])
-  -sum(dpois(x = y, lambda = mu, log = TRUE))
-}
-
-# Fit the natural-scale version over the corresponding bounded region.
-natural_bounded_fit = optim(
-  par = c(A = 15, h = 5),
-  fn = sat_nll_natural,
-  x = nutrient, y = insect_count,
-  method = "L-BFGS-B",
-  lower = c(A = 1, h = 0.1),
-  upper = c(A = 60, h = 20)
-)
-
-rbind(
-  transformed_bfgs = exp(bfgs_fit$par),
-  bounded_log_scale = exp(bounded_fit$par),
-  nlminb_log_scale = exp(port_fit$par),
-  natural_scale_bounds = natural_bounded_fit$par
-)
-```
-
-A boundary estimate deserves attention. It may be ecologically plausible, but
-it may also show that a bound is controlling the answer or that the parameter
-is weakly identified. Widening a bound is informative only when the wider range
-remains scientifically meaningful. Here the transformation-based BFGS fit and
-the natural-scale bounded fit describe the same scientific parameter space and
-reach the same ecological estimates. The table compares all four fits on the
-ecological parameter scale. That agreement need not hold when a bound is active.
-
-Optimisation also becomes harder when a one-unit step is enormous for one
-parameter and negligible for another. Transformations often improve scaling.
-For `optim()`, `control = list(parscale = ...)` expresses typical parameter
-changes on each coordinate. Tolerances and evaluation limits should be adjusted
-only after checking the objective and scaling; they cannot rescue an invalid
-start or non-finite likelihood. Always report final estimates on their
-ecological scales.
-
-# Difficult objective surfaces
-
-Local methods can struggle with separated basins, flat ridges, discontinuities,
-invalid regions, expensive calculations, and many parameters. A zero convergence
-code can still refer to the wrong basin or to a flat plateau.
-
-Consider simulated insect counts before and after an unknown environmental
-[threshold](../Supplements/deterministic-functions.qmd#sec-fn-threshold) $c$. One observation is again a count at one recorded predictor value.
-The expected count is $\lambda_{\mathrm L}$ when $x_i<c$ and
-$\lambda_{\mathrm H}$ otherwise. Moving $c$ without crossing an observed
-predictor value changes no fitted means, so the likelihood is flat between
-consecutive predictor values and jumps at the data. This verified piecewise
-structure is a reason to use broad exploration; different local answers alone
-would not prove it.
-
-```r
-threshold_nll = function(par, x, y) {
-  # Transform the two positive Poisson means from their log scales.
-  cut = par[1]
-  low = exp(par[2])
-  high = exp(par[3])
-  # Return a finite penalty outside the scientifically defined search region.
-  if (!is.finite(cut) || !is.finite(low) || !is.finite(high) ||
-      cut < 10 || cut > 90 || low <= 0 || high <= 0) {
-    return(1e10)
+frog_paths = NULL
+frog_fits = list()
+for (start_name in names(frog_starts)) {
+  s = frog_starts[[start_name]]
+  path = NULL
+  recording_gr = function(p) {
+    path <<- rbind(path, p)
+    binomial_obj$gr(p)
   }
-  mu = ifelse(x < cut, low, high)
-  value = -sum(dpois(x = y, lambda = mu, log = TRUE))
-  if (is.finite(value)) value else 1e10
+  frog_fits[[start_name]] = optim(
+    par = c(logit_alpha = qlogis(s[1]), log_H = log(s[2])),
+    fn = binomial_obj$fn,
+    gr = recording_gr,
+    method = "BFGS"
+  )
+  frog_paths = rbind(
+    frog_paths,
+    data.frame(alpha = plogis(path[, 1]), H = exp(path[, 2]), start = start_name)
+  )
+}
+frog_paths$start = factor(frog_paths$start, levels = names(frog_starts))
+frog_mle = frog_fits[[1]]$par
+
+# Relative log-likelihood on a grid of the original scales.
+alpha_grid = seq(from = 0.01, to = 0.999, length.out = 121)
+H_grid = seq(from = 0.0002, to = 0.06, length.out = 121)
+frog_surface = matrix(NA, nrow = length(alpha_grid), ncol = length(H_grid))
+for (i in seq_along(alpha_grid)) {
+  for (j in seq_along(H_grid)) {
+    frog_surface[i, j] =
+      frog_fits[[1]]$value - binomial_obj$fn(c(qlogis(alpha_grid[i]), log(H_grid[j])))
+  }
+}
+frog_surface_data = expand.grid(alpha = alpha_grid, H = H_grid)
+frog_surface_data$relative = as.vector(frog_surface)
+
+ggplot() +
+  geom_contour(
+    data = frog_surface_data,
+    aes(x = alpha, y = H, z = relative),
+    breaks = c(-100, -50, -20, -10, -5, -2, -1),
+    colour = "grey70"
+  ) +
+  geom_path(
+    data = frog_paths,
+    aes(x = alpha, y = H, linetype = start),
+    colour = "grey20"
+  ) +
+  geom_point(
+    data = frog_paths,
+    aes(x = alpha, y = H, shape = start),
+    colour = "grey20",
+    size = 2
+  ) +
+  geom_point(
+    data = data.frame(alpha = plogis(frog_mle[1]), H = exp(frog_mle[2])),
+    aes(x = alpha, y = H),
+    colour = "#D55E00",
+    size = 4
+  ) +
+  coord_cartesian(xlim = c(0, 1), ylim = c(0, 0.06)) +
+  labs(
+    x = expression(paste("Attack rate, ", alpha, " (per experiment)")),
+    y = "Handling time, H (experiments per tadpole killed)",
+    linetype = NULL,
+    shape = NULL
+  ) +
+  theme_classic() +
+  theme(legend.position = "top", legend.direction = "vertical")
+```
+
+## Exact and approximate gradients {#sec-gradients}
+
+When `optim()` is not given `gr`, it approximates the gradient. Each partial derivative is
+replaced by a **finite difference**, the change in the NLL between two nearby values of one
+parameter divided by the distance between them, as in
+[Chapter 5](../Chapter_5/Theory.qmd#sec-function-derivatives). `optim()` uses two
+evaluations of the NLL for each parameter, one on each side of the current value, so each
+approximate gradient of a model with $p$ parameters costs $2p$ extra evaluations. The
+distance between the two values is a compromise. A large distance makes the straight line
+between the two points a poor approximation of the slope at the point, and a very small one
+makes the difference of two nearly equal numbers inaccurate, because the computer rounds
+every number it stores. The gradient that RTMB calculates by automatic differentiation
+([Chapter 6](../Chapter_6/Theory.qmd#sec-makeadfun)) has neither problem: it is exact up to
+rounding error, and it costs about as much as a few evaluations of the NLL, whatever the
+number of parameters.
+
+::: {.callout-caution collapse="true" icon=false title="Technical detail: finite differences"}
+For a function $f$ of the parameters $\boldsymbol\theta$, the **forward difference** and the
+**central difference** approximate the partial derivative with respect to $\theta_j$ by
+
+$$
+\frac{\partial f}{\partial\theta_j}\approx
+\frac{f(\boldsymbol\theta+h\,\mathbf e_j)-f(\boldsymbol\theta)}{h}
+\qquad\text{and}\qquad
+\frac{\partial f}{\partial\theta_j}\approx
+\frac{f(\boldsymbol\theta+h\,\mathbf e_j)-f(\boldsymbol\theta-h\,\mathbf e_j)}{2h},
+$$
+
+where $h$ is the step and $\mathbf e_j$ is a vector with 1 in position $j$ and 0 elsewhere,
+so that $\boldsymbol\theta+h\,\mathbf e_j$ changes only $\theta_j$. The error of the forward
+difference is roughly proportional to $h$ and that of the central difference to $h^2$, so
+the central difference is more accurate for the same step. Both suffer from rounding: $f$ is
+stored with a relative precision of about $2.2\times10^{-16}$ (`.Machine$double.eps`), and
+this error is divided by $h$, so it grows as the step shrinks. `optim()` uses central
+differences with the step set by the control argument `ndeps`, $10^{-3}$ for every parameter
+by default (on the scale of the parameters divided by `parscale`). In plain English, the
+step must be small enough for the line between the two points to follow the curve, and large
+enough for the difference of the two values to be more than rounding noise.
+:::
+
+For the CO₂ model, we fit again from the starting values of Chapter 7 without `gr`:
+
+```{r}
+# The fit from the starting values of Chapter 7 without the gradient of RTMB.
+pooled_fd_fit = optim(par = pooled_obj$par, fn = pooled_obj$fn, method = "BFGS")
+
+# Minimum of the NLL and the counts of evaluations of fn and gr, with and without gr.
+c(with_gr = pooled_fit$value, without_gr = pooled_fd_fit$value)
+rbind(with_gr = pooled_fit$counts, without_gr = pooled_fd_fit$counts)
+```
+
+Both fits report code 0, and without `gr` the search ends at an NLL slightly above the
+minimum (296.2565 against 296.2557). The element `counts` gives the number of calls to `fn`
+and to `gr`, but, as the help page of `optim()` says, it does not include the evaluations of
+`fn` for the finite differences. With four parameters each approximate gradient costs eight
+of them, so the fit without `gr` called `fn` $83+8\times32=339$ times, against 104 calls to
+`fn` and 33 to `gr` with the exact gradient. Here the approximation costs time and a little
+precision; in a model with many parameters, or in a narrow valley, it can stop the search
+well before the minimum. From the three other starting values of @sec-wrong-place, BFGS
+without `gr` stops in the same wrong places as with it, so the exact gradient does not cure
+those failures.
+
+## Stopping rules and convergence codes {#sec-stopping}
+
+A **stopping rule** decides when an optimiser ends its search. The rule of BFGS in `optim()`
+looks at the value of the NLL. A step that lowers the NLL by less than a relative tolerance,
+$\texttt{reltol}\times\left(|{-\ell(\boldsymbol\theta)}|+\texttt{reltol}\right)$, counts as
+no progress. BFGS then discards its approximation of the curvature and tries a step along
+the negative gradient; when that step makes no progress either, the search stops and
+`optim()` returns convergence code 0. The tolerance is the control argument `reltol`, by
+default $\sqrt{\epsilon}\approx1.5\times10^{-8}$, where $\epsilon\approx2.2\times10^{-16}$
+is the precision of numbers in R. For the CO₂ model, whose NLL is about 300, a step must
+lower the NLL by more than about $4.4\times10^{-6}$ to count as progress. The search also
+stops after `maxit` iterations, 100 by default for BFGS, and then the convergence code is 1.
+The help page of `optim()` lists other codes, which belong to other methods.
+
+In plain English, BFGS stops when it can no longer lower the NLL, and it does not check the
+gradient at all. At a minimum this is what we want. The same thing happens, however, on a
+ridge, where the NLL hardly changes in any direction that the search tries; near a saddle
+point, where the gradient is close to zero; at a boundary on the optimised scale, where the
+NLL keeps falling by ever smaller amounts as a parameter runs towards $\pm\infty$; and on a
+surface that is nearly flat compared with the size of the NLL, because the tolerance is
+relative to the value of the NLL. The last case explains the penguin fit of the
+[practical of Chapter 4](../Chapter_4/Practicals/solution.qmd): with the masses in grams,
+the NLL is large, and a step that still lowered it was too small to count as progress. The
+note "When a fit fails" in [Chapter 4](../Chapter_4/Theory.qmd#sec-constraints) dealt with a
+code other than zero and with an NLL that cannot be calculated; this chapter deals with a
+code of zero that hides a failure.
+
+::: {.callout-warning title="A convergence code of zero"}
+A convergence code of 0 says that the stopping rule was met. It does not say that the search
+reached the maximum of the likelihood: the rule is also met on a ridge, near a saddle point,
+at a boundary and on a nearly flat surface, as the CO₂ fits of @sec-wrong-place show.
+Whether a fit found the maximum is decided by the checks of @sec-diagnosis.
+:::
+
+## Diagnosing a fit {#sec-diagnosis}
+
+**Diagnosing** a fit means checking whether the point where the optimiser stopped is the
+maximum of the likelihood. Each check looks at the fit from a different side, and none of
+them is sufficient alone:
+
+- **The estimates on the original scale.** Are they sensible values in their units? Is a
+  parameter very large or very small on the optimised scale (a logarithm of 27 or of
+  $-245$), which means that it ran towards a boundary or along a ridge?
+- **The gradient at the solution**, `obj$gr(fit$par)`, whose elements should be close to
+  zero. A large element shows that the search stopped on a slope. A small one is necessary
+  but not enough, because the gradient is also close to zero on a ridge and near a saddle
+  point.
+- **The curvature**, from `sdreport()`. At a minimum the Hessian is positive definite (box
+  below), and `sdreport()` returns the element `pdHess`, which is `TRUE` when it is. When it
+  is not, the standard errors are `NaN`, and printing the result gives the warning "Hessian
+  of fixed effects was not positive definite". Huge standard errors are a warning sign as
+  well (@sec-identifiability). By default `sdreport()` uses the parameter
+  values with the lowest NLL that the object has evaluated, so after several fits of the
+  same object we pass the values of the fit to check with the argument `par.fixed`.
+- **A refit**, from the solution and from other starting values. A refit that starts where
+  the fit stopped and moves on shows that the search stopped too early; fits from other
+  starting values that end lower show that it stopped at the wrong minimum.
+- **A slice** through the solution along a suspicious parameter, with the other parameters
+  fixed at the solution: the likelihood slice of
+  [Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood-surface), now used as a diagnostic.
+  It shows how the NLL behaves beyond the point where the optimiser stopped.
+
+::: {.callout-caution collapse="true" icon=false title="Statistical detail: the Hessian at a minimum"}
+The Hessian $\mathbf H$ of the NLL at a point describes its curvature in every direction:
+for a direction $\mathbf d$ (a vector of changes in the parameters), the curvature of the NLL
+along the straight line through the point in that direction is proportional to
+$\mathbf d^{\top}\mathbf H\,\mathbf d$. The Hessian is **positive definite** when
+$\mathbf d^{\top}\mathbf H\,\mathbf d>0$ for every direction $\mathbf d\neq\mathbf 0$, that
+is, when the NLL curves upwards in every direction. A stationary point with a positive
+definite Hessian is a local minimum.
+
+The **eigenvalues** of $\mathbf H$ are the curvatures along a set of perpendicular
+directions, its eigenvectors, and the Hessian is positive definite when all of them are
+positive. An eigenvalue of zero is a flat direction: the NLL does not change to second order
+along it, as on a ridge, and $\mathbf H$ has no inverse, so the covariance matrix
+$\mathbf H^{-1}$ of [Chapter 4](../Chapter_4/Theory.qmd#sec-curvature) and the standard
+errors cannot be calculated. A negative eigenvalue is a direction in which the NLL curves
+downwards, so the point is not a minimum; if the gradient is also zero there, the point is a
+saddle point. In plain English, `sdreport()` checks that the NLL rises in every direction
+from the solution, which is what a minimum requires, and it can only calculate standard
+errors when it does.
+:::
+
+For the four CO₂ fits, we calculate the largest element of the gradient (in absolute value),
+the check of the Hessian and the minimum that BFGS reaches when it starts again where each
+fit stopped:
+
+```{r}
+# Largest absolute gradient, check of the Hessian and refit from the solution, per fit.
+max_gradient = rep(NA, length(co2_fits))
+pd_hess = rep(NA, length(co2_fits))
+refit_nll = rep(NA, length(co2_fits))
+for (i in seq_along(co2_fits)) {
+  fit = co2_fits[[i]]
+  max_gradient[i] = max(abs(pooled_obj$gr(fit$par)))
+  # sdreport() at the values of this fit.
+  pd_hess[i] = sdreport(pooled_obj, par.fixed = fit$par)$pdHess
+  # A new search that starts where this fit stopped.
+  refit_nll[i] = optim(
+    par = fit$par,
+    fn = pooled_obj$fn,
+    gr = pooled_obj$gr,
+    method = "BFGS"
+  )$value
+}
+data.frame(
+  nll = stop_table$nll,
+  max_gradient = signif(max_gradient, 2),
+  pd_hess = pd_hess,
+  refit_nll = refit_nll
+)
+```
+
+The fit from the starting values of Chapter 7 passes every check: its gradient is small,
+its Hessian is positive definite and a refit stays where it is. The fits that ended at the
+constant curve and at zero have even smaller gradients, so the gradient does not reveal
+them, but `sdreport()` does. For the constant curve, for example:
+
+```{r}
+# sdreport() at the end of the fit from the slow rise.
+pooled_ridge_sd = sdreport(pooled_obj, par.fixed = stop_fits$slow_rise$par)
+pooled_ridge_sd
+```
+
+None of the standard errors can be calculated. At this point the rate is so large that the
+curve is flat over all the measured concentrations, and changing the rate or the location
+no longer changes the NLL: these are flat directions, which have no curvature. The fit at
+zero is flat in three directions for the same reason, because a curve that is practically
+zero stays practically zero when the asymptote, the rate or the location change a little.
+The fit with $c$ at 90.3 µL/L is a different case. Its
+gradient is larger, but still small, and a refit stays where it is. The Hessian, however, has
+a negative curvature in one direction, a combination of the location and the rate, so the
+NLL falls if both change together, and the point is not a minimum. A slice along $c$ alone
+would show a minimum at 90.3 µL/L, because the direction in which the NLL falls is not along
+one parameter; the Hessian looks in every direction at once.
+
+```{r}
+#| include: false
+# Check of the statement above: one eigenvalue of the Hessian at the stop of the early
+# plateau is negative, and the others are positive.
+plateau_eigen = eigen(pooled_obj$he(stop_fits$early_plateau$par))$values
+stopifnot(sum(plateau_eigen < 0) == 1)
+```
+
+A slice shows what the optimiser could not see from where it stopped. We fix the asymptote,
+the location and the standard deviation at the end of the fit from the slow rise, and vary
+the rate from 0.001 to 10 L/µL, with a `for` loop over `pooled_obj$fn()` as in Chapter 4:
+
+```{r}
+# Slice through the end of the fit from the slow rise along the log rate; the other
+# parameters stay where the fit stopped.
+ridge_par = stop_fits$slow_rise$par
+log_rate_grid = seq(from = log(0.001), to = log(10), length.out = 101)
+ridge_slice = rep(NA, times = length(log_rate_grid))
+for (i in seq_along(log_rate_grid)) {
+  slice_par = ridge_par
+  slice_par[["log_rate"]] = log_rate_grid[i]
+  ridge_slice[i] = -pooled_obj$fn(slice_par)
 }
 
-# Simulate the threshold-count study used by the global search examples.
-set.seed(seed = 902)
-threshold_x = seq(0, 100, length.out = 60)
-threshold_mu = ifelse(threshold_x < 55, 3, 12)
-threshold_y = rpois(n = length(threshold_x), lambda = threshold_mu)
+# Relative log-likelihood: the difference from the log-likelihood where the fit stopped.
+ridge_relative = ridge_slice - (-stop_fits$slow_rise$value)
 ```
 
 ```{r}
 #| echo: false
-#| eval: true
-#| fig-cap: "Negative log-likelihood over a threshold grid after fitting the two Poisson means at each threshold. Flat steps arise because group membership changes only when the threshold crosses an observed predictor value."
-# Recreate the simulated threshold data and evaluate one fitted value per cut.
-set.seed(seed = 902)
-threshold_x = seq(0, 100, length.out = 60)
-threshold_mu = ifelse(threshold_x < 55, 3, 12)
-threshold_y = rpois(n = length(threshold_x), lambda = threshold_mu)
-cut_grid = seq(10, 90, length.out = 500)
-cut_nll = vapply(cut_grid, function(cut) {
-  # Refit the two group means for each candidate threshold.
-  low_y = threshold_y[threshold_x < cut]
-  high_y = threshold_y[threshold_x >= cut]
-  low_mean = mean(low_y)
-  high_mean = mean(high_y)
-  -sum(dpois(low_y, lambda = low_mean, log = TRUE)) -
-    sum(dpois(high_y, lambda = high_mean, log = TRUE))
-}, 0.0)
-plot(cut_grid, cut_nll, type = "s",
-     xlab = "Environmental threshold (recorded units)",
-     ylab = "Fitted negative log-likelihood")
+#| label: fig-ridge_slice
+#| fig-cap: "Slice of the relative log-likelihood of the complete-pooling CO₂ model along the rate, through the point where the fit from the slow rise stopped (the other parameters fixed there). The fit stopped at a rate of about 5 × 10¹¹ L/µL, far to the right, where the slice is flat at zero. The dashed line marks zero."
+ggplot(
+  data.frame(rate = exp(log_rate_grid), relative = ridge_relative),
+  aes(x = rate, y = relative)
+) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey40") +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  scale_x_log10() +
+  coord_cartesian(ylim = c(-30, 15)) +
+  labs(
+    x = "Rate, b (L/µL, logarithmic axis)",
+    y = "Relative log-likelihood"
+  ) +
+  theme_classic()
 ```
 
-Useful checks include several plausible starts, objective plots in low
-dimensions, comparison of final objective values, gradient checks where
-derivatives exist, and a restart from the fitted values. Complex marginal
-objectives such as those in Chapter 7 make these checks more important; we do
-not need to repeat their construction here.
+@fig-ridge_slice shows a plateau: for rates above about 0.2 L/µL the curve is already flat
+over the measured concentrations, and the log-likelihood hardly changes. The fit stopped
+far out on this plateau, where the slope is zero and BFGS has no direction in which to move.
+At a rate of about 0.015 L/µL the slice rises about 12 units above the plateau, so the point
+where the fit stopped is not the maximum, even along this one line. The slice also shows how
+the search got there: once a step took the rate onto the plateau, nothing led it back.
 
-# Simulated annealing
+:::: {#imp-parasitoid-fits .callout-important title="three fits of a parasitoid"}
 
-`optim(method = "SANN")` uses **simulated annealing** (SANN) to propose
-stochastic moves. It accepts improvements and can accept worse moves,
-particularly at a high temperature. Cooling gradually shifts the balance from
-broad exploration towards local exploitation. This is an optimisation procedure,
-not posterior sampling or Markov chain Monte Carlo (MCMC).
+A parasitoid wasp was offered patches with 2 to 40 hosts, and the number of eggs that it
+laid in each patch was counted. A colleague describes the expected number of eggs with the
+Michaelis–Menten function $ax/(b+x)$ of the number of hosts $x$, with a Poisson model,
+fitted with BFGS on the scales $\log(a)$ and $\log(b)$ from three sets of starting values.
+They give you this summary of the three fits:
 
-```r
-# Set a seed so this stochastic search can be reproduced.
-set.seed(seed = 903)
-sann_fit = optim(
-  par = c(cut = 25, log_low = log(3), log_high = log(10)),
-  fn = threshold_nll,
-  x = threshold_x, y = threshold_y,
-  method = "SANN",
-  control = list(maxit = 20000, temp = 10,
-                 parscale = c(15, 1, 1))
+| Fit | Code | NLL | $a$ (eggs per patch) | $b$ (hosts per patch) | `pdHess` | Largest gradient |
+|---|---:|---:|---:|---:|---|---:|
+| A | 0 | 154.82 | 41.3 | 18.6 | `TRUE` | 0.0004 |
+| B | 1 | 154.85 | 39.8 | 17.4 | `TRUE` | 0.21 |
+| C | 0 | 171.40 | $6.2\times10^{8}$ | $2.9\times10^{8}$ | `FALSE` | 0.000003 |
+
+Which fits found the maximum? What happened in the others, and what would you check next?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+Fit A is the best candidate: it has the lowest NLL, a convergence code of 0, a small
+gradient, a positive definite Hessian and sensible estimates (a maximum of about 41 eggs per
+patch, half of it reached at about 19 hosts). Three fits are few, so a refit from A and a few
+more starting values would confirm it.
+
+Fit B reached the limit of iterations (code 1). Its NLL is only 0.03 above that of A and its
+estimates are close, but its gradient is not small: the search was still moving when it was
+stopped. A restart from where B stopped would most likely end at A.
+
+Fit C reports code 0 and has a tiny gradient, but its NLL is 16.6 units higher than that of
+A, both parameters are enormous and the Hessian is not positive definite. The ratio $a/b$ is
+about 2.1 eggs per host, and when $b$ is much larger than every $x$, the curve $ax/(b+x)$ is
+practically the straight line $(a/b)\,x$. So C stopped on a ridge that leads to the linear
+model without saturation, where $a$ and $b$ can grow together without changing the NLL. It
+is not the maximum, because A is lower; it is reported as a failed fit, not as estimates.
+
+:::
+::::
+
+# Starting values and multiple starts {#sec-multistart}
+
+The end of a local search depends on its **starting values**. Good starting values, read from
+a figure of the data or calculated with the method of moments, as in Chapters 4 to 7, usually
+suffice. The CO₂ model shows that the choice matters more than it might seem: the start from
+the slow rise ends on the ridge with a standard deviation of 2 µmol/m²/s, but the same start
+with a standard deviation of 10 µmol/m²/s reaches the maximum, because the search then
+follows a different path. When a fit is in doubt, or a model is known to be difficult, we use
+**multiple starting values**:
+
+1. choose a box of plausible values for each parameter, in its units, and transform it to
+   the optimised scale;
+2. draw starting values at random within the box and fit the model from each;
+3. keep the fit with the lowest NLL, and check how many fits reach it and whether their
+   estimates agree;
+4. restart BFGS from the best fit, and diagnose it as in @sec-diagnosis.
+
+Agreement among many starts is evidence that the global minimum was found, but it cannot
+prove it: a minimum that no start reached does not appear in the results. Drawing the
+starting values uniformly on the optimised scale gives each order of magnitude of a positive
+parameter the same weight, which suits parameters such as rates whose plausible values span
+several orders of magnitude.
+
+For the CO₂ model we choose an asymptote between 5 and 100 µmol/m²/s, a rate between
+$10^{-4}$ and 1 L/µL (so that the curve reaches 63% of its asymptote between 1 and 10,000
+µL/L above $c$), a location between 0 and 90 µL/L (below the lowest concentration), and a
+standard deviation between 0.5 and 20 µmol/m²/s. On the optimised scales, in the order of the
+parameters of `pooled_obj`:
+
+```{r}
+# Box of plausible starting values on the optimised scales: log asymptote, log rate,
+# location and log standard deviation.
+start_lower = c(log(5), log(1e-4), 0, log(0.5))
+start_upper = c(log(100), log(1), 90, log(20))
+```
+
+The loop draws one set of starting values with `runif()` in each repetition, fits the model
+from it and stores the minimum of the NLL, the convergence code and the estimates. The seed is
+set once, before the loop, so that the 50 sets of starting values can be reproduced:
+
+```{r}
+# 50 fits from random starting values within the box.
+n_starts = 50
+multi_results = data.frame(
+  nll = rep(NA, n_starts),
+  convergence = NA,
+  log_asym = NA, log_rate = NA, c0 = NA, log_sd_obs = NA
+)
+set.seed(801)
+for (i in 1:n_starts) {
+  start = runif(4, min = start_lower, max = start_upper)
+  names(start) = names(pooled_obj$par)
+  fit = optim(par = start, fn = pooled_obj$fn, gr = pooled_obj$gr, method = "BFGS")
+  multi_results[i, ] = c(fit$value, fit$convergence, fit$par)
+}
+```
+
+A table of the minima, rounded to one decimal, and of the convergence codes shows where the
+fits ended:
+
+```{r}
+# Where the 50 fits ended: minimum of the NLL (rounded) against the convergence code.
+table(nll = round(multi_results$nll, 1), convergence = multi_results$convergence)
+```
+
+Seventeen of the 50 fits (34%) reach the minimum of 296.3, and their estimates agree (the
+location, which varies most, lies between 45.0 and 46.8 µL/L in these fits). Another
+17 end on the ridge of the constant curve (318.7) and 14 at the curve of zero (402.8), both
+with code 0. One fit reached the limit of iterations at 298.7 (code 1), and one ended far
+away. Without the first fit of the chapter we would still have found the maximum, and the
+table tells us which failures to expect from this model. We restart BFGS from the best of
+the 50 fits and compare it with the fit from the starting values of Chapter 7:
+
+```{r}
+# Restart BFGS from the best of the 50 fits.
+best = which.min(multi_results$nll)
+best_start = unlist(multi_results[best, names(pooled_obj$par)])
+best_fit = optim(par = best_start, fn = pooled_obj$fn, gr = pooled_obj$gr, method = "BFGS")
+
+# Minimum and estimates on the optimised scales: the restart and the fit of Chapter 7.
+rbind(
+  restart = c(nll = best_fit$value, best_fit$par),
+  chapter_7 = c(nll = pooled_fit$value, pooled_fit$par)
+)
+sdreport(pooled_obj, par.fixed = best_fit$par)$pdHess
+```
+
+The restart ends at the same minimum as the fit of Chapter 7, its estimates agree with those
+of that fit to within their standard errors, and its Hessian is positive definite. The
+estimate of the location differs most between the two (by less than 0.1 µL/L, against a
+standard error of about 22 µL/L), because the data determine it poorly; this is the subject
+of @sec-identifiability.
+
+```{r}
+#| include: false
+# The model with a random asymptote of Chapter 7 from the starting values of Chapter 7
+# and from two of the poor starts (asymptote, rate, location), with sd_obs = 2 and
+# sd_plant = 0.1 as in Chapter 7.
+co2_data_plant = list(
+  conc = co2$conc,
+  uptake = co2$uptake,
+  plant = match(as.character(co2$Plant), unique(as.character(co2$Plant)))
+)
+mixed_nll = function(parms, data) {
+  getAll(parms, data)
+  sd_plant = exp(log_sd_plant)
+  nll = -sum(dnorm(x = u, mean = 0, sd = sd_plant, log = TRUE))
+  a = exp(log_asym + u)
+  b = exp(log_rate)
+  sd_obs = exp(log_sd_obs)
+  mu = a[plant] * (1 - exp(-b * (conc - c0)))
+  nll - sum(dnorm(x = uptake, mean = mu, sd = sd_obs, log = TRUE))
+}
+mixed_starts = list(good = c(30, 0.01, 50), slow_rise = c(30, 0.001, 50),
+                    high_plateau = c(100, 1, 90))
+mixed_results = NULL
+for (start_name in names(mixed_starts)) {
+  s = mixed_starts[[start_name]]
+  mixed_obj = MakeADFun(
+    cmb(mixed_nll, co2_data_plant),
+    list(
+      log_asym = log(s[1]), log_rate = log(s[2]), c0 = s[3],
+      log_sd_plant = log(0.1), log_sd_obs = log(2), u = rep(0, 12)
+    ),
+    random = "u",
+    silent = TRUE
+  )
+  mixed_fit = optim(
+    par = mixed_obj$par,
+    fn = mixed_obj$fn,
+    gr = mixed_obj$gr,
+    method = "BFGS"
+  )
+  mixed_results = rbind(
+    mixed_results,
+    data.frame(
+      start = start_name,
+      convergence = mixed_fit$convergence,
+      nll = mixed_fit$value,
+      c0 = mixed_fit$par[["c0"]],
+      log_rate = mixed_fit$par[["log_rate"]]
+    )
+  )
+}
+mixed_results
+```
+
+The model with a random asymptote of
+[Chapter 7](../Chapter_7/Theory.qmd#sec-random-effects-rtmb) fails in the same way. From the
+starting values of Chapter 7 it reaches the minimum of the marginal NLL, 207.61. From the
+slow rise (an asymptote of 30 µmol/m²/s, a rate of 0.001 L/µL and a location of 50 µL/L) it
+stops with code 0 at 307.72, with the rate running towards infinity, and from an asymptote of
+100 µmol/m²/s, a rate of 1 L/µL and a location of 90 µL/L it stops with code 0 at 261.17,
+with the location at 91.6 µL/L, just below the lowest concentration. These are the ridge and
+the early plateau of the model without plants, and multiple starting values are the remedy
+here too. They are more expensive, because each evaluation of the marginal NLL contains an
+inner optimisation of the random effects with Newton's method (@sec-search), so every fit of
+the mixed model takes much longer than a fit of the model with complete pooling.
+
+# Ridges, boundaries and identifiability {#sec-identifiability}
+
+A parameter is **identifiable** when different values of it give different distributions of
+the data, so that the likelihood can tell them apart. When a parameter is not identifiable,
+the NLL does not change, or hardly changes, along some direction in the space of the
+parameters, and the optimiser has nothing to guide it along that direction. There are two
+kinds. **Structural non-identifiability** is a property of the model: the parameters enter
+the distribution of the data only through a combination of them, such as their product or
+their sum, so that different values give exactly the same distribution, whatever the data.
+The NLL is then exactly flat along a ridge, and the estimates depend on the starting values.
+**Practical non-identifiability** is a property of the model and the data together: the
+model could tell the values apart, but the data cannot.
+[Chapter 5](../Chapter_5/Theory.qmd#sec-parameter-derivatives) showed that the observations
+that can tell us about a parameter are those made where the curve responds to it; when the
+data contain no such observations, the NLL is nearly flat in the direction of that
+parameter.
+
+Both kinds show in a fit through the checks of @sec-diagnosis:
+
+- estimates that stay close to their starting values, or that differ between fits from
+  different starts with practically the same NLL;
+- very large standard errors, or standard errors that are `NaN`;
+- correlations between estimates close to 1 or $-1$;
+- the warning of `sdreport()` that the Hessian is not positive definite, which is typical of
+  structural non-identifiability, where one curvature is zero;
+- a slice or a likelihood profile that is flat over a wide range of values.
+
+The remedies depend on the kind. A structurally non-identifiable model must be changed: a
+parameter is removed or fixed, or the model is reparameterised so that only the combination
+that the data determine is estimated. A practically non-identifiable model may be fine, and
+more informative data would solve the problem: a design whose observations cover the range
+where the curve responds to the parameter. When neither is possible, the parameter is
+reported as not determined by the data, with its likelihood profile, and not as an estimate
+with a standard error.
+
+## Structural non-identifiability
+
+Chapter 7 gave each of the 12 plants its own asymptote in two ways: as 12 separate
+parameters (no pooling), and as a common log asymptote plus a deviation for each plant, with
+a Normal distribution for the deviations (partial pooling). A model between the two, a
+common log asymptote `log_asym` plus 12 deviations `dev` without a distribution, has 13
+parameters for 12 asymptotes. Adding any number to `log_asym` and subtracting it from every
+deviation gives the same 12 asymptotes, and so exactly the same likelihood. We write its NLL
+with the plant of each measurement in the list of data, as in Chapter 7:
+
+```{r}
+# List of data with the index (1 to 12) of the plant of each measurement.
+co2_data_plant = list(
+  conc = co2$conc,
+  uptake = co2$uptake,
+  plant = match(as.character(co2$Plant), unique(as.character(co2$Plant)))
+)
+
+# NLL with a common log asymptote and a free deviation for each plant.
+deviation_nll = function(parms, data) {
+  getAll(parms, data)
+  a = exp(log_asym + dev)
+  b = exp(log_rate)
+  sd_obs = exp(log_sd_obs)
+  mu = a[plant] * (1 - exp(-b * (conc - c0)))
+  -sum(dnorm(x = uptake, mean = mu, sd = sd_obs, log = TRUE))
+}
+```
+
+We fit it from three starting values of the common asymptote, 10, 20 and 40 µmol/m²/s, with
+every deviation at zero and the other parameters as in Chapter 7, except for a standard
+deviation of 8 µmol/m²/s, which avoids the failures of @sec-wrong-place. For each fit we
+record the NLL, the check of the Hessian, the common asymptote and the asymptotes of the
+first and the last plant:
+
+```{r}
+# Process the NLL once; the three fits differ only in the starting common asymptote.
+deviation_obj = MakeADFun(
+  cmb(deviation_nll, co2_data_plant),
+  list(
+    log_asym = log(10), dev = rep(0, 12), log_rate = log(0.01), c0 = 50,
+    log_sd_obs = log(8)
+  ),
+  silent = TRUE
+)
+deviation_table = NULL
+deviation_plants = NULL
+for (start_asym in c(10, 20, 40)) {
+  start = deviation_obj$par
+  start[["log_asym"]] = log(start_asym)
+  fit = optim(par = start, fn = deviation_obj$fn, gr = deviation_obj$gr, method = "BFGS")
+  fit_sd = sdreport(deviation_obj, par.fixed = fit$par)
+  # Asymptote of each plant (µmol/m²/s): the common one times exp(deviation).
+  plant_asym = unname(exp(fit$par[["log_asym"]] + fit$par[names(fit$par) == "dev"]))
+  deviation_plants = rbind(deviation_plants, plant_asym)
+  deviation_table = rbind(
+    deviation_table,
+    data.frame(
+      start = start_asym,
+      convergence = fit$convergence,
+      nll = fit$value,
+      pd_hess = fit_sd$pdHess,
+      # Number of the 16 standard errors that cannot be calculated.
+      nan_se = sum(is.nan(summary(fit_sd)[, "Std. Error"])),
+      common_asym = exp(fit$par[["log_asym"]]),
+      first_plant = plant_asym[1],
+      last_plant = plant_asym[12]
+    )
+  )
+}
+print(deviation_table, digits = 5)
+```
+
+```{r}
+#| include: false
+# Check of the statement below: the three fits agree on all 12 plant asymptotes.
+stopifnot(max(apply(deviation_plants, 2, function(x) diff(range(x)))) < 0.01)
+```
+
+The three fits reach the same minimum, 171.44, which is the minimum of the model without
+pooling of Chapter 7, and they agree on the asymptote of every plant. The common asymptote,
+however, ends at a different value in each fit, in the order of the starting values, because
+nothing in the data pulls it in either direction: BFGS moves it only as far as the steps that
+bring the plant asymptotes to their values happen to take it. None of the 16 standard errors
+can be calculated in any of the fits (`nan_se`). One fit nevertheless passes the check of the
+Hessian, because the curvature along the flat direction is zero only up to rounding error,
+and rounding can make it slightly positive. So `pdHess` is not a reliable symptom here; the
+agreement of the NLL and of the plant asymptotes, with a common asymptote that depends on the
+start, is.
+
+The remedy is to change the model. Removing `log_asym` gives the model without pooling of
+Chapter 7, with one parameter per asymptote. Giving the deviations a Normal distribution
+with mean zero, as the mixed model of Chapter 7 does, also makes the common asymptote
+identifiable: the distribution ties it to the centre of the plant asymptotes, where it is the
+typical asymptote around which the plants vary.
+
+## Practical non-identifiability
+
+In the CO₂ data, the observations that tell us about the location $c$ are those at low
+concentrations: the partial derivative of the curve with respect to $c$,
+$-ab\,e^{-b(x-c)}$, is largest in size at $x=c$ and falls towards zero as the concentration
+grows. To see what happens without them, we fit the model with complete pooling only to the
+60 measurements at 250 µL/L and above, from the starting values of Chapter 7:
+
+```{r}
+# The measurements at 250 µL/L and above.
+high = co2$conc >= 250
+co2_high_data = list(conc = co2$conc[high], uptake = co2$uptake[high])
+
+# The NLL with complete pooling, connected to these data, and its fit.
+high_obj = MakeADFun(
+  cmb(pooled_nll, co2_high_data),
+  list(log_asym = log(30), log_rate = log(0.01), c0 = 50, log_sd_obs = log(2)),
+  silent = TRUE
+)
+high_fit = optim(par = high_obj$par, fn = high_obj$fn, gr = high_obj$gr, method = "BFGS")
+high_fit$convergence
+```
+
+The fit reports code 0. Its standard errors and correlations show what the data leave
+undetermined:
+
+```{r}
+# Standard errors on the optimised scales, and the correlations between the estimates.
+high_sd = sdreport(high_obj)
+summary(high_sd)
+round(cov2cor(high_sd$cov.fixed), 3)
+high_sd$pdHess
+```
+
+The Hessian is positive definite, so `sdreport()` gives no warning, but the location has
+stayed at its starting value of 50 µL/L with a standard error of 579 µL/L, against 21.7
+µL/L with all 84 measurements (@sec-multistart), and the standard error of the log rate is
+3.1, ten times that of the full data. The estimates of the log rate and of the location have
+a correlation of 0.992 (0.84 with all the data): over the concentrations from 250 to 1000
+µL/L, a curve that reaches zero far to the left and rises slowly looks like one that reaches
+zero at 50 µL/L and rises faster. A likelihood profile of the location shows how little the
+data say about it. We calculate it with `TMB::tmbprofile()` for both data sets, limiting the
+range of the location with the argument `parm.range` (the profile of the reduced data would
+otherwise continue to enormous negative values), and the interval of the full data with
+`confint()`:
+
+```{r}
+#| warning: false
+# Likelihood profiles of the location for all the data and for the high concentrations.
+# ytol = 6 continues each profile to 6 units below its start, within parm.range; the
+# smaller ystep gives more points on the flat profile. confint() warns that it collapses
+# repeated values, as in Chapter 6.
+pooled_profile_c0 = TMB::tmbprofile(
+  pooled_obj, name = "c0", parm.range = c(-1000, 260), ytol = 6, trace = FALSE
+)
+high_profile_c0 = TMB::tmbprofile(
+  high_obj, name = "c0", parm.range = c(-1000, 260), ytol = 6, ystep = 0.01,
+  trace = FALSE
+)
+confint(pooled_profile_c0)
+```
+
+```{r}
+#| include: false
+# Check of the statements below: the profile of the high concentrations stays within 0.4
+# units of its highest value between -1000 and 245 µL/L, and its highest value lies at the
+# left end of the range.
+high_relative = -high_profile_c0$value - max(-high_profile_c0$value)
+stopifnot(
+  all(high_relative[high_profile_c0$c0 <= 245] > -0.4),
+  high_profile_c0$c0[which.max(high_relative)] < -500
 )
 ```
 
-The objective must return a finite penalty for proposals outside the intended
-domain because SANN does not apply `lower` and `upper` bounds. In R, SANN's
-`maxit` is its number of function evaluations and its reported convergence code
-does not demonstrate stability. Set a seed for reproducibility and compare
-multiple runs.
-
-# Differential evolution with DEoptim
-
-Differential evolution maintains a population of real-valued parameter vectors.
-One common mutation rule creates
-
-$$
-\mathbf v_i=
-\mathbf x_{r_0}+F(\mathbf x_{r_1}-\mathbf x_{r_2}),
-$$
-
-from three distinct population members. Crossover combines the mutant with the
-current member, and selection retains the candidate with the lower objective.
-Population differences therefore determine both direction and step size.
-
-`DEoptim::DEoptim()` minimises a scalar objective between supplied bounds. Its
-main controls here are population size `NP`, differential weight `F`, crossover
-probability `CR`, and generation limit `itermax`. `DEoptim` is an add-on R
-package, so install it before working through this example.
-
-```r
-# Define the scientifically defensible region for every population member.
-lower = c(cut = 10, log_low = log(0.2), log_high = log(0.2))
-upper = c(cut = 90, log_low = log(30), log_high = log(30))
-
-# Set a seed, then evolve a population within those bounds.
-set.seed(seed = 904)
-de_fit = DEoptim::DEoptim(
-  fn = threshold_nll,
-  lower = lower, upper = upper,
-  x = threshold_x, y = threshold_y,
-  control = DEoptim::DEoptim.control(
-    NP = 60, F = 0.8, CR = 0.9, itermax = 120,
-    trace = FALSE
+```{r}
+#| echo: false
+#| label: fig-c0_profiles
+#| fig-cap: "Likelihood profiles of the location c of the complete-pooling CO₂ model, fitted to all 84 measurements and to the 60 measurements at 250 µL/L and above. Each profile is drawn relative to its highest value in the range shown. The dashed line is the cutoff of 1.92 below the maximum for a 95% interval."
+profile_c0_data = rbind(
+  data.frame(
+    c0 = pooled_profile_c0$c0,
+    relative = -pooled_profile_c0$value - max(-pooled_profile_c0$value),
+    data = "All 84 measurements"
+  ),
+  data.frame(
+    c0 = high_profile_c0$c0,
+    relative = high_relative,
+    data = "60 measurements at 250 µL/L and above"
   )
 )
-
-de_fit$optim$bestmem
-de_fit$optim$bestval
-de_fit$optim$nfeval
-de_fit$member$bestvalit
+profile_c0_data$data = factor(profile_c0_data$data, levels = unique(profile_c0_data$data))
+ggplot(profile_c0_data, aes(x = c0, y = relative, linetype = data)) +
+  geom_hline(yintercept = -1.92, linetype = "dashed", colour = "grey40") +
+  geom_line(colour = "#D55E00", linewidth = 0.8) +
+  coord_cartesian(xlim = c(-1000, 260), ylim = c(-6, 0.3)) +
+  labs(
+    x = "Location, c (µL/L)",
+    y = "Relative profile log-likelihood",
+    linetype = NULL
+  ) +
+  theme_classic() +
+  theme(legend.position = "top", legend.direction = "vertical")
 ```
 
-The bounds define the search region and must be scientifically defensible.
-Differential evolution needs no derivative and can cross irregular regions, but
-it repeatedly evaluates the objective. Keep the function efficient and ensure
-it returns one finite scalar throughout the expected search region. Results can
-vary across seeds, and the label *global search* does not prove that a global
-minimum was found.
+With all 84 measurements the profile has a clear maximum, and the 95% interval of the
+location runs from $-26.6$ to 75.0 µL/L (@fig-c0_profiles). Without the low concentrations
+the profile stays within 0.4 units of its highest value over the whole range from $-1000$ to
+245 µL/L, far less than the cutoff of 1.92, so the 95% interval contains all these values and
+has no lower end: the data cannot tell us at which concentration the uptake reaches zero.
+The profile even rises slightly towards very negative values, so BFGS did not stop at the
+maximum either, but a difference of a few tenths of a unit in the log-likelihood is far below
+what the data can distinguish, and a location far below zero has no meaning for the plants.
+The remedy is a design with measurements at low concentrations, which the full data set has;
+with the reduced data we would report that the location is not determined. The ridge of
+@sec-wrong-place is a different case: with all 84 measurements the location is determined,
+and the ridge leads towards the constant curve, whose NLL is 22.4 units above the minimum. It
+is a direction that the data do not favour, on which a search can stop.
 
-# Genetic algorithms with GA
+## Estimates at a boundary {#sec-boundaries}
 
-A genetic algorithm also evolves a population. **Selection** favours candidates
-with high fitness, **crossover** combines candidates, **mutation** introduces
-variation, and **elitism** retains some of the strongest candidates. Search can
-stop at a generation limit or after a specified run without improvement.
+The maximum of a likelihood, or a point to which an optimiser is drawn, can lie at the
+**boundary** of the range of a parameter: a probability of 0 or 1, or a variance or a
+handling time of zero. On the scale that is optimised, the logarithm of a positive parameter
+or the logit of a probability, the boundary lies at $-\infty$ or $+\infty$. The optimiser
+then walks towards it with ever smaller decreases of the NLL, and stops with code 0 when the
+decreases fall below the tolerance of @sec-stopping. The estimate on the optimised scale is a
+large number that depends on where the search happened to stop, and its standard error
+cannot be calculated, because the NLL is flat out there. Such an estimate is reported as
+being at the boundary (an attack rate of 1, a handling time of 0), or the model is changed.
 
-`GA::ga()` comes from the GA add-on package, which must be installed before you
-run this example.
-
-The sign convention matters:
-
-- `optim()`, `nlminb()`, and `DEoptim::DEoptim()` minimise our negative
-  log-likelihood;
-- `GA::ga()` maximises a fitness value;
-- therefore the fitness must be the negative of the negative log-likelihood.
-
-```r
-threshold_fitness = function(par, x, y) {
-  # Convert the objective to a fitness because GA maximises.
-  -threshold_nll(par = par, x = x, y = y)
-}
-
-# Set a seed, then search with real-valued candidate parameter vectors.
-set.seed(seed = 905)
-ga_fit = GA::ga(
-  type = "real-valued", fitness = threshold_fitness,
-  lower = lower, upper = upper,
-  x = threshold_x, y = threshold_y,
-  popSize = 60, maxiter = 150, run = 40,
-  pcrossover = 0.8, pmutation = 0.1,
-  monitor = FALSE
-)
-
-ga_candidate = as.numeric(ga_fit@solution[1, ])
-ga_nll = -ga_fit@fitnessValue
-ga_fit@summary
-```
-
-The package also supports binary and permutation encodings, but this chapter
-uses only real-valued parameter vectors. `optim = TRUE` requests a hybrid
-genetic algorithm that launches local searches from promising solutions. We
-will keep the global and local calls separate below so their objective values
-can be compared directly.
+The reed frog searches of @fig-search_paths are stored in `frog_fits`, a list with the three
+results of `optim()`. Their estimates on both scales, and the check of the Hessian:
 
 ```{r}
-#| echo: false
-#| eval: true
-#| fig-cap: "Progress of differential evolution and a real-valued genetic algorithm on the same simulated threshold likelihood. GA fitness is negated here to show both traces as negative log-likelihoods."
-# Define and simulate the threshold example used by both population methods.
-threshold_nll = function(par, x, y) {
-  cut = par[1]
-  low = exp(par[2])
-  high = exp(par[3])
-  if (!is.finite(cut) || !is.finite(low) || !is.finite(high) ||
-      cut < 10 || cut > 90 || low <= 0 || high <= 0) {
-    return(1e10)
-  }
-  mu = ifelse(x < cut, low, high)
-  value = -sum(dpois(x = y, lambda = mu, log = TRUE))
-  if (is.finite(value)) value else 1e10
+# NLL, convergence code, estimates on the optimised and original scales, and the check of
+# the Hessian, for the three searches of the figure of the reed frog surface.
+frog_table = NULL
+for (start_name in names(frog_fits)) {
+  fit = frog_fits[[start_name]]
+  frog_table = rbind(
+    frog_table,
+    data.frame(
+      convergence = fit$convergence,
+      nll = fit$value,
+      logit_alpha = fit$par[["logit_alpha"]],
+      log_H = fit$par[["log_H"]],
+      alpha = plogis(fit$par[["logit_alpha"]]),
+      H = exp(fit$par[["log_H"]]),
+      pd_hess = sdreport(binomial_obj, par.fixed = fit$par)$pdHess,
+      row.names = start_name
+    )
+  )
 }
-set.seed(seed = 902)
-threshold_x = seq(0, 100, length.out = 60)
-threshold_mu = ifelse(threshold_x < 55, 3, 12)
-threshold_y = rpois(n = length(threshold_x), lambda = threshold_mu)
-lower = c(cut = 10, log_low = log(0.2), log_high = log(0.2))
-upper = c(cut = 90, log_low = log(30), log_high = log(30))
-# Run differential evolution and calculate GA fitness from the same objective.
-set.seed(seed = 904)
-de_fit = DEoptim::DEoptim(fn = threshold_nll, lower = lower, upper = upper,
-  x = threshold_x, y = threshold_y,
-  control = DEoptim::DEoptim.control(NP = 60, F = 0.8, CR = 0.9,
-    itermax = 120, trace = FALSE))
-threshold_fitness = function(par, x, y) {
-  -threshold_nll(par = par, x = x, y = y)
-}
-set.seed(seed = 905)
-ga_fit = GA::ga(type = "real-valued", fitness = threshold_fitness,
-  lower = lower, upper = upper, x = threshold_x, y = threshold_y,
-  popSize = 60, maxiter = 150, run = 40,
-  pcrossover = 0.8, pmutation = 0.1, monitor = FALSE)
-# Plot both progress traces as negative log-likelihoods.
-plot(seq_along(de_fit$member$bestvalit), de_fit$member$bestvalit,
-     type = "l", lwd = 2, col = "#0072B2",
-     xlab = "Generation", ylab = "Best negative log-likelihood",
-     ylim = range(c(de_fit$member$bestvalit, -ga_fit@summary[, "max"])))
-lines(seq_len(nrow(ga_fit@summary)), -ga_fit@summary[, "max"],
-      lty = 2, lwd = 2, col = "#D55E00")
-legend("topright", c("DEoptim", "GA"), lty = c(1, 2), lwd = 2,
-       col = c("#0072B2", "#D55E00"), bty = "n")
+print(frog_table, digits = 4)
 ```
 
-# Hybrid global and local optimisation
+The search from a small attack rate stopped with $\operatorname{logit}(\alpha)$ at about 204,
+which is an attack rate of 1 to the precision of the computer, and the search from the third
+start with $\log(H)$ at about $-16$, a handling time of $9\times10^{-8}$ (in units of the
+length of the experiment per tadpole killed), practically zero. Both report code 0, and
+neither passes the check of the Hessian. Neither is the maximum, because the NLL at the
+maximum is lower (46.72 against 59.77 and 52.22): these are boundaries towards which the
+searches were drawn from poor starting values, and multiple starts would reveal them as
+failures.
 
-Global and local methods are complementary. A useful workflow is:
+A boundary can also be where the maximum lies. A variance among groups whose maximum
+likelihood estimate is zero is the common case in grouped models: it happens when the groups
+differ less than the variation within groups would make them differ by chance. On the scale
+of the log standard deviation the maximum then lies at $-\infty$, and BFGS stops on its way
+there with code 0. The estimate is reported as zero, which means that the model reduces to
+complete pooling, and the likelihood profile of the standard deviation
+([Chapter 7](../Chapter_7/Theory.qmd#sec-grouped-uncertainty)) shows which values the data
+allow. A fit that stops at a practically zero variance can also be a failure, with the
+maximum at a positive variance; the [practical of Chapter 7](../Chapter_7/Practicals/solution.qmd)
+met such fits, and the [practical of this chapter](Practicals/solution.qmd) tells the two
+cases apart.
 
-1. Define and test one negative log-likelihood and its ecological domain.
-2. Explore broadly with multiple starts or a population method.
-3. Pass the strongest candidate to BFGS, L-BFGS-B, or `nlminb()`.
-4. Inspect the refined objective, gradient, convergence information, and nearby
-   surface.
-5. Compare results across algorithms and stochastic seeds.
-6. Transform estimates back to ecological units and check the fitted model.
+Some optimisers accept **bounds** on the parameters: `optim(method = "L-BFGS-B")` and
+`nlminb()` take the arguments `lower` and `upper` on the scale of the parameters, so that a
+search can reach a boundary exactly instead of walking towards infinity. This book keeps the
+transformations of [Chapter 4](../Chapter_4/Theory.qmd#sec-constraints) instead, because
+then every value on the optimised scale is allowed, and the standard errors, likelihood
+profiles and `ADREPORT()` all work on a scale without edges. An estimate at a boundary is
+recognised, as above, by a parameter that runs towards $\pm\infty$ on the optimised scale.
 
-::: {.callout-note title="Example: a converged fit that missed the maximum"}
-In Exercise 5 of the [Chapter 7 practical](../Chapter_7/Practicals/solution.qmd), a few REML
-fits of a Normal model with a random intercept for each site stopped at a variance among
-sites that was practically zero, with a convergence code of zero, although the maximum of
-the likelihood lay at a small positive variance. Fitting each of these samples again from
-several random starting values, and keeping the fit with the lowest negative
-log-likelihood, found the maximum in every one of them. A convergence code says that the
-optimiser stopped, not that it found the maximum, which is why step 2 of the workflow
-explores from several starting points.
+:::: {#imp-seed-predation .callout-important title="identifiability of seed predation"}
+
+Rodents are offered trays with 5 to 40 seeds for one night, and the number of seeds removed
+from each tray is counted. Two colleagues propose models for the expected number removed,
+with a Poisson distribution of the counts:
+
+1. $\lambda = a\,p\,x$, where $x$ is the number of seeds in the tray, $a$ the proportion of
+   seeds that rodents find in one night and $p$ the probability that a seed that is found is
+   removed;
+2. the Michaelis–Menten function $\lambda = ax/(b+x)$, where earlier studies suggest that
+   the half-maximum $b$ is about 500 seeds per tray.
+
+For each model, which parameters can the data determine, which symptoms would a fit show,
+and what would you change?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+In the first model $a$ and $p$ enter the mean only through their product $ap$, the
+proportion of the seeds that are removed. Any pair with the same product gives the same
+distribution of the counts, so the model is structurally non-identifiable. A fit would reach
+the same NLL from different starting values with different estimates of $a$ and $p$, with
+`NaN` standard errors and, usually, the warning that the Hessian is not positive definite.
+The remedy is to estimate the product as one parameter, or to add data that measure one of
+the two separately (for example, observations of how many of the seeds that rodents find
+they remove).
+
+In the second model both parameters are identifiable in principle, but all the trays have
+far fewer seeds than the half-maximum, where the curve is practically the straight line
+$(a/b)\,x$. The data determine the initial slope $a/b$, and not $a$ and $b$ separately: the
+model is practically non-identifiable. A fit would show very large standard errors, a
+correlation of the estimates of $\log(a)$ and $\log(b)$ close to 1, flat likelihood profiles,
+or a search that runs along the ridge towards the straight line, as fit C of
+@imp-parasitoid-fits. The remedy is a design with trays around and above 500 seeds, or the
+linear model with the slope $a/b$ as its only parameter of the curve.
+
+:::
+::::
+
+# Scaling and parameterisation {#sec-scaling}
+
+The same model can be easy or difficult to fit depending on how its parameters are written.
+Two properties matter. **Scaling** is about the magnitudes of the parameters on the
+optimised scale. **Parameterisation** is about the shape of the surface: the same model
+written with other parameters has a surface of another shape, round in some
+parameterisations and a narrow, tilted valley in others. Neither changes the maximum or the
+fitted model, by invariance ([Chapter 4](../Chapter_4/Theory.qmd#sec-constraints)), but both
+change the path of the search.
+
+## Scaling
+
+An optimiser works best when a change of about one unit in each parameter changes the NLL by
+similar amounts. Its steps must suit every parameter at once, and the first step of BFGS goes
+along the negative gradient, with the same step length for all of them; a step that is right
+for an asymptote of 30 is far too large for a rate of 0.01. There are three remedies. The
+first is a transformation: on the log scale a change of one unit multiplies a parameter by
+$e$, whatever its size, so a rate of 0.01 and an asymptote of 30 become $-4.6$ and $3.4$. The
+second is the choice of units for the data and for untransformed parameters. The units also
+set the size of the NLL, which matters for the relative tolerance of @sec-stopping; the
+penguin masses in grams of the [practical of Chapter 4](../Chapter_4/Practicals/solution.qmd)
+are an example, which the practical of this chapter takes up again. The third is the control
+argument `parscale` of `optim()`, which gives the typical size of each parameter:
+`optim()` then searches over the parameters divided by these sizes, so that every parameter
+it works with is of about one unit.
+
+For the CO₂ model, we write the NLL with the rate on its original scale, as `rate`, and fit
+it from the starting values of Chapter 7:
+
+```{r}
+# The NLL with complete pooling, with the rate (L/µL) on its original scale.
+rate_nll = function(parms, data) {
+  getAll(parms, data)
+  a = exp(log_asym)
+  sd_obs = exp(log_sd_obs)
+  mu = a * (1 - exp(-rate * (conc - c0)))
+  -sum(dnorm(x = uptake, mean = mu, sd = sd_obs, log = TRUE))
+}
+
+# Process it with the starting values of Chapter 7, and fit it.
+rate_obj = MakeADFun(
+  cmb(rate_nll, co2_data),
+  list(log_asym = log(30), rate = 0.01, c0 = 50, log_sd_obs = log(2)),
+  silent = TRUE
+)
+rate_fit = optim(par = rate_obj$par, fn = rate_obj$fn, gr = rate_obj$gr, method = "BFGS")
+c(convergence = rate_fit$convergence, nll = rate_fit$value, rate = rate_fit$par[["rate"]])
+```
+
+The search ends on the ridge of the constant curve, with code 0, an NLL of 318.68 and a rate
+of 1.27 L/µL, far out on the plateau of @fig-ridge_slice. The gradients at the starting
+values show why:
+
+```{r}
+# Gradient at the starting values with the rate (second element) and with the log rate.
+rbind(rate = rate_obj$gr(rate_obj$par), log_rate = pooled_obj$gr(pooled_obj$par))
+```
+
+The other three elements are the same, but the element for the rate is 100 times that for
+the log rate. By the chain rule, the derivative with respect to $\log(b)$ is $b$ times the
+derivative with respect to $b$, and $b=0.01$ L/µL. So the first step changes the rate far
+more, relative to its size, than the log rate would change, and it takes the rate onto the
+plateau, from which nothing leads back. With `parscale`, the rate is measured in units of
+0.01 L/µL and the location in units of 10 µL/L:
+
+```{r}
+# The same fit, with the typical size of each parameter given to optim().
+rate_scaled_fit = optim(
+  par = rate_obj$par,
+  fn = rate_obj$fn,
+  gr = rate_obj$gr,
+  method = "BFGS",
+  control = list(parscale = c(1, 0.01, 10, 1))
+)
+c(convergence = rate_scaled_fit$convergence, nll = rate_scaled_fit$value)
+```
+
+Now BFGS reaches the minimum of 296.26, as it does with the log rate of Chapter 7. A
+transformation is the usual remedy in this book, because it also deals with the constraint
+that the rate is positive; `parscale` is the tool for a parameter that cannot be
+transformed, such as the location $c$, whose scale is set by its units.
+
+## Parameterisation
+
+A parameterisation changes the shape of the surface and, with it, the correlation of the
+estimates ([Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood-surface)). Strongly
+correlated estimates mean a narrow valley that is tilted with respect to the axes of the
+parameters, along which the NLL changes slowly and across which it changes fast. Such a
+valley is harder to search, because the steepest direction points across it, and the
+approximation of the curvature that BFGS builds must learn its tilt before the steps can
+follow it. This is one reason why the course writes distributions with their mean where
+possible (Chapter 4): the data usually determine the mean well, and its estimate is often
+nearly uncorrelated with those of the other parameters.
+
+For the owl calls of [Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood-surface), the
+Negative Binomial model can be written with the mean $\mu$ and the shape $k$, or with the
+shape and the probability $p$ (`size` and `prob` of `dnbinom()`). We set up the data and the
+two NLLs as in Chapter 4:
+
+```{r}
+# Calls at the visits of the female parent to nests with satiated nestlings (Chapter 4).
+data(Owls, package = "glmmTMB")
+satiated_female = Owls[Owls$FoodTreatment == "Satiated" & Owls$SexParent == "Female", ]
+call_counts = satiated_female$SiblingNegotiation
+
+# Method-of-moments estimates, used as starting values in Chapter 4.
+mu_mom = mean(call_counts)
+var_mom = mean((call_counts - mu_mom)^2)
+k_mom = mu_mom^2 / (var_mom - mu_mom)
+
+# Negative Binomial NLLs with the mean and the shape, and with the shape and probability.
+nb_nll = function(parms, data) {
+  getAll(parms, data)
+  mu = exp(log_mu)
+  k = exp(log_k)
+  -sum(dnbinom2(x = calls, mu = mu, size = k, log = TRUE))
+}
+nb_prob_nll = function(parms, data) {
+  getAll(parms, data)
+  k = exp(log_k)
+  p = plogis(logit_p)
+  -sum(dnbinom(x = calls, size = k, prob = p, log = TRUE))
+}
+```
+
+We fit both from the method-of-moments estimates, and compare the minimum, the number of
+evaluations of `fn` and `gr` and the correlation of the estimates:
+
+```{r}
+# Fit both parameterisations from the same starting values.
+owl_obj = MakeADFun(
+  cmb(nb_nll, list(calls = call_counts)),
+  list(log_mu = log(mu_mom), log_k = log(k_mom)),
+  silent = TRUE
+)
+owl_fit = optim(par = owl_obj$par, fn = owl_obj$fn, gr = owl_obj$gr, method = "BFGS")
+owl_prob_obj = MakeADFun(
+  cmb(nb_prob_nll, list(calls = call_counts)),
+  list(log_k = log(k_mom), logit_p = qlogis(k_mom / (k_mom + mu_mom))),
+  silent = TRUE
+)
+owl_prob_fit = optim(
+  par = owl_prob_obj$par,
+  fn = owl_prob_obj$fn,
+  gr = owl_prob_obj$gr,
+  method = "BFGS"
+)
+
+# Minimum, evaluations of fn and gr, and the correlation of the two estimates.
+rbind(
+  mu_k = c(nll = owl_fit$value, owl_fit$counts,
+           correlation = cov2cor(sdreport(owl_obj)$cov.fixed)[1, 2]),
+  k_p = c(nll = owl_prob_fit$value, owl_prob_fit$counts,
+          correlation = cov2cor(sdreport(owl_prob_obj)$cov.fixed)[1, 2])
+)
+```
+
+Both fits reach the same minimum, as invariance requires, and the correlation is
+practically zero with $\mu$ and $k$ and 0.71 with $k$ and $p$. Here the tilt does not hurt
+BFGS, which needs a similar number of evaluations in both cases. A correlation of 0.71 is a
+mild tilt; a narrower valley can stop the search early. The reed frog model of
+[Chapter 6](../Chapter_6/Theory.qmd#sec-curve-uncertainty) has a correlation of 0.82 with
+$\operatorname{logit}(\alpha)$ and $\log(H)$, and of 0.98 in the Michaelis–Menten form with
+$\log(a)$ and $\log(b)$, and the Gamma model of the penguin masses, with a correlation of
+0.996 between the estimates of the log shape and the log rate, is the case that the practical
+of this chapter examines. The remedy is a parameterisation in which the estimates are less
+correlated, often the one with the mean.
+
+:::: {#imp-fish-scaling .callout-important title="scaling a growth curve"}
+
+The length of a fish (mm) is described as a function of its age $x$ in days by the saturating
+exponential $a\left(1-e^{-b(x-c)}\right)$, with a Normal distribution of the lengths around
+the curve. From a plot of the data, a colleague reads starting values of $a=600$ mm,
+$b=0.0005$/day, $c=-100$ days and a standard deviation of 20 mm. The asymptote, the rate and
+the standard deviation are optimised on the log scale, and the location $c$ untransformed.
+Calculate the starting values on the optimised scale. Which parameter is poorly scaled, and
+what change of units would bring all four to comparable scales? Does a change of the units
+of length help?
+
+::: {.callout-tip title="Solution" collapse="true"}
+
+On the optimised scale, with age in days and then in years (the rate is multiplied by 365
+and the location divided by 365):
+
+```{r}
+# Starting values on the optimised scale with age in days, and with age in years.
+c(log_a = log(600), log_b = log(0.0005), c = -100, log_sd = log(20))
+c(log_a = log(600), log_b = log(0.0005 * 365), c = -100 / 365, log_sd = log(20))
+```
+
+With age in days the location is $-100$, while the other three lie between $-8$ and 7; a
+step of one unit is a change of one day in $c$, which hardly changes the curve, but a factor
+of $e$ in $a$, $b$ or $\sigma$. With age in years the location is $-0.27$ and all four values
+are of comparable size. The units of length do not help: a log-transformed parameter only
+shifts by a constant when its units change (by $\log(10)$ from millimetres to centimetres), so
+its scale stays the same. They change only the size of the NLL.
+
+:::
+::::
+
+# Other optimisers and global search {#sec-other-optimisers}
+
+BFGS with the gradient of RTMB is the method of this book, and the remedies of the previous
+sections usually make it work. When it keeps failing, another optimiser is the next tool.
+Every optimiser below takes `fn` of the same object of `MakeADFun()`, and `gr` if it uses a
+gradient, so the NLL does not change.
+
+## Other local optimisers
+
+The function `nlminb()` calls the optimisers of the PORT library (see `?nlminb`). Like BFGS,
+it uses the gradient and an approximation of the curvature (or the Hessian itself, if it is
+given), but it controls its steps differently: it trusts the local parabola only within a
+certain distance of the current point, and adjusts that distance as the search goes. It is
+the optimiser of the examples in the documentation of RTMB and TMB, and glmmTMB, which the
+[supplement on formula-based methods](../Supplements/canned.qmd) introduces, uses it by
+default. Its
+arguments are:
+
+- `start`, the starting values (`obj$par`);
+- `objective`, the NLL (`obj$fn`);
+- `gradient`, its gradient (`obj$gr`).
+
+It returns a list whose elements correspond to those of `optim()`, with other names:
+
+- `par`, the estimates;
+- `objective`, the minimum of the NLL;
+- `convergence`, 0 when the search stopped normally;
+- `message`, the reason why it stopped;
+- `evaluations`, the numbers of evaluations of the NLL and of the gradient.
+
+From the three starting values of @sec-wrong-place at which BFGS stopped in the wrong
+place:
+
+```{r}
+# nlminb() from the three other sets of starting values of the CO2 model.
+nlminb_table = NULL
+for (start_name in rownames(other_starts)) {
+  s = other_starts[start_name, ]
+  start = c(
+    log_asym = log(s[["a"]]),
+    log_rate = log(s[["b"]]),
+    c0 = s[["c"]],
+    log_sd_obs = log(s[["sd_obs"]])
+  )
+  fit = nlminb(start = start, objective = pooled_obj$fn, gradient = pooled_obj$gr)
+  nlminb_table = rbind(
+    nlminb_table,
+    data.frame(
+      convergence = fit$convergence,
+      nll = fit$objective,
+      fn_evaluations = fit$evaluations[["function"]],
+      message = fit$message,
+      row.names = start_name
+    )
+  )
+}
+nlminb_table
+```
+
+`nlminb()` reaches the minimum of 296.2557 from all three: a search that controls its steps
+differently avoids the ridge, the curve at zero and the early plateau from these starts.
+
+The **Nelder–Mead** method, `optim(method = "Nelder-Mead")`, which is the default of
+`optim()`, uses no gradient at all. With $p$ parameters it keeps a **simplex** of $p+1$
+points (a triangle for two parameters) and the NLL at each of them. At each step it replaces
+the worst point by its reflection through the centre of the others; if the reflected point is
+much better it tries a point further out (an expansion), and if it is worse it tries one
+closer in (a contraction); when nothing helps, the whole simplex shrinks towards its best
+point. The search stops when the values of the NLL at the points of the simplex agree within
+the relative tolerance `reltol`. Because it needs no gradient, it suits an NLL that cannot be
+differentiated, but it needs many evaluations, and it stops less precisely than a gradient
+method. In one dimension `optim()` warns that Nelder–Mead is unreliable and recommends
+`optimize()`, which we use below.
+
+**Comparing optimisers fairly** means giving them the same NLL and the same starting values,
+comparing the minimum of the NLL that each reaches and not only the estimates, and counting
+the evaluations. Even then, one model is not a ranking: another model, or another set of
+starting values, can reverse the order. For the CO₂ model we fit `nlminb()` and Nelder–Mead
+from the 50 random starting values of @sec-multistart, drawn again with the same seed in the
+same order, and count the fits that end within 0.01 and within 2 units of the lowest NLL:
+
+```{r}
+#| warning: false
+# The 50 starting values of the multiple starts, drawn again with the same seed, fitted with
+# nlminb() and with Nelder-Mead. nlminb() warns when the NLL is NaN at a trial point.
+other_results = data.frame(bfgs = multi_results$nll, nlminb = NA, nelder_mead = NA)
+set.seed(801)
+for (i in 1:n_starts) {
+  start = runif(4, min = start_lower, max = start_upper)
+  names(start) = names(pooled_obj$par)
+  other_results$nlminb[i] =
+    nlminb(start = start, objective = pooled_obj$fn, gradient = pooled_obj$gr)$objective
+  other_results$nelder_mead[i] =
+    optim(par = start, fn = pooled_obj$fn, method = "Nelder-Mead")$value
+}
+
+# Number of fits that end close to the lowest NLL, for each optimiser.
+best_nll = min(other_results)
+rbind(
+  within_0.01 = colSums(other_results < best_nll + 0.01),
+  within_2 = colSums(other_results < best_nll + 2)
+)
+```
+
+```{r}
+#| include: false
+# Check of the statements below.
+stopifnot(
+  sum(other_results$bfgs < best_nll + 0.01) == 17,
+  sum(other_results$nlminb < best_nll + 0.01) == 42,
+  all(round(other_results$nlminb[other_results$nlminb > best_nll + 0.01], 1) == 318.7)
+)
+```
+
+In this example `nlminb()` reaches the minimum from 42 of the 50 starts and stops at the
+ridge from the other 8, against 17 starts for BFGS. Nelder–Mead ends close to the minimum
+from many starts but reaches it exactly from fewer: it stops when the points of its simplex
+have similar values, which can happen a few tenths of a unit above the minimum (three of the
+50 fits also stopped at its limit of 500 iterations, with code 1). Each of
+these fits would be recognised in a diagnosis, and a restart of BFGS from the best of them
+would end at the minimum.
+
+## One parameter in an interval
+
+For a single parameter, `optimize()` searches an interval that we give it. It combines
+**golden-section search**, which shrinks the interval around the minimum by a fixed fraction
+at each step, with parabolic interpolation through three points, which jumps to the minimum
+of the parabola when the NLL is smooth. It needs no gradient and no starting value, only the
+interval. Its arguments are `f`, the NLL as a function of one number, and `interval`, the
+lower and upper ends of the search; it returns `minimum`, the estimate, and `objective`, the
+minimum of the NLL. For the fir seedlings of
+[Chapter 4](../Chapter_4/Theory.qmd#sec-constraints), with the Poisson NLL on the log
+scale:
+
+```{r}
+# Counts of balsam fir seedlings in 50 quadrats and the Poisson NLL of Chapter 4.
+data(fir, package = "boot")
+seedling_counts = fir$count
+poisson_nll = function(parms, data) {
+  getAll(parms, data)
+  lambda = exp(log_lambda)
+  -sum(dpois(x = counts, lambda = lambda, log = TRUE))
+}
+fir_obj = MakeADFun(
+  cmb(poisson_nll, list(counts = seedling_counts)),
+  list(log_lambda = log(1)),
+  silent = TRUE
+)
+
+# Search log(lambda) between -3 and 3 (0.05 to 20 seedlings per quadrat).
+fir_fit = optimize(f = fir_obj$fn, interval = c(-3, 3))
+c(lambda = exp(fir_fit$minimum), nll = fir_fit$objective, mean = mean(seedling_counts))
+```
+
+The estimate is 2.14 seedlings per quadrat, the mean of the counts, as Chapter 4 showed for
+the Poisson model, and the search needed no starting value.
+
+## Global search {#sec-global}
+
+Every method so far is **local**: it follows one path from its starting values. A
+**global** method explores a whole box of parameter values instead. **Differential
+evolution** keeps a **population** of parameter vectors, drawn at random within the box,
+and improves it over many **generations**. In each generation, every member of the
+population gets a challenger. The challenger is made by adding a scaled difference of two
+other members to a third member (**mutation**), and by taking each of its parameters either
+from this mutant or from the current member (**crossover**). The challenger replaces the
+member if its NLL is lower (**selection**). Differences between members are large while the
+population is spread over the box and shrink as it gathers around a minimum, so the steps
+adapt to the surface without a gradient.^[Storn, R. and Price, K. (1997), "Differential
+evolution: a simple and efficient heuristic for global optimization over continuous
+spaces", *Journal of Global Optimization* 11: 341–359. The package DEoptim is described by
+Mullen, K. M., Ardia, D., Gil, D. L., Windover, D. and Cline, J. (2011), "DEoptim: an R
+package for global optimization by differential evolution", *Journal of Statistical
+Software* 40(6): 1–26.] It needs a box, thousands of evaluations and a seed. It can find a
+minimum that local searches miss, but it proves nothing: the population can gather around a
+local minimum as well, and it approaches the minimum it finds only slowly. Other global
+methods, such as simulated annealing and genetic algorithms, work on similar principles; we
+do not use them.
+
+::: {.callout-caution collapse="true" icon=false title="Technical detail: differential evolution"}
+Let $\mathbf x_1,\ldots,\mathbf x_{NP}$ be the $NP$ members of the population, each a vector
+of the $p$ parameters. In the classical scheme, the mutant for member $i$ is
+
+$$
+\mathbf v_i=\mathbf x_{r_0}+F\left(\mathbf x_{r_1}-\mathbf x_{r_2}\right),
+$$
+
+where $r_0$, $r_1$ and $r_2$ are three other members chosen at random and $F$ is a weight,
+usually between 0 and 1. In the crossover, each element of the challenger is taken from
+$\mathbf v_i$ with probability $CR$ and from $\mathbf x_i$ otherwise (with at least one
+element from $\mathbf v_i$). The challenger replaces $\mathbf x_i$ if its NLL is not higher.
+`DEoptim()` uses $F=0.8$ and $CR=0.5$ by default, and its default strategy also moves each
+mutant part of the way from the current member towards the best member of the population.
+Elements that fall outside the box are brought back inside it. With $NP$ members and $G$
+generations, the search evaluates the NLL $NP\times(G+1)$ times. In plain English, the
+population learns the scale and direction of useful steps from the differences between its
+own members.
 :::
 
-```r
-# Refine each population candidate with the same bounded local method.
-refined_de = optim(
-  par = de_fit$optim$bestmem,
-  fn = threshold_nll,
-  x = threshold_x, y = threshold_y,
-  method = "L-BFGS-B", lower = lower, upper = upper
-)
+`DEoptim::DEoptim()` (we call it with the prefix, without attaching the package) takes:
 
-refined_ga = optim(
-  par = ga_candidate,
-  fn = threshold_nll,
-  x = threshold_x, y = threshold_y,
-  method = "L-BFGS-B", lower = lower, upper = upper
-)
+- `fn`, the NLL (`obj$fn`);
+- `lower` and `upper`, the box on the optimised scale, which the method needs;
+- `control`, made with `DEoptim::DEoptim.control()`, with the size of the population `NP`,
+  the number of generations `itermax` and `trace = FALSE` to stop it printing its progress.
 
-c(de_before = de_fit$optim$bestval,
-  de_after = refined_de$value,
-  ga_before = ga_nll,
-  ga_after = refined_ga$value)
+The elements of its result that we use are in its element `optim`:
+
+- `bestmem`, the best member of the final population;
+- `bestval`, its NLL;
+- `nfeval`, the number of evaluations of the NLL.
+
+For the CO₂ model we use the box of @sec-multistart, 40 members and 200 generations, with a
+seed:
+
+```{r}
+# Differential evolution within the box of the multiple starts.
+set.seed(802)
+pooled_de = DEoptim::DEoptim(
+  fn = pooled_obj$fn,
+  lower = start_lower,
+  upper = start_upper,
+  control = DEoptim::DEoptim.control(NP = 40, itermax = 200, trace = FALSE)
+)
+c(nll = pooled_de$optim$bestval, evaluations = pooled_de$optim$nfeval)
 ```
 
-For the stated seeds, both population methods reach a threshold plateau near
-55 and a negative log-likelihood of approximately 145.565. Local refinement
-does not worsen that value and refines the two mean parameters. The exact
-threshold within a plateau is not identified by these data. Agreement across
-methods is reassuring, but it is not a proof of global optimality or model
-adequacy.
+The best member reaches the minimum of 296.26, after 8,040 evaluations of the NLL, against
+about 100 for one fit with BFGS from good starting values. **Global, then local**: a global
+search finds the region of the minimum, and a local search finds the minimum precisely and
+starts the diagnosis. We start BFGS from the best member (whose elements `DEoptim()` names
+`par1` to `par4`, so we give them the names of `pooled_obj$par`):
 
-# Comparing methods fairly
+```{r}
+# Refine the best member with BFGS.
+de_start = pooled_de$optim$bestmem
+names(de_start) = names(pooled_obj$par)
+pooled_de_fit = optim(par = de_start, fn = pooled_obj$fn, gr = pooled_obj$gr, method = "BFGS")
+c(convergence = pooled_de_fit$convergence, nll = pooled_de_fit$value)
+sdreport(pooled_obj, par.fixed = pooled_de_fit$par)$pdHess
+```
 
-| Method | Exploration | Derivatives | Bounds | Reproducibility | Typical strength | Important limitation |
-|---|---|---|---|---|---|---|
-| Grid | Global over the grid | No | Grid range | Deterministic | Reveals low-dimensional geometry | Cost grows rapidly with dimension |
-| Brent / `optimize()` | One-dimensional | No | Required | Deterministic | Efficient bounded scalar search | Only one parameter |
-| BFGS | Local | Gradient; can be numerical | No box bounds | Deterministic | Efficient on smooth, scaled problems | Start and surface matter |
-| Nelder–Mead | Local | No | No box bounds | Deterministic | Works without a gradient | Often slower; can stall |
-| L-BFGS-B | Local | Gradient; can be numerical | Box bounds | Deterministic | Smooth constrained problems | Needs finite values and reliable local geometry |
-| `nlminb()` | Local | Optional gradient and Hessian | Box bounds | Deterministic | Flexible bounded local fitting | Still start-dependent |
-| SANN | Broad stochastic search | No | Must be handled in the objective | Stochastic | Can leave a local basin | Tuning and many evaluations |
-| DEoptim | Population global search | No | Required | Stochastic | Irregular, bounded real problems | Computational cost; no proof of global optimum |
-| GA | Population global search | No | Required here | Stochastic | Flexible population exploration | Fitness sign and tuning require care |
+BFGS confirms the minimum, with a positive definite Hessian, and its estimates agree with
+those of the fit from the starting values of Chapter 7. Here differential evolution found
+the maximum likelihood estimates without any starting values, at the cost of many
+evaluations. For a model with random effects, in which every evaluation contains an inner
+optimisation, that cost grows quickly, and multiple starts of BFGS, or of `nlminb()`, are
+usually cheaper.
 
-Fair comparisons use the same objective definition, comparable parameter
-domains, and either the same parameterisation or an explicit reason for changing
-it. Compare final objective values as well as estimates, record objective and
-derivative evaluations where available, and repeat stochastic searches with
-several seeds. A generation, a simplex iteration, and a BFGS iteration represent
-different amounts of work. Timing comparisons are meaningful only on the same
-machine and implementation and should be interpreted cautiously.
+# A recipe for a difficult fit
 
-# A diagnostic workflow
+The steps of this chapter extend the recipes of
+[Chapter 6](../Chapter_6/Theory.qmd) and [Chapter 7](../Chapter_7/Theory.qmd) at the step of
+the fit:
 
-- Use `optimize()` for a genuinely one-dimensional bounded problem.
-- Use BFGS with reliable derivatives for a smooth, reasonably scaled local
-  problem.
-- Use Nelder–Mead when a gradient is unavailable or mildly unreliable.
-- Use L-BFGS-B or `nlminb()` for box constraints.
-- Use several plausible starts when more than one basin is possible.
-- Consider SANN, DEoptim, or GA when local fits disagree or the objective is
-  strongly irregular or multimodal.
-- Refine a global candidate locally where the objective permits it.
-- Check objective values, convergence messages, gradients, boundaries, and the
-  surrounding surface.
-- Finally, return to the ecological scale and assess the fitted observation
-  model. Numerical convergence is not a model check.
+::: {.callout-note title="A recipe for a difficult fit"}
+1. Check that the NLL returns an ordinary number at the starting values, with
+   `obj$fn(obj$par)`, and that its gradient `obj$gr(obj$par)` has no `NaN`.
+2. Fit with BFGS and the gradient of RTMB, and check the convergence code.
+3. Diagnose the fit: the estimates on the original scale, the gradient at the solution,
+   `sdreport()` (`pdHess` and the standard errors), a refit from the solution, and a slice
+   along a suspicious parameter.
+4. If the fit is in doubt, or the model is known to be difficult, fit it from multiple
+   starting values within a box of plausible values, keep the lowest NLL, check how many fits
+   reach it, and restart BFGS from it.
+5. If a parameter runs along a ridge or to a boundary, decide whether it is identifiable;
+   change the model or the data, or report the parameter as not determined or at the
+   boundary.
+6. If the parameters have very different magnitudes or highly correlated estimates, rescale
+   or reparameterise.
+7. If BFGS still fails, try `nlminb()` with the same object, and, as a last resort, a global
+   search with `DEoptim::DEoptim()`, followed by BFGS from its best member.
+8. Report what was done: the starting values, the failures and how they were treated, and
+   the diagnosis of the final fit.
+:::
 
 # Summary
 
-Optimisation turns a likelihood into a numerical search over allowed parameter
-values. Smooth local methods use objective geometry efficiently, while
-derivative-free and stochastic methods trade additional evaluations for less
-dependence on local derivatives. Transformations, bounds, scaling, starts, and
-stopping rules are part of the analysis, not afterthoughts. Difficult problems
-often benefit from global exploration followed by local refinement. No
-algorithm removes the need to inspect the objective and interpret the fitted
-model ecologically.
+An optimiser searches locally: it knows only the value and the gradient of the NLL at the
+points that it evaluates, and it follows the slope from its starting values. BFGS takes
+steps like those of Newton's method, with an approximation of the curvature built from
+successive gradients, and the exact gradient of RTMB makes it more precise and cheaper than
+the finite differences that `optim()` uses otherwise. Its stopping rule looks at the
+decrease of the NLL relative to its size, so a convergence code of 0 says that the search
+stopped making progress, which happens at a minimum but also on a ridge, near a saddle
+point, at a boundary and on a nearly flat surface.
 
-The discussion of direct search, quasi-Newton ideas, numerical derivatives,
-simplex search, simulated annealing, scaling, discontinuities, and fitting
-challenges draws on Benjamin Bolker's *Optimization and all that* (supplied 2007
-draft, especially Sections 1, 2, and 4). The R interfaces follow the current
-[`optim()` documentation](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/optim.html),
-[`nlminb()` documentation](https://stat.ethz.ch/R-manual/R-devel/library/stats/html/nlminb.html),
-[`DEoptim` reference manual](https://cran.r-project.org/web/packages/DEoptim/refman/DEoptim.html),
-and [GA vignette](https://luca-scr.github.io/GA/articles/GA.html).
+Whether a fit found the maximum is decided by a diagnosis: the estimates on the original
+scale, the gradient, the check of the Hessian in `sdreport()`, a refit and a slice. When the
+end of a search depends on its starting values, multiple starts within a box of plausible
+values show which minima the model has and how often each is reached; their agreement is
+evidence, not proof, that the lowest one is the global minimum.
+
+A parameter that the likelihood cannot determine is not identifiable, either because the
+model contains it only in a combination with others (structural) or because the data contain
+no observations where the curve responds to it (practical). The symptoms are estimates that
+depend on the start, huge or missing standard errors, correlations near $\pm1$ and flat
+profiles; the remedies are a change of the model or of the design. An estimate at a boundary
+lies at $\pm\infty$ on the optimised scale and is reported at the boundary. Poorly scaled or
+strongly correlated parameters make the search harder, and a transformation, a change of
+units or another parameterisation can help. When BFGS keeps failing, `nlminb()` and
+Nelder–Mead search differently, `optimize()` handles a single parameter, and differential
+evolution searches a whole box, followed by BFGS from its best member.
+
+This chapter completes the course's line on estimation: the likelihood of Chapter 4, the
+response curves of Chapter 6 and the marginal likelihood of Chapter 7 all depend on an
+optimiser that finds their maximum. The formula-based tools of the
+[supplement](../Supplements/canned.qmd) rely on the same optimisers (glmmTMB uses
+`nlminb()`), and the same diagnosis applies to their fits.
 
 # Chapter quiz
 
-:::: {.callout-important title="Question 1: local or global?"}
+The questions below follow the order of the chapter. Try each question before opening its
+solution.
 
-Three BFGS fits from plausible starts end at substantially different negative
-log-likelihood values. What should you conclude and do next?
+:::: {.callout-important title="Question 1: two fits of a growth curve"}
+
+A growth curve of trout is fitted with BFGS from two sets of starting values. Both fits
+report convergence code 0, with NLLs of 512.3 and 498.7. Which fit would you report, and
+what can you say about the other?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-The local searches have not established a common solution. Check the objective
-and parameter domains, plot low-dimensional regions where possible, try more
-starts, and consider broad stochastic exploration followed by local refinement.
-Different results alone do not prove which minimum is global.
+The second fit has the lower NLL, so it has the higher likelihood, and it is the candidate
+for the maximum likelihood estimate, to be diagnosed before it is reported. The first fit
+stopped somewhere else: at another local minimum, on a ridge, near a saddle point or at a
+boundary. That two starts gave two answers is itself a reason to try more starting values.
 
 :::
 ::::
 
-:::: {.callout-important title="Question 2: sign convention"}
+:::: {.callout-important title="Question 2: a convergence code of zero"}
 
-Your function returns a negative log-likelihood. What should `GA::ga()` use as
-fitness?
+A student fits a model of the abundance of a moth along a gradient of temperature, gets a
+convergence code of 0, and writes in a report: "The optimiser converged, so these are the
+maximum likelihood estimates." What is missing?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-Use the negative of the negative log-likelihood. `GA::ga()` maximises fitness,
-whereas the other optimisers in this chapter minimise the objective.
+A code of 0 says that the stopping rule of BFGS was met: a step lowered the NLL by less than
+a tolerance relative to its size, and so did a step along the gradient. This also happens on
+a ridge, at a boundary and on a nearly flat surface. The report needs a diagnosis: sensible
+estimates in their units, a small gradient, a positive definite Hessian in `sdreport()`, a
+refit that stays where it is and, if the model is difficult, fits from other starting values
+that reach the same minimum.
 
 :::
 ::::
 
-:::: {.callout-important title="Question 3: derivative source"}
+:::: {.callout-important title="Question 3: multiple starts for a stock–recruitment curve"}
 
-Why might an automatic gradient improve a BFGS fit without guaranteeing a
-valid result?
+A stock–recruitment curve of a fish population is fitted from 40 random starting values.
+Five fits reach the lowest NLL, with estimates that agree; the other 35 stop at higher
+values. Is five out of 40 enough? What would you do next?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-It avoids finite-difference step-size error for a smooth recorded objective.
-It cannot repair an incorrect model, a discontinuity, weak identification, or
-a poor ecological assumption.
+The number of fits that reach a minimum says how easy the minimum is to find from this box,
+not whether it is the global minimum. Five fits with the same lowest NLL and the same
+estimates are good evidence for it, but no proof: a minimum that no start reached does not
+appear in the results. Next, restart BFGS from the best fit and diagnose it, and look at
+where the other fits stopped, which shows the ridges or boundaries of the model. If only one
+fit had reached the lowest value, more starts, `nlminb()` or a global search would be
+worth trying.
 
 :::
 ::::
 
-:::: {.callout-important title="Question 4: boundary estimate"}
+:::: {.callout-important title="Question 4: survival and detection of newts"}
 
-An L-BFGS-B fit places a rate at its upper bound. What should you inspect?
+Newts are marked in a pond, and one year later the number of marked newts seen again is
+counted, with a Binomial model whose probability is $\phi\,q$, the product of the
+probability of survival $\phi$ and the probability $q$ that a surviving newt is seen. In a
+second study, the uptake of nitrate by roots is measured with a Michaelis–Menten curve, but
+only at concentrations far above the half-maximum. Which kind of non-identifiability does
+each study have?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-Check whether the bound is scientifically justified, inspect the objective near
-the boundary, and determine whether a wider defensible range changes the fit.
-Do not silently report the boundary value as an unconstrained estimate.
+The newt model is structurally non-identifiable: $\phi$ and $q$ enter only through their
+product, so any pair with the same product gives the same distribution of the counts,
+whatever the data. Only the product can be estimated, unless the design adds information
+on one of the two (repeated surveys within a year inform $q$). The root study is practically
+non-identifiable: the model could determine both parameters, but at high concentrations the
+curve is close to its asymptote, so the data determine the asymptote and say little about
+the half-maximum. Measurements at low concentrations would solve it.
 
 :::
 ::::
 
-:::: {.callout-important title="Question 5: stochastic reproducibility"}
+:::: {.callout-important title="Question 5: a variance among ponds"}
 
-Why are a seed and repeated runs both useful for DEoptim or GA?
+In a model of tadpole counts with a random effect per pond, the estimate of
+$\log(\sigma_{\mathrm{pond}})$ is $-14.2$, with code 0 and a warning that the Hessian is not
+positive definite. How would you report $\sigma_{\mathrm{pond}}$, and what would you check?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-The seed makes one run reproducible. Distinct seeded runs reveal whether the
-conclusion is stable under the algorithm's stochastic variation.
+$\sigma_{\mathrm{pond}}=e^{-14.2}\approx7\times10^{-7}$, practically zero: the search walked
+towards the boundary at $-\infty$ on the log scale and stopped when the decreases of the NLL
+became too small. If zero is the maximum, $\sigma_{\mathrm{pond}}$ is reported as zero (the
+ponds do not differ more than the counts within ponds would by chance), with its likelihood
+profile. But a fit that stops near zero can also have
+missed a maximum at a positive variance, so fit the model again from other starting values
+of $\log(\sigma_{\mathrm{pond}})$, and with `nlminb()`, and compare the NLLs.
 
 :::
 ::::
 
-:::: {.callout-important title="Question 6: convergence"}
+:::: {.callout-important title="Question 6: units of a decomposition model"}
 
-What does a zero convergence code establish?
+The mass of leaf litter in bags is described by $m_0e^{-bt}$, with the initial mass $m_0$
+in milligrams (about 5,000 mg) and the time $t$ in days ($b$ about 0.002/day). The model is
+fitted with both parameters on their original scales, and BFGS stops after a few steps far
+from the minimum. Why, and what would you change?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-It indicates that the algorithm satisfied its numerical stopping rule. It does
-not prove a global optimum, strong parameter identification, or an adequate
-ecological probability model.
+The two parameters differ in magnitude by a factor of more than a million, so a step that
+suits one is wrong for the other: the gradient with respect to $b$ is huge compared with
+that with respect to $m_0$, and the first step along it changes $b$ far too much. Fitting
+$\log(m_0)$ and $\log(b)$ (about 8.5 and $-6.2$) puts both on comparable scales, and it also
+keeps them positive; alternatively, the mass in grams and the time in years, or `parscale`.
+
+:::
+::::
+
+:::: {.callout-important title="Question 7: two parameterisations of a dose–response curve"}
+
+A dose–response curve of a herbicide can be written with the slope and the dose at which half
+the plants die, or with the slope and the intercept of a logistic regression. The estimates
+have a correlation of 0.15 in the first parameterisation and of 0.997 in the second. Which
+would you fit, and do the fitted curves differ?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+The fitted curves are the same, by invariance, and so is the maximum of the likelihood. The
+first parameterisation is easier to optimise: with a correlation of 0.15 the surface is
+nearly round, whereas a correlation of 0.997 means a narrow, tilted valley, in which a search can
+stop early. It also gives a parameter of direct interest, the dose that kills half the
+plants, with its interval.
+
+:::
+::::
+
+:::: {.callout-important title="Question 8: a likelihood without a gradient"}
+
+A colleague's NLL for the dispersal of seeds calls a numerical routine that RTMB cannot
+differentiate, so there is no `gr`. Which optimisers of this chapter can they use, and at
+what cost?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+Nelder–Mead needs no gradient, and BFGS can still be used: without `gr`, `optim()`
+approximates the gradient by finite differences, at the cost of $2p$ extra evaluations of
+the NLL per gradient for $p$ parameters and some precision. For one parameter, `optimize()`
+needs neither a gradient nor a starting value, and differential evolution needs only the
+NLL and a box. All of them need more evaluations, and the tools of RTMB that rely on the
+derivatives (`sdreport()`, `ADREPORT()`, the Laplace approximation) are not available.
+
+:::
+::::
+
+:::: {.callout-important title="Question 9: global search for a population model"}
+
+A student fits a model of the abundance of an insect with `DEoptim::DEoptim()` and reports
+`bestmem` as the maximum likelihood estimates. What is missing, and why?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+Differential evolution finds the region of a minimum but approaches it slowly, and it can
+gather around a local minimum, so its best member is a starting value, not an estimate. A
+local search with BFGS from `bestmem` finds the minimum precisely, and the diagnosis of
+that fit (gradient, `sdreport()`, a slice) and the standard errors complete the analysis.
+The box and the seed should be reported as well, because the result depends on them.
 
 :::
 ::::

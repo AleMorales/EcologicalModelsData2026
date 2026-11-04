@@ -351,11 +351,7 @@ captions, callouts, mathematics and axis labels.
   meet the width.
 
 Theory front matter holds only `title:`. The table of contents and section numbering are
-set once in `_quarto.yml`; do not add per-page `format` or `execute` blocks. Chapter 8
-still carries them, including a global `eval: false`, and display-only ```` ```r ````
-fences. Before removing such a block, check every chunk: without the global setting,
-chunks are evaluated unless they carry `#| eval: false`. Preserve the other settings of a
-page: practicals use `date: today`, and the Chapter 1 material uses the `wordcount-html`
+set once in `_quarto.yml`; do not add per-page `format` or `execute` blocks. Preserve the other settings of a page: practicals use `date: today`, and the Chapter 1 material uses the `wordcount-html`
 extension.
 
 Always use executable chunks (```` ```{r} ````), also for code that students run
@@ -397,7 +393,7 @@ result in plain words and never relies on a symbol or result that appears only i
 one. Inside the box the full rigour stays (statement, "where" clause, "In plain English"
 sentence).
 
-**`Practice` callouts on the theory pages of Chapters 2 to 7 are numbered by Quarto.**
+**`Practice` callouts on the theory pages of Chapters 2 to 8 are numbered by Quarto.**
 Each has an ID with the prefix `imp-` and a title without "Practice: ", because
 `_quarto.yml` sets the label of numbered important callouts to "Practice":
 
@@ -409,13 +405,12 @@ The page shows "Practice 1: orchid fruit set"; the numbers restart on each page 
 follow the order of the callouts, so adding or removing one renumbers the rest. Refer to
 a callout in the text with `@imp-orchid-fruit-set`, which prints "Practice 1", and not by
 its title. Give the `imp-` prefix to no other callout, or it is numbered as a practice.
-The supplements and Chapter 8 keep unnumbered titles.
+The supplements keep unnumbered titles.
 
 Chapter 4 opens with a roadmap table after the learning goals (step, question, R tool,
-example) and closes with a "recipe" callout before the summary; Chapters 6 and 7 do the
-same.
-Later theory chapters may
-copy both when the chapter is a sequence of steps that students carry out.
+example) and closes with a "recipe" callout before the summary; Chapters 6, 7 and 8 do
+the same (Chapter 8's roadmap has one row per problem: how it shows, what to do, the R
+tools).
 
 ## Exercises and solution patterns
 
@@ -527,6 +522,19 @@ fir_fit = optim(par = fir_obj$par, fn = fir_obj$fn, gr = fir_obj$gr, method = "B
 - **Optimiser:** `optim()` with `method = "BFGS"` and `gr = obj$gr` everywhere, including
   one-parameter fits and the inner fits of a profile; say once that Chapter 8 explains
   the method. Never set `reltol`. `silent = TRUE` in every `MakeADFun()` call.
+- **Other optimisers and difficult fits (Chapter 8 only).** No other chapter changes the
+  optimiser. Chapter 8 calls `nlminb(start = obj$par, objective = obj$fn, gradient =
+  obj$gr)` without bounds, `optim(method = "Nelder-Mead")`, `optimize()` for one parameter
+  and `DEoptim::DEoptim()` (with the prefix, without attaching the package), always on
+  `obj$fn` and `obj$gr` of the same `MakeADFun()` object. Multiple starting values are
+  drawn with `runif()` on the optimised scale within a box stated in ecological units, in a
+  `for` loop with one seed before it; the fit with the lowest NLL is restarted with BFGS.
+  `DEoptim()` searches the same box (its `lower` and `upper` are the only bounds in the
+  course's code) and is always followed by BFGS from `bestmem`. A diagnosis reads the
+  estimates, `obj$gr()` at the solution, `sdreport()` (with `par.fixed` when the object has
+  been evaluated at other points) and a slice; `obj$he()` only in hidden checks. No
+  algorithm (Newton step, finite difference, simplex step, line search) is coded by hand in
+  a visible chunk.
 - **Starting values are simple.** Any values from which the optimiser reaches the maximum
   will do; method-of-moments estimates are one possible choice, never a required step
   before a fit. In a simulation, fit every hypothetical sample from fixed starting values

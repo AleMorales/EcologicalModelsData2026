@@ -76,6 +76,13 @@ It is used like AIC, as a difference between models, although its name comes fro
 derivation in Bayesian inference ([Chapter 6](../Chapter_6/Theory.qmd#sec-response-comparison)).
 It is not used for grouped models, for which $n$ is ambiguous.
 
+- **BFGS**: The optimiser that the course uses for every fit, called with
+`optim(method = "BFGS")` and the gradient that RTMB supplies (`gr = obj$gr`). It is a
+quasi-Newton method, named after Broyden, Fletcher, Goldfarb and Shanno. Its stopping rule
+looks at how much each step lowers the negative log-likelihood and not at the gradient
+([Chapter 8](../Chapter_8/Theory.qmd#sec-search)). See also quasi-Newton method and
+stopping rule.
+
 - **Bias**: The difference between the mean of the sampling distribution of an estimator
 and the parameter that it estimates,
 $$
@@ -153,6 +160,11 @@ interval of the real numbers (e.g., all positive numbers, or all numbers between
 Its values cannot be listed one by one, the probability of any single value is zero, and
 its distribution assigns probabilities to intervals through a probability density function.
 
+- **Convergence code**: The number that an optimiser returns to say why its search ended:
+the element `convergence` of the result of `optim()` or `nlminb()`. For BFGS in `optim()`,
+0 means that the stopping rule was met and 1 that the search reached the maximum number of
+iterations (`maxit`). See stopping rule.
+
 - **Correlation**: A parameter of a joint distribution, such as the bivariate Normal
 distribution, that controls how strongly two random variables change together. For a
 bivariate Normal distribution, a correlation of zero means that the two variables are
@@ -223,6 +235,15 @@ those of the input. The derivative of a log-likelihood is zero at its maximum.
 values of its parameters, so that the same input always gives the same output. In a model
 for data it is the part that describes how the expected response changes with a predictor.
 
+- **Differential evolution**: A method of global optimisation that keeps a population of
+parameter vectors, drawn at random within a box, and improves it over many generations. In
+each generation every member is challenged by a vector made by adding a scaled difference
+of two other members to a third (mutation) and taking each parameter either from this vector
+or from the member (crossover); the challenger replaces the member if its negative
+log-likelihood is lower (selection). It needs no gradient but thousands of evaluations. The
+course calls it with `DEoptim::DEoptim()` and refines its best member with BFGS
+([Chapter 8](../Chapter_8/Theory.qmd#sec-global)).
+
 - **Discrete random variable**: A random variable that takes values from a finite or
 countably infinite set, such as the counts $0, 1, 2, \ldots$. A set is **finite** when it
 has a fixed maximum number of values (e.g., 0 to 4 surviving seeds out of four) and
@@ -279,7 +300,10 @@ $$
 - **Finite difference**: An approximation of a derivative: the change in a function between
 two points very close to each other, divided by the distance between them. It needs no
 calculus, and software uses it when no formula for the derivative is available
-([Chapter 5](../Chapter_5/Theory.qmd#sec-function-derivatives)).
+([Chapter 5](../Chapter_5/Theory.qmd#sec-function-derivatives)). When `optim()` is not
+given `gr`, it approximates each element of the gradient with a central difference, which
+costs two evaluations of the negative log-likelihood per parameter and loses some accuracy
+to rounding ([Chapter 8](../Chapter_8/Theory.qmd#sec-gradients)).
 
 - **Fisher information**: A measure of how much information a sample contains about a
 parameter, written $\mathcal{I}(\theta)$. The variance of a maximum likelihood estimator
@@ -304,10 +328,19 @@ converges uniformly (that is, for all values at once) to the cumulative distribu
 model as the sample size grows. It extends the law of large numbers, which applies to the
 relative frequency of one event at a time.
 
+- **Global optimisation**: A search that explores a whole box of parameter values instead of
+following one path from a starting value, so that it can find a minimum that local searches
+miss. Like multiple starting values, it gives evidence that the global minimum was found but
+cannot prove it. The course uses differential evolution, followed by a local search with
+BFGS from its best member; simulated annealing and genetic algorithms are other global
+methods ([Chapter 8](../Chapter_8/Theory.qmd#sec-global)).
+
 - **Gradient**: The vector of the partial derivatives of a function with respect to each of
 its parameters, that is, its slope in the direction of each parameter. Optimisers such as
 BFGS use the gradient of the negative log-likelihood to choose their steps; RTMB calculates
-it by automatic differentiation ([Chapter 6](../Chapter_6/Theory.qmd#sec-makeadfun)).
+it by automatic differentiation ([Chapter 6](../Chapter_6/Theory.qmd#sec-makeadfun)). At a
+minimum every element of the gradient is zero, so `obj$gr()` at the end of a fit is one of
+the checks of a diagnosis ([Chapter 8](../Chapter_8/Theory.qmd#sec-diagnosis)).
 
 - **Group-level predictor**: A predictor measured on a group and not on each observation
 (the origin of a plant, the treatment that it received, the habitat of a site), so that
@@ -331,6 +364,8 @@ log-likelihood at the estimates, on the scale of the parameters that were optimi
 is the observed information matrix, and its inverse (calculated with `solve()`) approximates
 the variances and covariances of the estimates. The function `sdreport()` of RTMB
 calculates the Hessian itself and returns the standard errors and the covariance matrix.
+At a minimum the Hessian is positive definite; `sdreport()` reports this check in its
+element `pdHess` ([Chapter 8](../Chapter_8/Theory.qmd#sec-diagnosis)).
 
 - **Histogram**: A summary of a sample of continuous measurements. The range of the
 measurements is divided into intervals (called **bins**) and the observations in each bin
@@ -344,6 +379,17 @@ counts as one sample is set by the data that are analysed: several field campaig
 analysed together form one sample. Many statistics textbooks call a hypothetical sample an
 experiment; this course does not, because much ecological data comes from observational
 studies.
+
+- **Identifiability**: A parameter is identifiable when different values of it give
+different distributions of the data, so that the likelihood can tell them apart. **Structural
+non-identifiability** is a property of the model: the parameters enter the distribution of
+the data only through a combination of them (such as a sum or a product), so the negative
+log-likelihood is exactly flat along a ridge, whatever the data. **Practical
+non-identifiability** is a property of the model and the data together: the model could
+tell the values apart, but the data contain too little information, for example no
+observations where the curve responds to the parameter. Both show as very large or `NaN`
+standard errors, correlations between estimates close to 1 or $-1$, and flat slices or
+likelihood profiles ([Chapter 8](../Chapter_8/Theory.qmd#sec-identifiability)).
 
 - **Independence**: Two random variables are independent if knowledge about one of them does
 not change the probabilities for the other. Equivalently, their joint distribution is the
@@ -467,11 +513,19 @@ interval.
 - **Likelihood slice**: The log-likelihood as a function of one parameter, with the other
 parameters fixed at one value, normally their estimates. A slice needs no optimisation, but
 it treats the other parameters as known, so it is narrower than the likelihood profile
-unless the estimates of the parameters do not depend on each other.
+unless the estimates of the parameters do not depend on each other. A slice through the
+point where an optimiser stopped shows how the likelihood behaves beyond it, which makes it
+a diagnostic of a fit ([Chapter 8](../Chapter_8/Theory.qmd#sec-diagnosis)).
 
 - **Limit**: The value that a function approaches as its input approaches a given value,
 written $\lim_{x\to x_0}f(x)$, or as $x\to\infty$ for the end behaviour. A limit can exist
 even where the function itself is not defined.
+
+- **Local and global minimum**: A local minimum of a function is a point that is lower than
+all the points near it; the global minimum is the lowest point of all. The maximum
+likelihood estimate is the global minimum of the negative log-likelihood. An optimiser
+searches locally, so it can also stop at a local minimum, near a saddle point or on a ridge
+([Chapter 8](../Chapter_8/Theory.qmd#sec-wrong-place)).
 
 - **Location parameter**: A parameter that shifts a function along the $x$ axis without
 changing its shape, as $c$ does when $x$ is replaced by $x-c$. It has the units of $x$.
@@ -575,16 +629,37 @@ of covariates or groups, either deterministically or stochastically (with additi
 so that its derivative never changes sign. Exponential decay and the Michaelis–Menten
 function are monotonic; the Ricker function is not.
 
+- **Multiple starting values**: Fitting a model from many starting values drawn at random
+within a box of plausible values (in the units of the parameters, transformed to the scale
+that is optimised), keeping the fit with the lowest negative log-likelihood and checking how
+many fits reach it and whether their estimates agree. Agreement among many starts is
+evidence that the global minimum was found, but a minimum that no start reached does not
+appear in the results ([Chapter 8](../Chapter_8/Theory.qmd#sec-multistart)).
+
 - **Negative log-likelihood (NLL)**: Minus the log-likelihood, $-\ell(\theta)$. The function
 `optim()` minimises by default, so we give it the NLL: the parameter value with the lowest
 NLL is the one with the highest likelihood. From Chapter 4 onward the NLL is written as a
 function of two named lists, the parameters and the data, so that RTMB can process it with
 `MakeADFun()`.
 
+- **Nelder–Mead method**: An optimiser that uses no gradient, and the default method of
+`optim()`. With $p$ parameters it keeps a **simplex** of $p+1$ points and, at each step,
+replaces the worst of them by its reflection through the centre of the others, or moves it
+further out or closer in; when nothing helps, the simplex shrinks towards its best point. It
+suits a function that cannot be differentiated, but it needs many evaluations and stops less
+precisely than a gradient method ([Chapter 8](../Chapter_8/Theory.qmd#sec-other-optimisers)).
+
 - **Nested functions**: A function is nested in another when it is the special case obtained
 by fixing one of the parameters of the other at a particular value. The Michaelis–Menten
 function is nested in the Hassell function, which has a third parameter $c$, and is
 recovered when $c=1$. Nested functions are the usual candidates in a comparison of models.
+
+- **Newton's method**: An optimiser that uses the gradient and the Hessian. At each step it
+jumps to the minimum of the quadratic approximation of the function at the current point,
+which is fast close to a minimum; far from it the step can be much too long, or go uphill
+where the curvature is negative. RTMB uses it for the inner optimisation over the random
+effects ([Chapter 7](../Chapter_7/Theory.qmd#sec-random-effects-rtmb),
+[Chapter 8](../Chapter_8/Theory.qmd#sec-search)). See also quasi-Newton method.
 
 - **`OBS()`**: A function of RTMB that is called inside a negative log-likelihood to mark a
 data variable as an observation. It makes it possible to simulate the data: the function
@@ -601,7 +676,9 @@ lower values until it cannot improve any further. The course minimises the negat
 log-likelihood with `optim()` and the method BFGS; a convergence code of zero says that the
 optimiser stopped, not that it found the maximum of the likelihood
 ([Chapter 4](../Chapter_4/Theory.qmd#sec-maximum-likelihood),
-[Chapter 8](../Chapter_8/Theory.qmd)).
+[Chapter 8](../Chapter_8/Theory.qmd#sec-wrong-place)). Chapter 8 also uses `nlminb()`,
+Nelder–Mead, `optimize()` and differential evolution, on the same object of `MakeADFun()`.
+See also stopping rule.
 
 - **Overdispersion**: Variation that is greater than the variation expected under a
 reference model, usually the Poisson distribution, for which the variance equals the mean.
@@ -643,6 +720,12 @@ $\sqrt{\lambda/n}$, is estimated by $\sqrt{\hat\lambda/n}$.
 scientific question refers. In modelling, it may be a finite set of real organisms or sites,
 or a conceptual population described by a probability distribution. This is not always a
 useful concept, instead we will focus on the concept of data generating process.
+
+- **Positive definite**: A property of a symmetric matrix such as the Hessian: the function
+curves upwards in every direction from the point. A stationary point with a positive
+definite Hessian is a local minimum. When the Hessian of the negative log-likelihood is not
+positive definite, `sdreport()` returns `pdHess = FALSE`, warns, and cannot calculate the
+standard errors, which are `NaN` ([Chapter 8](../Chapter_8/Theory.qmd#sec-diagnosis)).
 
 - **Precision** (of the Beta-Binomial distribution): The parameter $\kappa=a+b$, where $a$
 and $b$ are the shape parameters of the Beta distribution of the probability of each
@@ -692,6 +775,11 @@ reached. For a discrete variable, $q_\alpha=\min\{x:F_X(x)\geq\alpha\}$; for a c
 variable, $F_X(q_\alpha)=\alpha$. The median is the $0.5$ quantile. In R, it is implemented
 by the `q*` functions.
 
+- **Quasi-Newton method**: An optimiser that takes steps like those of Newton's method, but
+with an approximation of the curvature that it builds from how the gradient changes from one
+step to the next, so that it needs only the function and its gradient. BFGS is a
+quasi-Newton method ([Chapter 8](../Chapter_8/Theory.qmd#sec-search)).
+
 - **Random effect**: The deviation of a group (a plant, a nest, a site) from the value shared
 by all the groups, described by a distribution, usually Normal with mean zero on a
 transformed scale, e.g. $u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{group}})$ on the
@@ -718,7 +806,9 @@ and it shows that only differences in log-likelihood are meaningful.
 - **Reparameterisation**: Writing the same function or distribution with a different set of
 parameters, each of which is an expression of the old ones. The curve does not change; the
 meaning, the units and the correlation of the parameters do. The Michaelis–Menten function
-and the Holling type II functional response are two parameterisations of one curve.
+and the Holling type II functional response are two parameterisations of one curve. A
+reparameterisation also changes the shape of the likelihood surface, and with it how easily
+an optimiser finds the maximum ([Chapter 8](../Chapter_8/Theory.qmd#sec-scaling)).
 
 - **Response curve**: A deterministic function that gives one parameter of the distribution
 of each observation (usually its mean) as a function of a predictor, e.g. the probability
@@ -735,12 +825,24 @@ the argument `random`. For non-linear or non-Normal models it is an approximatio
 models with different fixed effects are compared with maximum likelihood fits
 ([Chapter 7](../Chapter_7/Theory.qmd#sec-reml)).
 
+- **Ridge**: A direction in the space of the parameters along which the likelihood changes
+very little. On the scale that is optimised it often runs towards $\pm\infty$. The gradient
+is practically zero along it, so an optimiser can stop there; a ridge along which the
+likelihood is exactly flat is a sign of structural non-identifiability
+([Chapter 8](../Chapter_8/Theory.qmd#sec-wrong-place)). See also identifiability.
+
 - **RTMB**: An R package in which we write a negative log-likelihood as an R function and
 that provides the tools to fit it. Its functions for probability mass and density (together
 with those of the package RTMBdist, which adds more distributions) are used from
 [Chapter 2](../Chapter_2/Theory.qmd) onward, and [Chapter 4](../Chapter_4/Theory.qmd) uses
 `MakeADFun()`, `sdreport()`, `ADREPORT()` and `OBS()` to fit models and to calculate their
 uncertainty. It is built on the package TMB, which is installed with it.
+
+- **Saddle point**: A stationary point of a function of several parameters (a point at which
+the gradient is zero) at which the function rises in some directions and falls in others.
+At a saddle point of the negative log-likelihood the Hessian is not positive definite. An
+optimiser can stop near one, because the gradient is close to zero there
+([Chapter 8](../Chapter_8/Theory.qmd#sec-wrong-place)). See also critical point.
 
 - **Sample**: A collection of values that have been observed or simulated through a data
 generating process.
@@ -765,6 +867,13 @@ whatever the distribution of the observations, so they can be read in the same w
 any observation model. The course calculates them with the package DHARMa from
 simulations made with `obj$simulate()`
 ([Chapter 6](../Chapter_6/Theory.qmd#sec-response-residuals)).
+
+- **Scaling**: The magnitudes of the parameters on the scale that is optimised. An optimiser
+works best when a change of about one unit in each parameter changes the negative
+log-likelihood by similar amounts. Transformations (such as the logarithm of a positive
+parameter), the choice of units and the argument `parscale` of `optim()` improve the scaling.
+The units also set the size of the negative log-likelihood, which matters for the relative
+tolerance of the stopping rule ([Chapter 8](../Chapter_8/Theory.qmd#sec-scaling)).
 
 - **Score**: The derivative of the log-likelihood with respect to a parameter. The MLE is the
 value of the parameter (or parameters) at which the score is zero
@@ -808,6 +917,15 @@ $$
 It describes the variation of an estimate across hypothetical samples and has the same
 units as the estimate. A larger sample reduces the standard error, but it does not reduce
 the standard deviation of the observations.
+
+- **Stopping rule**: The rule that decides when an optimiser ends its search. BFGS in
+`optim()` counts a step that lowers the negative log-likelihood by less than a relative
+tolerance (the control argument `reltol`, about $1.5\times10^{-8}$ by default) as no
+progress, and stops with convergence code 0 when, after resetting its approximation of the
+curvature, it again makes no progress. It does not look at the gradient, so the rule is
+also met on a ridge, near a saddle point, at a boundary and on a nearly flat surface,
+which is why a fit is diagnosed after it stops
+([Chapter 8](../Chapter_8/Theory.qmd#sec-stopping)).
 
 - **Support**: The set of values that a random variable can take. For continuous
 distributions, the support can be unconstrained (any real value), positive (any value above

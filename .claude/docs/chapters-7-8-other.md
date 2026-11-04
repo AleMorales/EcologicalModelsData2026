@@ -10,7 +10,11 @@ script, `demo-profile.R` and `demo-properties.R`, and the Chapter 6 lecture has 
 minutes from `demo-cycle.R` (author's decisions of 3 November), and the Chapter 7
 lecture has one of 18 minutes from `demo-pooling.R` (author's decision of 4 November:
 complete, no and partial pooling, origin and chilling, the shrinkage plot and curves for
-new plants; no model comparison). Slides state the general definition, rule or property
+new plants; no model comparison), and the Chapter 8 lecture has one of 18 minutes from
+`demo-diagnosis.R` (author's decision of 4 November: a fit of the complete-pooling CO₂
+model that stops in the wrong place from a poor start; convergence code, estimates,
+gradient and `sdreport()`; multiple random starts; a BFGS restart from the best; a slice
+and a likelihood profile to confirm; no comparison of optimisers). Slides state the general definition, rule or property
 and then the result for the example, never the example alone (author's decision of 30
 October), and the main takeaways stand on the slide, not only in the script (author's
 decision of 3 November). The rules are in `STYLE_GUIDE_LECTURE.md`.
@@ -87,17 +91,66 @@ which stays until the author removes it.
 
 ### Chapter 8
 
-- It predates the rewrite of Chapters 4 to 7 and received consistency fixes only; the
-  full rewrite is a separate plan. Where its terms differ from Chapters 4 to 7, follow
-  those chapters in new work. Chapter 8 passes plain functions to `optim()` with
-  `hessian = TRUE`, carries a page-level `format` and `execute` block and display-only
-  fences.
+Rewritten from scratch on 4 November (theory, practical, one lecture) in seven stages to the
+author's decisions of that day, with an independent review (Stage 4) because the author did
+not review between stages. The plan with every number checked is
+`Chapter_8/rewrite-handoff.md`, which stays until the author removes it. A draft until the
+author reviews it.
+
+- **No new data in the theory:** every difficulty is shown on a model that students already
+  fitted. The main thread is the complete-pooling CO₂ model of Chapter 7 (`pooled_nll`),
+  which stops in three wrong places from plausible starts (a ridge with the rate towards
+  infinity, a curve at zero, an early plateau near a saddle point). The reed frog functional
+  response of Chapter 6 gives the search paths and the estimates at a boundary, the owl calls
+  of Chapter 4 the effect of parameterisation, the fir counts of Chapter 4 `optimize()`; the
+  model with a random asymptote of Chapter 7 appears in one paragraph. No threshold or
+  change-point model, no example with several maxima built for the purpose, no simulated data
+  in the theory. Object names are those of the chapter whose model is revisited.
+- **Organised by problem in five sections:** a fit that stops in the wrong place
+  (`#sec-wrong-place`, with `#sec-search`, `#sec-gradients`, `#sec-stopping`,
+  `#sec-diagnosis`); starting values and multiple starts (`#sec-multistart`); ridges,
+  boundaries and identifiability (`#sec-identifiability`, with `#sec-boundaries`); scaling and
+  parameterisation (`#sec-scaling`); other optimisers and global search
+  (`#sec-other-optimisers`, with `#sec-global`). Each opens with the general difficulty, shows
+  it on an earlier fit, explains the mechanism as far as needed, and gives the remedy. Roadmap
+  table, three numbered `Practice` callouts, a recipe callout, summary and quiz, as in
+  Chapters 6 and 7.
+- **Concepts only, no algorithm coded by hand:** Newton's method, the BFGS update, finite
+  differences and differential evolution are explained in words and figures, with formulas in
+  detail boxes and no R chunks; every algorithm is called from an R function. Hidden chunks
+  may record the path of an optimiser for a figure or check a claim with `obj$he()`.
+- **Algorithms:** BFGS with RTMB's gradient stays the method of the course; `nlminb()`
+  (glmmTMB's default), Nelder–Mead, `optimize()` for one parameter, multiple starting values,
+  and differential evolution with `DEoptim::DEoptim()` as the one global method, always
+  followed by BFGS from its best member. Other optimisers receive `obj$fn` and `obj$gr` of
+  the same `MakeADFun()` object. SANN and genetic algorithms are named in one sentence and not
+  used.
+- **"A convergence code of zero does not mean the maximum"** is stated once, in the warning
+  callout of `#sec-stopping`; the diagnosis (estimates, gradient, `sdreport()` with
+  `pdHess`, a refit, a slice) is the answer. `reltol` is named with its default but never set;
+  `parscale` is shown once. The Hessian check is `sdreport()`; positive definiteness and
+  eigenvalues are in a box.
+- **Identifiability** in full: structural (a common log asymptote plus 12 free deviations)
+  and practical (the CO₂ measurements at 250 µL/L and above, with likelihood profiles of
+  $c$). **Bounds are only mentioned** (L-BFGS-B and `nlminb()` accept them; the course keeps
+  transformations); the only `lower` and `upper` in code are the box of `DEoptim()`.
+- **Practical:** three exercises, each a full diagnosis (symptom, diagnosis, remedy,
+  confirmation) of a fit from an earlier practical: Exercise 1 (worked) the loblolly pines of
+  Chapter 7 with a poor start; 2 the Adelie Gamma fit in grams of Chapter 4 (the relative
+  stopping rule; units, the mean–shape parameterisation and `nlminb()` as remedies); 3 the
+  REML simulation of Chapter 7 (which practically zero variances among sites are maxima),
+  with the closed form of the balanced Normal design labelled as a special case. Seeds:
+  theory 801 and up, practical 811, 812, 751 and 831. The practical tells students to
+  install DEoptim once.
+- **Lecture:** one of 150 minutes (31 slides, 116 minutes of slides, 14 of slack, two
+  breaks of 10) with the demo above.
+- **Awaiting the author:** the theory has about 1,940 source lines against a target of
+  1,600 (the candidates for cutting are listed in the handoff). The script notes that a
+  `reltol` of $10^{-12}$ lets the early-plateau fit reach the maximum; the chapter makes no
+  claim about it.
 - Technical difficulties of optimisation appear in Chapter 7 only as examples, with a
-  pointer to Chapter 8 and no mechanics (author's decision of 4 November). The first is
-  Exercise 5 of the Chapter 7 practical: a few REML fits stop at a practically zero
-  variance among sites with convergence code 0. A note callout in Chapter 8 ("Hybrid global
-  and local optimisation") says that several random starting values find the maximum; the
-  rewrite of Chapter 8 works through this example.
+  pointer to Chapter 8 and no mechanics (author's decision of 4 November); Exercise 5 of the
+  Chapter 7 practical points to Exercise 3 of the Chapter 8 practical.
 
 ### Other
 
@@ -109,12 +162,13 @@ which stays until the author removes it.
   theory (base R, `plot()` with `curve()`). Awaiting the author's confirmation: the DHARMa
   residual plots of Chapter 6 (theory and lecture) are the package's own base-graphics
   plots, shown with visible code because the tool is the lesson.
-- The glossary was updated for RTMB.
+- The glossary was updated for RTMB and for the terms of Chapter 8 (optimisers, stopping
+  rule, identifiability, scaling and others).
 - **Numbered practice callouts** (author's decision, issue 8): the `Practice` callouts of
-  the theory pages of Chapters 2 to 7 are numbered per page ("Practice 3"), so that
+  the theory pages of Chapters 2 to 8 are numbered per page ("Practice 3"), so that
   students' scripts and the lectures can refer to them; the chapter number is not shown
   on the page and is added by hand when a reference must be unique across the book. The
-  supplements and Chapter 8 are not numbered yet. The Chapter 2 lecture (slides,
+  supplements are not numbered. The Chapter 2 lecture (slides,
   script and handoff) names the callouts by number; `lecture-script.pdf` was not
   regenerated. The pattern is in `STYLE_GUIDE.md`.
 
