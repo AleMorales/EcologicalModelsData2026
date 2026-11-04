@@ -81,7 +81,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-c4524a14520acb9330a778e869499311.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-012aba9e89ed022d4536d445f4713396.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -540,7 +540,11 @@ window.Quarto = {
   <li><a href="#example-biomass-partitioning" id="toc-example-biomass-partitioning" class="nav-link" data-scroll-target="#example-biomass-partitioning"><span class="header-section-number">3.3.1</span> Example: biomass partitioning</a></li>
   </ul></li>
   </ul></li>
-  <li><a href="#sec-zero_inflated" id="toc-sec-zero_inflated" class="nav-link" data-scroll-target="#sec-zero_inflated"><span class="header-section-number">4</span> How to make zero-inflated distributions</a></li>
+  <li><a href="#sec-zero_inflated" id="toc-sec-zero_inflated" class="nav-link" data-scroll-target="#sec-zero_inflated"><span class="header-section-number">4</span> How to make zero-inflated distributions</a>
+  <ul class="collapse">
+  <li><a href="#sec-zero_inflated_rtmbdist" id="toc-sec-zero_inflated_rtmbdist" class="nav-link" data-scroll-target="#sec-zero_inflated_rtmbdist"><span class="header-section-number">4.1</span> Zero-inflated distributions in RTMBdist</a></li>
+  <li><a href="#sec-zero_inflated_own" id="toc-sec-zero_inflated_own" class="nav-link" data-scroll-target="#sec-zero_inflated_own"><span class="header-section-number">4.2</span> Writing your own zero-inflated distribution</a></li>
+  </ul></li>
   </ul>
 </nav>
     </div>
@@ -2801,87 +2805,130 @@ p_{\text{inf}}(x) &amp;=
 P(X = 0) = p_{\text{0}}, \qquad f_{\text{inf}}(x) = (1 - p_{\text{0}})f(x) \quad \text{for } x \gt 0.
 \]</span></p>
 <p>That is, the density of the positive values integrates to <span class="math inline">\(1 - p_{\text{0}}\)</span>, which together with the probability of a zero adds up to 1.</p>
-<p>RTMBdist implements zero-inflated versions of several distributions (e.g., <code>dzipois()</code>, <code>dzibinom()</code>, <code>dzinbinom()</code>, <code>dzinbinom2()</code> and <code>dzigamma()</code>), in which the argument <code>zeroprob</code> is <span class="math inline">\(p_{0}\)</span>, but we can easily implement our own, which shows how the formulas above become code. Below is an example of how to define the <code>dpqr</code> functions for a discrete distribution, the zero-inflated Negative Binomial. Their names start with <code>my_</code> so that they do not replace the functions of RTMBdist.</p>
+<p>There are two ways to obtain a zero-inflated distribution in R. The first is to use the functions of RTMBdist, which cover the most common cases and are the option to try first (<a href="#sec-zero_inflated_rtmbdist" class="quarto-xref">Section&nbsp;4.1</a>). The second is to write the functions yourself, which is necessary when RTMBdist cannot build the distribution that you need and also shows how the formulas above become code (<a href="#sec-zero_inflated_own" class="quarto-xref">Section&nbsp;4.2</a>).</p>
+<section id="sec-zero_inflated_rtmbdist" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="sec-zero_inflated_rtmbdist"><span class="header-section-number">4.1</span> Zero-inflated distributions in RTMBdist</h2>
+<p>RTMBdist implements zero-inflated versions of several distributions: <code>dzipois()</code>, <code>dzibinom()</code>, <code>dzinbinom()</code>, <code>dzinbinom2()</code>, <code>dzigamma()</code>, <code>dzilnorm()</code> and <code>dziweibull()</code>, among others. In all of them the argument <code>zeroprob</code> is <span class="math inline">\(p_{0}\)</span>, and the other arguments are those of the original distribution. For example, for a zero-inflated Negative Binomial distribution with mean 8, shape <span class="math inline">\(k=2\)</span> and <span class="math inline">\(p_{0}=0.25\)</span>:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb144"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb144-1"><a href="#cb144-1" aria-hidden="true" tabindex="-1"></a><span class="co"># The mass/density function you will use for the likelihood, including log</span></span>
-<span id="cb144-2"><a href="#cb144-2" aria-hidden="true" tabindex="-1"></a>my_dzinbinom <span class="ot">=</span> <span class="cf">function</span>(x, size, ..., pzero, <span class="at">log =</span> <span class="cn">FALSE</span>) {</span>
-<span id="cb144-3"><a href="#cb144-3" aria-hidden="true" tabindex="-1"></a>  baseline <span class="ot">=</span> <span class="fu">dnbinom</span>(x, <span class="at">size =</span> size, ..., <span class="at">log =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb144-4"><a href="#cb144-4" aria-hidden="true" tabindex="-1"></a>  result <span class="ot">=</span> (<span class="dv">1</span> <span class="sc">-</span> pzero) <span class="sc">*</span> baseline</span>
-<span id="cb144-5"><a href="#cb144-5" aria-hidden="true" tabindex="-1"></a>  result <span class="ot">=</span> <span class="fu">ifelse</span>(x <span class="sc">==</span> <span class="dv">0</span>, pzero <span class="sc">+</span> result, result)</span>
-<span id="cb144-6"><a href="#cb144-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (log) <span class="fu">log</span>(result) <span class="cf">else</span> result</span>
-<span id="cb144-7"><a href="#cb144-7" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb144-8"><a href="#cb144-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb144-9"><a href="#cb144-9" aria-hidden="true" tabindex="-1"></a><span class="co"># The random number generator for sampling</span></span>
-<span id="cb144-10"><a href="#cb144-10" aria-hidden="true" tabindex="-1"></a>my_rzinbinom <span class="ot">=</span> <span class="cf">function</span>(n, size, ..., pzero) {</span>
-<span id="cb144-11"><a href="#cb144-11" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Original distribution</span></span>
-<span id="cb144-12"><a href="#cb144-12" aria-hidden="true" tabindex="-1"></a>  result <span class="ot">=</span> <span class="fu">rnbinom</span>(n, <span class="at">size =</span> size, ...)</span>
-<span id="cb144-13"><a href="#cb144-13" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Bernoulli distribution</span></span>
-<span id="cb144-14"><a href="#cb144-14" aria-hidden="true" tabindex="-1"></a>  result[<span class="fu">runif</span>(<span class="fu">length</span>(result)) <span class="sc">&lt;</span> pzero] <span class="ot">=</span> <span class="dv">0</span></span>
-<span id="cb144-15"><a href="#cb144-15" aria-hidden="true" tabindex="-1"></a>  result</span>
-<span id="cb144-16"><a href="#cb144-16" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb144-17"><a href="#cb144-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb144-18"><a href="#cb144-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Cumulative probability for tail probabilities and p-values</span></span>
-<span id="cb144-19"><a href="#cb144-19" aria-hidden="true" tabindex="-1"></a>my_pzinbinom <span class="ot">=</span> <span class="cf">function</span>(q, size, ..., pzero,</span>
-<span id="cb144-20"><a href="#cb144-20" aria-hidden="true" tabindex="-1"></a>                         <span class="at">lower.tail =</span> <span class="cn">TRUE</span>, <span class="at">log.p =</span> <span class="cn">FALSE</span>) {</span>
-<span id="cb144-21"><a href="#cb144-21" aria-hidden="true" tabindex="-1"></a>  baseline <span class="ot">=</span> <span class="fu">pnbinom</span>(q, <span class="at">size =</span> size, ...,</span>
-<span id="cb144-22"><a href="#cb144-22" aria-hidden="true" tabindex="-1"></a>                      <span class="at">lower.tail =</span> <span class="cn">TRUE</span>, <span class="at">log.p =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb144-23"><a href="#cb144-23" aria-hidden="true" tabindex="-1"></a>  result <span class="ot">=</span> <span class="fu">ifelse</span>(q <span class="sc">&lt;</span> <span class="dv">0</span>, <span class="dv">0</span>, pzero <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> pzero) <span class="sc">*</span> baseline)</span>
-<span id="cb144-24"><a href="#cb144-24" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="sc">!</span>lower.tail) result <span class="ot">=</span> <span class="dv">1</span> <span class="sc">-</span> result</span>
-<span id="cb144-25"><a href="#cb144-25" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (log.p) <span class="fu">log</span>(result) <span class="cf">else</span> result</span>
-<span id="cb144-26"><a href="#cb144-26" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb144-27"><a href="#cb144-27" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb144-28"><a href="#cb144-28" aria-hidden="true" tabindex="-1"></a><span class="co"># Quantile function (assuming 0 &lt; pzero &lt; 1)</span></span>
-<span id="cb144-29"><a href="#cb144-29" aria-hidden="true" tabindex="-1"></a>my_qzinbinom <span class="ot">=</span> <span class="cf">function</span>(p, size, ..., pzero, <span class="at">lower.tail =</span> <span class="cn">TRUE</span>) {</span>
-<span id="cb144-30"><a href="#cb144-30" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Switch between lower or upper tail</span></span>
-<span id="cb144-31"><a href="#cb144-31" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="sc">!</span>lower.tail) p <span class="ot">=</span> <span class="dv">1</span> <span class="sc">-</span> p</span>
-<span id="cb144-32"><a href="#cb144-32" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb144-33"><a href="#cb144-33" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Quantile in the original distribution</span></span>
-<span id="cb144-34"><a href="#cb144-34" aria-hidden="true" tabindex="-1"></a>  baseline_p <span class="ot">=</span> (p <span class="sc">-</span> pzero) <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">-</span> pzero)</span>
-<span id="cb144-35"><a href="#cb144-35" aria-hidden="true" tabindex="-1"></a>  baseline_q <span class="ot">=</span> <span class="fu">qnbinom</span>(baseline_p, <span class="at">size =</span> size, ...)</span>
-<span id="cb144-36"><a href="#cb144-36" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb144-37"><a href="#cb144-37" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Adjust for zero inflation</span></span>
-<span id="cb144-38"><a href="#cb144-38" aria-hidden="true" tabindex="-1"></a>  cdf_at_zero <span class="ot">=</span> pzero <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> pzero)<span class="sc">*</span><span class="fu">pnbinom</span>(<span class="dv">0</span>, <span class="at">size =</span> size, ..., <span class="at">lower.tail =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb144-39"><a href="#cb144-39" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ifelse</span>(p <span class="sc">&lt;=</span> cdf_at_zero, <span class="dv">0</span>, baseline_q)</span>
-<span id="cb144-40"><a href="#cb144-40" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb144-41"><a href="#cb144-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb144-42"><a href="#cb144-42" aria-hidden="true" tabindex="-1"></a><span class="co"># Example</span></span>
-<span id="cb144-43"><a href="#cb144-43" aria-hidden="true" tabindex="-1"></a>mean <span class="ot">=</span> <span class="dv">8</span></span>
-<span id="cb144-44"><a href="#cb144-44" aria-hidden="true" tabindex="-1"></a>size <span class="ot">=</span> <span class="dv">2</span></span>
-<span id="cb144-45"><a href="#cb144-45" aria-hidden="true" tabindex="-1"></a>prob <span class="ot">=</span> size <span class="sc">/</span> (size <span class="sc">+</span> mean)</span>
-<span id="cb144-46"><a href="#cb144-46" aria-hidden="true" tabindex="-1"></a>pzero <span class="ot">=</span> <span class="fl">0.25</span></span>
-<span id="cb144-47"><a href="#cb144-47" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb144-48"><a href="#cb144-48" aria-hidden="true" tabindex="-1"></a>x <span class="ot">=</span> <span class="dv">0</span><span class="sc">:</span><span class="fu">my_qzinbinom</span>(<span class="fl">0.999</span>, <span class="at">size =</span> size, <span class="at">prob =</span> prob, <span class="at">pzero =</span> pzero)</span>
-<span id="cb144-49"><a href="#cb144-49" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(x, <span class="fu">my_dzinbinom</span>(x, <span class="at">size =</span> size, <span class="at">prob =</span> prob, <span class="at">pzero =</span> pzero),</span>
-<span id="cb144-50"><a href="#cb144-50" aria-hidden="true" tabindex="-1"></a>     <span class="at">type =</span> <span class="st">"h"</span>, <span class="at">xlab =</span> <span class="st">"Count"</span>, <span class="at">ylab =</span> <span class="st">"Probability"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb144"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb144-1"><a href="#cb144-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Parameters of the zero-inflated Negative Binomial distribution.</span></span>
+<span id="cb144-2"><a href="#cb144-2" aria-hidden="true" tabindex="-1"></a>mu <span class="ot">=</span> <span class="dv">8</span></span>
+<span id="cb144-3"><a href="#cb144-3" aria-hidden="true" tabindex="-1"></a>size <span class="ot">=</span> <span class="dv">2</span></span>
+<span id="cb144-4"><a href="#cb144-4" aria-hidden="true" tabindex="-1"></a>prob <span class="ot">=</span> size <span class="sc">/</span> (size <span class="sc">+</span> mu)</span>
+<span id="cb144-5"><a href="#cb144-5" aria-hidden="true" tabindex="-1"></a>pzero <span class="ot">=</span> <span class="fl">0.25</span></span>
+<span id="cb144-6"><a href="#cb144-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb144-7"><a href="#cb144-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Probability mass of zero to three counts; zeroprob is the probability p0.</span></span>
+<span id="cb144-8"><a href="#cb144-8" aria-hidden="true" tabindex="-1"></a><span class="fu">dzinbinom</span>(<span class="at">x =</span> <span class="dv">0</span><span class="sc">:</span><span class="dv">3</span>, <span class="at">size =</span> size, <span class="at">prob =</span> prob, <span class="at">zeroprob =</span> pzero)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.28000 0.04800 0.05760 0.06144</code></pre>
+</div>
+</div>
+<p>Several of these distributions also have a function for the cumulative probability (e.g., <code>pzipois()</code>) and for random numbers (e.g., <code>rzipois()</code>), named like the functions of the original distributions, with <code>zi</code> after the letter <code>d</code>, <code>p</code> or <code>r</code>.</p>
+<p>For a distribution without a zero-inflated version in RTMBdist, the function <code>zero_inflate()</code> constructs one from its probability mass or density function. It takes two arguments:</p>
+<ul>
+<li><code>dist</code>: the mass or density function of the original distribution (e.g., <code>dcompois2</code>, with no brackets because we pass the function itself).</li>
+<li><code>discrete</code>: <code>TRUE</code> if <code>dist</code> is a probability mass function and <code>FALSE</code> if it is a density. This decides whether the probability of zero in the original distribution is added to <span class="math inline">\(p_{0}\)</span>, as in the first formula above, or not, as in the second one. RTMBdist recognises a few mass functions of base R by their names (<code>dpois</code>, <code>dbinom</code>, <code>dnbinom</code>, <code>dgeom</code>, <code>dmultinom</code> and <code>dhyper</code>) and sets the value itself; for any other function we set it explicitly.</li>
+</ul>
+<p>The new function takes the values, <code>zeroprob</code> and then the arguments of the original function. For example, for the Conway-Maxwell-Poisson distribution (see <a href="#sec-com_poisson" class="quarto-xref">Section&nbsp;1.4</a>):</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb146"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb146-1"><a href="#cb146-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Construct a zero-inflated Conway-Maxwell-Poisson probability mass function.</span></span>
+<span id="cb146-2"><a href="#cb146-2" aria-hidden="true" tabindex="-1"></a><span class="co"># discrete = TRUE says that the original distribution is a probability mass function.</span></span>
+<span id="cb146-3"><a href="#cb146-3" aria-hidden="true" tabindex="-1"></a>dzicompois2 <span class="ot">=</span> <span class="fu">zero_inflate</span>(dcompois2, <span class="at">discrete =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb146-4"><a href="#cb146-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb146-5"><a href="#cb146-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Probability mass of zero to three eggs, with p0 = 0.25 and the arguments of dcompois2().</span></span>
+<span id="cb146-6"><a href="#cb146-6" aria-hidden="true" tabindex="-1"></a><span class="fu">dzicompois2</span>(<span class="at">x =</span> <span class="dv">0</span><span class="sc">:</span><span class="dv">3</span>, <span class="at">zeroprob =</span> <span class="fl">0.25</span>, <span class="at">mean =</span> <span class="fl">2.5</span>, <span class="at">nu =</span> <span class="dv">2</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.2671151 0.1307921 0.2498753 0.2121694</code></pre>
+</div>
+</div>
+<p>Applied to <code>dnbinom</code>, <code>zero_inflate()</code> gives the same probabilities as <code>dzinbinom()</code> above:</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb148"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb148-1"><a href="#cb148-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Zero-inflated version of the Negative Binomial mass function of base R.</span></span>
+<span id="cb148-2"><a href="#cb148-2" aria-hidden="true" tabindex="-1"></a>dzinbinom_made <span class="ot">=</span> <span class="fu">zero_inflate</span>(dnbinom, <span class="at">discrete =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb148-3"><a href="#cb148-3" aria-hidden="true" tabindex="-1"></a><span class="fu">dzinbinom_made</span>(<span class="at">x =</span> <span class="dv">0</span><span class="sc">:</span><span class="dv">3</span>, <span class="at">zeroprob =</span> pzero, <span class="at">size =</span> size, <span class="at">prob =</span> prob)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0.28000 0.04800 0.05760 0.06144</code></pre>
+</div>
+</div>
+<p>The function that <code>zero_inflate()</code> returns calculates the probability mass or density and nothing else. Unlike the functions of RTMBdist that are written for a specific distribution, it has no argument <code>log</code>: to obtain the log probability for a negative log-likelihood, take the logarithm of the result, as in <code>log(dzicompois2(...))</code>. Setting <code>log = TRUE</code> passes that argument on to the original function without an error, but the result is not the log probability of the zero-inflated distribution. The function also creates no cumulative probability, quantile or random number functions. If you need those, or if the distribution that you want to inflate cannot be handled this way, write the functions yourself.</p>
+</section>
+<section id="sec-zero_inflated_own" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="sec-zero_inflated_own"><span class="header-section-number">4.2</span> Writing your own zero-inflated distribution</h2>
+<p>Writing the functions yourself is the option for a zero-inflated distribution that <code>zero_inflate()</code> cannot construct: when you need the cumulative probability, quantile and random number functions as well as the mass function, or when the distribution to inflate is not available in RTMBdist and has to be written first. It is also what you do when you prefer not to depend on RTMBdist. Below is an example of how to define the <code>dpqr</code> functions for a discrete distribution, the zero-inflated Negative Binomial, using the same parameters as above. Their names start with <code>my_</code> so that they do not replace the functions of RTMBdist.</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb150"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb150-1"><a href="#cb150-1" aria-hidden="true" tabindex="-1"></a><span class="co"># The mass/density function you will use for the likelihood, including log</span></span>
+<span id="cb150-2"><a href="#cb150-2" aria-hidden="true" tabindex="-1"></a>my_dzinbinom <span class="ot">=</span> <span class="cf">function</span>(x, size, ..., pzero, <span class="at">log =</span> <span class="cn">FALSE</span>) {</span>
+<span id="cb150-3"><a href="#cb150-3" aria-hidden="true" tabindex="-1"></a>  baseline <span class="ot">=</span> <span class="fu">dnbinom</span>(x, <span class="at">size =</span> size, ..., <span class="at">log =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb150-4"><a href="#cb150-4" aria-hidden="true" tabindex="-1"></a>  result <span class="ot">=</span> (<span class="dv">1</span> <span class="sc">-</span> pzero) <span class="sc">*</span> baseline</span>
+<span id="cb150-5"><a href="#cb150-5" aria-hidden="true" tabindex="-1"></a>  result <span class="ot">=</span> <span class="fu">ifelse</span>(x <span class="sc">==</span> <span class="dv">0</span>, pzero <span class="sc">+</span> result, result)</span>
+<span id="cb150-6"><a href="#cb150-6" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (log) <span class="fu">log</span>(result) <span class="cf">else</span> result</span>
+<span id="cb150-7"><a href="#cb150-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb150-8"><a href="#cb150-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb150-9"><a href="#cb150-9" aria-hidden="true" tabindex="-1"></a><span class="co"># The random number generator for sampling</span></span>
+<span id="cb150-10"><a href="#cb150-10" aria-hidden="true" tabindex="-1"></a>my_rzinbinom <span class="ot">=</span> <span class="cf">function</span>(n, size, ..., pzero) {</span>
+<span id="cb150-11"><a href="#cb150-11" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Original distribution</span></span>
+<span id="cb150-12"><a href="#cb150-12" aria-hidden="true" tabindex="-1"></a>  result <span class="ot">=</span> <span class="fu">rnbinom</span>(n, <span class="at">size =</span> size, ...)</span>
+<span id="cb150-13"><a href="#cb150-13" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Bernoulli distribution</span></span>
+<span id="cb150-14"><a href="#cb150-14" aria-hidden="true" tabindex="-1"></a>  result[<span class="fu">runif</span>(<span class="fu">length</span>(result)) <span class="sc">&lt;</span> pzero] <span class="ot">=</span> <span class="dv">0</span></span>
+<span id="cb150-15"><a href="#cb150-15" aria-hidden="true" tabindex="-1"></a>  result</span>
+<span id="cb150-16"><a href="#cb150-16" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb150-17"><a href="#cb150-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb150-18"><a href="#cb150-18" aria-hidden="true" tabindex="-1"></a><span class="co"># Cumulative probability for tail probabilities and p-values</span></span>
+<span id="cb150-19"><a href="#cb150-19" aria-hidden="true" tabindex="-1"></a>my_pzinbinom <span class="ot">=</span> <span class="cf">function</span>(q, size, ..., pzero,</span>
+<span id="cb150-20"><a href="#cb150-20" aria-hidden="true" tabindex="-1"></a>                         <span class="at">lower.tail =</span> <span class="cn">TRUE</span>, <span class="at">log.p =</span> <span class="cn">FALSE</span>) {</span>
+<span id="cb150-21"><a href="#cb150-21" aria-hidden="true" tabindex="-1"></a>  baseline <span class="ot">=</span> <span class="fu">pnbinom</span>(q, <span class="at">size =</span> size, ...,</span>
+<span id="cb150-22"><a href="#cb150-22" aria-hidden="true" tabindex="-1"></a>                      <span class="at">lower.tail =</span> <span class="cn">TRUE</span>, <span class="at">log.p =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb150-23"><a href="#cb150-23" aria-hidden="true" tabindex="-1"></a>  result <span class="ot">=</span> <span class="fu">ifelse</span>(q <span class="sc">&lt;</span> <span class="dv">0</span>, <span class="dv">0</span>, pzero <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> pzero) <span class="sc">*</span> baseline)</span>
+<span id="cb150-24"><a href="#cb150-24" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="sc">!</span>lower.tail) result <span class="ot">=</span> <span class="dv">1</span> <span class="sc">-</span> result</span>
+<span id="cb150-25"><a href="#cb150-25" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (log.p) <span class="fu">log</span>(result) <span class="cf">else</span> result</span>
+<span id="cb150-26"><a href="#cb150-26" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb150-27"><a href="#cb150-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb150-28"><a href="#cb150-28" aria-hidden="true" tabindex="-1"></a><span class="co"># Quantile function (assuming 0 &lt; pzero &lt; 1)</span></span>
+<span id="cb150-29"><a href="#cb150-29" aria-hidden="true" tabindex="-1"></a>my_qzinbinom <span class="ot">=</span> <span class="cf">function</span>(p, size, ..., pzero, <span class="at">lower.tail =</span> <span class="cn">TRUE</span>) {</span>
+<span id="cb150-30"><a href="#cb150-30" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Switch between lower or upper tail</span></span>
+<span id="cb150-31"><a href="#cb150-31" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (<span class="sc">!</span>lower.tail) p <span class="ot">=</span> <span class="dv">1</span> <span class="sc">-</span> p</span>
+<span id="cb150-32"><a href="#cb150-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb150-33"><a href="#cb150-33" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Quantile in the original distribution</span></span>
+<span id="cb150-34"><a href="#cb150-34" aria-hidden="true" tabindex="-1"></a>  baseline_p <span class="ot">=</span> (p <span class="sc">-</span> pzero) <span class="sc">/</span> (<span class="dv">1</span> <span class="sc">-</span> pzero)</span>
+<span id="cb150-35"><a href="#cb150-35" aria-hidden="true" tabindex="-1"></a>  baseline_q <span class="ot">=</span> <span class="fu">qnbinom</span>(baseline_p, <span class="at">size =</span> size, ...)</span>
+<span id="cb150-36"><a href="#cb150-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb150-37"><a href="#cb150-37" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Adjust for zero inflation</span></span>
+<span id="cb150-38"><a href="#cb150-38" aria-hidden="true" tabindex="-1"></a>  cdf_at_zero <span class="ot">=</span> pzero <span class="sc">+</span> (<span class="dv">1</span> <span class="sc">-</span> pzero)<span class="sc">*</span><span class="fu">pnbinom</span>(<span class="dv">0</span>, <span class="at">size =</span> size, ..., <span class="at">lower.tail =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb150-39"><a href="#cb150-39" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ifelse</span>(p <span class="sc">&lt;=</span> cdf_at_zero, <span class="dv">0</span>, baseline_q)</span>
+<span id="cb150-40"><a href="#cb150-40" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb150-41"><a href="#cb150-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb150-42"><a href="#cb150-42" aria-hidden="true" tabindex="-1"></a><span class="co"># Example, with the objects size, prob and pzero defined in the previous section</span></span>
+<span id="cb150-43"><a href="#cb150-43" aria-hidden="true" tabindex="-1"></a>x <span class="ot">=</span> <span class="dv">0</span><span class="sc">:</span><span class="fu">my_qzinbinom</span>(<span class="fl">0.999</span>, <span class="at">size =</span> size, <span class="at">prob =</span> prob, <span class="at">pzero =</span> pzero)</span>
+<span id="cb150-44"><a href="#cb150-44" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(x, <span class="fu">my_dzinbinom</span>(x, <span class="at">size =</span> size, <span class="at">prob =</span> prob, <span class="at">pzero =</span> pzero),</span>
+<span id="cb150-45"><a href="#cb150-45" aria-hidden="true" tabindex="-1"></a>     <span class="at">type =</span> <span class="st">"h"</span>, <span class="at">xlab =</span> <span class="st">"Count"</span>, <span class="at">ylab =</span> <span class="st">"Probability"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="distributions_files/figure-html/unnamed-chunk-64-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="distributions_files/figure-html/unnamed-chunk-67-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb145"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb145-1"><a href="#cb145-1" aria-hidden="true" tabindex="-1"></a><span class="fu">my_pzinbinom</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">10</span>, <span class="at">size =</span> size, <span class="at">prob =</span> prob, <span class="at">pzero =</span> pzero)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb151"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb151-1"><a href="#cb151-1" aria-hidden="true" tabindex="-1"></a><span class="fu">my_pzinbinom</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">10</span>, <span class="at">size =</span> size, <span class="at">prob =</span> prob, <span class="at">pzero =</span> pzero)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code> [1] 0.2800000 0.3280000 0.3856000 0.4470400 0.5084800 0.5674624 0.6225126
  [8] 0.6728443 0.7181428 0.7584081 0.7938416</code></pre>
 </div>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb147"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb147-1"><a href="#cb147-1" aria-hidden="true" tabindex="-1"></a><span class="fu">my_qzinbinom</span>(<span class="fu">c</span>(<span class="fl">0.5</span>, <span class="fl">0.9</span>), <span class="at">size =</span> size, <span class="at">prob =</span> prob, <span class="at">pzero =</span> pzero)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb153"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb153-1"><a href="#cb153-1" aria-hidden="true" tabindex="-1"></a><span class="fu">my_qzinbinom</span>(<span class="fu">c</span>(<span class="fl">0.5</span>, <span class="fl">0.9</span>), <span class="at">size =</span> size, <span class="at">prob =</span> prob, <span class="at">pzero =</span> pzero)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1]  4 15</code></pre>
 </div>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb149"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb149-1"><a href="#cb149-1" aria-hidden="true" tabindex="-1"></a><span class="fu">my_rzinbinom</span>(<span class="dv">10</span>, <span class="at">size =</span> size, <span class="at">prob =</span> prob, <span class="at">pzero =</span> pzero)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb155"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb155-1"><a href="#cb155-1" aria-hidden="true" tabindex="-1"></a><span class="fu">my_rzinbinom</span>(<span class="dv">10</span>, <span class="at">size =</span> size, <span class="at">prob =</span> prob, <span class="at">pzero =</span> pzero)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code> [1]  2  9  6  7  6 16  7  1  9  3</code></pre>
 </div>
 </div>
-<p>The function of RTMBdist gives the same probabilities as ours:</p>
+<p>The function of RTMBdist gives the same probabilities as ours, which is a useful check of any function that you write:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb151"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb151-1"><a href="#cb151-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare our probability mass function with dzinbinom() of RTMBdist.</span></span>
-<span id="cb151-2"><a href="#cb151-2" aria-hidden="true" tabindex="-1"></a><span class="fu">my_dzinbinom</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">3</span>, <span class="at">size =</span> size, <span class="at">prob =</span> prob, <span class="at">pzero =</span> pzero)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb157"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb157-1"><a href="#cb157-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Compare our probability mass function with dzinbinom() of RTMBdist.</span></span>
+<span id="cb157-2"><a href="#cb157-2" aria-hidden="true" tabindex="-1"></a><span class="fu">my_dzinbinom</span>(<span class="dv">0</span><span class="sc">:</span><span class="dv">3</span>, <span class="at">size =</span> size, <span class="at">prob =</span> prob, <span class="at">pzero =</span> pzero)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 0.28000 0.04800 0.05760 0.06144</code></pre>
 </div>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb153"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb153-1"><a href="#cb153-1" aria-hidden="true" tabindex="-1"></a><span class="fu">dzinbinom</span>(<span class="at">x =</span> <span class="dv">0</span><span class="sc">:</span><span class="dv">3</span>, <span class="at">size =</span> size, <span class="at">prob =</span> prob, <span class="at">zeroprob =</span> pzero)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb159"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb159-1"><a href="#cb159-1" aria-hidden="true" tabindex="-1"></a><span class="fu">dzinbinom</span>(<span class="at">x =</span> <span class="dv">0</span><span class="sc">:</span><span class="dv">3</span>, <span class="at">size =</span> size, <span class="at">prob =</span> prob, <span class="at">zeroprob =</span> pzero)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 0.28000 0.04800 0.05760 0.06144</code></pre>
 </div>
@@ -2899,18 +2946,9 @@ P(X = 0) = p_{\text{0}}, \qquad f_{\text{inf}}(x) = (1 - p_{\text{0}})f(x) \quad
 <p>A mass or density function that you write yourself can be used as the likelihood of a model fitted with <code>MakeADFun()</code>, as long as RTMB is able to differentiate it automatically (the gradient that <code>optim()</code> receives as <code>obj$gr</code>; see <a href="../Chapter_6/Theory.html#sec-makeadfun">Chapter 6</a>). The functions above meet this requirement because they only use arithmetic and <code>dnbinom()</code>, which RTMB knows how to differentiate, and because the condition of their <code>ifelse()</code> depends on the data (<code>x == 0</code>) and not on a parameter. A function that branches on a parameter, calls a function of another package that RTMB does not know, or calls a function with its package prefix (such as <code>stats::dnbinom()</code>, which forces the version that cannot be differentiated) may need additional steps. The same holds for the functions that simulate from the model with <code>obj$simulate()</code> or calculate residuals, which need extra code in your function. The article <a href="https://janolefi.github.io/RTMBdist/articles/adding-a-distribution.html">Adding a distribution</a> of the RTMBdist documentation explains these steps, among them how to write conditions with arithmetic indicators such as <code>smaller()</code> and <code>greater()</code> instead of <code>if</code> and <code>ifelse()</code>, how to keep a function stable when it is evaluated at the boundary of its support, and how to test its gradient. The article is written for those who add a distribution to the package, and the functions of this section do not follow all its recommendations.</p>
 </div>
 </div>
-<p>For a distribution without a zero-inflated version in RTMBdist, the function <code>zero_inflate()</code> constructs one from a probability mass or density function. The new function takes the values, <code>zeroprob</code> and then the arguments of the original function. For example, for the Conway-Maxwell-Poisson distribution (see <a href="#sec-com_poisson" class="quarto-xref">Section&nbsp;1.4</a>):</p>
-<div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb155"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb155-1"><a href="#cb155-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Construct a zero-inflated Conway-Maxwell-Poisson probability mass function.</span></span>
-<span id="cb155-2"><a href="#cb155-2" aria-hidden="true" tabindex="-1"></a><span class="co"># discrete = TRUE says that the original distribution is a probability mass function.</span></span>
-<span id="cb155-3"><a href="#cb155-3" aria-hidden="true" tabindex="-1"></a>dzicompois2 <span class="ot">=</span> <span class="fu">zero_inflate</span>(dcompois2, <span class="at">discrete =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb155-4"><a href="#cb155-4" aria-hidden="true" tabindex="-1"></a><span class="fu">dzicompois2</span>(<span class="at">x =</span> <span class="dv">0</span><span class="sc">:</span><span class="dv">3</span>, <span class="at">zeroprob =</span> <span class="fl">0.25</span>, <span class="at">mean =</span> <span class="fl">2.5</span>, <span class="at">nu =</span> <span class="dv">2</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] 0.2671151 0.1307921 0.2498753 0.2121694</code></pre>
-</div>
-</div>
 
 
+</section>
 </section>
 
 
