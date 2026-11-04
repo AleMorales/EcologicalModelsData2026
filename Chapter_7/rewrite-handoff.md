@@ -912,6 +912,11 @@ short report in the progress log: what was checked, what was changed, what remai
 
 Stages add questions here; they do not wait for an answer.
 
+- (Stage 3) Exercise 5, question 3 of the practical says in one paragraph that near
+  $\sigma_{\mathrm{site}}=0$ the optimiser can stop at a practically zero variance with
+  convergence code 0, with a pointer to Chapter 8. This is Chapter 8 material; keep the
+  paragraph, or remove it and leave the topic to Chapter 8?
+
 ## Progress log
 
 Each stage adds one line: date, stage, what is done, what is next.
@@ -1033,3 +1038,59 @@ Each stage adds one line: date, stage, what is done, what is next.
   of the interaction (8.6 units of AIC, 0.33 of log score); the text says all three.
   No new open question. `AGENTS.md` unchanged (Stage 7 records the decisions). Next:
   Stage 3.
+- 4 November 2026: Stage 3 done. `Chapter_7/Practicals/no_solution.qmd` (about 720 lines)
+  and `solution.qmd` (about 1,220 lines) replaced. The student page has the opening
+  paragraph, Exercise 1 worked in full and Exercises 2 to 5 with questions only (the
+  skeleton of Exercise 5 with two gaps); the solutions page links to the worked Exercise 1
+  (as in Chapter 4, because Exercise 5 does not use its objects; Chapter 6's open question
+  is still unanswered) and repeats the exercise text of Exercises 2 to 5, checked identical
+  with `diff`. Both pages rendered with `--profile dev` (R 4.6.1, RTMB 2.0, RTMBdist 1.1.0,
+  TMB 1.9.25, DHARMa 0.5.0, glmmTMB 1.1.15.2): exit 0, no warnings, no unresolved
+  cross-references, every quoted number compared with the printed output, every figure
+  inspected. **Choices:** Exercise 1 starts from $k=0.05$/year read from the plot, because
+  complete pooling from $k=0.1$ (the handoff's start) collapses to $k\to0$ with
+  $\sigma_{\mathrm{obs}}=38$ ft and convergence code 0; it adds a profile interval of
+  $\sigma_{\mathrm{tree}}$ to question 3. Exercise 3, question 3 compares the predicted
+  nest log means with a no-pooling fit (one log mean per nest, NLL 1699.6) in place of the
+  "own log mean ratio" of the handoff: the ratio of totals moved one nest (Bochet) away from
+  zero, whereas every predicted value lies between the no-pooling value and the typical
+  value. Exercise 5 uses $\mu=4$ and starts every fit at the values used to simulate
+  (`site_start`, also the parameters of the simulating object): from $\mu=0$, 13 of 500
+  maximum likelihood fits collapsed $\sigma_{\mathrm{site}}$ to zero with convergence code
+  0 (checked against the closed-form ML of the balanced one-way model); from the simulation
+  values ML agrees with the closed form in 498 of 500 samples, and 8 REML fits still stop
+  at a practically zero variance where the exact REML maximum is 0.01 to 0.16 (means
+  unaffected: 0.954 against 0.955); question 3 says this in general terms (open question
+  above). Seeds: 711 (Exercise 1), 721 (2), 741 and 742 (4), 751 and 752 (5); Exercise 3
+  has no simulation. Not in the pages, for Stage 4: for the reed frog tanks the exact
+  marginal NLL by numerical integration is 109.767 against the Laplace 109.900.
+  **Numbers** (all agree with the handoff where it gives them): pines, complete pooling NLL
+  162.817, $\hat A=102.3$ ft, $\hat k=0.0389$/year, $\hat t_0=2.06$ years,
+  $\sigma_{\mathrm{obs}}=1.68$ ft; mixed NLL 116.669, $\hat A=102.0$ ft, $\hat k=0.0390$,
+  $\hat t_0=2.06$, $\sigma_{\mathrm{tree}}=0.039$ (profile 0.028 to 0.061),
+  $\sigma_{\mathrm{obs}}=0.74$ ft; tree effects $-0.061$ to $0.075$ (se 0.013); new trees
+  94 to 110 ft; $t_0+1/k=27.7$ years; tallest tree 64.1 ft; residuals high at 3 years and
+  low at 5 years (DHARMa flags age 3 and unequal spread); tree residuals 0.043 to 0.979;
+  AIC 333.63 against 243.34. Reed frogs: NLL 109.900, $\sigma_{\mathrm{tank}}=0.776$,
+  Beta-Binomial NLL 113.969 ($\kappa=9.56$), AIC 225.80 against 233.94; typical
+  probabilities 0.937 and 0.505, means over tanks 0.921 and 0.505 (seed 721),
+  Beta-Binomial means 0.901 and 0.502. Owls: without nests NLL 1747.32 ($k=0.77$), with
+  nests 1734.19, $\hat\mu_0=8.50$, satiated factor 0.50 (0.41 to 0.62), 0.891/hour (0.848
+  to 0.936), $k=0.89$, $\sigma_{\mathrm{nest}}=0.42$, AIC 3502.63 against 3478.38; Forel
+  $-3.12\to-0.46$, Sevaz $-0.09\to-0.05$. Salamanders: without sites NLL 111.593,
+  dispersion 2.25, site residuals R-7 0.000 to VF-2 0.995; with sites NLL 109.1207 (glmmTMB
+  $-109.1207$), mining factor 0.024 (0.005 to 0.106), cover 1.14 (0.78 to 1.66),
+  $\lambda_0=1.88$, $\sigma_{\mathrm{site}}=0.427$, AIC 229.19 against 226.24, dispersion
+  1.54. REML simulation (500 samples): six sites ML 0.765 (MC se 0.028), REML 0.954
+  (0.034), 42 and 37 estimates below 0.01; 12 sites ML 0.885 (0.020), REML 0.983 (0.022),
+  1 and 3; about 15 s each. **Names:** `pines`, `tree_names`, `tree`, `pine_data`,
+  `pooled_nll/obj/fit`, `pine_start`, `mixed_nll/obj/fit/sd`, `A_mle`, `k_mle`, `t0_mle`,
+  `sd_tree_mle`, `sd_obs_mle`, `mixed_profile_sd`, `growth()`, `tree_effects`,
+  `tree_asym`, `new_tree_asym`, `mixed_simulations`, `mixed_residuals`, `tree_residuals`;
+  `tank_data`, `tank_nll/obj/fit/sd`, `betabinomial_nll/obj/fit`, `tank_effects`;
+  `owl_data`, `owl_nll/obj/fit`, `nest_nll/obj/fit/sd`, `separate_nll/obj/fit`,
+  `typical_calls()`; `salamander_data`, `poisson_nll/obj/fit`,
+  `site_poisson_nll/obj/fit/sd`, `salamander_glmmtmb`; `site_nll`,
+  `simulate_group_variance(n_samples, n_sites)`, `six_sites`, `twelve_sites`. No `%~%`,
+  `<-`, pipes, `reltol` or `obj$he()`; `glmmTMB` called with the prefix only. `AGENTS.md`
+  unchanged (Stage 7 records the decisions). Next: Stage 4.
