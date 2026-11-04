@@ -74,6 +74,11 @@ Moved from AGENTS.md. Read this before working on the pages it covers; AGENTS.md
   and $p$, with the mean parameterisation on the "Inverse" line, and the code uses
   `dnbinom2()`. The Beta-Binomial is overdispersed relative to the Binomial, with the
   probability varying among sampling units and shared by the trials within a unit. The
+  Negative Binomial summary block shows both parameterisations (issue 12: mean and $k$, and
+  $k$ and $p$, with the conversion), and the entry has a subsection `sec-nb-prob` that
+  converts between them with an R check. A section `sec-parameterisations` before the
+  discrete distributions explains parameterisations in general and tabulates the
+  conversions of the entries; Chapters 2 and 4 link to both. The
   Student's t entry has that name (ID unchanged) and uses `stats::pt()`.
 - Examples: the Normal and Student's t entries use the shell length of mussels in a bed
   (hypothetical, $\mu=60$ mm, $\sigma=5$ mm); the Multivariate Normal adds shell width

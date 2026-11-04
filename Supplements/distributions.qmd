@@ -29,7 +29,8 @@ also a section on how to construct zero-inflated distributions.
 
 For each distribution I provide the standard parameterisation of the functions, but I also provide an
 *inverse* parameterisation where we use the mean ($\mu$) as input, as we normally model the
-effect of covariates on the mean.
+effect of covariates on the mean. The section on [parameterisations](#sec-parameterisations)
+explains how the two are related, and the Negative Binomial entry works out one case.
 
 The functions come from the packages RTMB and RTMBdist, which provide the distribution
 functions used in the whole course, including some that base R lacks
@@ -48,6 +49,44 @@ with the Uniform distribution as the only exception. Where they have no function
 cumulative probability, the quantiles or random numbers, the function of base R with the
 usual name fills in (e.g., `qbinom()` and `rpois()`). An entry says so when a function
 comes from another package or has to be calculated from the probability mass.
+
+# Parameterisations of a distribution {#sec-parameterisations}
+
+A **parameterisation** is a choice of the parameters that identify a distribution within
+its family. Each new parameter is an expression of the old ones, and the distribution does
+not change: for corresponding values of the parameters, the two versions of the mass or
+density function return the same value at every $x$ (the same idea as the
+[reparameterisation of a function](../Chapter_5/Theory.qmd#sec-reparameterisation) in
+Chapter 5). What changes is the meaning of the parameters, and with it what we can read
+from them and how the R functions are called. The summary block of each entry
+gives the parameters of the standard formula, and its line `Inverse` gives the conversion
+to the parameterisation with the mean.
+
+There are two reasons to prefer the mean as a parameter in this course. First, the models
+of later chapters describe how the mean changes with covariates, so the mean should be a
+parameter of the model and not a function of two of them. Second, the choice of parameters
+changes the correlation among the estimates and with it how easy it is to fit the model
+(see [Chapter 4](../Chapter_4/Theory.qmd#sec-slices-profiles)). The functions of RTMBdist
+whose name ends in `2` use the mean (`dnbinom2()`, `dbeta2()`, `dgamma2()`), and the
+entries say which function to call.
+
+The following table lists the conversions of the entries for which the standard formula
+does not use the mean. In each conversion $\mu$ is the mean of the distribution, except
+for the LogNormal distribution, where $\mu_{\log}$ is the parameter that the entry calls
+$\mu$ (the mean of $\log(X)$).
+
+| Distribution | Standard parameters | Parameters in terms of the mean |
+|:---|:---|:---|
+| [Negative Binomial](#sec-negative_binomial) | shape $k$, probability $p$ | $p=k/(k+\mu)$ |
+| [Beta-Binomial](#sec-beta_binomial) | shapes $a$, $b$ | $\kappa=a+b$, $a=\kappa\mu/n$, $b=\kappa(1-\mu/n)$ |
+| [Gamma](#sec-gamma) | shape $k$, rate $r$ | $r=k/\mu$ |
+| [LogNormal](#sec-lognormal) | $\mu_{\log}$, $\sigma$ | $\mu_{\log}=\log(\mu)-\sigma^2/2$ |
+| [Beta](#sec-beta) | shapes $a$, $b$ | $\kappa=a+b$, $a=\kappa\mu$, $b=\kappa(1-\mu)$ |
+
+Converting is done in three steps, which the [Negative
+Binomial](#sec-nb-prob) entry carries out with numbers: write the mean of the distribution
+as a function of its standard parameters, solve for the one that you want to replace, and
+check in R that both versions return the same mass or density at the same value of $x$.
 
 # Discrete distributions
 
@@ -619,24 +658,32 @@ $$
 \text{Type}: &\quad \text{Discrete} \\
 \text{Range}: &\quad x = 0, 1, 2, \ldots \\
 \text{Probability}: &\quad
+\frac{\Gamma(x+k)}{\Gamma(k)x!}
+\left(\frac{k}{k+\mu}\right)^k\left(\frac{\mu}{k+\mu}\right)^x
+\quad\text{or}\quad
 \frac{\Gamma(x+k)}{\Gamma(k)x!}p^k(1-p)^x \\
 \text{Parameters}: &\quad k\;(\texttt{size}) = \text{shape};\quad
-p\;(\texttt{prob}) = \text{probability};\quad
-\mu\;(\texttt{mu}) = \text{mean} \\
-\text{Mean}: &\quad E[X] = k(1-p)/p \\
-\text{Variance}: &\quad \operatorname{Var}(X) = k(1-p)/p^2 \\
-\text{Inverse}: &\quad p = k/(k+\mu),\ \text{which gives } \operatorname{Var}(X) = \mu + \mu^2/k
+\mu\;(\texttt{mu}) = \text{mean};\quad
+p\;(\texttt{prob}) = \text{probability} \\
+\text{Mean}: &\quad E[X] = \mu = k(1-p)/p \\
+\text{Variance}: &\quad \operatorname{Var}(X) = \mu + \mu^2/k = k(1-p)/p^2 \\
+\text{Inverse}: &\quad p = k/(k+\mu);\quad \mu = k(1-p)/p
 \end{aligned}
 $$
 
 When overdispersion occurs, the Negative Binomial distribution is a useful starting model.
 It has support $\{0, 1, 2, \ldots\}$ and can accommodate more variation
-than a Poisson model with the same mean. The Negative Binomial model has two parameters:
+than a Poisson model with the same mean. It is written with two parameters, and this book
+uses the parameterisation with the mean:
 
 - $\mu>0$: the mean count per sampling unit;
-- $k>0$: a shape parameter that controls the additional variation
+- $k>0$: a shape parameter that controls the additional variation.
 
-The probability mass function is
+The same distribution can also be written with $k$ and a probability $p$ (the arguments
+`size` and `prob` of `dnbinom()`), which is the form in many textbooks. The
+[section on the parameterisation with a probability](#sec-nb-prob) below gives that mass
+function and shows how to convert between the two. In the parameterisation with the mean,
+the probability mass function is
 
 $$
 P(X=x)
@@ -677,6 +724,59 @@ explains why it has that name. Note that `dnbinom2()` with the arguments `mu` an
 is the function of RTMBdist: RTMB has a function with the same name and other arguments,
 which is why RTMBdist is loaded second (see the warning in
 [Chapter 4](../Chapter_4/Theory.qmd#sec-likelihood-surface)).
+
+### The parameterisation with a probability {#sec-nb-prob}
+
+A distribution can be written with different sets of parameters without changing the
+distribution (see [the section on parameterisations](#sec-parameterisations)). For
+a whole number $k$, the Negative Binomial distribution is the number of failures before
+the $k$-th success in independent trials with success probability $p$, and its mass
+function (valid for any $k>0$) is
+
+$$
+P(X=x)=\frac{\Gamma(x+k)}{\Gamma(k)x!}\,p^k(1-p)^x,
+$$
+
+with mean $E[X]=k(1-p)/p$ and variance $\operatorname{Var}(X)=k(1-p)/p^2$, where $k$ is the
+same shape parameter as above and $p$ is a probability ($0<p<1$). In this form $p$ has no
+direct ecological meaning for counts of seedlings, and the mean is a function of both
+parameters. We obtain the parameterisation with the mean by solving for $p$ in terms of
+$\mu$ and $k$:
+
+$$
+p=\frac{k}{k+\mu}
+\qquad\text{and back}\qquad
+\mu=\frac{k(1-p)}{p}.
+$$
+
+Substituting $p=k/(k+\mu)$, and therefore $1-p=\mu/(k+\mu)$, in the mass function above
+gives the mass function with $\mu$ and $k$, and in the variance it gives
+$k(1-p)/p^2=\mu+\mu^2/k$. The shape $k$ is the same in both forms and only the second
+parameter changes. This book uses $\mu$ because the models of later chapters describe how the
+mean changes with covariates, and because the estimates of $\mu$ and $k$ are less
+correlated than those of $p$ and $k$ (see
+[Chapter 4](../Chapter_4/Theory.qmd#sec-slices-profiles)).
+
+To check that both forms describe the same distribution, we convert a mean and a shape to
+a probability and compare the two functions at the same count (here $\mu=4$ and $k=1.5$,
+the values of the example below). In R, `dnbinom2()` takes `mu` and `size`, and `dnbinom()`
+takes `size` and `prob`:
+
+```{r}
+# Convert the mean and the shape to the probability.
+mu_nb = 4
+k_nb = 1.5
+p_nb = k_nb / (k_nb + mu_nb)
+
+# The same probability mass with both parameterisations.
+dnbinom2(x = 10, mu = mu_nb, size = k_nb)
+dnbinom(x = 10, size = k_nb, prob = p_nb)
+
+# Converting back recovers the mean.
+k_nb * (1 - p_nb) / p_nb
+```
+
+Both functions return the same probability, and converting back gives the mean of 4.
 
 ### Example: seedlings in quadrats
 
