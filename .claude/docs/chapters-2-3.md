@@ -85,7 +85,12 @@ Moved from AGENTS.md. Read this before working on the pages it covers; AGENTS.md
   `dcompois2()` (mean and $\nu$; a clutch with a mean of 2.5 eggs; cumulative probability
   as a sum of the mass; `sample()` on the mass simulates). The Uniform entry says that
   RTMB has no Uniform density for fitting.
-- Zero inflation: no data set; the formula separately for discrete and continuous
+- Zero inflation (issue 16): two subsections, RTMBdist first (ready-made `dzi*()` functions
+  and `zero_inflate()`, which gives only the mass or density and no working `log` argument,
+  so take `log()` of it) and then writing your own functions, justified by needing `p`, `q`
+  and `r` functions, an original distribution that is not available, or not using RTMBdist.
+  Keep the ID `sec-zero_inflated` and the name `pzero` (Chapter 4, Exercise 3 uses them).
+  No data set; the formula separately for discrete and continuous
   distributions; a note callout on using a hand-written density in an NLL (links to the
   RTMBdist article "Adding a distribution"). That `my_dzinbinom()` works in `MakeADFun()`
   was checked in R; the rest of the callout follows the article.
