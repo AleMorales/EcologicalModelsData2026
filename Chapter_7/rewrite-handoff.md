@@ -1191,3 +1191,31 @@ Each stage adds one line: date, stage, what is done, what is next.
   part of the general statements). For the author: the DHARMa panels of slide 25 are
   small at slide size (an unchanged copy, as in Chapter 6). No new open question.
   `AGENTS.md` unchanged (Stage 7 records the decisions). Next: Stage 6.
+- 4 November 2026: Stage 6 done. `Chapter_7/Lecture/lecture-script.md` written from the 31
+  slides as Stage 5 left them (116 minutes of slides, 14 of slack, 2 breaks: 150), in the
+  format of `STYLE_GUIDE_LECTURE.md` and of the Chapter 6 script: opening (draft; figures by
+  slide with `figures.R`), timing table, one section per slide (slides 1 and 2 together),
+  expected answers for Practice 1 to 3, the discussion (newts in 20 ponds, with the answers
+  of the Stage 5 entry and one more: no pooling cannot estimate the effect of pond area,
+  because the value of each pond absorbs it) and the two closing questions, the demo section
+  with section 0 during the break and a walkthrough of `demo-pooling.R` (2 + 3 + 4 + 4 + 3 =
+  16 minutes, three questions with answers), and "Adjustments during delivery" (keeps slides
+  6, 7, 8, 11, 13, 15, 19 and 23, the plan's 6, 7, 10, 11, 13, 15, 19 and 23 renumbered; the
+  demo is kept whole and takes the slack first). Slide titles and minutes were compared
+  mechanically with `lecture.qmd` and `data-timing`: all agree. Provenance once (slide 5,
+  with the note on mL/L); no first-person opinion. **Checks:** `demo-pooling.R` run in a clean
+  session (R 4.6.1, 1.5 s); every number of the walkthrough is its output (σ_obs 8.23 and
+  1.86; asymptotes 14.2 to 45.0; $a$ 30.9, $b$ 0.0096, $c$ 48.4, σ_plant 0.335, σ_obs 2.01;
+  predicted effects 0.145 to 0.372 for Quebec, −0.072 to 0.054 for Mn, −0.370, −0.755,
+  −0.422; β −0.31, −0.10, −0.42; σ_plant 0.079; chilling 0.90 (0.79 to 1.03) and 0.59 (0.52
+  to 0.68); typical 42.2, 38.2, 31.1, 18.5; new plants 18.46 (15.81 to 21.55)). Practice
+  answers checked in R (0.34, 0.16, 0.34, 0.5, 0.68; 2.0, 2.7, 1.0, 2.0 mm; 9.1 to 43.8,
+  33.0, simulation 21.65 with seed 702 and LogNormal mean 21.67 cm/year); the other numbers
+  come from the chapter and the Stage 1 to 5 log. **Fixed:** the upper Wald limit of the
+  Mississippi chilling factor is 0.6848, so "0.52 to 0.69" became "0.52 to 0.68" in
+  `Theory.qmd` ("Comparing grouped models", the ecological answer; the chapter's own "32% to
+  48%" already agreed) and in the comment of `demo-pooling.R`, section 4. `lecture-script.pdf`
+  made with `quarto render Chapter_7/Lecture/lecture-script.md --to typst` (no warnings; 24
+  pages, inspected as PNG via `quarto typst compile` in the scratchpad); the `.quarto/`
+  folder that the render creates was removed. No new open question. `AGENTS.md` unchanged
+  (Stage 7). Next: Stage 7.

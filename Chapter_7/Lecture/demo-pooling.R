@@ -233,7 +233,7 @@ c(
 )
 
 # Factors by which chilling multiplies the asymptote, with Wald intervals from the log
-# scale: Quebec about 0.90 (0.79 to 1.03), Mississippi about 0.59 (0.52 to 0.69).
+# scale: Quebec about 0.90 (0.79 to 1.03), Mississippi about 0.59 (0.52 to 0.68).
 chill_summary = summary(treatment_sd, select = "report")
 critical_value = qnorm(p = 0.975)
 chill_factor = exp(cbind(
