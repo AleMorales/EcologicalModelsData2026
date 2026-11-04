@@ -992,3 +992,42 @@ Each stage adds one line: date, stage, what is done, what is next.
   less than 0.001 ppm". **Remains:** no new open question; the three of Stage 3 and the
   decisions of 4 November stand. AGENTS.md unchanged (Stage 7 records the decisions). Next:
   Stage 5.
+- 4 November 2026: Stage 5 done. `Chapter_6/Lecture/` has `lecture.qmd` (32 slides),
+  `lecture.scss` (unchanged copy of `Chapter_4/Lecture_2/lecture.scss`, identical to Chapter
+  3's), `demo-cycle.R` and `lecture-assets/` with `figures.R` and five PNGs (192 dpi):
+  `curve-distribution.png` (slide 5), `fitted-curve.png` (11), `parameter-derivatives.png`
+  (14, a copy of Chapter 5's `fig-parameter_derivatives`, 9 × 4, because the Chapter 6 theory
+  has no such figure), `curve-band.png` (17) and `residuals-binomial.png` (21, DHARMa's
+  `plot()` through `png()`, 9 × 4.5). `figures.R` runs the chapter's chunks unchanged in order
+  (seed 601) in a clean session in about 14 s; the DHARMa copy is identical to
+  `_freeze/Chapter_6/Theory/figure-html/fig-residuals_binomial-1.png`, the other copies were
+  compared by eye. **Slides differ from the table above in two places** (the slides hold for
+  Stage 6): Practice 1 (seedlings and light) is slide 7, after "What the curve must return",
+  where the callout stands in the chapter (`STYLE_GUIDE_LECTURE.md`), so the plan's slides 7
+  to 11 are 8 to 12; Practice 3 (fruit set in inflorescences, 3 minutes) is new as slide 25,
+  after "Revising the observation model" (author's decision of three callouts), so the plan's
+  slides 25 to 31 are 26 to 32. Blocks of 36 (slides 1 to 12), 37 (13 to 22) and 48 (23 to
+  32) minutes: 121 of slides, 9 of slack, 20 of breaks = 150; every `data-timing` equals the
+  minutes. Slide 11 (gradient) says that an `if` on a parameter is refused, as the theory does
+  after Stage 4. Slide 29 shows the chapter's differences table inside an `.example` box with
+  a caption that defines Δ (LOO = leave-one-out log score). **Checks:** every chunk of the
+  theory run in a clean session (`knitr::purl()`, R 4.6.1): every number on the slides agrees
+  with the chapter and the Stage 1 to 2 log. `demo-cycle.R` (sections 0 to 5: data; NLL,
+  gradient and fit; estimates and curve in base R; `sdreport()`, correlation and the profile
+  of `log_H`; the band from `ADREPORT()` in base R; `obj$simulate()`, DHARMa `plot()`, the
+  residual of each tank and the dispersion statistic) ran in a clean session in 3.8 s with
+  the chapter's numbers (0.526, 0.0166, correlation 0.82, 1/H 37.9 to 143.1, band at 100
+  tadpoles 23.5 to 33.1, dispersion 2.93); section 5 uses seed 601, so its residual plot is the
+  chapter's. `quarto render Chapter_6/Lecture/lecture.qmd --to revealjs` ran without warnings
+  (the generated `lecture.html` was deleted afterwards, as for the other lectures); all 32
+  slides were inspected at 1440 × 900 with fragments shown (headless Edge). Fixed after
+  inspection: the four-column table of slide 6 overflowed (the stylesheet gives the first
+  column 40%; now three columns); the two wide figures (slides 14 and 21) were unreadable at
+  full width with text below and now sit in a 60 to 64% column beside the bullets; slide 29's
+  numbers were set in two fonts. General-first audit: no number of the example outside an
+  `.example` box, a caption or a code comment (slide 11's $1/H$ and $1/(\alpha H)$ moved into
+  the box; slide 28's AIC ≈ −2 × log score moved from the box to a bullet). For Stage 7 and
+  the lecture guide: a two-panel figure of about 9 × 4 is unreadable at full slide width
+  when bullets follow it; a column of 60 to 64% works. Figures to note for the author: the
+  axis labels of `parameter-derivatives.png` are small at slide size (an unchanged copy).
+  No new open question. AGENTS.md unchanged (Stage 7). Next: Stage 6.
