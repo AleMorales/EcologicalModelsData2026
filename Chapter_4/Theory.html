@@ -1009,7 +1009,7 @@ Figure&nbsp;1: Relative log-likelihood of the counts of fir seedlings in the fir
 <pre><code>[1] 2.14</code></pre>
 </div>
 </div>
-<p>The same NLL can be connected to another data set, as long as its list uses the same name, <code>counts</code>. For the first ten quadrats, which we use again in <a href="#sec-likelihood-uncertainty" class="quarto-xref">Section&nbsp;6</a>, only the list of data changes:</p>
+<p>The same NLL function can be connected to another data set, as long as its list uses the same name, <code>counts</code>. For the first ten quadrats, which we use again in <a href="#sec-likelihood-uncertainty" class="quarto-xref">Section&nbsp;6</a>, only the list of data changes:</p>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb48"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb48-1"><a href="#cb48-1" aria-hidden="true" tabindex="-1"></a><span class="co"># The same likelihood connected to the counts of the first ten quadrats.</span></span>
 <span id="cb48-2"><a href="#cb48-2" aria-hidden="true" tabindex="-1"></a>fir_ten_obj <span class="ot">=</span> <span class="fu">MakeADFun</span>(</span>
@@ -1248,6 +1248,34 @@ Figure&nbsp;3: Contours of the relative log-likelihood of the owl data as a func
 <section id="sec-slices-profiles" class="level2" data-number="5.3">
 <h2 data-number="5.3" class="anchored" data-anchor-id="sec-slices-profiles"><span class="header-section-number">5.3</span> Parameterisation, slices and profiles</h2>
 <p>The same model can be written with different sets of parameters, each of which is called a <strong>parameterisation</strong>. By invariance, the maximum and the fitted model are the same in every parameterisation, but the shape of the surface around the maximum is not. The Negative Binomial distribution, for example, can also be written with the shape <span class="math inline">\(k\)</span> and a probability <span class="math inline">\(p=k/(k+\mu)\)</span>, which are the arguments <code>size</code> and <code>prob</code> of <code>dnbinom()</code> (see the <a href="../Supplements/distributions.html#sec-nb-prob">supplement entry</a>). With this parameterisation the contours of the owl surface are tilted (left panel of <a href="#fig-slice_profile" class="quarto-xref">Figure&nbsp;4</a>): a larger <span class="math inline">\(k\)</span> goes with a larger <span class="math inline">\(p\)</span>, because the two together determine the mean, which the data pin down well. Tilted contours describe estimates that depend on each other. Whether they are tilted depends on the model, its parameterisation and the data, so it cannot be generalised from one example. This book writes distributions in terms of their mean where possible, because the models of later chapters describe how the mean changes with covariates (see <a href="../Supplements/distributions.html#sec-parameterisations">Parameterisations</a> in the supplement); the choice of parameters also matters for numerical optimisation, which is a topic of <a href="../Chapter_8/Theory.html#sec-scaling">Chapter 8</a>.</p>
+<p>To fit the owl model in this parameterisation, we write an NLL with <code>dnbinom()</code>, which takes <code>size</code> and <code>prob</code>. The shape <span class="math inline">\(k\)</span> must be positive and <span class="math inline">\(p\)</span> lies between 0 and 1, so the parameters that are optimised are <span class="math inline">\(\log(k)\)</span> and <span class="math inline">\(\operatorname{logit}(p)\)</span>, and the starting values are the method-of-moments estimates converted to this parameterisation:</p>
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb67"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb67-1"><a href="#cb67-1" aria-hidden="true" tabindex="-1"></a><span class="co"># The owl model with the shape k (size) and probability p (prob) of dnbinom().</span></span>
+<span id="cb67-2"><a href="#cb67-2" aria-hidden="true" tabindex="-1"></a>nb_prob_nll <span class="ot">=</span> <span class="cf">function</span>(parms, data) {</span>
+<span id="cb67-3"><a href="#cb67-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">getAll</span>(parms, data)</span>
+<span id="cb67-4"><a href="#cb67-4" aria-hidden="true" tabindex="-1"></a>  k <span class="ot">=</span> <span class="fu">exp</span>(log_k)</span>
+<span id="cb67-5"><a href="#cb67-5" aria-hidden="true" tabindex="-1"></a>  p <span class="ot">=</span> <span class="fu">plogis</span>(logit_p)</span>
+<span id="cb67-6"><a href="#cb67-6" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span><span class="fu">sum</span>(<span class="fu">dnbinom</span>(<span class="at">x =</span> calls, <span class="at">size =</span> k, <span class="at">prob =</span> p, <span class="at">log =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb67-7"><a href="#cb67-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb67-8"><a href="#cb67-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb67-9"><a href="#cb67-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Process the NLL, starting from the method-of-moments estimates, and fit it.</span></span>
+<span id="cb67-10"><a href="#cb67-10" aria-hidden="true" tabindex="-1"></a>owl_prob_obj <span class="ot">=</span> <span class="fu">MakeADFun</span>(</span>
+<span id="cb67-11"><a href="#cb67-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cmb</span>(nb_prob_nll, <span class="fu">list</span>(<span class="at">calls =</span> call_counts)),</span>
+<span id="cb67-12"><a href="#cb67-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">log_k =</span> <span class="fu">log</span>(k_mom), <span class="at">logit_p =</span> <span class="fu">qlogis</span>(k_mom <span class="sc">/</span> (k_mom <span class="sc">+</span> mu_mom))),</span>
+<span id="cb67-13"><a href="#cb67-13" aria-hidden="true" tabindex="-1"></a>  <span class="at">silent =</span> <span class="cn">TRUE</span></span>
+<span id="cb67-14"><a href="#cb67-14" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb67-15"><a href="#cb67-15" aria-hidden="true" tabindex="-1"></a>owl_prob_fit <span class="ot">=</span> <span class="fu">optim</span>(</span>
+<span id="cb67-16"><a href="#cb67-16" aria-hidden="true" tabindex="-1"></a>  <span class="at">par =</span> owl_prob_obj<span class="sc">$</span>par,</span>
+<span id="cb67-17"><a href="#cb67-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">fn =</span> owl_prob_obj<span class="sc">$</span>fn,</span>
+<span id="cb67-18"><a href="#cb67-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">gr =</span> owl_prob_obj<span class="sc">$</span>gr,</span>
+<span id="cb67-19"><a href="#cb67-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">"BFGS"</span></span>
+<span id="cb67-20"><a href="#cb67-20" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb67-21"><a href="#cb67-21" aria-hidden="true" tabindex="-1"></a>owl_prob_fit<span class="sc">$</span>convergence</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] 0</code></pre>
+</div>
+</div>
+<p>The maximum is the same as before, as invariance says: <span class="math inline">\(\hat k\)</span> is the same and <span class="math inline">\(\hat p=\hat k/(\hat k+\hat\mu)\)</span>. We use this fit for the contours, the slice and the profile described below, and again to calculate a correlation between estimates.</p>
 <p>A surface can only be drawn for two parameters, and even then we usually want to know what the data say about one parameter at a time. There are two ways of reducing a likelihood surface to a curve for one parameter, and they answer different questions. Let <span class="math inline">\(\theta_1\)</span> be the parameter of interest and <span class="math inline">\(\theta_2\)</span> the other parameter (or parameters). A <strong>likelihood slice</strong> fixes the other parameters at their estimates and varies the parameter of interest, <span class="math inline">\(\ell(\theta_1,\hat\theta_2)\)</span>: it is a cut through the surface along a straight line. A <strong>likelihood profile</strong> re-estimates the other parameters for every value of the parameter of interest:</p>
 <p><span class="math display">\[
 \ell_{\mathrm{prof}}(\theta_1)=\max_{\theta_2}\,\ell(\theta_1,\theta_2).
@@ -1401,8 +1429,8 @@ Figure&nbsp;4: Slice and profile of the log-likelihood for the shape k of the Ne
 </ul>
 <p>For the ten quadrats, the parameter that was optimised is <span class="math inline">\(\log(\lambda)\)</span>:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb67"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb67-1"><a href="#cb67-1" aria-hidden="true" tabindex="-1"></a><span class="co"># sdreport() calculates the standard errors from the curvature at the estimates.</span></span>
-<span id="cb67-2"><a href="#cb67-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(<span class="fu">sdreport</span>(fir_ten_obj))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb69"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb69-1"><a href="#cb69-1" aria-hidden="true" tabindex="-1"></a><span class="co"># sdreport() calculates the standard errors from the curvature at the estimates.</span></span>
+<span id="cb69-2"><a href="#cb69-2" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(<span class="fu">sdreport</span>(fir_ten_obj))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>            Estimate Std. Error
 log_lambda 0.7884573  0.2132007</code></pre>
@@ -1410,22 +1438,22 @@ log_lambda 0.7884573  0.2132007</code></pre>
 </div>
 <p>The object returned by <code>sdreport()</code> also keeps the covariance matrix of the estimates in its element <code>cov.fixed</code>. A covariance divided by the two standard errors is the correlation between the estimates, which <a href="../Chapter_2/Theory.html#sec-two_continuous_variables">Chapter 2</a> introduced as a parameter of the bivariate Normal distribution, and <code>cov2cor()</code> does this conversion for a whole matrix. For the owl model we calculate the correlation in both parameterisations of <a href="#fig-slice_profile" class="quarto-xref">Figure&nbsp;4</a>:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb69"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb69-1"><a href="#cb69-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Standard errors of log(mu) and log(k), and the correlation between their estimates.</span></span>
-<span id="cb69-2"><a href="#cb69-2" aria-hidden="true" tabindex="-1"></a>owl_sd <span class="ot">=</span> <span class="fu">sdreport</span>(owl_obj)</span>
-<span id="cb69-3"><a href="#cb69-3" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(owl_sd)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb71"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb71-1"><a href="#cb71-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Standard errors of log(mu) and log(k), and the correlation between their estimates.</span></span>
+<span id="cb71-2"><a href="#cb71-2" aria-hidden="true" tabindex="-1"></a>owl_sd <span class="ot">=</span> <span class="fu">sdreport</span>(owl_obj)</span>
+<span id="cb71-3"><a href="#cb71-3" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(owl_sd)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>        Estimate Std. Error
 log_mu  1.559007  0.1635722
 log_k  -1.116410  0.1654527</code></pre>
 </div>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb71"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb71-1"><a href="#cb71-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cov2cor</span>(owl_sd<span class="sc">$</span>cov.fixed)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb73"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb73-1"><a href="#cb73-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cov2cor</span>(owl_sd<span class="sc">$</span>cov.fixed)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>             log_mu        log_k
 log_mu 1.000000e+00 6.196508e-08
 log_k  6.196508e-08 1.000000e+00</code></pre>
 </div>
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb73"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb73-1"><a href="#cb73-1" aria-hidden="true" tabindex="-1"></a><span class="co"># The correlation in the parameterisation with k and p.</span></span>
-<span id="cb73-2"><a href="#cb73-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cov2cor</span>(<span class="fu">sdreport</span>(owl_prob_obj)<span class="sc">$</span>cov.fixed)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb75"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb75-1"><a href="#cb75-1" aria-hidden="true" tabindex="-1"></a><span class="co"># The correlation in the parameterisation with k and p.</span></span>
+<span id="cb75-2"><a href="#cb75-2" aria-hidden="true" tabindex="-1"></a><span class="fu">cov2cor</span>(<span class="fu">sdreport</span>(owl_prob_obj)<span class="sc">$</span>cov.fixed)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>            log_k   logit_p
 log_k   1.0000000 0.7111355
@@ -1487,29 +1515,29 @@ E[g(X)]\neq g(E[X]).
 </div>
 <p>For the ten quadrats we add one line to the Poisson NLL, <code>ADREPORT(lambda)</code>, which asks for the standard error of <span class="math inline">\(\lambda\)</span> itself. <code>sdreport()</code> reads the estimates from the processed object, so we process the new NLL and fit it again (the estimate does not change) before we call it:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb75"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb75-1"><a href="#cb75-1" aria-hidden="true" tabindex="-1"></a><span class="co"># The Poisson NLL with one more line.</span></span>
-<span id="cb75-2"><a href="#cb75-2" aria-hidden="true" tabindex="-1"></a>poisson_nll <span class="ot">=</span> <span class="cf">function</span>(parms, data) {</span>
-<span id="cb75-3"><a href="#cb75-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">getAll</span>(parms, data)</span>
-<span id="cb75-4"><a href="#cb75-4" aria-hidden="true" tabindex="-1"></a>  lambda <span class="ot">=</span> <span class="fu">exp</span>(log_lambda)</span>
-<span id="cb75-5"><a href="#cb75-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Ask for the standard error of lambda itself.</span></span>
-<span id="cb75-6"><a href="#cb75-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ADREPORT</span>(lambda)</span>
-<span id="cb75-7"><a href="#cb75-7" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span><span class="fu">sum</span>(<span class="fu">dpois</span>(<span class="at">x =</span> counts, <span class="at">lambda =</span> lambda, <span class="at">log =</span> <span class="cn">TRUE</span>))</span>
-<span id="cb75-8"><a href="#cb75-8" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb75-9"><a href="#cb75-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb75-10"><a href="#cb75-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Process the new NLL for the ten quadrats, fit it again and calculate the standard errors.</span></span>
-<span id="cb75-11"><a href="#cb75-11" aria-hidden="true" tabindex="-1"></a>fir_ten_obj <span class="ot">=</span> <span class="fu">MakeADFun</span>(</span>
-<span id="cb75-12"><a href="#cb75-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cmb</span>(poisson_nll, <span class="fu">list</span>(<span class="at">counts =</span> ten_counts)),</span>
-<span id="cb75-13"><a href="#cb75-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">log_lambda =</span> <span class="fu">log</span>(<span class="dv">1</span>)),</span>
-<span id="cb75-14"><a href="#cb75-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">silent =</span> <span class="cn">TRUE</span></span>
-<span id="cb75-15"><a href="#cb75-15" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb75-16"><a href="#cb75-16" aria-hidden="true" tabindex="-1"></a>fir_ten_fit <span class="ot">=</span> <span class="fu">optim</span>(</span>
-<span id="cb75-17"><a href="#cb75-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">par =</span> fir_ten_obj<span class="sc">$</span>par,</span>
-<span id="cb75-18"><a href="#cb75-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">fn =</span> fir_ten_obj<span class="sc">$</span>fn,</span>
-<span id="cb75-19"><a href="#cb75-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">gr =</span> fir_ten_obj<span class="sc">$</span>gr,</span>
-<span id="cb75-20"><a href="#cb75-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">"BFGS"</span></span>
-<span id="cb75-21"><a href="#cb75-21" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb75-22"><a href="#cb75-22" aria-hidden="true" tabindex="-1"></a>fir_ten_summary <span class="ot">=</span> <span class="fu">summary</span>(<span class="fu">sdreport</span>(fir_ten_obj))</span>
-<span id="cb75-23"><a href="#cb75-23" aria-hidden="true" tabindex="-1"></a>fir_ten_summary</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb77"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb77-1"><a href="#cb77-1" aria-hidden="true" tabindex="-1"></a><span class="co"># The Poisson NLL with one more line.</span></span>
+<span id="cb77-2"><a href="#cb77-2" aria-hidden="true" tabindex="-1"></a>poisson_nll <span class="ot">=</span> <span class="cf">function</span>(parms, data) {</span>
+<span id="cb77-3"><a href="#cb77-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">getAll</span>(parms, data)</span>
+<span id="cb77-4"><a href="#cb77-4" aria-hidden="true" tabindex="-1"></a>  lambda <span class="ot">=</span> <span class="fu">exp</span>(log_lambda)</span>
+<span id="cb77-5"><a href="#cb77-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Ask for the standard error of lambda itself.</span></span>
+<span id="cb77-6"><a href="#cb77-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ADREPORT</span>(lambda)</span>
+<span id="cb77-7"><a href="#cb77-7" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span><span class="fu">sum</span>(<span class="fu">dpois</span>(<span class="at">x =</span> counts, <span class="at">lambda =</span> lambda, <span class="at">log =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb77-8"><a href="#cb77-8" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb77-9"><a href="#cb77-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb77-10"><a href="#cb77-10" aria-hidden="true" tabindex="-1"></a><span class="co"># Process the new NLL for the ten quadrats, fit it again and calculate the standard errors.</span></span>
+<span id="cb77-11"><a href="#cb77-11" aria-hidden="true" tabindex="-1"></a>fir_ten_obj <span class="ot">=</span> <span class="fu">MakeADFun</span>(</span>
+<span id="cb77-12"><a href="#cb77-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cmb</span>(poisson_nll, <span class="fu">list</span>(<span class="at">counts =</span> ten_counts)),</span>
+<span id="cb77-13"><a href="#cb77-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">log_lambda =</span> <span class="fu">log</span>(<span class="dv">1</span>)),</span>
+<span id="cb77-14"><a href="#cb77-14" aria-hidden="true" tabindex="-1"></a>  <span class="at">silent =</span> <span class="cn">TRUE</span></span>
+<span id="cb77-15"><a href="#cb77-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb77-16"><a href="#cb77-16" aria-hidden="true" tabindex="-1"></a>fir_ten_fit <span class="ot">=</span> <span class="fu">optim</span>(</span>
+<span id="cb77-17"><a href="#cb77-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">par =</span> fir_ten_obj<span class="sc">$</span>par,</span>
+<span id="cb77-18"><a href="#cb77-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">fn =</span> fir_ten_obj<span class="sc">$</span>fn,</span>
+<span id="cb77-19"><a href="#cb77-19" aria-hidden="true" tabindex="-1"></a>  <span class="at">gr =</span> fir_ten_obj<span class="sc">$</span>gr,</span>
+<span id="cb77-20"><a href="#cb77-20" aria-hidden="true" tabindex="-1"></a>  <span class="at">method =</span> <span class="st">"BFGS"</span></span>
+<span id="cb77-21"><a href="#cb77-21" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb77-22"><a href="#cb77-22" aria-hidden="true" tabindex="-1"></a>fir_ten_summary <span class="ot">=</span> <span class="fu">summary</span>(<span class="fu">sdreport</span>(fir_ten_obj))</span>
+<span id="cb77-23"><a href="#cb77-23" aria-hidden="true" tabindex="-1"></a>fir_ten_summary</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>            Estimate Std. Error
 log_lambda 0.7884573  0.2132007
@@ -1518,26 +1546,26 @@ lambda     2.1999999  0.4690415</code></pre>
 </div>
 <p>The last row is the quantity that we asked for with <code>ADREPORT()</code>. Its standard error, 0.47 seedlings per quadrat, is the estimate multiplied by the standard error of <span class="math inline">\(\log(\hat\lambda)\)</span>, <span class="math inline">\(2.2\times 0.213\)</span>, as the delta method for the exponential says. For the owl model we add <code>ADREPORT(k)</code> in the same way:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb77"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb77-1"><a href="#cb77-1" aria-hidden="true" tabindex="-1"></a><span class="co"># The Negative Binomial NLL with one more line.</span></span>
-<span id="cb77-2"><a href="#cb77-2" aria-hidden="true" tabindex="-1"></a>nb_nll <span class="ot">=</span> <span class="cf">function</span>(parms, data) {</span>
-<span id="cb77-3"><a href="#cb77-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">getAll</span>(parms, data)</span>
-<span id="cb77-4"><a href="#cb77-4" aria-hidden="true" tabindex="-1"></a>  mu <span class="ot">=</span> <span class="fu">exp</span>(log_mu)</span>
-<span id="cb77-5"><a href="#cb77-5" aria-hidden="true" tabindex="-1"></a>  k <span class="ot">=</span> <span class="fu">exp</span>(log_k)</span>
-<span id="cb77-6"><a href="#cb77-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Ask for the standard error of k itself.</span></span>
-<span id="cb77-7"><a href="#cb77-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ADREPORT</span>(k)</span>
-<span id="cb77-8"><a href="#cb77-8" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span><span class="fu">sum</span>(<span class="fu">dnbinom2</span>(<span class="at">x =</span> calls, <span class="at">mu =</span> mu, <span class="at">size =</span> k, <span class="at">log =</span> <span class="cn">TRUE</span>))</span>
-<span id="cb77-9"><a href="#cb77-9" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb77-10"><a href="#cb77-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb77-11"><a href="#cb77-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Process the new NLL, fit it again and calculate the standard errors.</span></span>
-<span id="cb77-12"><a href="#cb77-12" aria-hidden="true" tabindex="-1"></a>owl_obj <span class="ot">=</span> <span class="fu">MakeADFun</span>(</span>
-<span id="cb77-13"><a href="#cb77-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cmb</span>(nb_nll, <span class="fu">list</span>(<span class="at">calls =</span> call_counts)),</span>
-<span id="cb77-14"><a href="#cb77-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">log_mu =</span> <span class="fu">log</span>(mu_mom), <span class="at">log_k =</span> <span class="fu">log</span>(k_mom)),</span>
-<span id="cb77-15"><a href="#cb77-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">silent =</span> <span class="cn">TRUE</span></span>
-<span id="cb77-16"><a href="#cb77-16" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb77-17"><a href="#cb77-17" aria-hidden="true" tabindex="-1"></a>owl_fit <span class="ot">=</span> <span class="fu">optim</span>(<span class="at">par =</span> owl_obj<span class="sc">$</span>par, <span class="at">fn =</span> owl_obj<span class="sc">$</span>fn, <span class="at">gr =</span> owl_obj<span class="sc">$</span>gr, <span class="at">method =</span> <span class="st">"BFGS"</span>)</span>
-<span id="cb77-18"><a href="#cb77-18" aria-hidden="true" tabindex="-1"></a>owl_sd <span class="ot">=</span> <span class="fu">sdreport</span>(owl_obj)</span>
-<span id="cb77-19"><a href="#cb77-19" aria-hidden="true" tabindex="-1"></a>owl_summary <span class="ot">=</span> <span class="fu">summary</span>(owl_sd)</span>
-<span id="cb77-20"><a href="#cb77-20" aria-hidden="true" tabindex="-1"></a>owl_summary</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb79"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb79-1"><a href="#cb79-1" aria-hidden="true" tabindex="-1"></a><span class="co"># The Negative Binomial NLL with one more line.</span></span>
+<span id="cb79-2"><a href="#cb79-2" aria-hidden="true" tabindex="-1"></a>nb_nll <span class="ot">=</span> <span class="cf">function</span>(parms, data) {</span>
+<span id="cb79-3"><a href="#cb79-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">getAll</span>(parms, data)</span>
+<span id="cb79-4"><a href="#cb79-4" aria-hidden="true" tabindex="-1"></a>  mu <span class="ot">=</span> <span class="fu">exp</span>(log_mu)</span>
+<span id="cb79-5"><a href="#cb79-5" aria-hidden="true" tabindex="-1"></a>  k <span class="ot">=</span> <span class="fu">exp</span>(log_k)</span>
+<span id="cb79-6"><a href="#cb79-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Ask for the standard error of k itself.</span></span>
+<span id="cb79-7"><a href="#cb79-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ADREPORT</span>(k)</span>
+<span id="cb79-8"><a href="#cb79-8" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span><span class="fu">sum</span>(<span class="fu">dnbinom2</span>(<span class="at">x =</span> calls, <span class="at">mu =</span> mu, <span class="at">size =</span> k, <span class="at">log =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb79-9"><a href="#cb79-9" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb79-10"><a href="#cb79-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb79-11"><a href="#cb79-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Process the new NLL, fit it again and calculate the standard errors.</span></span>
+<span id="cb79-12"><a href="#cb79-12" aria-hidden="true" tabindex="-1"></a>owl_obj <span class="ot">=</span> <span class="fu">MakeADFun</span>(</span>
+<span id="cb79-13"><a href="#cb79-13" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cmb</span>(nb_nll, <span class="fu">list</span>(<span class="at">calls =</span> call_counts)),</span>
+<span id="cb79-14"><a href="#cb79-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">log_mu =</span> <span class="fu">log</span>(mu_mom), <span class="at">log_k =</span> <span class="fu">log</span>(k_mom)),</span>
+<span id="cb79-15"><a href="#cb79-15" aria-hidden="true" tabindex="-1"></a>  <span class="at">silent =</span> <span class="cn">TRUE</span></span>
+<span id="cb79-16"><a href="#cb79-16" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb79-17"><a href="#cb79-17" aria-hidden="true" tabindex="-1"></a>owl_fit <span class="ot">=</span> <span class="fu">optim</span>(<span class="at">par =</span> owl_obj<span class="sc">$</span>par, <span class="at">fn =</span> owl_obj<span class="sc">$</span>fn, <span class="at">gr =</span> owl_obj<span class="sc">$</span>gr, <span class="at">method =</span> <span class="st">"BFGS"</span>)</span>
+<span id="cb79-18"><a href="#cb79-18" aria-hidden="true" tabindex="-1"></a>owl_sd <span class="ot">=</span> <span class="fu">sdreport</span>(owl_obj)</span>
+<span id="cb79-19"><a href="#cb79-19" aria-hidden="true" tabindex="-1"></a>owl_summary <span class="ot">=</span> <span class="fu">summary</span>(owl_sd)</span>
+<span id="cb79-20"><a href="#cb79-20" aria-hidden="true" tabindex="-1"></a>owl_summary</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>         Estimate Std. Error
 log_mu  1.5590071 0.16357220
@@ -1551,20 +1579,20 @@ k       0.3274532 0.05417801</code></pre>
 <h3 data-number="6.1.4" class="anchored" data-anchor-id="sec-wald-intervals"><span class="header-section-number">6.1.4</span> Wald intervals on the original and log scales</h3>
 <p>With a standard error on each scale we can calculate a Wald interval for <span class="math inline">\(\lambda\)</span> in two ways: on the original scale, from the row <code>lambda</code>, or on the log scale, from the row <code>log_lambda</code>, with its endpoints transformed back with <code>exp()</code>. Unlike a standard error, the endpoints of an interval can be transformed directly:<a href="#fn13" class="footnote-ref" id="fnref13" role="doc-noteref"><sup>13</sup></a></p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb79"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb79-1"><a href="#cb79-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Wald intervals for the Poisson mean of the ten quadrats, in seedlings per quadrat.</span></span>
-<span id="cb79-2"><a href="#cb79-2" aria-hidden="true" tabindex="-1"></a>critical_value <span class="ot">=</span> <span class="fu">qnorm</span>(<span class="at">p =</span> <span class="fl">0.975</span>)</span>
-<span id="cb79-3"><a href="#cb79-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb79-4"><a href="#cb79-4" aria-hidden="true" tabindex="-1"></a><span class="co"># On the original scale, from the row of ADREPORT().</span></span>
-<span id="cb79-5"><a href="#cb79-5" aria-hidden="true" tabindex="-1"></a>wald_original <span class="ot">=</span> fir_ten_summary[<span class="st">"lambda"</span>, <span class="st">"Estimate"</span>] <span class="sc">+</span></span>
-<span id="cb79-6"><a href="#cb79-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>) <span class="sc">*</span> critical_value <span class="sc">*</span> fir_ten_summary[<span class="st">"lambda"</span>, <span class="st">"Std. Error"</span>]</span>
-<span id="cb79-7"><a href="#cb79-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb79-8"><a href="#cb79-8" aria-hidden="true" tabindex="-1"></a><span class="co"># On the log scale, with the endpoints transformed back.</span></span>
-<span id="cb79-9"><a href="#cb79-9" aria-hidden="true" tabindex="-1"></a>wald_log <span class="ot">=</span> <span class="fu">exp</span>(</span>
-<span id="cb79-10"><a href="#cb79-10" aria-hidden="true" tabindex="-1"></a>  fir_ten_summary[<span class="st">"log_lambda"</span>, <span class="st">"Estimate"</span>] <span class="sc">+</span></span>
-<span id="cb79-11"><a href="#cb79-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>) <span class="sc">*</span> critical_value <span class="sc">*</span> fir_ten_summary[<span class="st">"log_lambda"</span>, <span class="st">"Std. Error"</span>]</span>
-<span id="cb79-12"><a href="#cb79-12" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb79-13"><a href="#cb79-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb79-14"><a href="#cb79-14" aria-hidden="true" tabindex="-1"></a><span class="fu">rbind</span>(wald_original, wald_log)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb81"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb81-1"><a href="#cb81-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Wald intervals for the Poisson mean of the ten quadrats, in seedlings per quadrat.</span></span>
+<span id="cb81-2"><a href="#cb81-2" aria-hidden="true" tabindex="-1"></a>critical_value <span class="ot">=</span> <span class="fu">qnorm</span>(<span class="at">p =</span> <span class="fl">0.975</span>)</span>
+<span id="cb81-3"><a href="#cb81-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb81-4"><a href="#cb81-4" aria-hidden="true" tabindex="-1"></a><span class="co"># On the original scale, from the row of ADREPORT().</span></span>
+<span id="cb81-5"><a href="#cb81-5" aria-hidden="true" tabindex="-1"></a>wald_original <span class="ot">=</span> fir_ten_summary[<span class="st">"lambda"</span>, <span class="st">"Estimate"</span>] <span class="sc">+</span></span>
+<span id="cb81-6"><a href="#cb81-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>) <span class="sc">*</span> critical_value <span class="sc">*</span> fir_ten_summary[<span class="st">"lambda"</span>, <span class="st">"Std. Error"</span>]</span>
+<span id="cb81-7"><a href="#cb81-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb81-8"><a href="#cb81-8" aria-hidden="true" tabindex="-1"></a><span class="co"># On the log scale, with the endpoints transformed back.</span></span>
+<span id="cb81-9"><a href="#cb81-9" aria-hidden="true" tabindex="-1"></a>wald_log <span class="ot">=</span> <span class="fu">exp</span>(</span>
+<span id="cb81-10"><a href="#cb81-10" aria-hidden="true" tabindex="-1"></a>  fir_ten_summary[<span class="st">"log_lambda"</span>, <span class="st">"Estimate"</span>] <span class="sc">+</span></span>
+<span id="cb81-11"><a href="#cb81-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>) <span class="sc">*</span> critical_value <span class="sc">*</span> fir_ten_summary[<span class="st">"log_lambda"</span>, <span class="st">"Std. Error"</span>]</span>
+<span id="cb81-12"><a href="#cb81-12" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb81-13"><a href="#cb81-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb81-14"><a href="#cb81-14" aria-hidden="true" tabindex="-1"></a><span class="fu">rbind</span>(wald_original, wald_log)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>                  [,1]     [,2]
 wald_original 1.280695 3.119304
@@ -1573,16 +1601,16 @@ wald_log      1.448591 3.341177</code></pre>
 </div>
 <p>The interval from the log scale (1.45 to 3.34 seedlings per quadrat) differs from the interval on the original scale (1.28 to 3.12), although both are 95% Wald intervals for the same parameter and the same data. This is not due to the back-transformation of the endpoints but because Wald intervals rely on the sampling distribution being Normal, and how well this holds depends on the scale of the parameter. The sampling distribution of a parameter that was transformed to make it unconstrained approaches the Normal distribution faster (in terms of sample size) than on the original scale, because constraints on parameter values make sampling distributions skewed when the standard error is relatively large. In terms of the log-likelihood, the curve is closer to a parabola when the parameter is on the log scale. So the transformation of parameters is not only useful for the optimisation algorithm, it also makes Wald intervals more reliable, and we calculate them on the scale that was optimised. We do the same for the owl model, where we also calculate the interval for <span class="math inline">\(k\)</span> on the original scale, from the row of <code>ADREPORT()</code>:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb81"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb81-1"><a href="#cb81-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Lower and upper endpoints of a Wald interval for every row of the table.</span></span>
-<span id="cb81-2"><a href="#cb81-2" aria-hidden="true" tabindex="-1"></a>owl_lower <span class="ot">=</span> owl_summary[, <span class="st">"Estimate"</span>] <span class="sc">-</span> critical_value <span class="sc">*</span> owl_summary[, <span class="st">"Std. Error"</span>]</span>
-<span id="cb81-3"><a href="#cb81-3" aria-hidden="true" tabindex="-1"></a>owl_upper <span class="ot">=</span> owl_summary[, <span class="st">"Estimate"</span>] <span class="sc">+</span> critical_value <span class="sc">*</span> owl_summary[, <span class="st">"Std. Error"</span>]</span>
-<span id="cb81-4"><a href="#cb81-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb81-5"><a href="#cb81-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Rows log_mu and log_k: intervals on the log scales, with the endpoints transformed back.</span></span>
-<span id="cb81-6"><a href="#cb81-6" aria-hidden="true" tabindex="-1"></a>owl_wald_mu <span class="ot">=</span> <span class="fu">exp</span>(<span class="fu">c</span>(owl_lower[[<span class="st">"log_mu"</span>]], owl_upper[[<span class="st">"log_mu"</span>]]))</span>
-<span id="cb81-7"><a href="#cb81-7" aria-hidden="true" tabindex="-1"></a>owl_wald_k <span class="ot">=</span> <span class="fu">exp</span>(<span class="fu">c</span>(owl_lower[[<span class="st">"log_k"</span>]], owl_upper[[<span class="st">"log_k"</span>]]))</span>
-<span id="cb81-8"><a href="#cb81-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb81-9"><a href="#cb81-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Row k, from ADREPORT(): interval for k on the original scale.</span></span>
-<span id="cb81-10"><a href="#cb81-10" aria-hidden="true" tabindex="-1"></a>owl_wald_k_original <span class="ot">=</span> <span class="fu">c</span>(owl_lower[[<span class="st">"k"</span>]], owl_upper[[<span class="st">"k"</span>]])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb83"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb83-1"><a href="#cb83-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Lower and upper endpoints of a Wald interval for every row of the table.</span></span>
+<span id="cb83-2"><a href="#cb83-2" aria-hidden="true" tabindex="-1"></a>owl_lower <span class="ot">=</span> owl_summary[, <span class="st">"Estimate"</span>] <span class="sc">-</span> critical_value <span class="sc">*</span> owl_summary[, <span class="st">"Std. Error"</span>]</span>
+<span id="cb83-3"><a href="#cb83-3" aria-hidden="true" tabindex="-1"></a>owl_upper <span class="ot">=</span> owl_summary[, <span class="st">"Estimate"</span>] <span class="sc">+</span> critical_value <span class="sc">*</span> owl_summary[, <span class="st">"Std. Error"</span>]</span>
+<span id="cb83-4"><a href="#cb83-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb83-5"><a href="#cb83-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Rows log_mu and log_k: intervals on the log scales, with the endpoints transformed back.</span></span>
+<span id="cb83-6"><a href="#cb83-6" aria-hidden="true" tabindex="-1"></a>owl_wald_mu <span class="ot">=</span> <span class="fu">exp</span>(<span class="fu">c</span>(owl_lower[[<span class="st">"log_mu"</span>]], owl_upper[[<span class="st">"log_mu"</span>]]))</span>
+<span id="cb83-7"><a href="#cb83-7" aria-hidden="true" tabindex="-1"></a>owl_wald_k <span class="ot">=</span> <span class="fu">exp</span>(<span class="fu">c</span>(owl_lower[[<span class="st">"log_k"</span>]], owl_upper[[<span class="st">"log_k"</span>]]))</span>
+<span id="cb83-8"><a href="#cb83-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb83-9"><a href="#cb83-9" aria-hidden="true" tabindex="-1"></a><span class="co"># Row k, from ADREPORT(): interval for k on the original scale.</span></span>
+<span id="cb83-10"><a href="#cb83-10" aria-hidden="true" tabindex="-1"></a>owl_wald_k_original <span class="ot">=</span> <span class="fu">c</span>(owl_lower[[<span class="st">"k"</span>]], owl_upper[[<span class="st">"k"</span>]])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>We compare these intervals with the likelihood profile intervals in <a href="#sec-profile_intervals" class="quarto-xref">Section&nbsp;6.2</a>.</p>
 <div id="imp-log-scale-interval" class="callout callout-style-default callout-important callout-titled">
@@ -1610,8 +1638,8 @@ Practice&nbsp;3: an interval from the log scale
 <div class="callout-body-container callout-body">
 <p>The standard error is that of the estimate of the logarithm of the mean, so we calculate the interval on the log scale and transform its endpoints:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb82"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb82-1"><a href="#cb82-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Wald interval on the log scale, back-transformed to ticks per lizard.</span></span>
-<span id="cb82-2"><a href="#cb82-2" aria-hidden="true" tabindex="-1"></a><span class="fu">exp</span>(<span class="fl">0.92</span> <span class="sc">+</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>) <span class="sc">*</span> <span class="fu">qnorm</span>(<span class="at">p =</span> <span class="fl">0.975</span>) <span class="sc">*</span> <span class="fl">0.141</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb84"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb84-1"><a href="#cb84-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Wald interval on the log scale, back-transformed to ticks per lizard.</span></span>
+<span id="cb84-2"><a href="#cb84-2" aria-hidden="true" tabindex="-1"></a><span class="fu">exp</span>(<span class="fl">0.92</span> <span class="sc">+</span> <span class="fu">c</span>(<span class="sc">-</span><span class="dv">1</span>, <span class="dv">1</span>) <span class="sc">*</span> <span class="fu">qnorm</span>(<span class="at">p =</span> <span class="fl">0.975</span>) <span class="sc">*</span> <span class="fl">0.141</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 1.903406 3.308037</code></pre>
 </div>
@@ -1628,10 +1656,10 @@ Practice&nbsp;3: an interval from the log scale
 <h2 data-number="6.2" class="anchored" data-anchor-id="sec-profile_intervals"><span class="header-section-number">6.2</span> Likelihood profile intervals</h2>
 <p>The Wald interval uses the curvature of the log-likelihood at one point, its maximum. The likelihood profile interval uses the whole curve: it contains all the values of the parameter whose relative profile log-likelihood is above a cutoff, that is, the values that the data support almost as well as the estimate. The cutoff is chosen so that, in a large sample, the interval contains the parameter in approximately 95% of hypothetical samples. It is half the 0.95 quantile of a <strong>chi-squared distribution</strong> with one degree of freedom, a result known as Wilks’ theorem (stated in the box below). In R, the quantiles of a chi-squared distribution are calculated with <code>qchisq()</code>:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb84"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb84-1"><a href="#cb84-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Cutoff for the relative profile log-likelihood: half the 95% quantile of a</span></span>
-<span id="cb84-2"><a href="#cb84-2" aria-hidden="true" tabindex="-1"></a><span class="co"># chi-squared distribution with one degree of freedom.</span></span>
-<span id="cb84-3"><a href="#cb84-3" aria-hidden="true" tabindex="-1"></a>cutoff <span class="ot">=</span> <span class="fu">qchisq</span>(<span class="at">p =</span> <span class="fl">0.95</span>, <span class="at">df =</span> <span class="dv">1</span>) <span class="sc">/</span> <span class="dv">2</span></span>
-<span id="cb84-4"><a href="#cb84-4" aria-hidden="true" tabindex="-1"></a>cutoff</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb86"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb86-1"><a href="#cb86-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Cutoff for the relative profile log-likelihood: half the 95% quantile of a</span></span>
+<span id="cb86-2"><a href="#cb86-2" aria-hidden="true" tabindex="-1"></a><span class="co"># chi-squared distribution with one degree of freedom.</span></span>
+<span id="cb86-3"><a href="#cb86-3" aria-hidden="true" tabindex="-1"></a>cutoff <span class="ot">=</span> <span class="fu">qchisq</span>(<span class="at">p =</span> <span class="fl">0.95</span>, <span class="at">df =</span> <span class="dv">1</span>) <span class="sc">/</span> <span class="dv">2</span></span>
+<span id="cb86-4"><a href="#cb86-4" aria-hidden="true" tabindex="-1"></a>cutoff</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 1.920729</code></pre>
 </div>
@@ -1681,17 +1709,17 @@ Practice&nbsp;3: an interval from the log scale
 <h3 data-number="6.2.1" class="anchored" data-anchor-id="one-parameter"><span class="header-section-number">6.2.1</span> One parameter</h3>
 <p>The Poisson model has one parameter, so the endpoints of the interval are the two values of <span class="math inline">\(\lambda\)</span> at which the relative log-likelihood of the ten quadrats equals <span class="math inline">\(-1.92\)</span>. We profile <code>log_lambda</code> in the object of the ten quadrats and collect the interval with the two Wald intervals:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb86"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb86-1"><a href="#cb86-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Profile of log(lambda) for the ten quadrats and its 95% interval, transformed back.</span></span>
-<span id="cb86-2"><a href="#cb86-2" aria-hidden="true" tabindex="-1"></a>fir_ten_profile <span class="ot">=</span> TMB<span class="sc">::</span><span class="fu">tmbprofile</span>(fir_ten_obj, <span class="at">name =</span> <span class="st">"log_lambda"</span>, <span class="at">trace =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb86-3"><a href="#cb86-3" aria-hidden="true" tabindex="-1"></a>likelihood_interval <span class="ot">=</span> <span class="fu">exp</span>(<span class="fu">confint</span>(fir_ten_profile))</span>
-<span id="cb86-4"><a href="#cb86-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb86-5"><a href="#cb86-5" aria-hidden="true" tabindex="-1"></a><span class="co"># The three intervals for lambda (seedlings per quadrat) from the ten quadrats.</span></span>
-<span id="cb86-6"><a href="#cb86-6" aria-hidden="true" tabindex="-1"></a>intervals_ten <span class="ot">=</span> <span class="fu">rbind</span>(wald_original, wald_log, likelihood_interval)</span>
-<span id="cb86-7"><a href="#cb86-7" aria-hidden="true" tabindex="-1"></a><span class="fu">dimnames</span>(intervals_ten) <span class="ot">=</span> <span class="fu">list</span>(</span>
-<span id="cb86-8"><a href="#cb86-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="st">"Wald, original scale"</span>, <span class="st">"Wald, log scale"</span>, <span class="st">"Likelihood"</span>),</span>
-<span id="cb86-9"><a href="#cb86-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="st">"lower"</span>, <span class="st">"upper"</span>)</span>
-<span id="cb86-10"><a href="#cb86-10" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb86-11"><a href="#cb86-11" aria-hidden="true" tabindex="-1"></a>intervals_ten</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb88"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb88-1"><a href="#cb88-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Profile of log(lambda) for the ten quadrats and its 95% interval, transformed back.</span></span>
+<span id="cb88-2"><a href="#cb88-2" aria-hidden="true" tabindex="-1"></a>fir_ten_profile <span class="ot">=</span> TMB<span class="sc">::</span><span class="fu">tmbprofile</span>(fir_ten_obj, <span class="at">name =</span> <span class="st">"log_lambda"</span>, <span class="at">trace =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb88-3"><a href="#cb88-3" aria-hidden="true" tabindex="-1"></a>likelihood_interval <span class="ot">=</span> <span class="fu">exp</span>(<span class="fu">confint</span>(fir_ten_profile))</span>
+<span id="cb88-4"><a href="#cb88-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb88-5"><a href="#cb88-5" aria-hidden="true" tabindex="-1"></a><span class="co"># The three intervals for lambda (seedlings per quadrat) from the ten quadrats.</span></span>
+<span id="cb88-6"><a href="#cb88-6" aria-hidden="true" tabindex="-1"></a>intervals_ten <span class="ot">=</span> <span class="fu">rbind</span>(wald_original, wald_log, likelihood_interval)</span>
+<span id="cb88-7"><a href="#cb88-7" aria-hidden="true" tabindex="-1"></a><span class="fu">dimnames</span>(intervals_ten) <span class="ot">=</span> <span class="fu">list</span>(</span>
+<span id="cb88-8"><a href="#cb88-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="st">"Wald, original scale"</span>, <span class="st">"Wald, log scale"</span>, <span class="st">"Likelihood"</span>),</span>
+<span id="cb88-9"><a href="#cb88-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="st">"lower"</span>, <span class="st">"upper"</span>)</span>
+<span id="cb88-10"><a href="#cb88-10" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb88-11"><a href="#cb88-11" aria-hidden="true" tabindex="-1"></a>intervals_ten</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>                        lower    upper
 Wald, original scale 1.280695 3.119304
@@ -1720,22 +1748,22 @@ Figure&nbsp;5: Relative log-likelihood of the counts of fir seedlings in the fir
 <h3 data-number="6.2.2" class="anchored" data-anchor-id="two-parameters"><span class="header-section-number">6.2.2</span> Two parameters</h3>
 <p>The owl model has two parameters, so the interval of each of them is calculated from its profile (<a href="#sec-likelihood-surface" class="quarto-xref">Section&nbsp;5</a>). At each value of <span class="math inline">\(\log(k)\)</span> that it visits, <code>tmbprofile()</code> makes an inner fit that re-estimates <span class="math inline">\(\log(\mu)\)</span>, and the other way round when we profile <span class="math inline">\(\log(\mu)\)</span>. We do this for both parameters and collect the results with the Wald intervals:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb88"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb88-1"><a href="#cb88-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Profiles of log(mu) and log(k), and their 95% intervals transformed back.</span></span>
-<span id="cb88-2"><a href="#cb88-2" aria-hidden="true" tabindex="-1"></a>owl_profile_mu <span class="ot">=</span> TMB<span class="sc">::</span><span class="fu">tmbprofile</span>(owl_obj, <span class="at">name =</span> <span class="st">"log_mu"</span>, <span class="at">trace =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb88-3"><a href="#cb88-3" aria-hidden="true" tabindex="-1"></a>owl_profile_k <span class="ot">=</span> TMB<span class="sc">::</span><span class="fu">tmbprofile</span>(owl_obj, <span class="at">name =</span> <span class="st">"log_k"</span>, <span class="at">trace =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb88-4"><a href="#cb88-4" aria-hidden="true" tabindex="-1"></a>owl_interval_mu <span class="ot">=</span> <span class="fu">exp</span>(<span class="fu">confint</span>(owl_profile_mu))</span>
-<span id="cb88-5"><a href="#cb88-5" aria-hidden="true" tabindex="-1"></a>owl_interval_k <span class="ot">=</span> <span class="fu">exp</span>(<span class="fu">confint</span>(owl_profile_k))</span>
-<span id="cb88-6"><a href="#cb88-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb88-7"><a href="#cb88-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Profile intervals next to the Wald intervals.</span></span>
-<span id="cb88-8"><a href="#cb88-8" aria-hidden="true" tabindex="-1"></a>owl_intervals <span class="ot">=</span> <span class="fu">rbind</span>(</span>
-<span id="cb88-9"><a href="#cb88-9" aria-hidden="true" tabindex="-1"></a>  owl_interval_mu, owl_wald_mu, owl_interval_k, owl_wald_k, owl_wald_k_original</span>
-<span id="cb88-10"><a href="#cb88-10" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb88-11"><a href="#cb88-11" aria-hidden="true" tabindex="-1"></a><span class="fu">dimnames</span>(owl_intervals) <span class="ot">=</span> <span class="fu">list</span>(</span>
-<span id="cb88-12"><a href="#cb88-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="st">"mu, profile"</span>, <span class="st">"mu, Wald from the log scale"</span>,</span>
-<span id="cb88-13"><a href="#cb88-13" aria-hidden="true" tabindex="-1"></a>    <span class="st">"k, profile"</span>, <span class="st">"k, Wald from the log scale"</span>, <span class="st">"k, Wald on the original scale"</span>),</span>
-<span id="cb88-14"><a href="#cb88-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="st">"lower"</span>, <span class="st">"upper"</span>)</span>
-<span id="cb88-15"><a href="#cb88-15" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb88-16"><a href="#cb88-16" aria-hidden="true" tabindex="-1"></a>owl_intervals</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb90"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb90-1"><a href="#cb90-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Profiles of log(mu) and log(k), and their 95% intervals transformed back.</span></span>
+<span id="cb90-2"><a href="#cb90-2" aria-hidden="true" tabindex="-1"></a>owl_profile_mu <span class="ot">=</span> TMB<span class="sc">::</span><span class="fu">tmbprofile</span>(owl_obj, <span class="at">name =</span> <span class="st">"log_mu"</span>, <span class="at">trace =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb90-3"><a href="#cb90-3" aria-hidden="true" tabindex="-1"></a>owl_profile_k <span class="ot">=</span> TMB<span class="sc">::</span><span class="fu">tmbprofile</span>(owl_obj, <span class="at">name =</span> <span class="st">"log_k"</span>, <span class="at">trace =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb90-4"><a href="#cb90-4" aria-hidden="true" tabindex="-1"></a>owl_interval_mu <span class="ot">=</span> <span class="fu">exp</span>(<span class="fu">confint</span>(owl_profile_mu))</span>
+<span id="cb90-5"><a href="#cb90-5" aria-hidden="true" tabindex="-1"></a>owl_interval_k <span class="ot">=</span> <span class="fu">exp</span>(<span class="fu">confint</span>(owl_profile_k))</span>
+<span id="cb90-6"><a href="#cb90-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb90-7"><a href="#cb90-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Profile intervals next to the Wald intervals.</span></span>
+<span id="cb90-8"><a href="#cb90-8" aria-hidden="true" tabindex="-1"></a>owl_intervals <span class="ot">=</span> <span class="fu">rbind</span>(</span>
+<span id="cb90-9"><a href="#cb90-9" aria-hidden="true" tabindex="-1"></a>  owl_interval_mu, owl_wald_mu, owl_interval_k, owl_wald_k, owl_wald_k_original</span>
+<span id="cb90-10"><a href="#cb90-10" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb90-11"><a href="#cb90-11" aria-hidden="true" tabindex="-1"></a><span class="fu">dimnames</span>(owl_intervals) <span class="ot">=</span> <span class="fu">list</span>(</span>
+<span id="cb90-12"><a href="#cb90-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="st">"mu, profile"</span>, <span class="st">"mu, Wald from the log scale"</span>,</span>
+<span id="cb90-13"><a href="#cb90-13" aria-hidden="true" tabindex="-1"></a>    <span class="st">"k, profile"</span>, <span class="st">"k, Wald from the log scale"</span>, <span class="st">"k, Wald on the original scale"</span>),</span>
+<span id="cb90-14"><a href="#cb90-14" aria-hidden="true" tabindex="-1"></a>  <span class="fu">c</span>(<span class="st">"lower"</span>, <span class="st">"upper"</span>)</span>
+<span id="cb90-15"><a href="#cb90-15" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb90-16"><a href="#cb90-16" aria-hidden="true" tabindex="-1"></a>owl_intervals</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>                                  lower     upper
 mu, profile                   3.4877013 6.6831687
@@ -1787,30 +1815,30 @@ Figure&nbsp;6: Approximate joint 95% confidence region for the mean and the shap
 <h2 data-number="6.4" class="anchored" data-anchor-id="coverage-checked-by-simulation"><span class="header-section-number">6.4</span> Coverage checked by simulation</h2>
 <p>As in <a href="../Chapter_3/Theory.html#sec-confidence_intervals">Chapter 3</a>, we check the coverage of the intervals with a simulation in which we know the parameters. To simulate from a model that is written as an NLL, we mark the data inside it with <code>OBS()</code>. The object returned by <code>MakeADFun()</code> then has a function <code>simulate()</code>, which draws one hypothetical sample of the size of the data for the parameter values that we give it, on the scale that was optimised:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb90"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb90-1"><a href="#cb90-1" aria-hidden="true" tabindex="-1"></a><span class="co"># The complete NLL of the Negative Binomial model.</span></span>
-<span id="cb90-2"><a href="#cb90-2" aria-hidden="true" tabindex="-1"></a>nb_nll <span class="ot">=</span> <span class="cf">function</span>(parms, data) {</span>
-<span id="cb90-3"><a href="#cb90-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">getAll</span>(parms, data)</span>
-<span id="cb90-4"><a href="#cb90-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Mark the data as observations, so that they can be simulated.</span></span>
-<span id="cb90-5"><a href="#cb90-5" aria-hidden="true" tabindex="-1"></a>  calls <span class="ot">=</span> <span class="fu">OBS</span>(calls)</span>
-<span id="cb90-6"><a href="#cb90-6" aria-hidden="true" tabindex="-1"></a>  mu <span class="ot">=</span> <span class="fu">exp</span>(log_mu)</span>
-<span id="cb90-7"><a href="#cb90-7" aria-hidden="true" tabindex="-1"></a>  k <span class="ot">=</span> <span class="fu">exp</span>(log_k)</span>
-<span id="cb90-8"><a href="#cb90-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ADREPORT</span>(k)</span>
-<span id="cb90-9"><a href="#cb90-9" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span><span class="fu">sum</span>(<span class="fu">dnbinom2</span>(<span class="at">x =</span> calls, <span class="at">mu =</span> mu, <span class="at">size =</span> k, <span class="at">log =</span> <span class="cn">TRUE</span>))</span>
-<span id="cb90-10"><a href="#cb90-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb92"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb92-1"><a href="#cb92-1" aria-hidden="true" tabindex="-1"></a><span class="co"># The complete NLL of the Negative Binomial model.</span></span>
+<span id="cb92-2"><a href="#cb92-2" aria-hidden="true" tabindex="-1"></a>nb_nll <span class="ot">=</span> <span class="cf">function</span>(parms, data) {</span>
+<span id="cb92-3"><a href="#cb92-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">getAll</span>(parms, data)</span>
+<span id="cb92-4"><a href="#cb92-4" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Mark the data as observations, so that they can be simulated.</span></span>
+<span id="cb92-5"><a href="#cb92-5" aria-hidden="true" tabindex="-1"></a>  calls <span class="ot">=</span> <span class="fu">OBS</span>(calls)</span>
+<span id="cb92-6"><a href="#cb92-6" aria-hidden="true" tabindex="-1"></a>  mu <span class="ot">=</span> <span class="fu">exp</span>(log_mu)</span>
+<span id="cb92-7"><a href="#cb92-7" aria-hidden="true" tabindex="-1"></a>  k <span class="ot">=</span> <span class="fu">exp</span>(log_k)</span>
+<span id="cb92-8"><a href="#cb92-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ADREPORT</span>(k)</span>
+<span id="cb92-9"><a href="#cb92-9" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span><span class="fu">sum</span>(<span class="fu">dnbinom2</span>(<span class="at">x =</span> calls, <span class="at">mu =</span> mu, <span class="at">size =</span> k, <span class="at">log =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb92-10"><a href="#cb92-10" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>We process and fit it as before (the estimates do not change) and give <code>simulate()</code> the estimates on the log scale, which are in the element <code>par</code> of the fit. It returns a list in which the simulated data have the name that they have in the NLL (<code>calls</code>). For example, these are the first 20 counts of one hypothetical sample of 122 visits:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb91"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb91-1"><a href="#cb91-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Process and fit as before.</span></span>
-<span id="cb91-2"><a href="#cb91-2" aria-hidden="true" tabindex="-1"></a>owl_obj <span class="ot">=</span> <span class="fu">MakeADFun</span>(</span>
-<span id="cb91-3"><a href="#cb91-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cmb</span>(nb_nll, <span class="fu">list</span>(<span class="at">calls =</span> call_counts)),</span>
-<span id="cb91-4"><a href="#cb91-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">log_mu =</span> <span class="fu">log</span>(mu_mom), <span class="at">log_k =</span> <span class="fu">log</span>(k_mom)),</span>
-<span id="cb91-5"><a href="#cb91-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">silent =</span> <span class="cn">TRUE</span></span>
-<span id="cb91-6"><a href="#cb91-6" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb91-7"><a href="#cb91-7" aria-hidden="true" tabindex="-1"></a>owl_fit <span class="ot">=</span> <span class="fu">optim</span>(<span class="at">par =</span> owl_obj<span class="sc">$</span>par, <span class="at">fn =</span> owl_obj<span class="sc">$</span>fn, <span class="at">gr =</span> owl_obj<span class="sc">$</span>gr, <span class="at">method =</span> <span class="st">"BFGS"</span>)</span>
-<span id="cb91-8"><a href="#cb91-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb91-9"><a href="#cb91-9" aria-hidden="true" tabindex="-1"></a><span class="co"># One hypothetical sample of 122 visits at the estimates: its first 20 counts.</span></span>
-<span id="cb91-10"><a href="#cb91-10" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="at">seed =</span> <span class="dv">700</span>)</span>
-<span id="cb91-11"><a href="#cb91-11" aria-hidden="true" tabindex="-1"></a>owl_obj<span class="sc">$</span><span class="fu">simulate</span>(owl_fit<span class="sc">$</span>par)<span class="sc">$</span>calls[<span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb93"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb93-1"><a href="#cb93-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Process and fit as before.</span></span>
+<span id="cb93-2"><a href="#cb93-2" aria-hidden="true" tabindex="-1"></a>owl_obj <span class="ot">=</span> <span class="fu">MakeADFun</span>(</span>
+<span id="cb93-3"><a href="#cb93-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cmb</span>(nb_nll, <span class="fu">list</span>(<span class="at">calls =</span> call_counts)),</span>
+<span id="cb93-4"><a href="#cb93-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(<span class="at">log_mu =</span> <span class="fu">log</span>(mu_mom), <span class="at">log_k =</span> <span class="fu">log</span>(k_mom)),</span>
+<span id="cb93-5"><a href="#cb93-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">silent =</span> <span class="cn">TRUE</span></span>
+<span id="cb93-6"><a href="#cb93-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb93-7"><a href="#cb93-7" aria-hidden="true" tabindex="-1"></a>owl_fit <span class="ot">=</span> <span class="fu">optim</span>(<span class="at">par =</span> owl_obj<span class="sc">$</span>par, <span class="at">fn =</span> owl_obj<span class="sc">$</span>fn, <span class="at">gr =</span> owl_obj<span class="sc">$</span>gr, <span class="at">method =</span> <span class="st">"BFGS"</span>)</span>
+<span id="cb93-8"><a href="#cb93-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb93-9"><a href="#cb93-9" aria-hidden="true" tabindex="-1"></a><span class="co"># One hypothetical sample of 122 visits at the estimates: its first 20 counts.</span></span>
+<span id="cb93-10"><a href="#cb93-10" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="at">seed =</span> <span class="dv">700</span>)</span>
+<span id="cb93-11"><a href="#cb93-11" aria-hidden="true" tabindex="-1"></a>owl_obj<span class="sc">$</span><span class="fu">simulate</span>(owl_fit<span class="sc">$</span>par)<span class="sc">$</span>calls[<span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>]</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code> [1]  2  6  0  4  7  9  0  0  2  3  7  1 10  4  0 18  0  0 32  7</code></pre>
 </div>
@@ -1851,45 +1879,45 @@ Figure&nbsp;7: Simulated coverage of nominal 95% Wald and likelihood intervals. 
 <p>An MLE is an estimator, so everything that we learnt in <a href="../Chapter_3/Theory.html#sec-sampling_distribution">Chapter 3</a> applies to it: it has a sampling distribution across hypothetical samples, a bias, a variance and a standard error, and in a finite sample we do not know that sampling distribution in general. For large samples, however, the MLEs of a very wide class of models have three properties: they are consistent and asymptotically normal, like the method-of-moments estimators of <a href="../Chapter_3/Theory.html#sec-large_samples">Chapter 3</a>, and in addition they are asymptotically efficient. These results are the reason why this book uses maximum likelihood, and the standard errors and intervals of <a href="#sec-likelihood-uncertainty" class="quarto-xref">Section&nbsp;6</a> rely on them. In this section we see them at work in one simulation, and we then look at small samples and at models that do not describe the data generating process.</p>
 <p>As in the Chapter 3 practical, we simulate hypothetical samples from the model with the plug-in estimates as parameters (<span class="math inline">\(\mu=4.75\)</span> and <span class="math inline">\(k=0.327\)</span>), 2,000 for each of three sample sizes: 20, 122 (the size of the owl sample) and 500 visits. <code>simulate()</code> draws samples of the size of the data of its object, so for each sample size we process the NLL with placeholder data of that length, whose values are not used. Each simulated sample is then fitted by maximum likelihood, starting from the same values as the placeholder object, <span class="math inline">\(\log(\mu)=0\)</span> and <span class="math inline">\(\log(k)=0\)</span> (any starting values from which the optimiser reaches the maximum will do). We keep the estimate of <span class="math inline">\(k\)</span> and the sample itself, which we use again in <a href="#sec-efficiency" class="quarto-xref">Section&nbsp;7.2</a>:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb93"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb93-1"><a href="#cb93-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Hypothetical samples from a Negative Binomial model whose parameters are the</span></span>
-<span id="cb93-2"><a href="#cb93-2" aria-hidden="true" tabindex="-1"></a><span class="co"># maximum likelihood estimates for the owls, for three numbers of visits.</span></span>
-<span id="cb93-3"><a href="#cb93-3" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="at">seed =</span> <span class="dv">601</span>)</span>
-<span id="cb93-4"><a href="#cb93-4" aria-hidden="true" tabindex="-1"></a>n_samples <span class="ot">=</span> <span class="dv">2000</span></span>
-<span id="cb93-5"><a href="#cb93-5" aria-hidden="true" tabindex="-1"></a>visit_sizes <span class="ot">=</span> <span class="fu">c</span>(<span class="dv">20</span>, <span class="dv">122</span>, <span class="dv">500</span>)</span>
-<span id="cb93-6"><a href="#cb93-6" aria-hidden="true" tabindex="-1"></a>sim_k_ml <span class="ot">=</span> <span class="fu">matrix</span>(<span class="cn">NA</span>, <span class="at">nrow =</span> n_samples, <span class="at">ncol =</span> <span class="fu">length</span>(visit_sizes))</span>
-<span id="cb93-7"><a href="#cb93-7" aria-hidden="true" tabindex="-1"></a>sim_samples <span class="ot">=</span> <span class="fu">list</span>()</span>
-<span id="cb93-8"><a href="#cb93-8" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (s <span class="cf">in</span> <span class="fu">seq_along</span>(visit_sizes)) {</span>
-<span id="cb93-9"><a href="#cb93-9" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Placeholder data of the right length: the values are not used.</span></span>
-<span id="cb93-10"><a href="#cb93-10" aria-hidden="true" tabindex="-1"></a>  placeholder_obj <span class="ot">=</span> <span class="fu">MakeADFun</span>(</span>
-<span id="cb93-11"><a href="#cb93-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">cmb</span>(nb_nll, <span class="fu">list</span>(<span class="at">calls =</span> <span class="fu">rep</span>(<span class="dv">0</span>, <span class="at">times =</span> visit_sizes[s]))),</span>
-<span id="cb93-12"><a href="#cb93-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">list</span>(<span class="at">log_mu =</span> <span class="dv">0</span>, <span class="at">log_k =</span> <span class="dv">0</span>),</span>
-<span id="cb93-13"><a href="#cb93-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">silent =</span> <span class="cn">TRUE</span></span>
-<span id="cb93-14"><a href="#cb93-14" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb93-15"><a href="#cb93-15" aria-hidden="true" tabindex="-1"></a>  <span class="co"># One row per hypothetical sample.</span></span>
-<span id="cb93-16"><a href="#cb93-16" aria-hidden="true" tabindex="-1"></a>  sim_samples[[s]] <span class="ot">=</span> <span class="fu">matrix</span>(<span class="cn">NA</span>, <span class="at">nrow =</span> n_samples, <span class="at">ncol =</span> visit_sizes[s])</span>
-<span id="cb93-17"><a href="#cb93-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_len</span>(n_samples)) {</span>
-<span id="cb93-18"><a href="#cb93-18" aria-hidden="true" tabindex="-1"></a>    <span class="co"># One hypothetical sample at the estimates for the owls.</span></span>
-<span id="cb93-19"><a href="#cb93-19" aria-hidden="true" tabindex="-1"></a>    sim_calls <span class="ot">=</span> placeholder_obj<span class="sc">$</span><span class="fu">simulate</span>(owl_fit<span class="sc">$</span>par)<span class="sc">$</span>calls</span>
-<span id="cb93-20"><a href="#cb93-20" aria-hidden="true" tabindex="-1"></a>    sim_samples[[s]][i, ] <span class="ot">=</span> sim_calls</span>
-<span id="cb93-21"><a href="#cb93-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb93-22"><a href="#cb93-22" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Maximum likelihood, starting from log(mu) = 0 and log(k) = 0.</span></span>
-<span id="cb93-23"><a href="#cb93-23" aria-hidden="true" tabindex="-1"></a>    sim_obj <span class="ot">=</span> <span class="fu">MakeADFun</span>(</span>
-<span id="cb93-24"><a href="#cb93-24" aria-hidden="true" tabindex="-1"></a>      <span class="fu">cmb</span>(nb_nll, <span class="fu">list</span>(<span class="at">calls =</span> sim_calls)),</span>
-<span id="cb93-25"><a href="#cb93-25" aria-hidden="true" tabindex="-1"></a>      <span class="fu">list</span>(<span class="at">log_mu =</span> <span class="dv">0</span>, <span class="at">log_k =</span> <span class="dv">0</span>),</span>
-<span id="cb93-26"><a href="#cb93-26" aria-hidden="true" tabindex="-1"></a>      <span class="at">silent =</span> <span class="cn">TRUE</span></span>
-<span id="cb93-27"><a href="#cb93-27" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb93-28"><a href="#cb93-28" aria-hidden="true" tabindex="-1"></a>    sim_fit <span class="ot">=</span> <span class="fu">optim</span>(<span class="at">par =</span> sim_obj<span class="sc">$</span>par, <span class="at">fn =</span> sim_obj<span class="sc">$</span>fn, <span class="at">gr =</span> sim_obj<span class="sc">$</span>gr, <span class="at">method =</span> <span class="st">"BFGS"</span>)</span>
-<span id="cb93-29"><a href="#cb93-29" aria-hidden="true" tabindex="-1"></a>    sim_k_ml[i, s] <span class="ot">=</span> <span class="fu">exp</span>(sim_fit<span class="sc">$</span>par[[<span class="st">"log_k"</span>]])</span>
-<span id="cb93-30"><a href="#cb93-30" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb93-31"><a href="#cb93-31" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb95"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb95-1"><a href="#cb95-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Hypothetical samples from a Negative Binomial model whose parameters are the</span></span>
+<span id="cb95-2"><a href="#cb95-2" aria-hidden="true" tabindex="-1"></a><span class="co"># maximum likelihood estimates for the owls, for three numbers of visits.</span></span>
+<span id="cb95-3"><a href="#cb95-3" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="at">seed =</span> <span class="dv">601</span>)</span>
+<span id="cb95-4"><a href="#cb95-4" aria-hidden="true" tabindex="-1"></a>n_samples <span class="ot">=</span> <span class="dv">2000</span></span>
+<span id="cb95-5"><a href="#cb95-5" aria-hidden="true" tabindex="-1"></a>visit_sizes <span class="ot">=</span> <span class="fu">c</span>(<span class="dv">20</span>, <span class="dv">122</span>, <span class="dv">500</span>)</span>
+<span id="cb95-6"><a href="#cb95-6" aria-hidden="true" tabindex="-1"></a>sim_k_ml <span class="ot">=</span> <span class="fu">matrix</span>(<span class="cn">NA</span>, <span class="at">nrow =</span> n_samples, <span class="at">ncol =</span> <span class="fu">length</span>(visit_sizes))</span>
+<span id="cb95-7"><a href="#cb95-7" aria-hidden="true" tabindex="-1"></a>sim_samples <span class="ot">=</span> <span class="fu">list</span>()</span>
+<span id="cb95-8"><a href="#cb95-8" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (s <span class="cf">in</span> <span class="fu">seq_along</span>(visit_sizes)) {</span>
+<span id="cb95-9"><a href="#cb95-9" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Placeholder data of the right length: the values are not used.</span></span>
+<span id="cb95-10"><a href="#cb95-10" aria-hidden="true" tabindex="-1"></a>  placeholder_obj <span class="ot">=</span> <span class="fu">MakeADFun</span>(</span>
+<span id="cb95-11"><a href="#cb95-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">cmb</span>(nb_nll, <span class="fu">list</span>(<span class="at">calls =</span> <span class="fu">rep</span>(<span class="dv">0</span>, <span class="at">times =</span> visit_sizes[s]))),</span>
+<span id="cb95-12"><a href="#cb95-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">list</span>(<span class="at">log_mu =</span> <span class="dv">0</span>, <span class="at">log_k =</span> <span class="dv">0</span>),</span>
+<span id="cb95-13"><a href="#cb95-13" aria-hidden="true" tabindex="-1"></a>    <span class="at">silent =</span> <span class="cn">TRUE</span></span>
+<span id="cb95-14"><a href="#cb95-14" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb95-15"><a href="#cb95-15" aria-hidden="true" tabindex="-1"></a>  <span class="co"># One row per hypothetical sample.</span></span>
+<span id="cb95-16"><a href="#cb95-16" aria-hidden="true" tabindex="-1"></a>  sim_samples[[s]] <span class="ot">=</span> <span class="fu">matrix</span>(<span class="cn">NA</span>, <span class="at">nrow =</span> n_samples, <span class="at">ncol =</span> visit_sizes[s])</span>
+<span id="cb95-17"><a href="#cb95-17" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_len</span>(n_samples)) {</span>
+<span id="cb95-18"><a href="#cb95-18" aria-hidden="true" tabindex="-1"></a>    <span class="co"># One hypothetical sample at the estimates for the owls.</span></span>
+<span id="cb95-19"><a href="#cb95-19" aria-hidden="true" tabindex="-1"></a>    sim_calls <span class="ot">=</span> placeholder_obj<span class="sc">$</span><span class="fu">simulate</span>(owl_fit<span class="sc">$</span>par)<span class="sc">$</span>calls</span>
+<span id="cb95-20"><a href="#cb95-20" aria-hidden="true" tabindex="-1"></a>    sim_samples[[s]][i, ] <span class="ot">=</span> sim_calls</span>
+<span id="cb95-21"><a href="#cb95-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb95-22"><a href="#cb95-22" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Maximum likelihood, starting from log(mu) = 0 and log(k) = 0.</span></span>
+<span id="cb95-23"><a href="#cb95-23" aria-hidden="true" tabindex="-1"></a>    sim_obj <span class="ot">=</span> <span class="fu">MakeADFun</span>(</span>
+<span id="cb95-24"><a href="#cb95-24" aria-hidden="true" tabindex="-1"></a>      <span class="fu">cmb</span>(nb_nll, <span class="fu">list</span>(<span class="at">calls =</span> sim_calls)),</span>
+<span id="cb95-25"><a href="#cb95-25" aria-hidden="true" tabindex="-1"></a>      <span class="fu">list</span>(<span class="at">log_mu =</span> <span class="dv">0</span>, <span class="at">log_k =</span> <span class="dv">0</span>),</span>
+<span id="cb95-26"><a href="#cb95-26" aria-hidden="true" tabindex="-1"></a>      <span class="at">silent =</span> <span class="cn">TRUE</span></span>
+<span id="cb95-27"><a href="#cb95-27" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb95-28"><a href="#cb95-28" aria-hidden="true" tabindex="-1"></a>    sim_fit <span class="ot">=</span> <span class="fu">optim</span>(<span class="at">par =</span> sim_obj<span class="sc">$</span>par, <span class="at">fn =</span> sim_obj<span class="sc">$</span>fn, <span class="at">gr =</span> sim_obj<span class="sc">$</span>gr, <span class="at">method =</span> <span class="st">"BFGS"</span>)</span>
+<span id="cb95-29"><a href="#cb95-29" aria-hidden="true" tabindex="-1"></a>    sim_k_ml[i, s] <span class="ot">=</span> <span class="fu">exp</span>(sim_fit<span class="sc">$</span>par[[<span class="st">"log_k"</span>]])</span>
+<span id="cb95-30"><a href="#cb95-30" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb95-31"><a href="#cb95-31" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <section id="consistency-and-asymptotic-normality" class="level2" data-number="7.1">
 <h2 data-number="7.1" class="anchored" data-anchor-id="consistency-and-asymptotic-normality"><span class="header-section-number">7.1</span> Consistency and asymptotic normality</h2>
 <p>Maximum likelihood estimators are consistent when the observations are i.i.d. from the model: the chance that the estimate misses the parameter by more than any given margin becomes small as the sample grows. In the simulation we can calculate the fraction of the estimates that miss <span class="math inline">\(k\)</span> by 0.1 or more (<code>colMeans()</code> takes the mean of each column, one per sample size, and the mean of <code>TRUE</code> and <code>FALSE</code> values is the fraction of <code>TRUE</code> values):</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb94"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb94-1"><a href="#cb94-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Fraction of the estimates that differ by 0.1 or more from the shape used to simulate,</span></span>
-<span id="cb94-2"><a href="#cb94-2" aria-hidden="true" tabindex="-1"></a><span class="co"># for 20, 122 and 500 visits.</span></span>
-<span id="cb94-3"><a href="#cb94-3" aria-hidden="true" tabindex="-1"></a><span class="fu">colMeans</span>(<span class="fu">abs</span>(sim_k_ml <span class="sc">-</span> k_mle) <span class="sc">&gt;=</span> <span class="fl">0.1</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb96"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb96-1"><a href="#cb96-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Fraction of the estimates that differ by 0.1 or more from the shape used to simulate,</span></span>
+<span id="cb96-2"><a href="#cb96-2" aria-hidden="true" tabindex="-1"></a><span class="co"># for 20, 122 and 500 visits.</span></span>
+<span id="cb96-3"><a href="#cb96-3" aria-hidden="true" tabindex="-1"></a><span class="fu">colMeans</span>(<span class="fu">abs</span>(sim_k_ml <span class="sc">-</span> k_mle) <span class="sc">&gt;=</span> <span class="fl">0.1</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 0.447 0.066 0.000</code></pre>
 </div>
@@ -1932,9 +1960,9 @@ Figure&nbsp;8: Maximum likelihood estimates of the shape k from 2,000 hypothetic
 </div>
 <p>The simulation also checks the standard error of the owl fit. The hypothetical samples of 122 visits have the size of the owl data and were simulated with its estimates, so the standard deviation of their estimates of <span class="math inline">\(\log(k)\)</span> is what the standard error of <span class="math inline">\(\log(\hat k)\)</span> from <code>sdreport()</code> (0.165) approximates:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb96"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb96-1"><a href="#cb96-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Standard deviation of the estimates of log(k) across the hypothetical samples</span></span>
-<span id="cb96-2"><a href="#cb96-2" aria-hidden="true" tabindex="-1"></a><span class="co"># of 122 visits (second column of sim_k_ml).</span></span>
-<span id="cb96-3"><a href="#cb96-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sd</span>(<span class="fu">log</span>(sim_k_ml[, <span class="dv">2</span>]))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb98"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb98-1"><a href="#cb98-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Standard deviation of the estimates of log(k) across the hypothetical samples</span></span>
+<span id="cb98-2"><a href="#cb98-2" aria-hidden="true" tabindex="-1"></a><span class="co"># of 122 visits (second column of sim_k_ml).</span></span>
+<span id="cb98-3"><a href="#cb98-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sd</span>(<span class="fu">log</span>(sim_k_ml[, <span class="dv">2</span>]))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>[1] 0.1617958</code></pre>
 </div>
@@ -1945,31 +1973,31 @@ Figure&nbsp;8: Maximum likelihood estimates of the shape k from 2,000 hypothetic
 <h2 data-number="7.2" class="anchored" data-anchor-id="sec-efficiency"><span class="header-section-number">7.2</span> Efficiency</h2>
 <p>An estimator is more <strong>efficient</strong> than another estimator of the same parameter when its estimates vary less across hypothetical samples. This is the property that separates maximum likelihood from the method of moments. Both estimators of <span class="math inline">\(k\)</span> are consistent, but they use different information from the sample: the method of moments reproduces the mean and the variance of the sample, whereas maximum likelihood makes every observed count as probable as possible. To compare them, we calculate the method-of-moments estimate of <span class="math inline">\(k\)</span> from each of the hypothetical samples that we kept:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb98"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb98-1"><a href="#cb98-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Method-of-moments estimates of k from the same hypothetical samples. k exists only</span></span>
-<span id="cb98-2"><a href="#cb98-2" aria-hidden="true" tabindex="-1"></a><span class="co"># when the variance is larger than the mean; otherwise the estimate stays NA.</span></span>
-<span id="cb98-3"><a href="#cb98-3" aria-hidden="true" tabindex="-1"></a>sim_k_mom <span class="ot">=</span> <span class="fu">matrix</span>(<span class="cn">NA</span>, <span class="at">nrow =</span> n_samples, <span class="at">ncol =</span> <span class="fu">length</span>(visit_sizes))</span>
-<span id="cb98-4"><a href="#cb98-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (s <span class="cf">in</span> <span class="fu">seq_along</span>(visit_sizes)) {</span>
-<span id="cb98-5"><a href="#cb98-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_len</span>(n_samples)) {</span>
-<span id="cb98-6"><a href="#cb98-6" aria-hidden="true" tabindex="-1"></a>    sim_mu <span class="ot">=</span> <span class="fu">mean</span>(sim_samples[[s]][i, ])</span>
-<span id="cb98-7"><a href="#cb98-7" aria-hidden="true" tabindex="-1"></a>    sim_var <span class="ot">=</span> <span class="fu">mean</span>((sim_samples[[s]][i, ] <span class="sc">-</span> sim_mu)<span class="sc">^</span><span class="dv">2</span>)</span>
-<span id="cb98-8"><a href="#cb98-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (sim_var <span class="sc">&gt;</span> sim_mu) {</span>
-<span id="cb98-9"><a href="#cb98-9" aria-hidden="true" tabindex="-1"></a>      sim_k_mom[i, s] <span class="ot">=</span> sim_mu<span class="sc">^</span><span class="dv">2</span> <span class="sc">/</span> (sim_var <span class="sc">-</span> sim_mu)</span>
-<span id="cb98-10"><a href="#cb98-10" aria-hidden="true" tabindex="-1"></a>    }</span>
-<span id="cb98-11"><a href="#cb98-11" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb98-12"><a href="#cb98-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb100"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb100-1"><a href="#cb100-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Method-of-moments estimates of k from the same hypothetical samples. k exists only</span></span>
+<span id="cb100-2"><a href="#cb100-2" aria-hidden="true" tabindex="-1"></a><span class="co"># when the variance is larger than the mean; otherwise the estimate stays NA.</span></span>
+<span id="cb100-3"><a href="#cb100-3" aria-hidden="true" tabindex="-1"></a>sim_k_mom <span class="ot">=</span> <span class="fu">matrix</span>(<span class="cn">NA</span>, <span class="at">nrow =</span> n_samples, <span class="at">ncol =</span> <span class="fu">length</span>(visit_sizes))</span>
+<span id="cb100-4"><a href="#cb100-4" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (s <span class="cf">in</span> <span class="fu">seq_along</span>(visit_sizes)) {</span>
+<span id="cb100-5"><a href="#cb100-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_len</span>(n_samples)) {</span>
+<span id="cb100-6"><a href="#cb100-6" aria-hidden="true" tabindex="-1"></a>    sim_mu <span class="ot">=</span> <span class="fu">mean</span>(sim_samples[[s]][i, ])</span>
+<span id="cb100-7"><a href="#cb100-7" aria-hidden="true" tabindex="-1"></a>    sim_var <span class="ot">=</span> <span class="fu">mean</span>((sim_samples[[s]][i, ] <span class="sc">-</span> sim_mu)<span class="sc">^</span><span class="dv">2</span>)</span>
+<span id="cb100-8"><a href="#cb100-8" aria-hidden="true" tabindex="-1"></a>    <span class="cf">if</span> (sim_var <span class="sc">&gt;</span> sim_mu) {</span>
+<span id="cb100-9"><a href="#cb100-9" aria-hidden="true" tabindex="-1"></a>      sim_k_mom[i, s] <span class="ot">=</span> sim_mu<span class="sc">^</span><span class="dv">2</span> <span class="sc">/</span> (sim_var <span class="sc">-</span> sim_mu)</span>
+<span id="cb100-10"><a href="#cb100-10" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb100-11"><a href="#cb100-11" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb100-12"><a href="#cb100-12" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>We then compare the standard deviations and the mean squared errors (MSE, <a href="../Chapter_3/Theory.html#sec-sampling_distribution">Chapter 3</a>) of the two sets of estimates; in the column names <code>ml</code> stands for maximum likelihood and <code>mom</code> for the method of moments:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb99"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb99-1"><a href="#cb99-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Standard deviation and mean squared error of both estimators of k for each number of</span></span>
-<span id="cb99-2"><a href="#cb99-2" aria-hidden="true" tabindex="-1"></a><span class="co"># visits. na.rm = TRUE skips any sample without a method-of-moments estimate.</span></span>
-<span id="cb99-3"><a href="#cb99-3" aria-hidden="true" tabindex="-1"></a>efficiency_table <span class="ot">=</span> <span class="fu">data.frame</span>(</span>
-<span id="cb99-4"><a href="#cb99-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">visits =</span> visit_sizes,</span>
-<span id="cb99-5"><a href="#cb99-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">sd_ml =</span> <span class="fu">apply</span>(sim_k_ml, <span class="dv">2</span>, sd),</span>
-<span id="cb99-6"><a href="#cb99-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">sd_mom =</span> <span class="fu">apply</span>(sim_k_mom, <span class="dv">2</span>, sd, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
-<span id="cb99-7"><a href="#cb99-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">mse_ml =</span> <span class="fu">colMeans</span>((sim_k_ml <span class="sc">-</span> k_mle)<span class="sc">^</span><span class="dv">2</span>),</span>
-<span id="cb99-8"><a href="#cb99-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">mse_mom =</span> <span class="fu">colMeans</span>((sim_k_mom <span class="sc">-</span> k_mle)<span class="sc">^</span><span class="dv">2</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb99-9"><a href="#cb99-9" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb99-10"><a href="#cb99-10" aria-hidden="true" tabindex="-1"></a><span class="fu">signif</span>(efficiency_table, <span class="at">digits =</span> <span class="dv">3</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb101"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb101-1"><a href="#cb101-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Standard deviation and mean squared error of both estimators of k for each number of</span></span>
+<span id="cb101-2"><a href="#cb101-2" aria-hidden="true" tabindex="-1"></a><span class="co"># visits. na.rm = TRUE skips any sample without a method-of-moments estimate.</span></span>
+<span id="cb101-3"><a href="#cb101-3" aria-hidden="true" tabindex="-1"></a>efficiency_table <span class="ot">=</span> <span class="fu">data.frame</span>(</span>
+<span id="cb101-4"><a href="#cb101-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">visits =</span> visit_sizes,</span>
+<span id="cb101-5"><a href="#cb101-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">sd_ml =</span> <span class="fu">apply</span>(sim_k_ml, <span class="dv">2</span>, sd),</span>
+<span id="cb101-6"><a href="#cb101-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">sd_mom =</span> <span class="fu">apply</span>(sim_k_mom, <span class="dv">2</span>, sd, <span class="at">na.rm =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb101-7"><a href="#cb101-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">mse_ml =</span> <span class="fu">colMeans</span>((sim_k_ml <span class="sc">-</span> k_mle)<span class="sc">^</span><span class="dv">2</span>),</span>
+<span id="cb101-8"><a href="#cb101-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">mse_mom =</span> <span class="fu">colMeans</span>((sim_k_mom <span class="sc">-</span> k_mle)<span class="sc">^</span><span class="dv">2</span>, <span class="at">na.rm =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb101-9"><a href="#cb101-9" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb101-10"><a href="#cb101-10" aria-hidden="true" tabindex="-1"></a><span class="fu">signif</span>(efficiency_table, <span class="at">digits =</span> <span class="dv">3</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>  visits  sd_ml sd_mom   mse_ml mse_mom
 1     20 0.1980 0.2800 0.043900 0.11700
@@ -2005,8 +2033,8 @@ Figure&nbsp;8: Maximum likelihood estimates of the shape k from 2,000 hypothetic
 <h2 data-number="7.3" class="anchored" data-anchor-id="bias-in-finite-samples"><span class="header-section-number">7.3</span> Bias in finite samples</h2>
 <p>As for the estimators of Chapter 3, the large-sample results say little about small samples, where MLEs are in general biased. The relative bias of <span class="math inline">\(\hat k\)</span> in the simulation is:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb101"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb101-1"><a href="#cb101-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Relative bias of the maximum likelihood estimator of k for each number of visits.</span></span>
-<span id="cb101-2"><a href="#cb101-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data.frame</span>(<span class="at">visits =</span> visit_sizes, <span class="at">relative_bias =</span> <span class="fu">colMeans</span>(sim_k_ml) <span class="sc">/</span> k_mle <span class="sc">-</span> <span class="dv">1</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb103"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb103-1"><a href="#cb103-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Relative bias of the maximum likelihood estimator of k for each number of visits.</span></span>
+<span id="cb103-2"><a href="#cb103-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data.frame</span>(<span class="at">visits =</span> visit_sizes, <span class="at">relative_bias =</span> <span class="fu">colMeans</span>(sim_k_ml) <span class="sc">/</span> k_mle <span class="sc">-</span> <span class="dv">1</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>  visits relative_bias
 1     20   0.213488485
@@ -2056,19 +2084,19 @@ D_{\mathrm{KL}}(\theta)
 <p>A model is an approximation of the data generating process (<a href="../Chapter_1/Theory.html">Chapter 1</a>), and the criterion measures how good that approximation is. Apart from a constant that is the same for all the models, AIC estimates how far the fitted model is from the data generating process when the fitted model is used to predict new data from the same process. The distance is the Kullback–Leibler divergence of <a href="#sec-misspecified" class="quarto-xref">Section&nbsp;7.4</a>.<a href="#fn21" class="footnote-ref" id="fnref21" role="doc-noteref"><sup>21</sup></a> The maximum log-likelihood alone is too optimistic for that purpose, because the same data were used to fit the model and to evaluate it, and the term <span class="math inline">\(2K\)</span> corrects for this. In plain English, AIC rewards a model for assigning a high probability to the data and penalises it for each parameter that it needed to do so.</p>
 <p>For the owls we compare the Negative Binomial model, with two parameters, with the Poisson model, with one, whose maximum log-likelihood is calculated at its estimate, the mean of the sample (for a model fitted with <code>optim()</code>, the maximum log-likelihood is minus the element <code>value</code> of the fit). Only differences in AIC matter, so we also calculate the difference between each model and the one with the lowest AIC:</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb103"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb103-1"><a href="#cb103-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Maximised log-likelihood, number of estimated parameters K and AIC for the two models</span></span>
-<span id="cb103-2"><a href="#cb103-2" aria-hidden="true" tabindex="-1"></a><span class="co"># fitted to the owl data. AIC = 2K - 2 * log-likelihood.</span></span>
-<span id="cb103-3"><a href="#cb103-3" aria-hidden="true" tabindex="-1"></a>loglik_poisson <span class="ot">=</span> <span class="fu">sum</span>(<span class="fu">dpois</span>(<span class="at">x =</span> call_counts, <span class="at">lambda =</span> mu_mom, <span class="at">log =</span> <span class="cn">TRUE</span>))</span>
-<span id="cb103-4"><a href="#cb103-4" aria-hidden="true" tabindex="-1"></a>aic_table <span class="ot">=</span> <span class="fu">data.frame</span>(</span>
-<span id="cb103-5"><a href="#cb103-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">model =</span> <span class="fu">c</span>(<span class="st">"Poisson"</span>, <span class="st">"Negative Binomial"</span>),</span>
-<span id="cb103-6"><a href="#cb103-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">K =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>),</span>
-<span id="cb103-7"><a href="#cb103-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">loglik =</span> <span class="fu">c</span>(loglik_poisson, loglik_nb)</span>
-<span id="cb103-8"><a href="#cb103-8" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb103-9"><a href="#cb103-9" aria-hidden="true" tabindex="-1"></a>aic_table<span class="sc">$</span>aic <span class="ot">=</span> <span class="dv">2</span> <span class="sc">*</span> aic_table<span class="sc">$</span>K <span class="sc">-</span> <span class="dv">2</span> <span class="sc">*</span> aic_table<span class="sc">$</span>loglik</span>
-<span id="cb103-10"><a href="#cb103-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb103-11"><a href="#cb103-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Only differences in AIC matter: difference from the lowest value.</span></span>
-<span id="cb103-12"><a href="#cb103-12" aria-hidden="true" tabindex="-1"></a>aic_table<span class="sc">$</span>delta_aic <span class="ot">=</span> aic_table<span class="sc">$</span>aic <span class="sc">-</span> <span class="fu">min</span>(aic_table<span class="sc">$</span>aic)</span>
-<span id="cb103-13"><a href="#cb103-13" aria-hidden="true" tabindex="-1"></a>aic_table</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb105"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb105-1"><a href="#cb105-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Maximised log-likelihood, number of estimated parameters K and AIC for the two models</span></span>
+<span id="cb105-2"><a href="#cb105-2" aria-hidden="true" tabindex="-1"></a><span class="co"># fitted to the owl data. AIC = 2K - 2 * log-likelihood.</span></span>
+<span id="cb105-3"><a href="#cb105-3" aria-hidden="true" tabindex="-1"></a>loglik_poisson <span class="ot">=</span> <span class="fu">sum</span>(<span class="fu">dpois</span>(<span class="at">x =</span> call_counts, <span class="at">lambda =</span> mu_mom, <span class="at">log =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb105-4"><a href="#cb105-4" aria-hidden="true" tabindex="-1"></a>aic_table <span class="ot">=</span> <span class="fu">data.frame</span>(</span>
+<span id="cb105-5"><a href="#cb105-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">model =</span> <span class="fu">c</span>(<span class="st">"Poisson"</span>, <span class="st">"Negative Binomial"</span>),</span>
+<span id="cb105-6"><a href="#cb105-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">K =</span> <span class="fu">c</span>(<span class="dv">1</span>, <span class="dv">2</span>),</span>
+<span id="cb105-7"><a href="#cb105-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">loglik =</span> <span class="fu">c</span>(loglik_poisson, loglik_nb)</span>
+<span id="cb105-8"><a href="#cb105-8" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb105-9"><a href="#cb105-9" aria-hidden="true" tabindex="-1"></a>aic_table<span class="sc">$</span>aic <span class="ot">=</span> <span class="dv">2</span> <span class="sc">*</span> aic_table<span class="sc">$</span>K <span class="sc">-</span> <span class="dv">2</span> <span class="sc">*</span> aic_table<span class="sc">$</span>loglik</span>
+<span id="cb105-10"><a href="#cb105-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb105-11"><a href="#cb105-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Only differences in AIC matter: difference from the lowest value.</span></span>
+<span id="cb105-12"><a href="#cb105-12" aria-hidden="true" tabindex="-1"></a>aic_table<span class="sc">$</span>delta_aic <span class="ot">=</span> aic_table<span class="sc">$</span>aic <span class="sc">-</span> <span class="fu">min</span>(aic_table<span class="sc">$</span>aic)</span>
+<span id="cb105-13"><a href="#cb105-13" aria-hidden="true" tabindex="-1"></a>aic_table</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>              model K    loglik       aic delta_aic
 1           Poisson 1 -634.1646 1270.3291  667.4453
