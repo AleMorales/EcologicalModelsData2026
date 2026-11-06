@@ -29,8 +29,9 @@ Moved from AGENTS.md. Read this before working on the pages it covers; AGENTS.md
   calculated in the AIC section.
 - **Parameterisation, slices and profiles:** one section with one composite figure
   (contours in $k$ and $p$ with the slice and the path of the profile; slice and profile
-  curves). The $k$, $p$ fit is hidden code and returns only in one line of "Covariance
-  between estimates". Slices and profiles are defined in general symbols
+  curves). The $k$, $p$ NLL and fit (`nb_prob_nll()`, `owl_prob_obj`) are visible, because
+  "Standard errors with TMB" uses `owl_prob_obj` for a correlation; the surface, slice and
+  profile code is hidden. Slices and profiles are defined in general symbols
   ($\theta_1$, $\theta_2$).
 - **Failed fits:** a note callout at the end of "Constraints and transformations": check
   `convergence`; `fn` returns `NaN` without a warning where the NLL cannot be calculated

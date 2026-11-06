@@ -613,7 +613,7 @@ lambda_mle = unname(exp(fir_fit$par))
 lambda_mle
 ```
 
-The same NLL can be connected to another data set, as long as its list uses the same
+The same NLL function can be connected to another data set, as long as its list uses the same
 name, `counts`. For the first ten quadrats, which we use again in
 @sec-likelihood-uncertainty, only the list of data changes:
 
@@ -987,16 +987,21 @@ supplement);
 the choice of parameters also matters for numerical optimisation, which is a topic of
 [Chapter 8](../Chapter_8/Theory.qmd#sec-scaling).
 
+To fit the owl model in this parameterisation, we write an NLL with `dnbinom()`, which takes
+`size` and `prob`. The shape $k$ must be positive and $p$ lies between 0 and 1, so the
+parameters that are optimised are $\log(k)$ and $\operatorname{logit}(p)$, and the starting
+values are the method-of-moments estimates converted to this parameterisation:
+
 ```{r}
-#| include: false
-# The owl model with the shape k (size) and probability p (prob) of dnbinom(), with log(k)
-# and logit(p) as the transformed parameters.
+# The owl model with the shape k (size) and probability p (prob) of dnbinom().
 nb_prob_nll = function(parms, data) {
   getAll(parms, data)
   k = exp(log_k)
   p = plogis(logit_p)
   -sum(dnbinom(x = calls, size = k, prob = p, log = TRUE))
 }
+
+# Process the NLL, starting from the method-of-moments estimates, and fit it.
 owl_prob_obj = MakeADFun(
   cmb(nb_prob_nll, list(calls = call_counts)),
   list(log_k = log(k_mom), logit_p = qlogis(k_mom / (k_mom + mu_mom))),
@@ -1009,7 +1014,14 @@ owl_prob_fit = optim(
   method = "BFGS"
 )
 owl_prob_fit$convergence
+```
 
+The maximum is the same as before, as invariance says: $\hat k$ is the same and
+$\hat p=\hat k/(\hat k+\hat\mu)$. We use this fit for the contours, the slice and the
+profile described below, and again to calculate a correlation between estimates.
+
+```{r}
+#| include: false
 # Same maximum and same k as the first fit; p equals k / (k + mu) by invariance.
 k_mle_prob = unname(exp(owl_prob_fit$par["log_k"]))
 p_mle = unname(plogis(owl_prob_fit$par["logit_p"]))
