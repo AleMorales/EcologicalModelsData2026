@@ -14,6 +14,43 @@ html-math-method:
   url: https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js
 ---
 
+```{r}
+#| include: false
+# Load ggplot2 for the figures of the shapes of the functions.
+library(ggplot2)
+
+# Size of every figure on this page.
+knitr::opts_chunk$set(fig.width = 6, fig.height = 3.5)
+
+# Evaluate a function on a grid of x for several sets of parameter values. The names of
+# `parameters` label the curves. Values outside the domain (NA or infinite) are dropped.
+shape_curves = function(f, x, parameters) {
+  curves = list()
+  for (i in seq_along(parameters)) {
+    y = do.call(f, c(list(x = x), parameters[[i]]))
+    curves[[i]] = data.frame(x = x, y = y, curve = names(parameters)[i])
+  }
+  curve_data = do.call(rbind, curves)
+  curve_data$curve = factor(curve_data$curve, levels = names(parameters))
+  curve_data$group = curve_data$curve
+  curve_data[is.finite(curve_data$y), ]
+}
+
+# Draw the curves in one colour with a line type for each set of parameter values. The
+# landmarks are grey dashed lines, drawn first so that they lie below the curves.
+shape_plot = function(curve_data, hlines = NULL, vlines = NULL) {
+  ggplot(curve_data, aes(x = x, y = y, linetype = curve, group = group)) +
+    (if (!is.null(hlines)) geom_hline(yintercept = hlines, linetype = "dashed",
+                                      colour = "grey40")) +
+    (if (!is.null(vlines)) geom_vline(xintercept = vlines, linetype = "dashed",
+                                      colour = "grey40")) +
+    geom_line(colour = "#D55E00", linewidth = 0.8) +
+    scale_linetype_manual(values = c("solid", "dashed", "dotted", "dotdash")) +
+    labs(x = "x", y = "y", linetype = NULL) +
+    theme_classic()
+}
+```
+
 This document is reference material for the deterministic functions that are used in this
 book and for several others that are common in ecology. For each function it gives the
 formula, its properties, R code and a description of when the function is useful.
@@ -21,8 +58,11 @@ formula, its properties, R code and a description of when the function is useful
 derived (limits, derivatives and special points), so the entries apply these tools without
 explaining them again.
 
-Every entry has the same parts: a summary of the function, a description of when it is
-useful and of where it comes from, and its formula with the derivation of its landmarks.
+Every entry has the same parts: a summary of the function, a figure of its shape, a
+description of when it is useful and of where it comes from, and its formula with the
+derivation of its landmarks. The figure draws the function for two to four sets of
+parameter values, chosen only to show how the shape changes, and marks landmarks of the
+summary with grey dashed lines; the caption says which.
 
 The symbols are those of Chapter 5. The input is $x$ and the output is $y=f(x)$. The
 parameters are called $a$, $b$, $c$ and $d$: these letters are positions in a formula, and
@@ -99,6 +139,26 @@ b = \text{slope (units of } y \text{ per unit of } x\text{)} \\
 \end{aligned}
 $$
 
+```{r}
+#| echo: false
+#| label: fig-fn-linear
+#| fig-cap: "Linear function with a positive slope (a = 2, b = 0.5) and with a negative slope (a = 8, b = −1). The grey lines mark y = 0 and the value x = −a/b = 8 at which the second line crosses it."
+# Linear function, as in the summary above.
+linear = function(x, a, b) {
+  a + b * x
+}
+
+curve_data = shape_curves(
+  linear,
+  x = seq(0, 10, length.out = 201),
+  parameters = list(
+    "a = 2, b = 0.5" = list(a = 2, b = 0.5),
+    "a = 8, b = −1" = list(a = 8, b = -1)
+  )
+)
+shape_plot(curve_data, hlines = 0, vlines = 8)
+```
+
 The linear function describes a response that changes by the same amount for every unit of
 the predictor. It is a mechanistic function when a quantity accumulates or is lost at a
 constant rate, as the quantity is then a linear function of time. More often it is a
@@ -155,6 +215,26 @@ b = \text{slope at } x = 0;\quad c = \text{half of the second derivative} \\
 \text{Also written}: &\quad f(x_{\max}) + c\,(x - x_{\max})^2
 \end{aligned}
 $$
+
+```{r}
+#| echo: false
+#| label: fig-fn-quadratic
+#| fig-cap: "Quadratic function with a maximum (a = −1, b = 2, c = −0.2) and with a minimum (a = 6, b = −2, c = 0.2), both at x = −b/(2c) = 5 (grey vertical line). The first function is negative beyond the two values of x at which it crosses y = 0 (grey horizontal line)."
+# Quadratic function, as in the summary above.
+quadratic = function(x, a, b, c) {
+  a + b * x + c * x^2
+}
+
+curve_data = shape_curves(
+  quadratic,
+  x = seq(0, 10, length.out = 201),
+  parameters = list(
+    "c = −0.2" = list(a = -1, b = 2, c = -0.2),
+    "c = 0.2" = list(a = 6, b = -2, c = 0.2)
+  )
+)
+shape_plot(curve_data, hlines = 0, vlines = 5)
+```
 
 The quadratic function, or parabola, is the simplest function with a maximum or a minimum.
 It is used as a phenomenological description of a response that is highest (or lowest) at
@@ -243,6 +323,37 @@ b = \text{value from the threshold onwards (units of } y\text{)}; \\
 \end{aligned}
 $$
 
+```{r}
+#| echo: false
+#| label: fig-fn-threshold
+#| fig-cap: "Threshold function with a = 1, b = 4 and c = 5 (grey line), and two logistic functions with the same levels and midpoint that approach it as the steepness s increases."
+# The threshold function, drawn as two pieces so that the jump is not joined by a line.
+threshold_data = data.frame(
+  x = c(0, 5, 5, 10),
+  y = c(1, 1, 4, 4),
+  curve = "threshold",
+  group = c("below", "below", "above", "above")
+)
+
+# Logistic function with a lower level a and an upper level b, as in the text below.
+smooth_threshold = function(x, a, b, c, s) {
+  a + (b - a) / (1 + exp(-s * (x - c)))
+}
+
+logistic_data = shape_curves(
+  smooth_threshold,
+  x = seq(0, 10, length.out = 401),
+  parameters = list(
+    "logistic, s = 1" = list(a = 1, b = 4, c = 5, s = 1),
+    "logistic, s = 4" = list(a = 1, b = 4, c = 5, s = 4)
+  )
+)
+curve_data = rbind(threshold_data, logistic_data)
+curve_data$curve = factor(curve_data$curve,
+                          levels = c("threshold", "logistic, s = 1", "logistic, s = 4"))
+shape_plot(curve_data, vlines = 5)
+```
+
 The threshold function describes a response that switches between two levels when the
 predictor crosses a critical value. Two examples show how it is used. Models of optimal
 life histories often find that the best strategy is a switch at a critical size.
@@ -309,6 +420,28 @@ c = \text{breakpoint (units of } x\text{)} \\
 \end{aligned}
 $$
 
+```{r}
+#| echo: false
+#| label: fig-fn-hockey-stick
+#| fig-cap: "Hockey stick function with a = 0.8 and c = 5, and the Michaelis–Menten function with the same initial slope and the same upper limit, acx/(c + x). The grey lines mark the breakpoint c and the plateau ac = 4; at x = c the Michaelis–Menten function is at half of the plateau."
+# Hockey stick function, as in the summary above, and the Michaelis–Menten function.
+hockey_stick = function(x, a, c) {
+  pmin(a * x, a * c)
+}
+michaelis_menten = function(x, a, b) {
+  a * x / (b + x)
+}
+
+x_values = seq(0, 20, length.out = 401)
+curve_data = rbind(
+  shape_curves(hockey_stick, x = x_values,
+               parameters = list("hockey stick" = list(a = 0.8, c = 5))),
+  shape_curves(michaelis_menten, x = x_values,
+               parameters = list("Michaelis–Menten" = list(a = 4, b = 5)))
+)
+shape_plot(curve_data, hlines = 4, vlines = 5)
+```
+
 The hockey stick function describes a response that increases in proportion to the
 predictor until it hits a ceiling. It has a mechanistic reading when a process runs at a
 constant rate per unit of $x$ until a capacity is reached, as for filter feeders that
@@ -364,6 +497,26 @@ d = \text{slope above the breakpoint (units of } y \text{ per unit of } x\text{)
 \text{Also written}: &\quad a + bx + (d - b)\max(0,\, x - c)
 \end{aligned}
 $$
+
+```{r}
+#| echo: false
+#| label: fig-fn-piecewise-linear
+#| fig-cap: "Piecewise linear function with a = 1, b = 0.8 and a breakpoint at c = 5 (grey line), for a smaller positive slope beyond the breakpoint (d = 0.2) and for a negative one (d = −0.5). With d = −0.5 the breakpoint is the maximum."
+# Piecewise linear function, as in the summary above.
+piecewise_linear = function(x, a, b, c, d) {
+  ifelse(x < c, a + b * x, a + b * c + d * (x - c))
+}
+
+curve_data = shape_curves(
+  piecewise_linear,
+  x = seq(0, 10, length.out = 401),
+  parameters = list(
+    "d = 0.2" = list(a = 1, b = 0.8, c = 5, d = 0.2),
+    "d = −0.5" = list(a = 1, b = 0.8, c = 5, d = -0.5)
+  )
+)
+shape_plot(curve_data, vlines = 5)
+```
 
 The piecewise linear function describes a response that changes at one constant rate up to
 a breakpoint and at another constant rate beyond it. It is the general form of the
@@ -435,6 +588,26 @@ b = \text{value of } x \text{ at which the function has halved (units of } x\tex
 \end{aligned}
 $$
 
+```{r}
+#| echo: false
+#| label: fig-fn-hyperbolic
+#| fig-cap: "Hyperbolic function with a = 10, for b = 2 and b = 5. The grey lines show that the first function has fallen to half of its initial value, a/(2b) = 2.5, at x = b = 2."
+# Hyperbolic function, as in the summary above.
+hyperbolic = function(x, a, b) {
+  a / (b + x)
+}
+
+curve_data = shape_curves(
+  hyperbolic,
+  x = seq(0, 20, length.out = 201),
+  parameters = list(
+    "b = 2" = list(a = 10, b = 2),
+    "b = 5" = list(a = 10, b = 5)
+  )
+)
+shape_plot(curve_data, hlines = 2.5, vlines = 2)
+```
+
 The hyperbolic function describes a response that declines towards zero, fast at first and
 then more and more slowly. It is used for the performance of an individual as a function
 of the density of its neighbours, for example the number of seeds that a plant produces as
@@ -484,6 +657,27 @@ b = \text{half-maximum (units of } x\text{)} \\
 \text{Also written}: &\quad \dfrac{\alpha x}{1 + \alpha Hx},\ \text{with } a = 1/H \text{ and } b = 1/(\alpha H)
 \end{aligned}
 $$
+
+```{r}
+#| echo: false
+#| label: fig-fn-michaelis-menten
+#| fig-cap: "Michaelis–Menten function with an asymptote a = 10, for three values of the half-maximum b. The grey lines mark the asymptote, half of it and the half-maximum b = 5 of the solid curve."
+# Michaelis–Menten function, as in the summary above.
+michaelis_menten = function(x, a, b) {
+  a * x / (b + x)
+}
+
+curve_data = shape_curves(
+  michaelis_menten,
+  x = seq(0, 50, length.out = 201),
+  parameters = list(
+    "b = 5" = list(a = 10, b = 5),
+    "b = 1" = list(a = 10, b = 1),
+    "b = 20" = list(a = 10, b = 20)
+  )
+)
+shape_plot(curve_data, hlines = c(5, 10), vlines = 5)
+```
 
 The Michaelis–Menten function describes a response that increases in proportion to the
 predictor when the predictor is scarce and levels off when it is abundant, because
@@ -566,6 +760,25 @@ b = \text{half-maximum (units of } x\text{)} \\
 \end{aligned}
 $$
 
+```{r}
+#| echo: false
+#| label: fig-fn-holling3
+#| fig-cap: "Holling type III function and Michaelis–Menten function with the same asymptote a = 10 and half-maximum b = 5. The grey lines mark the asymptote, the inflection point of the type III function at b/√3 ≈ 2.9 and the half-maximum b, where both functions equal 5."
+# Holling type III function, as in the summary above.
+holling3 = function(x, a, b) {
+  a * x^2 / (b^2 + x^2)
+}
+
+x_values = seq(0, 30, length.out = 301)
+curve_data = rbind(
+  shape_curves(holling3, x = x_values,
+               parameters = list("Holling type III" = list(a = 10, b = 5))),
+  shape_curves(michaelis_menten, x = x_values,
+               parameters = list("Michaelis–Menten" = list(a = 10, b = 5)))
+)
+shape_plot(curve_data, hlines = 10, vlines = c(5 / sqrt(3), 5))
+```
+
 The Holling type III function describes a response that increases slowly when the
 predictor is scarce, accelerates and then levels off. It is the
 [Michaelis–Menten](#sec-fn-michaelis-menten) function with $x$ replaced by $x^2$ and the
@@ -640,6 +853,27 @@ b > 0 \text{ (units of } x \text{ squared)};\quad c \text{ (units of } x\text{),
 \text{Also written}: &\quad \text{with } c = 0,\ \text{the Holling type III function } ax^2/(b + x^2)
 \end{aligned}
 $$
+
+```{r}
+#| echo: false
+#| label: fig-fn-holling4
+#| fig-cap: "Holling type IV function with a = 10 and b = 25, for a negative, a zero and a positive value of c. The grey lines mark the asymptote a and, for c = −5, the maximum at x = −2b/c = 10, where the function equals 4ab/(4b − c²) ≈ 13.3."
+# Holling type IV function, as in the summary above.
+holling4 = function(x, a, b, c) {
+  a * x^2 / (b + c * x + x^2)
+}
+
+curve_data = shape_curves(
+  holling4,
+  x = seq(0, 60, length.out = 301),
+  parameters = list(
+    "c = −5" = list(a = 10, b = 25, c = -5),
+    "c = 0" = list(a = 10, b = 25, c = 0),
+    "c = 5" = list(a = 10, b = 25, c = 5)
+  )
+)
+shape_plot(curve_data, hlines = 10, vlines = 10)
+```
 
 The Holling type IV function adds a term in $x$ to the denominator of the
 [Holling type III](#sec-fn-holling3) function, and the sign of its parameter $c$ decides
@@ -721,6 +955,26 @@ b = \text{rate (inverse units of } x\text{)} \\
 \end{aligned}
 $$
 
+```{r}
+#| echo: false
+#| label: fig-fn-exponential
+#| fig-cap: "Exponential function with a = 10, for b = 0.2 and b = 0.5. The grey lines show that the first function has fallen to half of its initial value at its half-life, log(2)/b ≈ 3.5."
+# Exponential function, as in the summary above.
+exponential = function(x, a, b) {
+  a * exp(-b * x)
+}
+
+curve_data = shape_curves(
+  exponential,
+  x = seq(0, 20, length.out = 201),
+  parameters = list(
+    "b = 0.2" = list(a = 10, b = 0.2),
+    "b = 0.5" = list(a = 10, b = 0.5)
+  )
+)
+shape_plot(curve_data, hlines = 5, vlines = log(2) / 0.2)
+```
+
 The exponential function describes a quantity that changes by a constant proportion for
 every unit of the predictor. It is mechanistic whenever the rate of change of a quantity
 is proportional to the quantity itself: a cohort in which every individual has the same
@@ -775,6 +1029,25 @@ b = \text{rate (inverse units of } x\text{)} \\
 \text{Also written}: &\quad d + a\left(1 - e^{-bx}\right),\ \text{which starts at } d \text{ and approaches } d + a;\quad a\left(1 - e^{-b(x - c)}\right),\ \text{which is zero at } x = c
 \end{aligned}
 $$
+
+```{r}
+#| echo: false
+#| label: fig-fn-monomolecular
+#| fig-cap: "Saturating exponential function with a = 10 and b = 0.2, and the Michaelis–Menten function with the same asymptote and the same initial slope ab = 2 (asymptote 10, half-maximum 1/b = 5). The grey lines mark the asymptote, half of it and the two half-maxima, log(2)/b ≈ 3.5 and 5."
+# Saturating exponential function, as in the summary above.
+saturating_exponential = function(x, a, b) {
+  a * (1 - exp(-b * x))
+}
+
+x_values = seq(0, 40, length.out = 401)
+curve_data = rbind(
+  shape_curves(saturating_exponential, x = x_values,
+               parameters = list("saturating exponential" = list(a = 10, b = 0.2))),
+  shape_curves(michaelis_menten, x = x_values,
+               parameters = list("Michaelis–Menten" = list(a = 10, b = 5)))
+)
+shape_plot(curve_data, hlines = c(5, 10), vlines = c(log(2) / 0.2, 5))
+```
 
 The saturating exponential function describes a response that approaches an upper limit,
 at a rate that is proportional to the distance that remains to that limit. This is its
@@ -860,6 +1133,26 @@ b = \text{rate (inverse units of } x\text{)} \\
 \end{aligned}
 $$
 
+```{r}
+#| echo: false
+#| label: fig-fn-ricker
+#| fig-cap: "Ricker function with an initial slope a = 1, for b = 0.2 and b = 0.4. The grey lines mark the maximum of the first function at x = 1/b = 5 and its inflection point at x = 2/b = 10."
+# Ricker function, as in the summary above.
+ricker = function(x, a, b) {
+  a * x * exp(-b * x)
+}
+
+curve_data = shape_curves(
+  ricker,
+  x = seq(0, 30, length.out = 301),
+  parameters = list(
+    "b = 0.2" = list(a = 1, b = 0.2),
+    "b = 0.4" = list(a = 1, b = 0.4)
+  )
+)
+shape_plot(curve_data, vlines = c(5, 10))
+```
+
 The Ricker function describes a response that increases in proportion to the predictor
 when the predictor is small, reaches a maximum and declines towards zero. Ricker (1954)
 proposed it for the number of recruits of a fish stock as a function of the number of
@@ -920,6 +1213,27 @@ b = \text{steepness (inverse units of } x\text{)};\quad c = \text{midpoint (unit
 \dfrac{K}{1 + \frac{K - n_0}{n_0}e^{-rx}}
 \end{aligned}
 $$
+
+```{r}
+#| echo: false
+#| label: fig-fn-logistic
+#| fig-cap: "Logistic function with an asymptote a = 10 and a midpoint c = 5, for three values of the steepness b. The grey lines mark the asymptote and the inflection point at x = c, where every curve equals a/2 = 5."
+# Logistic function, as in the summary above.
+logistic = function(x, a, b, c) {
+  a / (1 + exp(-b * (x - c)))
+}
+
+curve_data = shape_curves(
+  logistic,
+  x = seq(-5, 15, length.out = 401),
+  parameters = list(
+    "b = 1" = list(a = 10, b = 1, c = 5),
+    "b = 0.5" = list(a = 10, b = 0.5, c = 5),
+    "b = 3" = list(a = 10, b = 3, c = 5)
+  )
+)
+shape_plot(curve_data, hlines = c(5, 10), vlines = 5)
+```
 
 The logistic function describes a response that increases from a lower to an upper limit,
 slowly at first, fastest half-way and slowly again. In population ecology it is the size
@@ -1023,6 +1337,25 @@ b = \text{rate (inverse units of } x\text{)};\quad c = \text{inflection point (u
 \end{aligned}
 $$
 
+```{r}
+#| echo: false
+#| label: fig-fn-gompertz
+#| fig-cap: "Gompertz function and logistic function with the same parameters, a = 10, b = 1 and c = 5. Both are steepest at x = c (grey vertical line), where the Gompertz function equals a/e ≈ 3.7 and the logistic function a/2 = 5. The grey horizontal lines mark the asymptote and a/e."
+# Gompertz function, as in the summary above.
+gompertz = function(x, a, b, c) {
+  a * exp(-exp(-b * (x - c)))
+}
+
+x_values = seq(-2, 12, length.out = 401)
+curve_data = rbind(
+  shape_curves(gompertz, x = x_values,
+               parameters = list("Gompertz" = list(a = 10, b = 1, c = 5))),
+  shape_curves(logistic, x = x_values,
+               parameters = list("logistic" = list(a = 10, b = 1, c = 5)))
+)
+shape_plot(curve_data, hlines = c(10 / exp(1), 10), vlines = 5)
+```
+
 The Gompertz function^[The function is named after Gompertz, who proposed in 1825 a law of
 human mortality in which the death rate increases exponentially with age over much of
 adult life; see Gompertz (1825).] is a sigmoid function like the logistic, with the
@@ -1079,6 +1412,26 @@ b = \text{width (units of } x\text{)};\quad c = \text{location of the peak (unit
 \text{Also written}: &\quad e^{\beta_0 + \beta_1 x + \beta_2 x^2} \text{ with } \beta_2 < 0
 \end{aligned}
 $$
+
+```{r}
+#| echo: false
+#| label: fig-fn-gaussian
+#| fig-cap: "Bell-shaped function with a peak of height a = 10 at c = 5, for the widths b = 1 and b = 2. The grey lines mark the peak and the inflection points of the first function at c ± b."
+# Bell-shaped function, as in the summary above.
+bell_shaped = function(x, a, b, c) {
+  a * exp(-(x - c)^2 / (2 * b^2))
+}
+
+curve_data = shape_curves(
+  bell_shaped,
+  x = seq(0, 10, length.out = 401),
+  parameters = list(
+    "b = 1" = list(a = 10, b = 1, c = 5),
+    "b = 2" = list(a = 10, b = 2, c = 5)
+  )
+)
+shape_plot(curve_data, vlines = c(4, 5, 6))
+```
 
 The bell-shaped function, or Gaussian curve, describes a response that is highest at one
 value of the predictor and declines symmetrically on both sides of it. In community
@@ -1152,6 +1505,30 @@ b = \text{exponent (no units)} \\
 \end{aligned}
 $$
 
+```{r}
+#| echo: false
+#| label: fig-fn-power
+#| fig-cap: "Power law with a = 1 for four values of the exponent b: decreasing (b < 0), concave (0 < b < 1), a straight line (b = 1) and convex (b > 1). The grey lines mark the point x = 1, y = a through which every curve passes."
+# Power law, as in the summary above.
+power_law = function(x, a, b) {
+  a * x^b
+}
+
+curve_data = shape_curves(
+  power_law,
+  x = seq(0, 3, length.out = 301),
+  parameters = list(
+    "b = −0.5" = list(a = 1, b = -0.5),
+    "b = 0.5" = list(a = 1, b = 0.5),
+    "b = 1" = list(a = 1, b = 1),
+    "b = 2" = list(a = 1, b = 2)
+  )
+)
+# The curve for b = -0.5 is infinite at x = 0, so the y axis is cut at 5.
+shape_plot(curve_data, hlines = 1, vlines = 1) +
+  coord_cartesian(ylim = c(0, 5))
+```
+
 The power law describes a response that changes by a constant proportion when the
 predictor changes by a constant proportion. It is the function of allometry, the study of
 how the properties of organisms change with their size: the reproductive biomass of plants
@@ -1222,6 +1599,26 @@ b = \text{growth rate (inverse units of } x\text{)}; \\
 a\left(1 - e^{-b(x-c)}\right)^{1/(1-d)} \text{ (generalised form)}
 \end{aligned}
 $$
+
+```{r}
+#| echo: false
+#| label: fig-fn-von-bertalanffy
+#| fig-cap: "Simple form (d = 0) and generalised form with d = 2/3 of the von Bertalanffy function, with a = 10, b = 0.2 and c = −2. Both start from zero at x = c. The grey lines mark the asymptote and the inflection point of the generalised form at x = c + log(3)/b ≈ 3.5."
+# Generalised von Bertalanffy function; d = 0 gives the simple form of the summary above.
+von_bertalanffy = function(x, a, b, c, d) {
+  a * (1 - exp(-b * (x - c)))^(1 / (1 - d))
+}
+
+curve_data = shape_curves(
+  von_bertalanffy,
+  x = seq(-2, 30, length.out = 321),
+  parameters = list(
+    "simple, d = 0" = list(a = 10, b = 0.2, c = -2, d = 0),
+    "generalised, d = 2/3" = list(a = 10, b = 0.2, c = -2, d = 2 / 3)
+  )
+)
+shape_plot(curve_data, hlines = 10, vlines = -2 + log(3) / 0.2)
+```
 
 The von Bertalanffy function describes the size of an organism as a function of its age.
 It is the usual growth curve in fisheries and it is a mechanistic function (von
@@ -1312,6 +1709,28 @@ b \text{ (units of } x^c\text{)};\quad c = \text{exponent (no units)} \\
 \end{aligned}
 $$
 
+```{r}
+#| echo: false
+#| label: fig-fn-shepherd
+#| fig-cap: "Shepherd function for three values of the exponent c, with the initial slope s = a/b = 2 and the scale k = b^(1/c) = 5 the same for all three (a = 4.47 and b = 2.24 for c = 0.5; a = 10 and b = 5 for c = 1; a = 50 and b = 25 for c = 2). Every curve passes through x = k, y = sk/2 = 5 (grey lines), which is also the maximum for c = 2."
+# Shepherd function, as in the summary above.
+shepherd = function(x, a, b, c) {
+  a * x / (b + x^c)
+}
+
+# Parameters from the initial slope s = 2 and the scale k = 5: b = k^c and a = s * b.
+curve_data = shape_curves(
+  shepherd,
+  x = seq(0, 30, length.out = 301),
+  parameters = list(
+    "c = 0.5" = list(a = 2 * 5^0.5, b = 5^0.5, c = 0.5),
+    "c = 1" = list(a = 2 * 5, b = 5, c = 1),
+    "c = 2" = list(a = 2 * 5^2, b = 5^2, c = 2)
+  )
+)
+shape_plot(curve_data, hlines = 5, vlines = 5)
+```
+
 The Shepherd function is a [Michaelis–Menten](#sec-fn-michaelis-menten) function in which
 the $x$ of the denominator is raised to a power. It is used for the output of a population
 (recruits, seeds, the adults of the next generation) as a function of its density, when
@@ -1384,6 +1803,28 @@ b \text{ (units of } x\text{)};\quad c = \text{exponent (no units)} \\
 \text{Also written}: &\quad \dfrac{sx}{(1 + x/b)^c},\ \text{with } s = a/b^c \text{ the initial slope}
 \end{aligned}
 $$
+
+```{r}
+#| echo: false
+#| label: fig-fn-hassell
+#| fig-cap: "Hassell function with b = 5 for three values of the exponent c, with the same initial slope s = a/b^c = 2 (a = 4.47 for c = 0.5, a = 10 for c = 1 and a = 50 for c = 2). The grey lines mark the maximum for c = 2 at x = b/(c − 1) = 5 and its inflection point at 2b/(c − 1) = 10."
+# Hassell function, as in the summary above.
+hassell = function(x, a, b, c) {
+  a * x / (b + x)^c
+}
+
+# Parameters from the initial slope s = 2 and b = 5: a = s * b^c.
+curve_data = shape_curves(
+  hassell,
+  x = seq(0, 30, length.out = 301),
+  parameters = list(
+    "c = 0.5" = list(a = 2 * 5^0.5, b = 5, c = 0.5),
+    "c = 1" = list(a = 2 * 5, b = 5, c = 1),
+    "c = 2" = list(a = 2 * 5^2, b = 5, c = 2)
+  )
+)
+shape_plot(curve_data, vlines = c(5, 10))
+```
 
 The Hassell function is a [Michaelis–Menten](#sec-fn-michaelis-menten) function in which
 the whole denominator is raised to a power. Hassell (1975) proposed it for the density
@@ -1463,6 +1904,27 @@ b = \text{location of the peak (units of } x\text{)};\quad c = \text{exponent (n
 \end{aligned}
 $$
 
+```{r}
+#| echo: false
+#| label: fig-fn-generalised-ricker
+#| fig-cap: "Generalised Ricker function with its peak at x = b = 5 and of height a = 10 (grey lines), for three values of the exponent c. With c = 1 it is a Ricker function; larger values of c give a narrower peak."
+# Generalised Ricker function, as in the summary above.
+generalised_ricker = function(x, a, b, c) {
+  a * ((x / b) * exp(1 - x / b))^c
+}
+
+curve_data = shape_curves(
+  generalised_ricker,
+  x = seq(0, 25, length.out = 401),
+  parameters = list(
+    "c = 1" = list(a = 10, b = 5, c = 1),
+    "c = 5" = list(a = 10, b = 5, c = 5),
+    "c = 20" = list(a = 10, b = 5, c = 20)
+  )
+)
+shape_plot(curve_data, hlines = 10, vlines = 5)
+```
+
 The generalised Ricker function describes a response with a single peak whose location,
 height and width are three separate parameters. In the [Ricker](#sec-fn-ricker) function
 one parameter controls both where the peak is and how fast the function declines beyond
@@ -1537,6 +1999,29 @@ p_{\max} = \text{asymptote (units of } y\text{)}; \\
 \text{Also written}: &\quad \text{the smaller root } y \text{ of } \theta y^2 - (\alpha x + p_{\max})\,y + \alpha x\,p_{\max} = 0
 \end{aligned}
 $$
+
+```{r}
+#| echo: false
+#| label: fig-fn-nonrectangular
+#| fig-cap: "Non-rectangular hyperbola with α = 1 and p_max = 10, for three values of the sharpness θ. With θ = 1 it is a hockey stick function. The grey lines mark the asymptote p_max and the value x = p_max/α = 10 at which the curves equal p_max/(1 + √(1 − θ))."
+# Non-rectangular hyperbola, as in the summary above. Rounding error can make the term
+# under the square root slightly negative when theta = 1, so it is kept at zero or above.
+nonrectangular = function(x, alpha, p_max, theta) {
+  s = alpha * x
+  (s + p_max - sqrt(pmax(0, (s + p_max)^2 - 4 * theta * s * p_max))) / (2 * theta)
+}
+
+curve_data = shape_curves(
+  nonrectangular,
+  x = seq(0, 40, length.out = 401),
+  parameters = list(
+    "θ = 0.2" = list(alpha = 1, p_max = 10, theta = 0.2),
+    "θ = 0.75" = list(alpha = 1, p_max = 10, theta = 0.75),
+    "θ = 1" = list(alpha = 1, p_max = 10, theta = 1)
+  )
+)
+shape_plot(curve_data, hlines = 10, vlines = 10)
+```
 
 The non-rectangular hyperbola describes the rate of photosynthesis of a leaf as a function
 of the light that it receives. It is a saturating function with three parameters: the
@@ -1628,6 +2113,29 @@ b = \text{rate (inverse units of } x\text{)}; \\
 \text{Also written}: &\quad \text{logistic } (d = 1);\ \text{Gompertz } (d \to 0);\ \text{saturating exponential } (d = -1)
 \end{aligned}
 $$
+
+```{r}
+#| echo: false
+#| label: fig-fn-richards
+#| fig-cap: "Richards function with a = 10, b = 1 and c = 5, for three values of the shape d: d = −1/3 (a generalised von Bertalanffy function, which starts from zero at x = c + log(1/3)/b ≈ 3.9), d = 1 (the logistic function) and d = 4. Every curve is steepest at x = c (grey line), at a fraction (1 + d)^(−1/d) of the asymptote that increases with d."
+# Richards function, as in the summary above. When d < 0 the function is defined only
+# where 1 + d * exp(-b * (x - c)) is positive, so it is set to NA elsewhere.
+richards = function(x, a, b, c, d) {
+  base = 1 + d * exp(-b * (x - c))
+  ifelse(base > 0, a / base^(1 / d), NA)
+}
+
+curve_data = shape_curves(
+  richards,
+  x = seq(-4, 12, length.out = 641),
+  parameters = list(
+    "d = −1/3" = list(a = 10, b = 1, c = 5, d = -1 / 3),
+    "d = 1" = list(a = 10, b = 1, c = 5, d = 1),
+    "d = 4" = list(a = 10, b = 1, c = 5, d = 4)
+  )
+)
+shape_plot(curve_data, hlines = 10, vlines = 5)
+```
 
 The Richards function is a family of growth curves with an upper asymptote, in which a
 fourth parameter sets how asymmetric the curve is. Richards (1959) proposed it as a

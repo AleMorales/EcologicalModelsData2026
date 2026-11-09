@@ -225,10 +225,16 @@ verifies it in R; a figure; a `Practice` callout with a collapsed solution.
 **Supplement entries for deterministic functions**
 (`Supplements/deterministic-functions.qmd`, `sec-fn-` IDs) have: a summary block in
 `aligned` display mathematics (R, shape, domain, range, parameters, value at zero, value
-at infinity, special points, alternative forms); one or two paragraphs on uses, with
-author–year citations and a sentence on whether a mechanistic derivation exists; and the
-formula with a "where" clause and its landmarks derived. They have no example, figure or
-`Practice` callout; do not add them back. A statement about how a function is used must
+at infinity, special points, alternative forms); directly below it, one figure of the
+shape; one or two paragraphs on uses, with author–year citations and a sentence on whether
+a mechanistic derivation exists; and the formula with a "where" clause and its landmarks
+derived. The figure (hidden code, label `fig-fn-` plus the entry's ID) draws the function
+from the R line of the summary for two to four sets of arbitrary parameter values, or
+against a function that the entry compares it with, with the helpers `shape_curves()` and
+`shape_plot()` of the page's setup chunk: vermillion curves told apart by line type, a
+legend with the values, axes `x` and `y` without units, landmarks of the summary as grey
+dashed lines named in the caption. Entries have no example or `Practice` callout; do not
+add them back. A statement about how a function is used must
 rest on Chapter 3 of Bolker's *Ecological Models and Data in R*, which the page names as
 its source and the author trusts, or on a citation that was checked against the
 publication and is in the reference list of the page. Inside display mathematics use

@@ -36,13 +36,17 @@ Moved from AGENTS.md. Read this before working on the pages it covers; AGENTS.md
   set; `sec-calc-` IDs); the theory only recalls and uses them.
 - **`Supplements/deterministic-functions.qmd`:** detailed descriptions of functions live
   only here (`sec-fn-` IDs). The author removed the examples, figures and `Practice`
-  callouts on 7 October. Every usage paragraph was checked against Chapter 3 of Bolker
+  callouts on 7 October because the ecological basis of the examples was dubious. On 9
+  November the author asked for one figure of the shape of each of the 22 entries, placed
+  below the summary block with hidden code (format in `STYLE_GUIDE.md`); the closing section
+  on functions without a closed form has none, and no overview figure goes under "Choosing a
+  function" (author's decision). The figures and the sentence on them in the introduction
+  are drafts awaiting the author's check. Every usage paragraph was checked against Chapter 3 of Bolker
   (`.plans/chap3A.pdf`) or the publications; the entries changed then are drafts
   (quadratic, bell-shaped, Michaelis–Menten, Hassell, hockey stick; citations added to
   Holling type III, exponential, Shepherd). The page closes with an entry on functions
   without a closed form (the Rogers random-predator equation; the theta-logistic model is
-  solved by the Richards function). A hidden chunk still loads `ggplot2` although no
-  figure uses it.
+  solved by the Richards function).
 
 ### `Supplements/canned.qmd`
 
