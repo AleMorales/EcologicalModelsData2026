@@ -98,6 +98,11 @@ them. All dates are in 2026.
   point to Exercises 2 and 3 of the Chapter 8 practical; fifteen new and six revised glossary
   entries. No lecture slide or script of another chapter needed a change. The plan,
   `Chapter_8/rewrite-handoff.md`, stays until the author removes it.
+- **9 November:** on the author's request, `Supplements/deterministic-functions.qmd` gained
+  one figure of the shape of each of its 22 functions (branch
+  `supplement-function-figures`). The landmarks drawn were checked numerically against the
+  formulas and the page renders with the dev profile; figures, captions and the sentence in
+  the introduction await the author's check.
 
 | Material | Status and use |
 |---|---|
