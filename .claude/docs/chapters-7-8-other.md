@@ -103,12 +103,13 @@ which stays until the author removes it.
   practised in the practical. Exercises 2 to 4 build their predictors with
   `model.matrix()` (author's decision of 10 November): `~ pred` (2); `~ FoodTreatment +
   time` per visit, and `~ 0 + Nest + FoodTreatment + time` for no pooling with the same
-  NLL (3); `relevel(mined, ref = "no")` in question 1 and `~ mined + cover` per site (4),
-  whose question 4 now asks why `glmmTMB` with the same formula gives the same estimates.
+  NLL (3); `relevel(mined, ref = "no")` in question 1 and `~ mined + cover` per site (4).
+  Exercise 4 has three questions: its comparison with `glmmTMB` was dropped (author's
+  decision of 10 November).
 - **Lecture:** one of 150 minutes (32 slides, 120 minutes of slides, 10 of slack, two
   breaks of 10) with the demo above. Slide 18, "The model matrix", was added on 10
   November (4 minutes from the slack); the demo builds the predictors with
-  `model.matrix()`. `lecture-script.pdf` is stale and needs regenerating.
+  `model.matrix()`. `lecture-script.pdf` regenerated on 10 November (26 pages).
 - The simulated `shapes*.csv` files were removed with the `Data/` folder that held only
   them (author's decision of 4 November); no page used them after the rewrites of Chapters
   6 and 7. Apart from `Chapter_1/Practicals/seedpred.csv`, the course data come from R

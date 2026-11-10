@@ -18,7 +18,12 @@ Each lecture lives in `Chapter_N/Lecture/`:
 - `lecture-script.md`: what to say, slide by slide, with the timing table and the
   provenance of the figures (see "The script").
 - `lecture-script.pdf`: a printout of the script for the lecturer. Generated (Typst);
-  regenerate it after changing the script and never edit it.
+  regenerate it after changing the script and never edit it. A timing table longer than a
+  page is printed on top of itself unless tables may break, so write the line
+  `#show figure.where(kind: table): set block(breakable: true)` to a file outside the
+  repository and run, from the lecture folder,
+  `quarto render lecture-script.md --to typst -M include-in-header:<that file>`. Look at the
+  timing table in the PDF.
 - `lecture.scss`: presentation styling. Copy the Chapter 3 file and keep the class names
   below; do not restyle per lecture. Its demo rules are used by the lectures with demos
   (Chapters 2, 4 and 6). It gives the first column of every table 40% of the width, so

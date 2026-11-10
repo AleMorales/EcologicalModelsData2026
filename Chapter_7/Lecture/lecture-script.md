@@ -1047,7 +1047,7 @@ Chapter 4 practical (`ReedfrogPred`, `emdbook`): a Binomial model with a random 
 scale, against the Beta-Binomial model of Chapter 6. Exercise 3 uses all the visits to 27 barn owl nests (`Owls`,
 `glmmTMB`) with a Negative Binomial model and a random effect for each nest, and compares no pooling with partial
 pooling. Exercise 4 models the salamander counts of Chapter 2 at 23 stream sites (`Salamanders`, `glmmTMB`) with a
-Poisson model and a random effect for each site, and fits the same model with a formula in `glmmTMB`. Exercise 5 is
+Poisson model and a random effect for each site. Exercise 5 is
 extra practice: it compares maximum likelihood and REML estimates of a variance among groups by simulation.
 
 Try each exercise before checking the solution.
