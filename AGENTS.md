@@ -67,6 +67,7 @@ session start:
 | Chapter 4 | `.claude/docs/chapter-4.md` |
 | Chapters 5 and 6, `Supplements/deterministic-functions.qmd`, `calculus.qmd`, `canned.qmd` | `.claude/docs/chapters-5-6.md` |
 | Chapters 7 and 8, lectures, numbered practice callouts, figure exceptions | `.claude/docs/chapters-7-8-other.md` |
+| Case study 1 (rock crabs, between Chapters 4 and 5) | `.claude/docs/case-study-1.md` |
 
 ## Data decisions across pages
 
@@ -83,6 +84,7 @@ Grouped data have one running example in the theory, the CO₂ uptake curves of 
 nests and salamander sites that earlier chapters treated as i.i.d. The simulated
 `shapes*.csv` files were removed (author's decision of 4 November); do not reintroduce them.
 Chapter 8 has no new data: its theory and practical revisit fits of earlier chapters.
+`MASS::crabs` belongs to Case study 1 and is not used elsewhere.
 
 
 ## Teaching scope and progression
@@ -141,7 +143,7 @@ Chapter 8 has no new data: its theory and practical revisit fits of earlier chap
   lists belong in the mutually exclusive `_quarto-dev.yml` and `_quarto-prod.yml`, so
   that profile merging cannot duplicate navigation.
 - The production build renders Chapters 1 to 8 (with the lectures of Chapters 1 to 4 and 6
-  to 8) and five supplements.
+  to 8), Case study 1 (listed under "Theory" between Chapters 4 and 5) and five supplements.
 - Every package loaded in a rendered page must be in `.github/workflows/publish.yml`, or
   the production build fails. Production needs `MASS`, `ggplot2`, `patchwork`, `dplyr`,
   `RTMB`, `RTMBdist`, `TMB` (for `tmbprofile()`), `quarto`, `glmmTMB` (`Salamanders`,
