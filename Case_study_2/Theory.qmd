@@ -606,9 +606,9 @@ describes the growth in the first two months better, which is where most of the 
 are, and with a constant coefficient of variation the small leaf
 weights of the first weeks count as much as the large ones. The LogNormal distribution has a
 practical advantage on this page: our fits with the Gamma distribution take several times
-longer, and below we will fit the model hundreds of times for the
-cross-validation and the simulation. We will return to the logistic curve in
-@sec-soy-logistic, to see whether this choice changes our answer.
+longer, and below we will fit the model hundreds of times for the simulation. We will
+return to the logistic curve in @sec-soy-logistic, to see whether this choice changes our
+answer.
 
 # Which parameters depend on variety and year? {#sec-soy-candidates}
 
@@ -642,8 +642,8 @@ candidates = list(
 ```
 
 We fit the three candidates to the 48 plots with the Gompertz curve and the LogNormal
-distribution, and calculate their AIC. Every coefficient is an element of `par`, so $K$ is
-again the length of `par`:
+distribution, and calculate their AIC and its difference from the lowest AIC. Every
+coefficient is an element of `par`, so $K$ is again the length of `par`:
 
 ```{r}
 # Lists of data and starting values of every candidate, with the Gompertz curve and the
@@ -660,94 +660,17 @@ for (m in seq_along(candidates)) {
   comparison$convergence[m] = candidate_fits[[m]]$fit$convergence
 }
 comparison$aic = 2 * comparison$K - 2 * comparison$loglik
+comparison$delta_aic = comparison$aic - min(comparison$aic)
 comparison
 ```
 
-As in Chapter 7, we also compare the candidates with leave-one-plot-out cross-validation:
-each plot is held out in turn, every parameter is estimated again from the other 47 plots,
-and the held-out plot is scored by its marginal log-likelihood under that fit. We need two
-functions. The first keeps some of the plots in the list of data and numbers them again from
-one. It also keeps the rows of these plots in the model matrices of the plots
-(`drop = FALSE` keeps the result a matrix when it has a single row or column); the matrices
-of the six combinations do not change:
-
-```{r}
-# Keep only the given plots in the list of data, numbered again from 1.
-subset_plots = function(data, plots) {
-  rows = data$plot %in% plots
-  data$time = data$time[rows]
-  data$weight = data$weight[rows]
-  data$plot = match(data$plot[rows], plots)
-  data$X_a = data$X_a[plots, , drop = FALSE]
-  data$X_b = data$X_b[plots, , drop = FALSE]
-  data$X_c = data$X_c[plots, , drop = FALSE]
-  data
-}
-```
-
-The second calculates the marginal log-likelihood of some plots at given estimates, with
-every parameter fixed by `map` as in Chapter 7. The vector `par` of a fit repeats the name
-`beta_a` for every coefficient of the asymptote (and likewise for `beta_b` and `beta_c`), so
-`split()` first groups the estimates by name into a list with one vector per parameter,
-which is the form that `MakeADFun()` takes. The map then gives `factor(NA)` to every
-element of these vectors:
-
-```{r}
-# Marginal log-likelihood of the plots in data at the given estimates: every parameter is
-# fixed with map, and the deviations of the plots are integrated out.
-plot_loglik = function(data, estimates) {
-  parms = split(estimates, names(estimates))
-  fixed = lapply(parms, function(x) factor(rep(NA, length(x))))
-  parms$u = rep(0, max(data$plot))
-  obj = MakeADFun(cmb(soy_nll, data), parms, map = fixed, random = "u", silent = TRUE)
-  -obj$fn(obj$par)
-}
-```
-
-The loop fits each candidate 48 times, which takes about half a minute, and counts the fits
-that did not converge:
-
-```{r}
-# Leave-one-plot-out score of each candidate: fit to 47 plots, score the plot held out.
-n_plots = length(plot_names)
-comparison$loo = NA
-n_failed = 0
-for (m in seq_along(candidates)) {
-  candidate_data = candidate_setups[[m]]$data
-  score = 0
-  for (j in seq_len(n_plots)) {
-    loo_fit = fit_soy(subset_plots(candidate_data, setdiff(seq_len(n_plots), j)),
-                      candidate_setups[[m]]$start)
-    n_failed = n_failed + (loo_fit$fit$convergence != 0)
-    score = score + plot_loglik(subset_plots(candidate_data, j), loo_fit$fit$par)
-  }
-  comparison$loo[m] = score
-}
-n_failed
-```
-
-All 144 fits converged. The differences from the best model for each criterion:
-
-```{r}
-# Differences from the lowest AIC and from the highest leave-one-plot-out score.
-data.frame(
-  model = comparison$model,
-  K = comparison$K,
-  loglik = round(comparison$loglik, 2),
-  convergence = comparison$convergence,
-  delta_aic = round(comparison$aic - min(comparison$aic), 2),
-  delta_loo = round(comparison$loo - max(comparison$loo), 2)
-)
-```
-
-Both criteria prefer the additive model, and both rank the model in which only the asymptote
-changes last, by far (59 units of AIC and 31 units of log score). So the varieties and the
-years differ in the timing and the rate of their growth, and not only in its scale. The
-full model has five more parameters than the additive model but raises the log-likelihood by
-less than one unit, so it is worse by 8.5 units of AIC and by 4.1 units of log score: the
-data do not support its extra effects (of the variety on the rate, and of the interaction of
-variety and year on the rate and the inflection point). We continue with the additive
-model.
+All three fits converged. The additive model has the lowest AIC, and the model in which only
+the asymptote changes is last by far, with an AIC 59 units higher. So the varieties and the
+years differ in the timing and the rate of their growth, and not only in its scale. The full
+model has five more parameters than the additive model but raises the log-likelihood by less
+than one unit, so its AIC is 8.5 units higher: the data do not support its extra effects (of
+the variety on the rate, and of the interaction of variety and year on the rate and the
+inflection point). We continue with the additive model.
 
 # How large is the difference? {#sec-soy-answer-model}
 
@@ -761,7 +684,9 @@ seem.
 The typical values of the parameters ($u_j=0$) are the model matrices multiplied by the
 estimates of the coefficients, as in the NLL. We will need them for several figures and
 checks, so the function `typical_parameters()` calculates them for the rows of three model
-matrices, after grouping the estimates by name with `split()`:
+matrices. The vector `par` of a fit repeats the name `beta_a` for every coefficient of the
+asymptote (and likewise for `beta_b` and `beta_c`), so `split()` first groups the estimates
+by name into a list with one vector per parameter:
 
 ```{r}
 # Typical values (u = 0) of a, b and c at the given estimates, for the rows of three model
@@ -1068,13 +993,35 @@ much worse than the others (for a reason that the data do not tell us), more oft
 Normal distribution of plot deviations allows.
 
 How much do these two plots matter for our answer? We can find out by fitting the model
-without them, which `subset_plots()` makes easy, and comparing the ratios at 10 weeks and
-the standard deviation among plots:
+without them and comparing the ratios at 10 weeks and the standard deviation among plots.
+For the fit we need a list of data without the two plots, which the function
+`subset_plots()` builds. It takes a list of data and the numbers of the plots to keep, and
+returns the same list with only the measurements of these plots and their rows in the model
+matrices of the plots (`drop = FALSE` keeps the result a matrix when it has a single row or
+column); the matrices of the six combinations do not change. The plots that are kept are
+numbered again from one, because the NLL uses the number of a plot as the position of its
+deviation in `u` and of its row in the model matrices:
+
+```{r}
+# Keep only the given plots in the list of data, numbered again from 1.
+subset_plots = function(data, plots) {
+  rows = data$plot %in% plots
+  data$time = data$time[rows]
+  data$weight = data$weight[rows]
+  data$plot = match(data$plot[rows], plots)
+  data$X_a = data$X_a[plots, , drop = FALSE]
+  data$X_b = data$X_b[plots, , drop = FALSE]
+  data$X_c = data$X_c[plots, , drop = FALSE]
+  data
+}
+```
+
+The two plots are found by their names, and every other plot is kept:
 
 ```{r}
 # The additive model without the two plots with the lowest residuals.
 low_plots = which(plot_names %in% c("1989F6", "1990F2"))
-without_low = fit_soy(subset_plots(additive_data, setdiff(seq_len(n_plots), low_plots)),
+without_low = fit_soy(subset_plots(additive_data, setdiff(seq_along(plot_names), low_plots)),
                       additive_start)
 without_low$fit$convergence
 without_low_ratio = summary(sdreport(without_low$obj), select = "report")
@@ -1301,10 +1248,10 @@ plots suggested, and tested them with F tests and likelihood ratio tests (p-valu
 random effects that were no longer needed. They arrived at the same structure as our additive
 model: the asymptote depends on the year, the variety and their interaction, the inflection
 point on the year and the variety, the rate on the year only, and only the asymptote varies
-among plots. Our comparison of three candidates with AIC and leave-one-plot-out
-cross-validation led to the same model. Their function `nlme()` describes such a structure
-as we did, with a list of formulas in its argument `fixed`, one for each parameter of the
-curve, from which it builds the model matrices. Their
+among plots. Our comparison of three candidates with AIC led to the same model. Their
+function `nlme()` describes such a structure as we did, with a list of formulas in its
+argument `fixed`, one for each parameter of the curve, from which it builds the model
+matrices. Their
 estimates with the logistic curve are very close to those of our logistic fit in
 @sec-soy-logistic. Their asymptote of Forrest in 1988 is 19.4 g per plant (ours 19.6 g),
 that of PI in 1988 is 1.6 g higher (ours 1.4 g), that of Forrest in 1989 is 8.8 g lower

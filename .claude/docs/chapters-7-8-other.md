@@ -70,13 +70,19 @@ which stays until the author removes it.
   observation and per plant with `recalculateResiduals(group = ...)`; the curve of an
   observed plant against the range of new plants ($a\,e^{\pm1.96\,\sigma_{\mathrm{plant}}}$ at
   the estimates, without the uncertainty of the estimates); AIC on the marginal likelihood
-  ($K$ counts the variance parameters, not the random effects); leave-one-plant-out
-  cross-validation, scoring the held-out plant by its marginal log-likelihood through `map`.
+  ($K$ counts the variance parameters, not the random effects). No cross-validation and no
+  `map` (removed on 10 November, see `AGENTS.md`).
 - **AICc and BIC are not used for grouped models**, because $n$ lies somewhere between the
-  number of groups and of observations. **No pooling is excluded from the comparison**,
-  with one paragraph: its lower AIC describes new measurements of the same 12 plants, the
-  marginal likelihood a new plant, and leave-one-plant-out cannot score it. No conditional
-  AIC.
+  number of groups and of observations. **Four candidates** (author's decision of 10
+  November; complete pooling with origin × chilling was dropped): complete pooling, random
+  asymptote without predictors, additive origin and chilling, and their interaction; the
+  interaction wins by 8.6 AIC units. Whether plants differ beyond origin and treatment is
+  answered by the profile interval of $\sigma_{\mathrm{plant}}$ (`#sec-grouped-uncertainty`),
+  to which the comparison points. **No pooling is excluded from the comparison**, with one
+  paragraph: its lower AIC describes new measurements of the same 12 plants, the marginal
+  likelihood a new plant. No conditional AIC. Quiz question 10 (counting $K$ in a nestling
+  growth model with brood effects) replaced the cross-validation question on 10 November;
+  awaiting the author's check.
 - Three numbered `Practice` callouts, a roadmap table after the learning goals and a recipe
   callout (nine steps) before the summary; one sentence and a link to `canned.qmd` for
   formula-based tools, no `glmmTMB` in the theory. The page has about 2,070 lines, above
@@ -99,17 +105,18 @@ which stays until the author removes it.
   Exercise 3 has three questions, and the range of new nests is one number in its question
   2 (no plot of curves); question 3 of Exercise 4 reports the dispersion statistic and the
   site residuals without a residual plot; the code of the plot of tank effects (Exercise 2,
-  question 5) is given below the questions. Leave-one-group-out cross-validation is not
-  practised in the practical. Exercises 2 to 4 build their predictors with
+  question 5) is given below the questions. Exercises 2 to 4 build their predictors with
   `model.matrix()` (author's decision of 10 November): `~ pred` (2); `~ FoodTreatment +
   time` per visit, and `~ 0 + Nest + FoodTreatment + time` for no pooling with the same
   NLL (3); `relevel(mined, ref = "no")` in question 1 and `~ mined + cover` per site (4).
   Exercise 4 has three questions: its comparison with `glmmTMB` was dropped (author's
   decision of 10 November).
-- **Lecture:** one of 150 minutes (32 slides, 120 minutes of slides, 10 of slack, two
+- **Lecture:** one of 150 minutes (31 slides, 116 minutes of slides, 14 of slack, two
   breaks of 10) with the demo above. Slide 18, "The model matrix", was added on 10
   November (4 minutes from the slack); the demo builds the predictors with
-  `model.matrix()`. `lecture-script.pdf` regenerated on 10 November (26 pages).
+  `model.matrix()`. The cross-validation slide was deleted on 10 November and its four
+  minutes went to the slack (author's decision); `lecture-script.pdf` regenerated the same
+  day.
 - The simulated `shapes*.csv` files were removed with the `Data/` folder that held only
   them (author's decision of 4 November); no page used them after the rewrites of Chapters
   6 and 7. Apart from `Chapter_1/Practicals/seedpred.csv`, the course data come from R

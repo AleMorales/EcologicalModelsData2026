@@ -493,76 +493,14 @@ standard deviation $\sigma$, and treat the 23 observations as independent.
    densities of the reed frog tanks stopped ("Standard errors and correlation of the
    parameters" and "Likelihood profile intervals of the parameters" in
    [Uncertainty of a response curve](../Theory.qmd#sec-curve-uncertainty)).
-5. Compare the two models with AIC, AICc and BIC, and with leave-one-out cross-validation
-   (23 fits for each model), for which you complete the two gaps of the code below the
-   questions. Do the criteria agree? Hint: see "Information criteria" and
-   "Cross-validation" in [Comparing candidate models](../Theory.qmd#sec-response-comparison).
+5. Compare the two models with AIC, AICc and BIC. Do the criteria agree? Hint: see
+   "Information criteria" in [Comparing candidate models](../Theory.qmd#sec-response-comparison).
 6. Simulate 1,000 hypothetical samples from the model that the criteria prefer, calculate
    the scaled quantile residuals with DHARMa, and plot them, also against the concentration
    of the substrate. What do you see, and what can you conclude from 23 observations? Hint:
    proceed as in question 4 of Exercise 1 (the rates must be marked with `OBS()` in the
    NLL); the expected rate of an observation is the curve of its state at its
    concentration.
-
-The code below calculates the leave-one-out log score of the two models. It needs the helper
-`cmb()`, the list of data `enzyme_data` with the elements `conc`, `rate` and `state`, and
-the NLLs and starting values of the two models, `pooled_nll()`, `pooled_start`,
-`state_nll()` and `state_start`; if you gave them other names, change them in the code. The
-functions `fit_model()` and `subset_observations()` work like `fit_model()` and
-`subset_tanks()` in the theory. The theory scores the held-out tank by calling the NLL with
-`as.list(fit$par)`, but that does not work when a parameter is a vector, as `log_a` is
-here: `as.list()` splits it into two elements with the same name, and the score becomes
-`NA`. Gap 2 therefore processes the NLL of the held-out observation with `MakeADFun()`. In
-each gap, replace `NA` by your own code, and keep the names of the objects that the gap
-creates.
-
-```{r}
-#| eval: false
-# Fit one model to one list of data, from the given starting values.
-fit_model = function(nll, start, data) {
-  obj = MakeADFun(cmb(nll, data), start, silent = TRUE)
-  optim(par = obj$par, fn = obj$fn, gr = obj$gr, method = "BFGS")
-}
-
-# Keep only the given observations in the list of data.
-subset_observations = function(data, rows) {
-  data$conc = data$conc[rows]
-  data$rate = data$rate[rows]
-  data$state = data$state[rows]
-  data
-}
-
-# The NLL and the starting values of each model.
-enzyme_models = list(
-  pooled = list(nll = pooled_nll, start = pooled_start),
-  state = list(nll = state_nll, start = state_start)
-)
-
-# Leave-one-out log score of each model: fit to 22 observations, score the one held out.
-n_enzyme = length(enzyme_data$rate)
-loo_enzyme = c(pooled = NA, state = NA)
-n_failed = 0
-for (m in seq_along(enzyme_models)) {
-  score = 0
-  for (i in seq_len(n_enzyme)) {
-    # GAP 1: fit model m (its NLL and starting values are in enzyme_models[[m]]) with
-    # fit_model() to every observation except observation i, and store the result in an
-    # object called fit.
-    fit = NA
-    n_failed = n_failed + (fit$convergence != 0)
-
-    # GAP 2: process the NLL of model m for observation i alone with MakeADFun(), from the
-    # starting values of the model, and store the result in an object called heldout_obj.
-    # Its function fn() at the estimates of the fit is minus the log density of
-    # observation i, so the line after the gap adds the log score to the total.
-    heldout_obj = NA
-    score = score - heldout_obj$fn(fit$par)
-  }
-  loo_enzyme[m] = score
-}
-n_failed
-loo_enzyme
-```
 
 # Exercise 3: Fecundity of fir trees
 
