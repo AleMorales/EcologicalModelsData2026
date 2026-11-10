@@ -1,9 +1,9 @@
 # Chapter 7 lecture script: Grouped ecological response curves
 
-Draft for the course author's review. **Target: 150 minutes in total, with 116 minutes of
-slides on 31 slides (including the discussion, the three practice questions and one live demo
-of 18 minutes), 14 minutes of slack and two breaks of 10 minutes.** The breaks separate the
-three blocks of the lecture. The only code that is run live is the demo of slide 21, from the
+Draft for the course author's review. **Target: 150 minutes in total, with 120 minutes of
+slides on 32 slides (including the discussion, the three practice questions and one live demo
+of 18 minutes), 10 minutes of slack and two breaks of 10 minutes.** The breaks separate the
+three blocks of the lecture. The only code that is run live is the demo of slide 22, from the
 script `demo-pooling.R`.
 
 This script follows the [Chapter 7 theory](../Theory.qmd) from the introduction to the recipe,
@@ -16,7 +16,7 @@ curves of observed and new groups, and the checking and comparison of grouped mo
 carry keywords only; the narrative is here.
 
 Slide 3 uses your diagram `ModelCycle.png` from the Chapter 1 lecture folder. Slides 5
-(`co2-data.png`), 14 (`laplace.png`), 19 (`shrinkage.png`), 23 (`new-plants.png`) and 25
+(`co2-data.png`), 14 (`laplace.png`), 20 (`shrinkage.png`), 24 (`new-plants.png`) and 26
 (`residuals-grouped.png`) use figures in `lecture-assets/`. All five are unchanged copies of
 Chapter 7 figures: `fig-co2_data`, `fig-laplace`, `fig-shrinkage`, `fig-new_plants` and
 `fig-residuals_grouped`. Their code is in `lecture-assets/figures.R`, which runs the chapter's
@@ -48,25 +48,26 @@ Times are measured from the start of the session and include the breaks.
 | 15 | Random effects in RTMB | 4 | 53–57 |
 | 16 | Variance components and predicted effects | 4 | 57–61 |
 | 17 | Group-level predictors | 4 | 61–65 |
-| 18 | Two ways to encode groups | 3 | 65–68 |
-| 19 | Shrinkage | 4 | 68–72 |
-| 20 | Practice 2: wing length of chicks in nests | 3 | 72–75 |
-| | Break | 10 | 75–85 |
-| 21 | Live demo: from pooling to partial pooling | 2 + 16 | 85–103 |
-| 22 | Uncertainty of variance components and REML | 4 | 103–107 |
-| 23 | Curves for observed and new groups | 4 | 107–111 |
-| 24 | Practice 3: sapling growth in forest stands | 3 | 111–114 |
-| 25 | Checking a grouped model | 4 | 114–118 |
-| 26 | AIC for grouped models | 4 | 118–122 |
-| 27 | Leave-one-group-out cross-validation | 4 | 122–126 |
-| 28 | Comparing the candidates | 3 | 126–129 |
-| 29 | A recipe for a grouped response curve | 2 | 129–131 |
-| 30 | The Chapter 7 R practical | 2 | 131–133 |
-| 31 | Summary and closing questions | 3 | 133–136 |
-| | Slack for discussion | 14 | 136–150 |
+| 18 | The model matrix | 4 | 65–69 |
+| 19 | Two ways to encode groups | 3 | 69–72 |
+| 20 | Shrinkage | 4 | 72–76 |
+| 21 | Practice 2: wing length of chicks in nests | 3 | 76–79 |
+| | Break | 10 | 79–89 |
+| 22 | Live demo: from pooling to partial pooling | 2 + 16 | 89–107 |
+| 23 | Uncertainty of variance components and REML | 4 | 107–111 |
+| 24 | Curves for observed and new groups | 4 | 111–115 |
+| 25 | Practice 3: sapling growth in forest stands | 3 | 115–118 |
+| 26 | Checking a grouped model | 4 | 118–122 |
+| 27 | AIC for grouped models | 4 | 122–126 |
+| 28 | Leave-one-group-out cross-validation | 4 | 126–130 |
+| 29 | Comparing the candidates | 3 | 130–133 |
+| 30 | A recipe for a grouped response curve | 2 | 133–135 |
+| 31 | The Chapter 7 R practical | 2 | 135–137 |
+| 32 | Summary and closing questions | 3 | 137–140 |
+| | Slack for discussion | 10 | 140–150 |
 | | **Total** | **150** | |
 
-Slides 116 minutes (blocks of 35, 30 and 51, the demo included), slack 14, breaks 20: 150
+Slides 120 minutes (blocks of 35, 34 and 51, the demo included), slack 10, breaks 20: 150
 minutes. The break before the demo lets you open R and run section 0 of `demo-pooling.R`.
 
 ## Slides 1 and 2 — Ecological Models and Data Analysis; Overview of the lecture
@@ -100,7 +101,7 @@ model now has two levels, a distribution for the groups and a distribution for t
 of each group. In the estimation box it is "marginalise (7)": the effects of the groups are not
 observed, so they are integrated out of the likelihood before it is maximised. The comparison box
 keeps the information criteria and cross-validation of Chapters 4 and 6, with two changes that
-slides 26 and 27 explain.
+slides 27 and 28 explain.
 
 **Delivery**
 
@@ -344,14 +345,14 @@ Give students two minutes to match the questions with a neighbour, then take one
 
 1. **Which of these 20 ponds has the most newts?** A question about the surveyed ponds, so **no
    pooling** answers it, and so does **partial pooling**, whose predicted pond values are shrunk
-   towards the typical pond (slide 19) and are less sensitive to chance variation in ponds with
+   towards the typical pond (slide 20) and are less sensitive to chance variation in ponds with
    few or noisy counts. Complete pooling cannot answer it, because it gives every pond the same
    density.
 2. **How much does the density vary among the ponds of the region?** **Partial pooling**: the
    variance among ponds is a parameter of the model. No pooling describes only these 20 ponds and no
    distribution of ponds; complete pooling assumes that ponds do not differ.
 3. **How many newts in a pond that was not surveyed?** **Partial pooling**: the typical pond and
-   the range of new ponds (slide 23). No pooling has no value for a pond that was not surveyed.
+   the range of new ponds (slide 24). No pooling has no value for a pond that was not surveyed.
 4. **Does the density increase with pond area, and how precisely do we know it?** Area is
    measured on the ponds, a group-level predictor (slide 17), so **partial pooling with area as a
    fixed effect**. Complete pooling with area would treat the 100 counts as independent and
@@ -529,17 +530,16 @@ groups becomes smaller. That is the takeaway.
 
 When there are two predictors, the effect of one may depend on the level of the other: that is an
 **interaction**. The chapter writes the effects of origin and chilling as a baseline plus contrasts,
-with an interaction. In the equation of the example, $M_j$ is 1 for a plant from Mississippi and 0
-for a plant from Quebec, $C_j$ is 1 for a chilled plant and 0 otherwise, and $a$ is now the typical
-asymptote (with $u_j=0$) of the baseline group, the non-chilled plants from Quebec, which are R's
-reference levels of the factors. $\beta_{\mathrm{miss}}$ is the effect of the origin in non-chilled
-plants, $\beta_{\mathrm{chill}}$ the effect of chilling in plants from Quebec, and
-$\beta_{\mathrm{int}}$ the difference between the effect of chilling in plants from Mississippi and
-in plants from Quebec. Chilling multiplies the typical asymptote of a Quebec plant by
-$e^{\beta_{\mathrm{chill}}}$ and that of a Mississippi plant by
-$e^{\beta_{\mathrm{chill}}+\beta_{\mathrm{int}}}$. The predictors are properties of the plants, so they
-go into the list of data as two vectors with one value per plant, and the NLL reports the logarithms
-of the two chilling factors with `ADREPORT()`.
+with an interaction: one combination of levels is the baseline, and an indicator that is 1 or 0
+switches each effect on or off. In the equation of the example, $M_j$ is 1 for a plant from
+Mississippi and 0 for a plant from Quebec, $C_j$ is 1 for a chilled plant and 0 otherwise, and $a$ is
+now the typical asymptote (with $u_j=0$) of the baseline group, the non-chilled plants from Quebec.
+$\beta_{\mathrm{miss}}$ is the effect of the origin in non-chilled plants, $\beta_{\mathrm{chill}}$
+the effect of chilling in plants from Quebec, and $\beta_{\mathrm{int}}$ the difference between the
+effect of chilling in plants from Mississippi and in plants from Quebec. Chilling multiplies the
+typical asymptote of a Quebec plant by $e^{\beta_{\mathrm{chill}}}$ and that of a Mississippi plant by
+$e^{\beta_{\mathrm{chill}}+\beta_{\mathrm{int}}}$. The next slide shows how R builds the indicators,
+and the NLL reports the logarithms of the two chilling factors with `ADREPORT()`.
 
 With origin and chilling in the model, $\hat\sigma_{\mathrm{plant}}$ falls from 0.34 to 0.079, so the
 variance among plants on the log scale falls by about 94%. Origin and chilling explain most of the
@@ -547,38 +547,91 @@ variation among plants, and the asymptotes of plants of the same origin and trea
 roughly 8%. Chilling multiplies the typical asymptote of plants from Quebec by about 0.90, with a
 Wald interval from the log scale of 0.79 to 1.03, and that of plants from Mississippi by about 0.59
 (0.52 to 0.68). So the plants from the colder origin are hardly affected by a cold night, whereas
-the plants from the warmer origin lose about two fifths of their capacity. Slide 22 returns to the
+the plants from the warmer origin lose about two fifths of their capacity. Slide 23 returns to the
 uncertainty of these effects.
 
 **Delivery**
 
-The code is on the chapter page ("Group-level predictors and shrinkage") and runs in section 4 of the
-demo. Read the equation term by term, and ask which term would be zero if a cold night affected the
-plants of both origins in the same way ($\beta_{\mathrm{int}}$).
+The code is on the chapter page ("Group-level predictors and shrinkage", subsection "Effects of origin
+and chilling") and runs in section 4 of the demo. Read the equation term by term, and ask which term
+would be zero if a cold night affected the plants of both origins in the same way
+($\beta_{\mathrm{int}}$).
 
-## Slide 18 — Two ways to encode groups
+**Transition**
+
+We could calculate $M_j$ and $C_j$ ourselves, but R builds them, and the whole sum, from a formula.
+
+## Slide 18 — The model matrix
+
+The **model matrix** (also called the design matrix) of a set of predictors has one row for each
+group, or for each observation when the predictors are measured on the observations, and one column
+for each coefficient. Row $j$ holds the values by which the coefficients are multiplied for group $j$:
+for the equation of slide 17, 1 (for the baseline $\log(a)$), $M_j$, $C_j$ and $M_jC_j$. R builds the
+whole matrix from a **formula** with `model.matrix()`, and from now on the chapter lets it do this
+bookkeeping in every model with predictors.
+
+`model.matrix()` takes a formula and a data frame. The predictors are properties of the plants, so
+`plant_info` has one row per plant, with the origin and treatment from its first measurement (the
+chapter also names its rows after the plants). `Type * Treatment` is short for
+`Type + Treatment + Type:Treatment`. The result, `X_asym`, has 12 rows and four columns. The first,
+`(Intercept)`, is 1 for every plant. The name of each other column joins a factor and the level for
+which the column is 1: `TypeMississippi` is $M_j$, `Treatmentchilled` is $C_j$, and
+`TypeMississippi:Treatmentchilled` is $M_jC_j$.
+
+The first level of each factor is its **reference level**, the level of the baseline, and it gets no
+column. `levels()` shows the order of the levels, and `relevel()` makes another level the first one.
+The model would be the same, but its coefficients would be other differences, so we choose the
+reference levels against which the question compares the others: here, plants from Quebec, the colder
+origin, that were not chilled.
+
+In the NLL, `X_asym %*% beta_asym` is a **matrix product**: it multiplies each column by its
+coefficient and adds up the columns, so row $j$ is the sum of the equation without $u_j$. For Qn1 the
+row is $(1, 0, 0, 0)$ and the product is $\log(a)$; for Mc1 the row is $(1, 1, 1, 1)$ and the product
+is $\log(a)+\beta_{\mathrm{miss}}+\beta_{\mathrm{chill}}+\beta_{\mathrm{int}}$. The starting values,
+`c(log(30), rep(0, ncol(X_asym) - 1))`, follow the number of columns, so a change of formula needs no
+change of code.
+
+The functions of R that fit models from a formula, such as `lm()`, `glm()` and `glmmTMB()`, build the
+same matrix, name their coefficients after its columns and follow the same rules for reference levels.
+In RTMB we build it ourselves, which lets us put it on the log asymptote of a non-linear curve.
+
+**Delivery**
+
+Point at the two lines of code: the matrix is built once, outside the NLL, and the NLL holds only the
+product. If students ask what `%*%` does, write the row of Mc1 times the four coefficients on the board.
+Mention the warning callout of the chapter in one sentence: check the levels, because `factor()` sorts
+them alphabetically, and convert an ordered factor with `factor(x, ordered = FALSE)`. Section 4 of the
+demo prints the levels and four rows of `X_asym`.
+
+## Slide 19 — Two ways to encode groups
 
 The effects of groups defined by predictors, such as the four combinations of origin and treatment,
 can be written in two ways. With one parameter for each group, each group has its own typical value
 (here, four typical log asymptotes). With a baseline plus effects and interactions, one group is the
 baseline and the other parameters are differences from it (here, $\log(a)$, $\beta_{\mathrm{miss}}$,
-$\beta_{\mathrm{chill}}$ and $\beta_{\mathrm{int}}$). Both have the same number of parameters and
-describe the same model: they have the same maximum likelihood and give the same fitted curves, and
-each set of parameters can be calculated from the other. In the example, both forms reach a minimum
-NLL of 192.086.
+$\beta_{\mathrm{chill}}$ and $\beta_{\mathrm{int}}$). In `model.matrix()`, the formula
+`~ 0 + Type:Treatment` gives the first form, one column for each combination and no intercept (the
+`0`), and `~ Type * Treatment` the second. Both have the same number of parameters and describe the
+same model: they have the same maximum likelihood and give the same fitted curves, and each set of
+parameters can be calculated from the other. In the example, both forms reach a minimum NLL of
+192.086.
 
 The second form makes the differences between treatments parameters, so their estimates, standard
 errors and intervals come directly from the fit, and a simpler model is obtained by leaving a term
-out (the interaction, for example; slide 28 does that). The first form makes the typical value of
-each group a parameter. Which one to use depends on the question: for the CO₂ experiment, whose
-question is how chilling affects the two origins, the differences are what we want to report.
+out of the formula (the interaction, for example; slide 29 does that). The first form makes the
+typical value of each group a parameter. Which one to use depends on the question: for the CO₂
+experiment, whose question is how chilling affects the two origins, the differences are what we want
+to report.
 
 **Delivery**
 
 The two columns appear one at a time. This is the callout "Two ways to encode groups" of the
-chapter.
+chapter. The slide writes the formulas with general factors `A` and `B`; the example box gives them
+for origin and treatment. Both encodings describe the same model, so they reach the same maximum: an
+NLL of 192.086, minus the log-likelihood of the model with the interaction in the chapter's comparison
+table ($-192.09$).
 
-## Slide 19 — Shrinkage
+## Slide 20 — Shrinkage
 
 The predicted effect of a group is a compromise between the observations of that group and the
 distribution of groups. Its observations alone would give the no-pooling estimate; the distribution
@@ -615,7 +668,7 @@ $w_j=n_j\sigma^2_{\mathrm{group}}/(n_j\sigma^2_{\mathrm{group}}+\sigma^2_{\mathr
 mean, with weight $1-w_j$. Practice 2 uses it. For non-linear curves and other distributions there is
 no such formula, but the same quantities determine the shrinkage.
 
-## Slide 20 — Practice 2: wing length of chicks in nests
+## Slide 21 — Practice 2: wing length of chicks in nests
 
 **Short activity — allow about two minutes of work and one to discuss**
 
@@ -630,15 +683,15 @@ Students use R as a calculator. Expected answers, from the chapter's solution:
 
 When nests vary less, the model expects a deviation of 3 mm to come partly from the chance variation of
 the few chicks measured, so both nests are pulled more strongly towards the common mean, and the nest
-with fewer chicks most of all. These are the three conditions of slide 19 in numbers.
+with fewer chicks most of all. These are the three conditions of slide 20 in numbers.
 
 Break (10 minutes).
 
-## Slide 21 — Live demo: from pooling to partial pooling
+## Slide 22 — Live demo: from pooling to partial pooling
 
-The demo runs the steps of slides 11 to 19 for the CO₂ data, from complete pooling to the model with
-origin and chilling, and ends with the curves of observed and new plants, which slide 23 explains. It has no model
-comparison: the comparison follows on slides 26 to 28. The script needs the packages RTMB and
+The demo runs the steps of slides 11 to 20 for the CO₂ data, from complete pooling to the model with
+origin and chilling, and ends with the curves of observed and new plants, which slide 24 explains. It has no model
+comparison: the comparison follows on slides 27 to 29. The script needs the packages RTMB and
 RTMBdist; the data set `CO2` is built into R. Its code and object names are those of the chapter, so
 the numbers agree with the chapter and the slides. The whole script runs in a few seconds (1.5
 seconds in a check in R 4.6.1), so there is no waiting.
@@ -656,7 +709,7 @@ to R and run the sections one at a time.
    lines with triangles lie lowest. Define the NLL with one curve and fit it from the values read from
    the plot (asymptote 30, zero uptake at 50 µL/L, rate 0.01). Convergence code 0; the standard
    deviation of the measurements around the common curve is 8.23 µmol/m²/s.
-2. **No pooling (about 3 minutes).** The same NLL with `log_asym` as a vector of 12 and `a[plant]`;
+2. **No pooling (about 2 minutes).** The same NLL with `log_asym` as a vector of 12 and `a[plant]`;
    every plant starts at the same asymptote. Convergence code 0; the standard deviation around the
    curves of the plants is 1.86. The 12 asymptotes run from 14.2 (Mc2) to 45.0 (Qn3), and the three
    chilled Mississippi plants have the lowest (21.3, 14.2 and 20.1). Ask the first question below.
@@ -668,21 +721,31 @@ to R and run the sections one at a time.
    `log_sd_plant`). The predicted plant effects: 0.145 to 0.372 for the Quebec plants, close to zero
    for the non-chilled Mississippi plants ($-0.072$ to $0.054$), and $-0.370$, $-0.755$ and $-0.422$ for
    Mc1 to Mc3, each with a standard error of about 0.10 to 0.11. Ask the second question below.
-4. **Origin and chilling, and shrinkage (about 4 minutes).** The two indicators go into the list of
-   data with one value per plant, and the NLL gains the effects and `ADREPORT()` of the two log chilling
-   factors. Convergence code 0. `summary(treatment_sd, select = "fixed")`: $\beta_{\mathrm{miss}}=-0.31$,
-   $\beta_{\mathrm{chill}}=-0.10$ and $\beta_{\mathrm{int}}=-0.42$ (standard error 0.10); the rate, the
-   location and `log_sd_obs` hardly change. The standard deviation among plants falls from 0.335 to
+4. **Origin and chilling, and shrinkage (about 5 minutes).** Build `plant_info`, one row per plant,
+   and print the levels of the two factors: `Quebec` and `nonchilled` come first, so they are the
+   baseline. Print the rows of `X_asym` for the first plant of each origin and treatment: $(1, 0, 0, 0)$
+   for Qn1 up to $(1, 1, 1, 1)$ for Mc1, with the column names of slide 18. Build `group_info`, the four
+   combinations, and its model matrix `X_asym_group`, and add both matrices to the list of data. The NLL
+   computes `log_a = X_asym %*% beta_asym + u` and the two log chilling factors from the typical log
+   asymptotes of the four combinations, `X_asym_group %*% beta_asym` (chilled minus non-chilled, for
+   each origin), which it reports with `ADREPORT()`. Point at the starting value of `beta_asym`, one
+   element per column of the model matrix. Convergence code 0. The table of estimates, with the rows of
+   `beta_asym` named after the columns of `X_asym`: `TypeMississippi` $-0.31$, `Treatmentchilled`
+   $-0.10$ and `TypeMississippi:Treatmentchilled` $-0.42$ (standard error 0.10); the rate, the location
+   and `log_sd_obs` hardly change. The standard deviation among plants falls from 0.335 to
    0.079. The chilling factors: Quebec 0.90 (0.79 to 1.03), Mississippi 0.59 (0.52 to 0.68). The table
-   of asymptotes shows the typical values of the four groups (42.2, 38.2, 31.1 and 18.5) and Mc2 at 14.2
-   without pooling and 15.6 predicted. The plot shows the shrinkage in base R: open circles without
-   pooling, filled vermillion circles predicted, dashed lines typical. Ask the third question below.
-5. **Observed and new plants (about 3 minutes).** The typical asymptote of chilled Mississippi plants is
-   18.46 µmol/m²/s, and 95% of new plants of this group have asymptotes between 15.81 and 21.55. The plot
+   of asymptotes shows the typical values of the four groups (42.2, 38.2, 31.1 and 18.5), each plant's
+   row of `X_asym` times the estimates, and Mc2 at 14.2 without pooling and 15.6 predicted. The plot
+   shows the shrinkage in base R: open circles without pooling, filled vermillion circles predicted,
+   dashed lines typical. Ask the third question below.
+5. **Observed and new plants (about 3 minutes).** The typical asymptotes of the four combinations come
+   from `X_asym_group` times the estimates; this is what `predict()` with `newdata` does for the models
+   that R fits from a formula. The typical asymptote of chilled Mississippi plants is 18.46 µmol/m²/s,
+   and 95% of new plants of this group have asymptotes between 15.81 and 21.55. The plot
    draws the measurements of Mc1 to Mc3, the curve of each from its predicted asymptote, the typical
    curve (thick, vermillion) and the range of new plants (dashed). Point out that the curve of Mc2 lies
    above its own measurements and just below the range of new plants. End by saying that the curves of
-   the measured plants and the curves of new plants answer different questions (slide 23).
+   the measured plants and the curves of new plants answer different questions (slide 24).
 
 **Questions to ask during the demo (about 1 minute, within the sections above)**
 
@@ -690,12 +753,12 @@ to R and run the sections one at a time.
    pooling counts the differences among plants as variation of the measurements; most of the 8.2 is
    variation among plants (slide 11).
 2. In section 3, "Why does `par` have five elements and not 17?" The 12 deviations are integrated out of
-   the likelihood; they cost one parameter, $\sigma_{\mathrm{plant}}$ (slides 13 and 26).
+   the likelihood; they cost one parameter, $\sigma_{\mathrm{plant}}$ (slides 13 and 27).
 3. In section 4, "Why does the standard deviation among plants fall, but not the one of the
    measurements?" The predictors act on the asymptote, a property of the plants, so they explain
    variation among plants and nothing within a plant (slide 17).
 
-## Slide 22 — Uncertainty of variance components and REML
+## Slide 23 — Uncertainty of variance components and REML
 
 `sdreport()` and `TMB::tmbprofile()` work on the marginal NLL as on any other NLL; each evaluation of
 the NLL during a profile contains a Laplace approximation, so a profile takes longer, but it needs no
@@ -746,11 +809,11 @@ about the interaction: its profile interval is $-0.64$ to $-0.21$, so the chilli
 plants is between 0.53 and 0.81 times that of Quebec plants. Exercise 5 of the practical checks the bias of
 both estimators by simulation.
 
-## Slide 23 — Curves for observed and new groups
+## Slide 24 — Curves for observed and new groups
 
 A fitted grouped model gives three kinds of curve, which answer different questions. The **curve of an
 observed group** uses the predicted effect of that group, and describes the group that was measured, shrunk
-towards its typical value (slide 19). The **typical curve** has $u_j=0$ and describes the median group with
+towards its typical value (slide 20). The **typical curve** has $u_j=0$ and describes the median group with
 given values of the predictors; it is not the mean group (slide 16). The curve of a **new group**, one that
 was not measured, has an effect that is a new draw from the distribution of group effects, so we can only
 give the range in which it is expected to lie. With a Normal distribution of deviations, 95% of new groups
@@ -782,7 +845,7 @@ range that contains the curves of 95% of new plants. The curves of Mc1 and Mc3 l
 measurements, because its predicted asymptote is shrunk towards the typical one. The band is not a confidence
 band (Chapter 6): it describes how plants vary, not how precisely the typical curve is estimated.
 
-## Slide 24 — Practice 3: sapling growth in forest stands
+## Slide 25 — Practice 3: sapling growth in forest stands
 
 **Short activity — allow about two minutes of work and one to discuss**
 
@@ -798,10 +861,10 @@ Students use R as a calculator. Expected answers, from the chapter's solution:
    `mean(20 * exp(rnorm(n = 1e6, mean = 0, sd = 0.4)))` gives about 21.65 (with seed 702), and the mean of the
    LogNormal distribution, $20\,e^{0.4^2/2}$, is 21.67: about 21.7 cm/year, 8% above the median.
 
-The second answer is the point of slide 23: the curve of an observed group answers a question about that
+The second answer is the point of slide 24: the curve of an observed group answers a question about that
 group, and the typical curve with its range a question about groups in general.
 
-## Slide 25 — Checking a grouped model
+## Slide 26 — Checking a grouped model
 
 A fitted grouped model is a data generating process with two levels: first the effects of the groups are drawn
 from their distribution, and then the observations are drawn for these effects. Checking the model means
@@ -843,13 +906,13 @@ hypothetical samples with new plant deviations (seed 701). On the left, the quan
 diagonal. On the right, the residuals against the rank of the typical curve of each measurement, with dashed lines at
 0.25, 0.5 and 0.75: the line of the upper quartile lies above 0.75, most of all at low typical values, and DHARMa
 draws it in red. Many of the measurements with low typical values belong to the chilled plants from Mississippi, and
-the residuals of Mc1 and Mc3 are mostly high, because both plants lie above the typical curve (slide 23) and their
+the residuals of Mc1 and Mc3 are mostly high, because both plants lie above the typical curve (slide 24) and their
 seven measurements share that deviation. So this pattern comes from two plants, not from the shape of the curve. The
 panels are small at slide size; read them aloud. The printed tests are on the figure because DHARMa draws them; as in
 Chapter 6, we read the plots and the dispersion statistic as exploratory evidence and do not rest decisions on the
 p-values.
 
-## Slide 26 — AIC for grouped models
+## Slide 27 — AIC for grouped models
 
 Grouped models are compared with AIC calculated from the maximum marginal log-likelihood. $K$ counts the parameters
 that were estimated, the fixed effects and the variance parameters, but not the random effects, which were integrated
@@ -871,7 +934,7 @@ For the CO₂ data, the model with a random asymptote has $K=5$, not 17: the 12 
 $\sigma_{\mathrm{plant}}$. Ask the question of the example box (84 measurements or 12 plants?) before giving the
 answer of the last bullet.
 
-## Slide 27 — Leave-one-group-out cross-validation
+## Slide 28 — Leave-one-group-out cross-validation
 
 **Leave-one-group-out cross-validation** holds out one whole group at a time. Every parameter is estimated again from
 the other groups, and the held-out group is scored by its marginal log-likelihood under that fit: the log density of
@@ -887,12 +950,13 @@ To score a held-out group we need its marginal log-likelihood at the estimates f
 value of `fn` of an object for the data of that group, with every parameter except the random effects fixed at those
 estimates. The argument `map` of `MakeADFun()` fixes parameters: it is a list with one element for each parameter to
 fix, named as in the list of parameters, and each element is a factor with one value per element of the parameter;
-`factor(NA)` fixes a parameter with one element at its value in the list of parameters. The fixed parameters are left
+`NA` fixes an element at its value in the list of parameters, so `factor(rep(NA, 4))` fixes the four coefficients of
+`beta_asym`. The fixed parameters are left
 out of `par`, so when every parameter but the random effects is fixed, `par` is empty, and `fn(par)` returns the
 marginal NLL of the data at the fixed values. Every fit starts from the same fixed starting values, and we count the
 fits that did not converge.
 
-For the CO₂ data we leave out one plant at a time: 12 fits per model, 60 for the five candidates of slide 28, and all
+For the CO₂ data we leave out one plant at a time: 12 fits per model, 60 for the five candidates of slide 29, and all
 of them converged.
 
 **Delivery**
@@ -901,11 +965,20 @@ The functions `subset_plants()` and `plant_loglik()` and the loop are on the cha
 models"); do not show them. If a student asks why the held-out plant is not scored by its predicted effect: it has
 none, because it was not in the fit, and a new plant's effect is unknown.
 
-## Slide 28 — Comparing the candidates
+## Slide 29 — Comparing the candidates
 
 Only differences between models matter for each criterion, so the table gives the difference of each model from the
 best one: the lowest AIC and the highest leave-one-plant-out score, whose differences are therefore zero or negative.
 Recall that a difference of one unit in the log score corresponds to about two units of AIC.
+
+With a model matrix, candidates that differ only in their fixed effects share one NLL and differ in their formulas.
+The three candidates with plant deviations use `treatment_nll` of slide 18: the formula `~ 1` gives a model matrix
+with the column `(Intercept)` only, which is the random asymptote without predictors, `~ Type + Treatment` gives
+origin and chilling without their interaction, and `~ Type * Treatment` the model of slide 17. Complete pooling has no
+plant deviations, so it needs an NLL of its own, which takes the model matrix in the same way, with `~ 1` and
+`~ Type * Treatment`. The chapter builds the list of data and the starting values of a candidate from its formula with
+two short functions, so the loops over the candidates need no change of code; the caption of the slide gives the
+formulas.
 
 The five candidates answer two questions: do the plants differ beyond their origin and treatment, and do origin and
 chilling explain part of the differences? Both criteria prefer the random asymptote with origin, chilling and their
@@ -940,11 +1013,13 @@ the interaction; rows 2 and 3 are the pair on which the criteria disagree. The t
 criteria rank the candidates and can disagree, and what the ranking means for the question is a matter of ecological
 interpretation. Do not present the choice of the model with the interaction as settled by the criteria alone.
 
-## Slide 29 — A recipe for a grouped response curve
+## Slide 30 — A recipe for a grouped response curve
 
 The steps of this chapter extend the recipe of Chapter 6 to observations that come in groups, and the chapter
 collects them in a note callout before the summary. Read the nine steps with the tool of each: identify the
-observational unit, the groups and the level at which each predictor is measured; choose the curve, the observation
+observational unit, the groups and the level at which each predictor is measured, and build the model matrix of the
+predictors with `model.matrix()`, from a formula and a data frame with one row per group (or per observation),
+checking the reference level of each factor; choose the curve, the observation
 model and the parameter that varies among groups, on a scale on which a Normal deviation is plausible (the logarithm
 of a positive parameter, the logit of a probability); write the joint NLL with the density of the random effects
 first; process it with `MakeADFun()` and `random`, fit it with `optim()` and check `convergence`; read the variance
@@ -952,7 +1027,8 @@ components and predicted effects from `sdreport()`, with likelihood profile inte
 REML when the variances are the question; draw the curves of observed groups, the typical curve and the range of new
 groups, each for the question that it answers; mark the response with `OBS()`, simulate with `obj$simulate()` and
 check the residuals of the observations and of the groups; compare the candidates, fitted by maximum likelihood to
-the same observations, with AIC and leave-one-group-out cross-validation; and interpret the fixed effects and the
+the same observations, with AIC and leave-one-group-out cross-validation, where candidates that differ only in their
+fixed effects share one NLL and differ in their formulas; and interpret the fixed effects and the
 variance among groups in units, saying what the number of groups leaves uncertain.
 
 **Delivery**
@@ -960,7 +1036,7 @@ variance among groups in units, saying what the number of groups leaves uncertai
 About two minutes. Steps 2, 4 and 8 extend steps of Chapter 6; point at the new ones (1, 3, 5 with REML, 6 and 7 with
 the residuals of the groups). The practical follows the same sequence in its worked exercise.
 
-## Slide 30 — The Chapter 7 R practical
+## Slide 31 — The Chapter 7 R practical
 
 The practical fits models with random effects to four data sets in which the observations come in groups; three of
 them were used in earlier chapters, where the observations were treated as independent. Exercise 1, on the growth of
@@ -971,12 +1047,12 @@ Chapter 4 practical (`ReedfrogPred`, `emdbook`): a Binomial model with a random 
 scale, against the Beta-Binomial model of Chapter 6. Exercise 3 uses all the visits to 27 barn owl nests (`Owls`,
 `glmmTMB`) with a Negative Binomial model and a random effect for each nest, and compares no pooling with partial
 pooling. Exercise 4 models the salamander counts of Chapter 2 at 23 stream sites (`Salamanders`, `glmmTMB`) with a
-Poisson model and a random effect for each site, and fits the same model with a formula in `glmmTMB`. Exercise 5 is
+Poisson model and a random effect for each site. Exercise 5 is
 extra practice: it compares maximum likelihood and REML estimates of a variance among groups by simulation.
 
 Try each exercise before checking the solution.
 
-## Slide 31 — Summary and closing questions
+## Slide 32 — Summary and closing questions
 
 Observations that come in groups share the conditions of their group, so they are not independent. A grouped model
 describes this with two levels: the effects of the groups follow a distribution, and the observations follow a
@@ -986,7 +1062,8 @@ its own, and partial pooling, the mixed model, describes both the measured group
 likelihood is the marginal likelihood, with the random effects integrated out, and RTMB approximates the integrals
 with the Laplace approximation when we name the random effects in `random`. Group-level predictors explain part of the
 variation among groups, the variance component describes the variation that remains, and the predicted effects of the
-groups are shrunk towards the typical value. A variance among groups is informed by the number of groups, and REML
+groups are shrunk towards the typical value. The predictors enter the NLL through a model matrix, which
+`model.matrix()` builds from a formula, as the formula interfaces of R do. A variance among groups is informed by the number of groups, and REML
 reduces the bias of its estimate. The curve of an observed group, the typical curve and the range of new groups answer
 different questions. Grouped models are checked at both levels and compared with AIC and leave-one-group-out
 cross-validation. On the diagram of slide 3, the lecture added groups to the model and marginalisation to the
@@ -998,11 +1075,11 @@ Return to this slide for the two closing questions.
 
 Question 1: the variance among groups is informed by the deviations of the groups, and there is one deviation per
 group. Measuring each group more often makes each deviation more precise, but the number of deviations stays the same,
-so the precision of the variance is limited by the number of groups (slide 22). For the CO₂ data, 84 measurements but 12
+so the precision of the variance is limited by the number of groups (slide 23). For the CO₂ data, 84 measurements but 12
 plants. To estimate it more precisely, observe more groups.
 
 Question 2: for a group that was not measured we do not know its effect, so we use the typical curve for its values of
-the predictors, with the range of new groups; the curve of a measured group describes only that group (slide 23 and
+the predictors, with the range of new groups; the curve of a measured group describes only that group (slide 24 and
 Practice 3). Accept answers that add that the typical curve is the median group, not the mean.
 
 **Final transition**
@@ -1014,31 +1091,33 @@ Chapter 8 returns to that example. The practical comes first.
 
 ## Adjustments during delivery
 
-The slides take 116 minutes and leave 14 minutes of slack, which comes last. The demo is kept whole; if it overruns,
+The slides take 120 minutes and leave 10 minutes of slack, which comes last. The demo is kept whole; if it overruns,
 it takes the slack first. If discussion overruns, use the slack first, then shorten in this order:
 
 - Slide 3 to one sentence: recovers about half a minute.
 - Slide 5 to the figure and the example box, with the provenance in one sentence: about one minute.
 - Slide 9 to the two definitions: about one minute.
-- Slide 18 to the takeaway, with one sentence on the two columns: about one and a half minutes.
+- Slide 19 to the takeaway, with one sentence on the two columns: about one and a half minutes.
 - Slide 12 to questions 2 and 4: about one and a half minutes.
-- Slide 24 given as homework, with the answers in one sentence: about two and a half minutes.
-- Slide 27 to the definition and the first bullet, without `map`: about one and a half minutes.
-- Slides 29 and 30 to one sentence each: about two minutes together.
+- Slide 25 given as homework, with the answers in one sentence: about two and a half minutes.
+- Slide 28 to the definition and the first bullet, without `map`: about one and a half minutes.
+- Slides 30 and 31 to one sentence each: about two minutes together.
 
 Keep the conditional and marginal distributions (slides 6 and 7), the model with a random asymptote (slide 8), the
 three ways to share information (slide 11), the marginal likelihood (slide 13), random effects in RTMB (slide 15),
-shrinkage (slide 19) and the curves for observed and new groups (slide 23).
+the model matrix (slide 18), which the practical uses in Exercises 2 to 4, shrinkage (slide 20) and the curves for
+observed and new groups (slide 24).
 
-The breaks are placed between the blocks, after slides 12 and 20 (minutes 35 and 75). If a block runs over, shorten the
+The breaks are placed between the blocks, after slides 12 and 21 (minutes 35 and 79). If a block runs over, shorten the
 block rather than the following break.
 
 **If time is left: code to run**
 
 No code is run live apart from the demo, which stops before the uncertainty of the variance components and the
 comparison. Students can follow the chunks of the chapter page at home, by section: "Uncertainty in a grouped model"
-(the likelihood profiles of `log_sd_plant` and `beta_int`, and the REML fit with the fixed effects in `random`),
-"Checking a grouped model" (the NLL with `OBS()`, the loop over `treatment_obj$simulate()`,
-`DHARMa::createDHARMa()` and `DHARMa::recalculateResiduals()`) and "Comparing grouped models" (the two extra NLLs,
-`fit_model()`, the list `models`, AIC, `subset_plants()`, `plant_loglik()` with `map`, and the loop that leaves out one
+(the likelihood profiles of `log_sd_plant` and of the interaction, the fourth element of `beta_asym`, and the REML
+fit with the fixed effects in `random`), "Checking a grouped model" (the NLL with `OBS()`, the loop over
+`treatment_obj$simulate()`, `DHARMa::createDHARMa()` and `DHARMa::recalculateResiduals()`) and "Comparing grouped
+models" (the NLL of complete pooling with a model matrix, the list `models` of NLLs and formulas, `formula_data()`,
+`start_values()`, `fit_model()`, AIC, `subset_plants()`, `plant_loglik()` with `map`, and the loop that leaves out one
 plant at a time).

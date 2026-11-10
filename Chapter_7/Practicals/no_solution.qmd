@@ -520,17 +520,21 @@ is the variance of these deviations among tanks.
 2. Fit two models to the 48 tanks and check the convergence of both: the model above, with
    `random = "u"`, and a Beta-Binomial model without tank deviations, with the precision
    $\kappa$ of Chapter 6, whose mean probability of survival $p_i$ has the same linear
-   predictor, $\operatorname{logit}(p_i)=\beta_0+\beta_{\mathrm{pred}}P_i$. Report the
-   estimates of $\beta_0$, $\beta_{\mathrm{pred}}$, $\sigma_{\mathrm{tank}}$ and $\kappa$.
-   Hint: the list of data holds the survivors, the initial numbers and an indicator of
-   predators, `as.numeric(ReedfrogPred$pred == "pred")`. There is one tank per row, so `u`
+   predictor, $\operatorname{logit}(p_i)=\beta_0+\beta_{\mathrm{pred}}P_i$. In both models,
+   build the linear predictor from the model matrix of `~ pred`. Report the estimates of
+   $\beta_0$, $\beta_{\mathrm{pred}}$, $\sigma_{\mathrm{tank}}$ and $\kappa$.
+   Hint: the list of data holds the survivors, the initial numbers and the model matrix
+   `X_p = model.matrix(~ pred, data = ReedfrogPred)`. Check its columns: `no` is the first
+   level of `pred`, so it is the reference, and the second column is $P_i$. In the NLL,
+   `X_p %*% beta_p` is then $\beta_0+\beta_{\mathrm{pred}}P_i$ for every tank
+   ([The model matrix](../Theory.qmd#sec-model-matrix)). There is one tank per row, so `u`
    has 48 elements and needs no index vector. The mixed model follows
    [Random effects in RTMB](../Theory.qmd#sec-random-effects-rtmb), with `plogis()` for the
    probability. The Beta-Binomial model follows
    [A model for overdispersed proportions](../../Chapter_6/Theory.qmd#sec-beta-binomial-fit)
    in Chapter 6: `dbetabinom()` of RTMBdist takes the shape parameters $\kappa p_i$ and
    $\kappa(1-p_i)$. Logits of zero (a probability of 0.5) are good starting values for
-   $\beta_0$ and $\beta_{\mathrm{pred}}$ in both models.
+   both elements of `beta_p` in both models.
 3. Compare the two models with AIC. The theory calls a comparison between models with and
    without random effects only an approximate guide: why does that reason not apply here?
    Hint: what do the two likelihoods describe, and is one model a special case of the other
@@ -543,8 +547,9 @@ is the variance of these deviations among tanks.
    hardly with them? Compare both with the mean probabilities of the Beta-Binomial model.
    Hint: proceed as in the practice "sapling growth in forest stands" in
    [Curves for observed and new plants](../Theory.qmd#sec-new-groups), with `plogis()` in
-   place of `exp()`. For the difference, look at the shape of the inverse logit near each
-   typical probability (the box on Jensen's inequality in
+   place of `exp()`; $\beta_0$ and $\beta_{\mathrm{pred}}$ are the elements of `par` named
+   `beta_p`, in the order of the columns of the model matrix. For the difference, look at the
+   shape of the inverse logit near each typical probability (the box on Jensen's inequality in
    [Chapter 4](../../Chapter_4/Theory.qmd#sec-wald-constrained)).
 5. Calculate the predicted tank effects, plot them against the initial density with the
    code below the questions, and calculate the mean predicted effect of each of the four
@@ -621,25 +626,31 @@ model; the nest deviations include its effect.
    [Observations in groups](../Theory.qmd#sec-grouped-observations) and the definition of a
    group-level predictor in
    [Group-level predictors and shrinkage](../Theory.qmd#sec-group-predictors). `table()` of
-   the index of the nests counts the visits, and `table()` of the index and the indicator
-   of satiated broods shows whether the food treatment changes within a nest. The levels of
+   the index of the nests counts the visits, and `table()` of the index and
+   `FoodTreatment` shows whether the food treatment changes within a nest. The levels of
    `Nest` are the names of the nests in alphabetical order, so `as.numeric(Owls$Nest)`
    gives an index from 1 to 27 whose names are `levels(Owls$Nest)`; `match()` as in
    Exercise 1 works as well. For the symbols, use `pch = ifelse(...)` as in Exercise 2 of
    the [Chapter 6 practical](../../Chapter_6/Practicals/no_solution.qmd).
 2. Fit the model without nest deviations (with $u_j=0$ for all nests) and the model with
-   them, with `dnbinom2()` of RTMBdist, and check the convergence. For the model with nest
+   them, with `dnbinom2()` of RTMBdist and the model matrix of `~ FoodTreatment + time`,
+   where `time` is a new column of the data frame with the time of arrival minus 24 (hours
+   from midnight), and check the convergence. For the model with nest
    deviations, report the effects of food and of one hour of time as factors by which they
    multiply the expected number of calls, with 95% Wald intervals. How do these factors and
    the shape $k$ change when the nest deviations are left out? Compare the two models with
    AIC. What does $\hat\sigma_{\mathrm{nest}}$ say about the nests? At midnight, between
    which values lies the expected number of calls of a deprived brood in 95% of new nests?
-   Hint: `u[nest]` is the
-   deviation of the nest of each visit, as `A[tree]` was the asymptote of the tree of each
-   measurement in Exercise 1. Calculate the Wald intervals on the log scale and transform
-   the endpoints with `exp()`, as for the factors of chilling in
+   Hint: both predictors are measured on the visits, so the model matrix `X_mu` is built
+   from the whole data frame and has one row per visit, not one per nest, and
+   `X_mu %*% beta_mu` is the log mean of each visit without its nest deviation
+   ([The model matrix](../Theory.qmd#sec-model-matrix)). `u[nest]` is the deviation of the
+   nest of each visit, as `A[tree]` was the asymptote of the tree of each measurement in
+   Exercise 1. Calculate the Wald intervals on the log scale and transform the endpoints
+   with `exp()`, as for the factors of chilling in
    [Group-level predictors and shrinkage](../Theory.qmd#sec-group-predictors), here from the
-   rows `beta_sat` and `beta_time` of `summary()` with `select = "fixed"`. For
+   second and third rows of `summary()` with `select = "fixed"`, which belong to the
+   second and third columns of `X_mu`. For
    $\hat\sigma_{\mathrm{nest}}$, see "Variance components and predicted plant effects" in
    [Maximum marginal likelihood](../Theory.qmd#sec-marginal-likelihood). A nest deviation
    multiplies the expected number of calls, so in 95% of new nests it lies between the
@@ -648,15 +659,21 @@ model; the nest deviations include its effect.
    Exercise 1 (see also
    [Curves for observed and new plants](../Theory.qmd#sec-new-groups)).
 3. Fit the model with one log mean $\log(\mu_{0j})$ for each nest and no distribution of
-   nest values (no pooling), with the same effects of food and time. Plot, against the
+   nest values (no pooling), with the same effects of food and time, from the model matrix
+   of `~ 0 + Nest + FoodTreatment + time`. Plot, against the
    number of visits of each nest, its log mean without pooling and its predicted log mean
    $\log(\hat\mu_0)+\hat u_j$ under the mixed model, with a line at the typical value
    $\log(\hat\mu_0)$. Which nests are pulled most towards the typical value, and why? Hint:
-   write the no-pooling NLL as in
-   [Three ways to share information](../Theory.qmd#sec-pooling): `log_mu0` starts as a
-   vector of 27 values, `log_mu0[nest]` selects the value of the nest of each visit, and
-   `names(fit$par) == "log_mu0"` selects the 27 estimates from `par`. For the reasons, see
-   [Shrinkage](../Theory.qmd#sec-shrinkage).
+   `0 +` removes the intercept, so the model matrix has one column for each nest, followed
+   by the columns of food and time (without an intercept only the first factor, `Nest`,
+   gets a column for every level, and `FoodTreatment` keeps its reference level): the
+   first form in "Two ways to encode groups" in
+   [Group-level predictors and shrinkage](../Theory.qmd#sec-group-predictors). The model
+   has no nest deviations, so the NLL of question 2 for the model without nest deviations
+   fits it unchanged, with this matrix in the list of data (see
+   [Three ways to share information](../Theory.qmd#sec-pooling) for no pooling). The first
+   27 elements of `par` are the log means of the nests, in the order of
+   `levels(Owls$Nest)`. For the reasons, see [Shrinkage](../Theory.qmd#sec-shrinkage).
 
 # Exercise 4: Salamanders at mined and unmined sites
 
@@ -683,16 +700,20 @@ X_{ij}\mid u_j\sim\operatorname{Poisson}\left(\lambda_j\right),
 \log(\lambda_j)=\log(\lambda_0)+\beta_{\mathrm{mined}}M_j+\beta_{\mathrm{cover}}C_j+u_j.
 $$
 
-1. Calculate the mean count at mined and at unmined sites. Fit the Poisson model with the
-   effects of mining and cover and without site deviations ($u_j=0$ for all sites). Set
-   seed 741, simulate 1,000 hypothetical samples from the fit and calculate the scaled
-   quantile residuals of the counts with DHARMa. Report the dispersion statistic and the
-   residuals of the sites. What do they show? Hint: `site` is an ordered factor, so build
-   the index of the sites with `match()`, as for the trees in Exercise 1. The two predictors
-   are properties of the sites, so put them in the list of data as vectors with one value
-   per site, taken from the first count of each site, as origin and treatment in
-   [Group-level predictors and shrinkage](../Theory.qmd#sec-group-predictors); in the NLL,
-   `lambda[site]` is then the mean of each count. For the residuals, mark the counts with
+1. Calculate the mean count at mined and at unmined sites. Make `no` the reference level
+   of `mined` with `relevel()`, so that $\log(\lambda_0)$ belongs to an unmined site, and
+   fit the Poisson model with the model matrix of `~ mined + cover` and without site
+   deviations ($u_j=0$ for all sites). Set seed 741, simulate 1,000 hypothetical samples
+   from the fit and calculate the scaled quantile residuals of the counts with DHARMa.
+   Report the dispersion statistic and the residuals of the sites. What do they show?
+   Hint: `model.matrix()` takes the first level of a factor as the reference, so look at
+   `levels(spring$mined)` before and after
+   `spring$mined = relevel(spring$mined, ref = "no")`. `site` is an ordered factor, so
+   build the index of the sites with `match()`, as for the trees in Exercise 1. The two
+   predictors are properties of the sites, so build the model matrix from a data frame with
+   one row per site, taken from the first count of each site, as `plant_info` in
+   [The model matrix](../Theory.qmd#sec-model-matrix); in the NLL, `lambda[site]` is then
+   the mean of each count. For the residuals, mark the counts with
    `OBS()` and follow [Checking a grouped model](../Theory.qmd#sec-grouped-residuals), with
    `integerResponse = TRUE` because the counts are whole numbers (as in
    [Checking the fitted model](../../Chapter_6/Theory.qmd#sec-response-residuals) in
@@ -714,16 +735,6 @@ $$
    the simulations now draw new site deviations, so the expected value of a count is the
    typical mean ($u_j=0$) of its site
    ([Checking a grouped model](../Theory.qmd#sec-grouped-residuals)).
-4. Fit the same model with
-   `glmmTMB::glmmTMB(count ~ mined + cover + (1 | site), family = poisson, data = ...)`,
-   without attaching the package. Compare the log-likelihood and the estimates with those
-   of question 2. Why do the intercept and the effect of mining differ? Hint: `data` is the
-   data frame of the counts of the spring salamander, whose columns have the names used in
-   the formula. `logLik()`, `glmmTMB::fixef()` and `glmmTMB::VarCorr()` return the
-   log-likelihood, the fixed effects and the standard deviation among sites (see the
-   [`glmmTMB` supplement](../../Supplements/canned.qmd#sec-glmmtmb)). For the difference,
-   compare `levels(spring$mined)` with your indicator of mining, and see "Two ways to encode
-   groups" in [Group-level predictors and shrinkage](../Theory.qmd#sec-group-predictors).
 
 # Exercise 5: Variance among groups estimated by ML and REML
 

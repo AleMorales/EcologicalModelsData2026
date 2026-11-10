@@ -40,6 +40,16 @@ which stays until the author removes it.
   (baseline Quebec non-chilled); a callout explains that the effects of groups can be
   encoded as one mean per group or as a baseline plus effects (the same model; the second
   quantifies differences directly).
+- **Model matrix** (author's decision of 10 November; plan `.plans/plan_model_matrix.md`):
+  the predictors are built from the start with `model.matrix(~ Type * Treatment)` on
+  `plant_info` (one row per plant), in the subsection `#sec-model-matrix` ("The model
+  matrix": columns, reference levels, a warning callout on reference levels and ordered
+  factors, the matrix product in words, typical groups from `group_info`/`X_asym_group`,
+  the link to formula interfaces), with `X_asym %*% beta_asym` in the NLL; no hand-built
+  indicators anywhere in the chapter. Candidates that differ only in their fixed effects
+  share one NLL and differ in their formulas (`#sec-grouped-comparison`); complete pooling
+  keeps its own NLL. The interaction is profiled by its position in `par`. A quiz question
+  on reference levels was added (now 11 questions). The chapter has about 2,200 lines.
 - **Conditional distributions** are a short general section: Chapter 2's two-seed table,
   the continuous case, the model $Y_{ij}\mid u_j$ and the marginal distribution as an
   integral. One paragraph without code says that the Beta-Binomial of Chapter 6 is a
@@ -90,9 +100,16 @@ which stays until the author removes it.
   2 (no plot of curves); question 3 of Exercise 4 reports the dispersion statistic and the
   site residuals without a residual plot; the code of the plot of tank effects (Exercise 2,
   question 5) is given below the questions. Leave-one-group-out cross-validation is not
-  practised in the practical.
-- **Lecture:** one of 150 minutes (31 slides, 116 minutes of slides, 14 of slack, two
-  breaks of 10) with the demo above.
+  practised in the practical. Exercises 2 to 4 build their predictors with
+  `model.matrix()` (author's decision of 10 November): `~ pred` (2); `~ FoodTreatment +
+  time` per visit, and `~ 0 + Nest + FoodTreatment + time` for no pooling with the same
+  NLL (3); `relevel(mined, ref = "no")` in question 1 and `~ mined + cover` per site (4).
+  Exercise 4 has three questions: its comparison with `glmmTMB` was dropped (author's
+  decision of 10 November).
+- **Lecture:** one of 150 minutes (32 slides, 120 minutes of slides, 10 of slack, two
+  breaks of 10) with the demo above. Slide 18, "The model matrix", was added on 10
+  November (4 minutes from the slack); the demo builds the predictors with
+  `model.matrix()`. `lecture-script.pdf` regenerated on 10 November (26 pages).
 - The simulated `shapes*.csv` files were removed with the `Data/` folder that held only
   them (author's decision of 4 November); no page used them after the rewrites of Chapters
   6 and 7. Apart from `Chapter_1/Practicals/seedpred.csv`, the course data come from R

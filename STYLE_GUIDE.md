@@ -612,6 +612,18 @@ fir_fit = optim(par = fir_obj$par, fn = fir_obj$fn, gr = fir_obj$gr, method = "B
   log-likelihood: an object for the held-out group with every parameter fixed by `map` at
   its estimate and `random = "u"`, whose `fn()` is that group's marginal NLL. Grouped
   models are compared with AIC and leave-one-group-out only, never AICc or BIC.
+- **Predictors from factors** (from Chapter 7, `#sec-model-matrix`): the effects of
+  predictors are built with `model.matrix()` from a formula, not with hand-built 0/1
+  indicators. Group-level predictors use a data frame with one row per group (`plant_info`,
+  `plot_info`), observation-level predictors the data frame of the observations. The matrix
+  of a parameter is `X_<par>` and its coefficients `beta_<par>` (intercept first; e.g.
+  `X_asym`, `beta_asym`), the NLL uses `X_<par> %*% beta_<par>`, starting values are
+  `c(baseline, rep(0, ncol(X) - 1))`, and printed estimates are labelled with `colnames()`.
+  Typical values of the groups come from a second model matrix of a data frame with one row
+  per combination. Candidates that differ only in their fixed effects share one NLL and
+  differ in their formulas (no `map` for candidates). The mathematics keeps the named
+  effects; no matrix notation ($X$ is a random variable). Check the reference level with
+  `levels()` (`relevel()` to change it) and never pass an ordered factor.
 - When teaching a complete fit, discuss starting values, convergence, constraints and
   uncertainty. A converged optimiser does not establish that the model is adequate.
 
