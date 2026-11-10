@@ -542,7 +542,7 @@ window.Quarto = {
 <li>the uncertainty of variance components and REML;</li>
 <li>curves for observed and new groups;</li>
 <li>checking a grouped model;</li>
-<li>comparing grouped models with AIC and leave-one-group-out cross-validation.</li>
+<li>comparing grouped models with AIC.</li>
 </ul>
 <p>We will use the <a href="../Supplements/distributions.html#sec-normal">Normal</a> entry of the distribution supplement and the <a href="../Supplements/deterministic-functions.html#sec-fn-monomolecular">saturating exponential</a> entry of the function supplement.</p>
 <p>The table below is a roadmap of the chapter. Each row is one step, with the question that it answers and the R tools that we use for it.</p>
@@ -604,7 +604,7 @@ window.Quarto = {
 <tr class="odd">
 <td>Comparison</td>
 <td>Which of the candidate models do the data support?</td>
-<td>AIC, one formula per candidate, <code>map</code> in <code>MakeADFun()</code>, a <code>for</code> loop that leaves out one group at a time</td>
+<td>AIC, one formula per candidate</td>
 </tr>
 </tbody>
 </table>
@@ -1343,8 +1343,8 @@ Practice&nbsp;2: wing length of chicks in nests
 <pre><code>                    lower      upper
 sd_plant       0.04501311  0.1385099
 variance       0.00202618  0.0191850
-beta_int      -0.63803714 -0.2087300
-exp(beta_int)  0.52832844  0.8116144</code></pre>
+beta_int      -0.63803713 -0.2087300
+exp(beta_int)  0.52832845  0.8116144</code></pre>
 </div>
 </div>
 <p>The standard deviation among plants of the same origin and treatment lies between 0.045 and 0.139, so the asymptotes of such plants differ by between about 5% and 14%. The interval of the variance, from 0.0020 to 0.019, spans almost a factor of ten, although the model was fitted to 84 measurements: the variance among plants is informed by 12 plants. On the log scale the profile is nearly symmetric, and the Wald interval from the log scale (0.046 to 0.136) is close to the profile interval; on the original scale the interval extends 0.034 below the estimate of 0.079 and 0.060 above it.</p>
@@ -1624,9 +1624,8 @@ Figure&nbsp;5: Scaled quantile residuals of the 84 measurements under the model 
 <section id="sec-grouped-comparison" class="level1" data-number="11">
 <h1 data-number="11"><span class="header-section-number">11</span> Comparing grouped models</h1>
 <p>Grouped models are compared with AIC (<a href="../Chapter_4/Theory.html#sec-aic">Chapter 4</a>) calculated from the maximum marginal log-likelihood. <span class="math inline">\(K\)</span> counts the parameters that were estimated, the fixed effects and the variance parameters, but not the random effects, which were integrated out: the deviations of the 12 plants cost one parameter, <span class="math inline">\(\sigma_{\mathrm{plant}}\)</span>, and not 12. The vector <code>par</code> of a fit holds exactly these parameters, so <span class="math inline">\(K\)</span> is its length. A model without random effects is the special case <span class="math inline">\(\sigma_{\mathrm{group}}=0\)</span>, which lies at the boundary of the range of the parameter, where the large-sample theory behind AIC does not hold, so a comparison between models with and without random effects is only an approximate guide.</p>
-<p>AICc and BIC need the number of independent observations <span class="math inline">\(n\)</span>, and for grouped data it is ambiguous. The 84 measurements are not independent, because the measurements of a plant share its deviation, but they are not only 12 observations either, because each measurement adds information about the curve of its plant. The effective number lies somewhere between the number of groups and the number of observations, and depends on how large the variance among groups is compared with the variance within groups. So we do not use AICc and BIC for grouped models, and compare them with AIC and with cross-validation.</p>
-<p><strong>Leave-one-group-out cross-validation</strong> holds out one whole group at a time. Every parameter is estimated again from the other groups, and the held-out group is scored by its marginal log-likelihood under that fit: the log density of all its observations together, with its effect integrated out, because the effect of a new group is not known. <a href="../Chapter_6/Theory.html#sec-response-comparison">Chapter 6</a> noted that each held-out part should be a block of related observations. If we held out single measurements, the other measurements of the same plant would stay in the fit, and their plant deviation would make the held-out measurement look easier to predict than a measurement of a new plant. Holding out whole plants scores the models by how well they predict a plant that was not used to fit them, which is the question of partial pooling.</p>
-<p>Five candidates answer two questions: do the plants differ beyond their origin and treatment, and do origin and chilling explain part of the differences? Besides the three models already fitted (complete pooling, the random asymptote, and the random asymptote with origin, chilling and their interaction), we fit complete pooling with origin, chilling and their interaction, and the random asymptote with origin and chilling but no interaction. With a model matrix, the three candidates with plant deviations differ only in their formulas, and they share the NLL <code>treatment_nll</code>: the formula <code>~ 1</code> gives a model matrix with the column <code>(Intercept)</code> only, which is the random asymptote without predictors, <code>~ Type + Treatment</code> gives origin and chilling without their interaction, and <code>~ Type * Treatment</code> the model of <a href="#sec-group-predictors" class="quarto-xref">Section&nbsp;7</a>. Complete pooling has no plant deviations, so it needs an NLL of its own, which takes the model matrix in the same way; with the formula <code>~ 1</code> it is the model of <a href="#sec-pooling" class="quarto-xref">Section&nbsp;5</a>:</p>
+<p>AICc and BIC need the number of independent observations <span class="math inline">\(n\)</span>, and for grouped data it is ambiguous. The 84 measurements are not independent, because the measurements of a plant share its deviation, but they are not only 12 observations either, because each measurement adds information about the curve of its plant. The effective number lies somewhere between the number of groups and the number of observations, and depends on how large the variance among groups is compared with the variance within groups. So we do not use AICc and BIC for grouped models, and compare them with AIC.</p>
+<p>Four candidates answer three questions: do the plants differ at all, do origin and chilling explain part of the differences, and does the effect of chilling depend on the origin? Besides the three models already fitted (complete pooling, the random asymptote, and the random asymptote with origin, chilling and their interaction), we fit the random asymptote with origin and chilling but no interaction. With a model matrix, the three candidates with plant deviations differ only in their formulas, and they share the NLL <code>treatment_nll</code>: the formula <code>~ 1</code> gives a model matrix with the column <code>(Intercept)</code> only, which is the random asymptote without predictors, <code>~ Type + Treatment</code> gives origin and chilling without their interaction, and <code>~ Type * Treatment</code> the model of <a href="#sec-group-predictors" class="quarto-xref">Section&nbsp;7</a>. Complete pooling has no plant deviations, so it needs an NLL of its own. We write it with a model matrix as well, so that it goes through the same bookkeeping as the other candidates below; with the formula <code>~ 1</code> it is the model of <a href="#sec-pooling" class="quarto-xref">Section&nbsp;5</a>:</p>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb69"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb69-1"><a href="#cb69-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Complete pooling with a model matrix for the log asymptote: no plant deviations.</span></span>
 <span id="cb69-2"><a href="#cb69-2" aria-hidden="true" tabindex="-1"></a>pooled_matrix_nll <span class="ot">=</span> <span class="cf">function</span>(parms, data) {</span>
@@ -1644,13 +1643,10 @@ Figure&nbsp;5: Scaled quantile residuals of the 84 measurements under the model 
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb70"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb70-1"><a href="#cb70-1" aria-hidden="true" tabindex="-1"></a><span class="co"># The NLL and the formula of each candidate, and whether it has plant deviations.</span></span>
 <span id="cb70-2"><a href="#cb70-2" aria-hidden="true" tabindex="-1"></a>models <span class="ot">=</span> <span class="fu">list</span>(</span>
 <span id="cb70-3"><a href="#cb70-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">pooled =</span> <span class="fu">list</span>(<span class="at">nll =</span> pooled_matrix_nll, <span class="at">formula =</span> <span class="sc">~</span> <span class="dv">1</span>, <span class="at">random =</span> <span class="cn">FALSE</span>),</span>
-<span id="cb70-4"><a href="#cb70-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">pooled_treatment =</span> <span class="fu">list</span>(</span>
-<span id="cb70-5"><a href="#cb70-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">nll =</span> pooled_matrix_nll, <span class="at">formula =</span> <span class="sc">~</span> Type <span class="sc">*</span> Treatment, <span class="at">random =</span> <span class="cn">FALSE</span></span>
-<span id="cb70-6"><a href="#cb70-6" aria-hidden="true" tabindex="-1"></a>  ),</span>
-<span id="cb70-7"><a href="#cb70-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">mixed =</span> <span class="fu">list</span>(<span class="at">nll =</span> treatment_nll, <span class="at">formula =</span> <span class="sc">~</span> <span class="dv">1</span>, <span class="at">random =</span> <span class="cn">TRUE</span>),</span>
-<span id="cb70-8"><a href="#cb70-8" aria-hidden="true" tabindex="-1"></a>  <span class="at">additive =</span> <span class="fu">list</span>(<span class="at">nll =</span> treatment_nll, <span class="at">formula =</span> <span class="sc">~</span> Type <span class="sc">+</span> Treatment, <span class="at">random =</span> <span class="cn">TRUE</span>),</span>
-<span id="cb70-9"><a href="#cb70-9" aria-hidden="true" tabindex="-1"></a>  <span class="at">treatment =</span> <span class="fu">list</span>(<span class="at">nll =</span> treatment_nll, <span class="at">formula =</span> <span class="sc">~</span> Type <span class="sc">*</span> Treatment, <span class="at">random =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb70-10"><a href="#cb70-10" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb70-4"><a href="#cb70-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">mixed =</span> <span class="fu">list</span>(<span class="at">nll =</span> treatment_nll, <span class="at">formula =</span> <span class="sc">~</span> <span class="dv">1</span>, <span class="at">random =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb70-5"><a href="#cb70-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">additive =</span> <span class="fu">list</span>(<span class="at">nll =</span> treatment_nll, <span class="at">formula =</span> <span class="sc">~</span> Type <span class="sc">+</span> Treatment, <span class="at">random =</span> <span class="cn">TRUE</span>),</span>
+<span id="cb70-6"><a href="#cb70-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">treatment =</span> <span class="fu">list</span>(<span class="at">nll =</span> treatment_nll, <span class="at">formula =</span> <span class="sc">~</span> Type <span class="sc">*</span> Treatment, <span class="at">random =</span> <span class="cn">TRUE</span>)</span>
+<span id="cb70-7"><a href="#cb70-7" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 <p>Three short functions do the bookkeeping for a candidate:</p>
 <ul>
@@ -1699,7 +1695,7 @@ Figure&nbsp;5: Scaled quantile residuals of the 84 measurements under the model 
 <span id="cb71-38"><a href="#cb71-38" aria-hidden="true" tabindex="-1"></a>  <span class="fu">optim</span>(<span class="at">par =</span> obj<span class="sc">$</span>par, <span class="at">fn =</span> obj<span class="sc">$</span>fn, <span class="at">gr =</span> obj<span class="sc">$</span>gr, <span class="at">method =</span> <span class="st">"BFGS"</span>)</span>
 <span id="cb71-39"><a href="#cb71-39" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
-<p>A loop fits the five candidates to the 84 measurements and calculates their AIC:</p>
+<p>A loop fits the four candidates to the 84 measurements and calculates their AIC and its difference from the lowest AIC:</p>
 <div class="cell">
 <div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb72"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb72-1"><a href="#cb72-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Fit every candidate to the 12 plants; K is the number of estimated parameters.</span></span>
 <span id="cb72-2"><a href="#cb72-2" aria-hidden="true" tabindex="-1"></a>comparison <span class="ot">=</span> <span class="fu">data.frame</span>(<span class="at">model =</span> <span class="fu">names</span>(models), <span class="at">K =</span> <span class="cn">NA</span>, <span class="at">loglik =</span> <span class="cn">NA</span>, <span class="at">convergence =</span> <span class="cn">NA</span>)</span>
@@ -1711,96 +1707,18 @@ Figure&nbsp;5: Scaled quantile residuals of the 84 measurements under the model 
 <span id="cb72-8"><a href="#cb72-8" aria-hidden="true" tabindex="-1"></a>  comparison<span class="sc">$</span>convergence[m] <span class="ot">=</span> fit<span class="sc">$</span>convergence</span>
 <span id="cb72-9"><a href="#cb72-9" aria-hidden="true" tabindex="-1"></a>}</span>
 <span id="cb72-10"><a href="#cb72-10" aria-hidden="true" tabindex="-1"></a>comparison<span class="sc">$</span>aic <span class="ot">=</span> <span class="dv">2</span> <span class="sc">*</span> comparison<span class="sc">$</span>K <span class="sc">-</span> <span class="dv">2</span> <span class="sc">*</span> comparison<span class="sc">$</span>loglik</span>
-<span id="cb72-11"><a href="#cb72-11" aria-hidden="true" tabindex="-1"></a>comparison</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb72-11"><a href="#cb72-11" aria-hidden="true" tabindex="-1"></a>comparison<span class="sc">$</span>delta_aic <span class="ot">=</span> comparison<span class="sc">$</span>aic <span class="sc">-</span> <span class="fu">min</span>(comparison<span class="sc">$</span>aic)</span>
+<span id="cb72-12"><a href="#cb72-12" aria-hidden="true" tabindex="-1"></a>comparison</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="cell-output cell-output-stdout">
-<pre><code>             model K    loglik convergence      aic
-1           pooled 4 -296.2557           0 600.5113
-2 pooled_treatment 7 -202.6609           0 419.3218
-3            mixed 5 -207.6053           0 425.2105
-4         additive 7 -197.4051           0 408.8103
-5        treatment 8 -192.0863           0 400.1725</code></pre>
+<pre><code>      model K    loglik convergence      aic  delta_aic
+1    pooled 4 -296.2557           0 600.5113 200.338781
+2     mixed 5 -207.6053           0 425.2105  25.038008
+3  additive 7 -197.4051           0 408.8103   8.637723
+4 treatment 8 -192.0863           0 400.1725   0.000000</code></pre>
 </div>
 </div>
-<p>All five fits converged. To score a held-out plant we need its marginal log-likelihood at the estimates from the other plants, which is the value of <code>fn</code> of an object for the data of that plant, with every parameter except the plant deviation fixed at those estimates. The argument <code>map</code> of <code>MakeADFun()</code> fixes parameters:</p>
-<ul>
-<li><code>map</code> is a list with one element for each parameter to fix, named as in the list of parameters;</li>
-<li>each element is a factor with one value per element of the parameter, and <code>NA</code> fixes an element at its value in the list of parameters (here, at the estimate), so <code>factor(rep(NA, 4))</code> fixes the four coefficients of <code>beta_asym</code>;</li>
-<li>the fixed parameters are left out of <code>par</code>, so when every parameter but the random effects is fixed, <code>par</code> is empty, and <code>fn(par)</code> returns the marginal NLL of the data at the fixed values.</li>
-</ul>
-<p>We also need the data of some of the plants, with the plants numbered again from one and the rows of the model matrix of the plants that are kept (<code>drop = FALSE</code> keeps the result a matrix when a single row is kept, as for the held-out plant). The model matrix of the four combinations does not depend on the plants and is kept whole. In the vector of estimates every coefficient is called <code>beta_asym</code>, so the function that calculates the log-likelihood puts the estimates with the same name back into one element of the list of parameters with <code>split()</code>, which groups the elements of a vector by their names into a list. That list is in alphabetical order of the names, so its elements replace the starting values by name, not by position:</p>
-<div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb74"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb74-1"><a href="#cb74-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Keep only the given plants in the list of data, numbered again from 1, with their rows</span></span>
-<span id="cb74-2"><a href="#cb74-2" aria-hidden="true" tabindex="-1"></a><span class="co"># of the model matrix.</span></span>
-<span id="cb74-3"><a href="#cb74-3" aria-hidden="true" tabindex="-1"></a>subset_plants <span class="ot">=</span> <span class="cf">function</span>(data, plants) {</span>
-<span id="cb74-4"><a href="#cb74-4" aria-hidden="true" tabindex="-1"></a>  rows <span class="ot">=</span> data<span class="sc">$</span>plant <span class="sc">%in%</span> plants</span>
-<span id="cb74-5"><a href="#cb74-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">list</span>(</span>
-<span id="cb74-6"><a href="#cb74-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">conc =</span> data<span class="sc">$</span>conc[rows],</span>
-<span id="cb74-7"><a href="#cb74-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">uptake =</span> data<span class="sc">$</span>uptake[rows],</span>
-<span id="cb74-8"><a href="#cb74-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">plant =</span> <span class="fu">match</span>(data<span class="sc">$</span>plant[rows], plants),</span>
-<span id="cb74-9"><a href="#cb74-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">X_asym =</span> data<span class="sc">$</span>X_asym[plants, , <span class="at">drop =</span> <span class="cn">FALSE</span>],</span>
-<span id="cb74-10"><a href="#cb74-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">X_asym_group =</span> data<span class="sc">$</span>X_asym_group</span>
-<span id="cb74-11"><a href="#cb74-11" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb74-12"><a href="#cb74-12" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb74-13"><a href="#cb74-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb74-14"><a href="#cb74-14" aria-hidden="true" tabindex="-1"></a><span class="co"># Log-likelihood of the data at the given estimates: every parameter is fixed with map,</span></span>
-<span id="cb74-15"><a href="#cb74-15" aria-hidden="true" tabindex="-1"></a><span class="co"># and the plant deviations, if any, are integrated out.</span></span>
-<span id="cb74-16"><a href="#cb74-16" aria-hidden="true" tabindex="-1"></a>plant_loglik <span class="ot">=</span> <span class="cf">function</span>(model, estimates, data) {</span>
-<span id="cb74-17"><a href="#cb74-17" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Estimates grouped by name, replacing the starting values of the same names.</span></span>
-<span id="cb74-18"><a href="#cb74-18" aria-hidden="true" tabindex="-1"></a>  estimate_list <span class="ot">=</span> <span class="fu">split</span>(<span class="fu">unname</span>(estimates), <span class="fu">names</span>(estimates))</span>
-<span id="cb74-19"><a href="#cb74-19" aria-hidden="true" tabindex="-1"></a>  parms <span class="ot">=</span> <span class="fu">start_values</span>(model, data)</span>
-<span id="cb74-20"><a href="#cb74-20" aria-hidden="true" tabindex="-1"></a>  parms[<span class="fu">names</span>(estimate_list)] <span class="ot">=</span> estimate_list</span>
-<span id="cb74-21"><a href="#cb74-21" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Fix every element of every estimated parameter.</span></span>
-<span id="cb74-22"><a href="#cb74-22" aria-hidden="true" tabindex="-1"></a>  fixed <span class="ot">=</span> <span class="fu">lapply</span>(estimate_list, <span class="cf">function</span>(x) <span class="fu">factor</span>(<span class="fu">rep</span>(<span class="cn">NA</span>, <span class="fu">length</span>(x))))</span>
-<span id="cb74-23"><a href="#cb74-23" aria-hidden="true" tabindex="-1"></a>  random <span class="ot">=</span> <span class="cn">NULL</span></span>
-<span id="cb74-24"><a href="#cb74-24" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (model<span class="sc">$</span>random) {</span>
-<span id="cb74-25"><a href="#cb74-25" aria-hidden="true" tabindex="-1"></a>    random <span class="ot">=</span> <span class="st">"u"</span></span>
-<span id="cb74-26"><a href="#cb74-26" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb74-27"><a href="#cb74-27" aria-hidden="true" tabindex="-1"></a>  obj <span class="ot">=</span> <span class="fu">MakeADFun</span>(<span class="fu">cmb</span>(model<span class="sc">$</span>nll, data), parms, <span class="at">map =</span> fixed, <span class="at">random =</span> random, <span class="at">silent =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb74-28"><a href="#cb74-28" aria-hidden="true" tabindex="-1"></a>  <span class="sc">-</span>obj<span class="sc">$</span><span class="fu">fn</span>(obj<span class="sc">$</span>par)</span>
-<span id="cb74-29"><a href="#cb74-29" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
-<p>For each candidate and each plant, we fit the model to the other 11 plants from the same starting values as before, and add the marginal log-likelihood of the held-out plant to the score of the model. We count the fits that did not converge:</p>
-<div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb75"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb75-1"><a href="#cb75-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Leave-one-plant-out score of each candidate: fit to 11 plants, score the plant held out.</span></span>
-<span id="cb75-2"><a href="#cb75-2" aria-hidden="true" tabindex="-1"></a>n_plants <span class="ot">=</span> <span class="fu">length</span>(plant_names)</span>
-<span id="cb75-3"><a href="#cb75-3" aria-hidden="true" tabindex="-1"></a>comparison<span class="sc">$</span>loo <span class="ot">=</span> <span class="cn">NA</span></span>
-<span id="cb75-4"><a href="#cb75-4" aria-hidden="true" tabindex="-1"></a>n_failed <span class="ot">=</span> <span class="dv">0</span></span>
-<span id="cb75-5"><a href="#cb75-5" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (m <span class="cf">in</span> <span class="fu">seq_along</span>(models)) {</span>
-<span id="cb75-6"><a href="#cb75-6" aria-hidden="true" tabindex="-1"></a>  candidate_data <span class="ot">=</span> <span class="fu">formula_data</span>(models[[m]]<span class="sc">$</span>formula, co2_data, plant_info, group_info)</span>
-<span id="cb75-7"><a href="#cb75-7" aria-hidden="true" tabindex="-1"></a>  score <span class="ot">=</span> <span class="dv">0</span></span>
-<span id="cb75-8"><a href="#cb75-8" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_len</span>(n_plants)) {</span>
-<span id="cb75-9"><a href="#cb75-9" aria-hidden="true" tabindex="-1"></a>    fit <span class="ot">=</span> <span class="fu">fit_model</span>(models[[m]], <span class="fu">subset_plants</span>(candidate_data, <span class="fu">setdiff</span>(<span class="fu">seq_len</span>(n_plants), i)))</span>
-<span id="cb75-10"><a href="#cb75-10" aria-hidden="true" tabindex="-1"></a>    n_failed <span class="ot">=</span> n_failed <span class="sc">+</span> (fit<span class="sc">$</span>convergence <span class="sc">!=</span> <span class="dv">0</span>)</span>
-<span id="cb75-11"><a href="#cb75-11" aria-hidden="true" tabindex="-1"></a>    score <span class="ot">=</span> score <span class="sc">+</span> <span class="fu">plant_loglik</span>(models[[m]], fit<span class="sc">$</span>par, <span class="fu">subset_plants</span>(candidate_data, i))</span>
-<span id="cb75-12"><a href="#cb75-12" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb75-13"><a href="#cb75-13" aria-hidden="true" tabindex="-1"></a>  comparison<span class="sc">$</span>loo[m] <span class="ot">=</span> score</span>
-<span id="cb75-14"><a href="#cb75-14" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb75-15"><a href="#cb75-15" aria-hidden="true" tabindex="-1"></a>n_failed</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] 0</code></pre>
-</div>
-</div>
-<p>All 60 fits converged. The differences from the best model for each criterion:</p>
-<div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb77"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb77-1"><a href="#cb77-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Differences from the lowest AIC and from the highest leave-one-plant-out score.</span></span>
-<span id="cb77-2"><a href="#cb77-2" aria-hidden="true" tabindex="-1"></a><span class="fu">data.frame</span>(</span>
-<span id="cb77-3"><a href="#cb77-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">model =</span> comparison<span class="sc">$</span>model,</span>
-<span id="cb77-4"><a href="#cb77-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">K =</span> comparison<span class="sc">$</span>K,</span>
-<span id="cb77-5"><a href="#cb77-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">loglik =</span> <span class="fu">round</span>(comparison<span class="sc">$</span>loglik, <span class="dv">2</span>),</span>
-<span id="cb77-6"><a href="#cb77-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">delta_aic =</span> <span class="fu">round</span>(comparison<span class="sc">$</span>aic <span class="sc">-</span> <span class="fu">min</span>(comparison<span class="sc">$</span>aic), <span class="dv">2</span>),</span>
-<span id="cb77-7"><a href="#cb77-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">delta_loo =</span> <span class="fu">round</span>(comparison<span class="sc">$</span>loo <span class="sc">-</span> <span class="fu">max</span>(comparison<span class="sc">$</span>loo), <span class="dv">2</span>)</span>
-<span id="cb77-8"><a href="#cb77-8" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>             model K  loglik delta_aic delta_loo
-1           pooled 4 -296.26    200.34    -96.97
-2 pooled_treatment 7 -202.66     19.15    -22.19
-3            mixed 5 -207.61     25.04     -3.03
-4         additive 7 -197.41      8.64     -0.33
-5        treatment 8 -192.09      0.00      0.00</code></pre>
-</div>
-</div>
-<p>Both criteria prefer the random asymptote with origin, chilling and their interaction, and both rank complete pooling without predictors last by far. They agree that the plants differ beyond their origin and treatment: with the same fixed effects, the random asymptote is better than complete pooling by 19.2 units of AIC and 22.2 units of log score (recall that one unit of log score corresponds to about two of AIC). They agree on the direction of the interaction, but not on its strength: AIC prefers the model with the interaction by 8.6 units, leave-one-plant-out by only 0.33 units of log score. And they disagree on the order of two models. AIC prefers complete pooling with predictors to the random asymptote without predictors (by 5.9 units), whereas leave-one-plant-out prefers the random asymptote, by 19.2 units of log score. The likelihood of complete pooling treats the seven measurements of a plant as independent, so its AIC estimates how well it predicts new measurements that are independent of each other; a new plant has seven measurements that share its deviation, which this model cannot predict. Leave-one-plant-out scores exactly that, so it is the better guide when models with and without random effects are compared.</p>
-<p>No pooling is not in the table. Its AIC, 372.9, is lower than that of every mixed model, but it answers another question. Its likelihood describes new measurements of the same 12 plants, with their 12 asymptotes as parameters, whereas the marginal likelihood of a mixed model describes the measurements of a new plant, whose asymptote is unknown. The two likelihoods are probabilities of different things, so their AICs cannot be compared. Nor can leave-one-plant-out score no pooling, because it has no asymptote for a plant that was not used to fit it.</p>
+<p>All four fits converged. AIC prefers the random asymptote with origin, chilling and their interaction. The model without the interaction is worse by 8.6 units, so the data support an effect of chilling that differs between the two origins, and the random asymptote without predictors is worse by 25.0 units, so origin and chilling explain a large part of the differences among the plants. Complete pooling comes last, 175 units above the random asymptote without predictors. It lies at the boundary <span class="math inline">\(\sigma_{\mathrm{plant}}=0\)</span>, so this difference is only an approximate guide, but one of this size leaves no doubt that the plants differ. Whether they still differ once their origin and treatment are known is a question that this comparison cannot answer, because every candidate with origin and chilling also has plant deviations. The likelihood profile interval of <span class="math inline">\(\sigma_{\mathrm{plant}}\)</span> in <a href="#sec-grouped-uncertainty" class="quarto-xref">Section&nbsp;8</a> answers it: plants of the same origin and treatment differ by between about 5% and 14%, and values near zero lie outside the interval.</p>
+<p>No pooling is not in the table. Its AIC, 372.9, is lower than that of every mixed model, but it answers another question. Its likelihood describes new measurements of the same 12 plants, with their 12 asymptotes as parameters, whereas the marginal likelihood of a mixed model describes the measurements of a new plant, whose asymptote is unknown. The two likelihoods are probabilities of different things, so their AICs cannot be compared.</p>
 <p>For the ecological question we use the model with the interaction. Chilling multiplies the typical uptake capacity of plants from Quebec by about 0.90 (Wald interval from the log scale 0.79 to 1.03) and that of plants from Mississippi by about 0.59 (0.52 to 0.68), and the ratio of the two factors lies between 0.53 and 0.81 (likelihood profile interval). So a cold night hardly affects the plants from the colder origin, and lowers the capacity of the plants from the warmer origin by about two fifths. Plants of the same origin and treatment differ by roughly 8% (5% to 14%), or 10% when the variance is estimated by REML. With three plants per combination, these conclusions rest on 12 plants, which is why the intervals of the effects and of the variance among plants are wide.</p>
 </section>
 <section id="sec-grouped-recipe" class="level1" data-number="12">
@@ -1824,7 +1742,7 @@ Figure&nbsp;5: Scaled quantile residuals of the 84 measurements under the model 
 <li>Read the variance components and the predicted group effects from <code>sdreport()</code>, and calculate likelihood profile intervals with <code>TMB::tmbprofile()</code> for the parameters that the question is about, including the log standard deviations; fit the model by REML as well when the variance components are the question.</li>
 <li>Draw the curves of the observed groups, the typical curve and the range of new groups, and use each for the question that it answers.</li>
 <li>Mark the response with <code>OBS()</code>, simulate hypothetical samples with <code>obj$simulate()</code>, and check the scaled quantile residuals of the observations and of the groups.</li>
-<li>Compare the candidate models, fitted by maximum likelihood to the same observations, with AIC and leave-one-group-out cross-validation; candidates that differ only in their fixed effects share one NLL and differ in their formulas.</li>
+<li>Compare the candidate models, fitted by maximum likelihood to the same observations, with AIC; candidates that differ only in their fixed effects share one NLL and differ in their formulas.</li>
 <li>Interpret the fixed effects and the variance among groups in units, in terms of the ecological question, and say what the number of groups leaves uncertain.</li>
 </ol>
 </div>
@@ -1835,7 +1753,7 @@ Figure&nbsp;5: Scaled quantile residuals of the 84 measurements under the model 
 <p>Observations that come in groups share the conditions of their group, so they are not independent. A grouped model describes this with two levels: the effects of the groups follow a distribution, and the observations follow a distribution for given values of these effects. The observations of a group are then independent for a given effect of their group but dependent marginally. The parameters shared by all groups are fixed effects, the deviations of the groups are random effects, and the model is a mixed-effects model. Complete pooling ignores the groups, no pooling gives each group parameters of its own, and partial pooling, the mixed model, describes both the measured groups and groups in general.</p>
 <p>The likelihood of a mixed model is the marginal likelihood, with the random effects integrated out, and RTMB approximates the integral with the Laplace approximation when <code>MakeADFun()</code> is given the argument <code>random</code>. The NLL that we write is the joint NLL, with the density of the random effects first. The variance components describe the variation among groups and within groups; predicted group effects are shrunk towards the typical value of groups with the same predictors, more so for groups with few or imprecise observations. Group-level predictors explain part of the variation among groups, and the variance component then describes the variation that remains. They enter the NLL through a model matrix, which <code>model.matrix()</code> builds from a formula, with one row per group and one column per coefficient; the first level of each factor is the reference level, and the formula interfaces of R build the same matrix.</p>
 <p>A variance among groups is estimated from the groups, so with few groups its interval is wide; likelihood profile intervals on the log scale of the standard deviation are the reference. Maximum likelihood estimates of variances tend to be too small, and REML, which integrates the fixed effects out as well, reduces this bias, but REML fits are not used to compare models with different fixed effects. The curve of an observed group, the typical curve and the range of new groups answer different questions.</p>
-<p>A grouped model is checked by unconditional simulation, with residuals of the observations and of the groups, each of which can hide what the other shows. Grouped models are compared with AIC on the marginal likelihood, with <span class="math inline">\(K\)</span> counting the variance parameters and not the random effects, and with leave-one-group-out cross-validation; AICc and BIC are not used, because the number of independent observations is ambiguous.</p>
+<p>A grouped model is checked by unconditional simulation, with residuals of the observations and of the groups, each of which can hide what the other shows. Grouped models are compared with AIC on the marginal likelihood, with <span class="math inline">\(K\)</span> counting the variance parameters and not the random effects; AICc and BIC are not used, because the number of independent observations is ambiguous.</p>
 <p>The likelihoods of the CO₂ data were maximised without difficulty, but the practical meets fits that stop before the maximum. In <a href="../Chapter_8/Theory.html">Chapter 8</a> we look at how optimisers work, and at what to do when they fail to find the maximum of a likelihood.</p>
 </section>
 <section id="chapter-quiz" class="level1" data-number="14">
@@ -2110,11 +2028,11 @@ Figure&nbsp;5: Scaled quantile residuals of the 84 measurements under the model 
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Important</span>Question 10: cross-validation of nestling growth
+<span class="screen-reader-only">Important</span>Question 10: parameters of a nestling growth model
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>The growth of nestlings is measured several times in 40 broods, and a model with a random effect per brood is compared with one without it by leave-one-out cross-validation that holds out one measurement at a time. What is wrong with this design, and how should it be changed?</p>
+<p>The growth in mass of nestlings is described by a curve with three parameters, with a random effect per brood on one of them and Normal variation of the measurements around the curve of each brood. The model is fitted to 40 broods, each measured several times. How many parameters <span class="math inline">\(K\)</span> enter its AIC? And why is it not compared with other models by AICc or BIC?</p>
 <div class="callout callout-style-default callout-tip callout-titled">
 <div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-33-contents" aria-controls="callout-33" aria-expanded="false" aria-label="Toggle callout">
 <div class="callout-icon-container">
@@ -2127,7 +2045,7 @@ Figure&nbsp;5: Scaled quantile residuals of the 84 measurements under the model 
 </div>
 <div id="callout-33" class="callout-33-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p>The other measurements of the same brood stay in the fit, so the predicted effect of the brood is known when the held-out measurement is scored, and the model with brood effects looks better at predicting it than it would be at predicting a new brood. Hold out whole broods, refit every parameter to the other 39, and score each held-out brood by its marginal log-likelihood, with its effect integrated out.</p>
+<p><span class="math inline">\(K=5\)</span>: the three parameters of the curve, the standard deviation among broods <span class="math inline">\(\sigma_{\mathrm{brood}}\)</span> and the standard deviation of the measurements <span class="math inline">\(\sigma_{\mathrm{obs}}\)</span>. The 40 brood effects are not counted, because they are integrated out of the marginal likelihood, so together they cost one parameter, <span class="math inline">\(\sigma_{\mathrm{brood}}\)</span>, and <span class="math inline">\(K\)</span> is 5 and not 45. AICc and BIC need the number of independent observations <span class="math inline">\(n\)</span>, which is ambiguous here: the measurements of a brood share its effect, so they are not independent, but each adds information about the curve of its brood. The effective number lies somewhere between the 40 broods and the number of measurements, depending on how large the variance among broods is compared with the variance within broods.</p>
 </div>
 </div>
 </div>

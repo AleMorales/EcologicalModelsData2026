@@ -864,56 +864,9 @@ bic  64.88719 68.90580</code></pre>
 <li>Fit a model in which each state has its own asymptote <span class="math inline">\(a\)</span>, with a common <span class="math inline">\(b\)</span> and <span class="math inline">\(\sigma\)</span>. Use an index vector with the number of the state of each observation, as in question 6 of Exercise 1 of the <a href="../../Chapter_4/Practicals/no_solution.html">Chapter 4 practical</a>. Draw both curves over the data. How does the estimate of <span class="math inline">\(\sigma\)</span> change, and why? Hint: <code>as.numeric()</code> of the factor <code>state</code> gives the index vector. If <code>log_a</code> starts as a vector of two values, <code>a[state]</code> inside the NLL is the asymptote of each observation, and the first two elements of the <code>par</code> of the fit are the two values of <code>log_a</code>.</li>
 <li>Ask for the difference between the two asymptotes with <code>ADREPORT()</code>, and calculate a 95% Wald interval for it. On which scale do you calculate the interval, and why? What does the treatment with puromycin do to the maximum rate of the reaction? Hint: the difference is calculated inside the NLL, as the difference between two probabilities in that question of the Chapter 4 practical; for the scale, see <a href="../../Chapter_6/Theory.html#sec-delta-method">Uncertainty of the fitted curve</a>.</li>
 <li>Calculate the likelihood profile interval of <span class="math inline">\(b\)</span> in the model of question 2 and compare it with the Wald interval from the log scale. Why do the two intervals agree so much better than those for the handling time of the reed frogs in the theory? Hint: compare the range of the concentrations with the estimated half-maximum, and recall where the densities of the reed frog tanks stopped (“Standard errors and correlation of the parameters” and “Likelihood profile intervals of the parameters” in <a href="../../Chapter_6/Theory.html#sec-curve-uncertainty">Uncertainty of a response curve</a>).</li>
-<li>Compare the two models with AIC, AICc and BIC, and with leave-one-out cross-validation (23 fits for each model), for which you complete the two gaps of the code below the questions. Do the criteria agree? Hint: see “Information criteria” and “Cross-validation” in <a href="../../Chapter_6/Theory.html#sec-response-comparison">Comparing candidate models</a>.</li>
+<li>Compare the two models with AIC, AICc and BIC. Do the criteria agree? Hint: see “Information criteria” in <a href="../../Chapter_6/Theory.html#sec-response-comparison">Comparing candidate models</a>.</li>
 <li>Simulate 1,000 hypothetical samples from the model that the criteria prefer, calculate the scaled quantile residuals with DHARMa, and plot them, also against the concentration of the substrate. What do you see, and what can you conclude from 23 observations? Hint: proceed as in question 4 of Exercise 1 (the rates must be marked with <code>OBS()</code> in the NLL); the expected rate of an observation is the curve of its state at its concentration.</li>
 </ol>
-<p>The code below calculates the leave-one-out log score of the two models. It needs the helper <code>cmb()</code>, the list of data <code>enzyme_data</code> with the elements <code>conc</code>, <code>rate</code> and <code>state</code>, and the NLLs and starting values of the two models, <code>pooled_nll()</code>, <code>pooled_start</code>, <code>state_nll()</code> and <code>state_start</code>; if you gave them other names, change them in the code. The functions <code>fit_model()</code> and <code>subset_observations()</code> work like <code>fit_model()</code> and <code>subset_tanks()</code> in the theory. The theory scores the held-out tank by calling the NLL with <code>as.list(fit$par)</code>, but that does not work when a parameter is a vector, as <code>log_a</code> is here: <code>as.list()</code> splits it into two elements with the same name, and the score becomes <code>NA</code>. Gap 2 therefore processes the NLL of the held-out observation with <code>MakeADFun()</code>. In each gap, replace <code>NA</code> by your own code, and keep the names of the objects that the gap creates.</p>
-<div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Fit one model to one list of data, from the given starting values.</span></span>
-<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>fit_model <span class="ot">=</span> <span class="cf">function</span>(nll, start, data) {</span>
-<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>  obj <span class="ot">=</span> <span class="fu">MakeADFun</span>(<span class="fu">cmb</span>(nll, data), start, <span class="at">silent =</span> <span class="cn">TRUE</span>)</span>
-<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">optim</span>(<span class="at">par =</span> obj<span class="sc">$</span>par, <span class="at">fn =</span> obj<span class="sc">$</span>fn, <span class="at">gr =</span> obj<span class="sc">$</span>gr, <span class="at">method =</span> <span class="st">"BFGS"</span>)</span>
-<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Keep only the given observations in the list of data.</span></span>
-<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a>subset_observations <span class="ot">=</span> <span class="cf">function</span>(data, rows) {</span>
-<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a>  data<span class="sc">$</span>conc <span class="ot">=</span> data<span class="sc">$</span>conc[rows]</span>
-<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a>  data<span class="sc">$</span>rate <span class="ot">=</span> data<span class="sc">$</span>rate[rows]</span>
-<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a>  data<span class="sc">$</span>state <span class="ot">=</span> data<span class="sc">$</span>state[rows]</span>
-<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a>  data</span>
-<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb34-14"><a href="#cb34-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb34-15"><a href="#cb34-15" aria-hidden="true" tabindex="-1"></a><span class="co"># The NLL and the starting values of each model.</span></span>
-<span id="cb34-16"><a href="#cb34-16" aria-hidden="true" tabindex="-1"></a>enzyme_models <span class="ot">=</span> <span class="fu">list</span>(</span>
-<span id="cb34-17"><a href="#cb34-17" aria-hidden="true" tabindex="-1"></a>  <span class="at">pooled =</span> <span class="fu">list</span>(<span class="at">nll =</span> pooled_nll, <span class="at">start =</span> pooled_start),</span>
-<span id="cb34-18"><a href="#cb34-18" aria-hidden="true" tabindex="-1"></a>  <span class="at">state =</span> <span class="fu">list</span>(<span class="at">nll =</span> state_nll, <span class="at">start =</span> state_start)</span>
-<span id="cb34-19"><a href="#cb34-19" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb34-20"><a href="#cb34-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb34-21"><a href="#cb34-21" aria-hidden="true" tabindex="-1"></a><span class="co"># Leave-one-out log score of each model: fit to 22 observations, score the one held out.</span></span>
-<span id="cb34-22"><a href="#cb34-22" aria-hidden="true" tabindex="-1"></a>n_enzyme <span class="ot">=</span> <span class="fu">length</span>(enzyme_data<span class="sc">$</span>rate)</span>
-<span id="cb34-23"><a href="#cb34-23" aria-hidden="true" tabindex="-1"></a>loo_enzyme <span class="ot">=</span> <span class="fu">c</span>(<span class="at">pooled =</span> <span class="cn">NA</span>, <span class="at">state =</span> <span class="cn">NA</span>)</span>
-<span id="cb34-24"><a href="#cb34-24" aria-hidden="true" tabindex="-1"></a>n_failed <span class="ot">=</span> <span class="dv">0</span></span>
-<span id="cb34-25"><a href="#cb34-25" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> (m <span class="cf">in</span> <span class="fu">seq_along</span>(enzyme_models)) {</span>
-<span id="cb34-26"><a href="#cb34-26" aria-hidden="true" tabindex="-1"></a>  score <span class="ot">=</span> <span class="dv">0</span></span>
-<span id="cb34-27"><a href="#cb34-27" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_len</span>(n_enzyme)) {</span>
-<span id="cb34-28"><a href="#cb34-28" aria-hidden="true" tabindex="-1"></a>    <span class="co"># GAP 1: fit model m (its NLL and starting values are in enzyme_models[[m]]) with</span></span>
-<span id="cb34-29"><a href="#cb34-29" aria-hidden="true" tabindex="-1"></a>    <span class="co"># fit_model() to every observation except observation i, and store the result in an</span></span>
-<span id="cb34-30"><a href="#cb34-30" aria-hidden="true" tabindex="-1"></a>    <span class="co"># object called fit.</span></span>
-<span id="cb34-31"><a href="#cb34-31" aria-hidden="true" tabindex="-1"></a>    fit <span class="ot">=</span> <span class="cn">NA</span></span>
-<span id="cb34-32"><a href="#cb34-32" aria-hidden="true" tabindex="-1"></a>    n_failed <span class="ot">=</span> n_failed <span class="sc">+</span> (fit<span class="sc">$</span>convergence <span class="sc">!=</span> <span class="dv">0</span>)</span>
-<span id="cb34-33"><a href="#cb34-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb34-34"><a href="#cb34-34" aria-hidden="true" tabindex="-1"></a>    <span class="co"># GAP 2: process the NLL of model m for observation i alone with MakeADFun(), from the</span></span>
-<span id="cb34-35"><a href="#cb34-35" aria-hidden="true" tabindex="-1"></a>    <span class="co"># starting values of the model, and store the result in an object called heldout_obj.</span></span>
-<span id="cb34-36"><a href="#cb34-36" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Its function fn() at the estimates of the fit is minus the log density of</span></span>
-<span id="cb34-37"><a href="#cb34-37" aria-hidden="true" tabindex="-1"></a>    <span class="co"># observation i, so the line after the gap adds the log score to the total.</span></span>
-<span id="cb34-38"><a href="#cb34-38" aria-hidden="true" tabindex="-1"></a>    heldout_obj <span class="ot">=</span> <span class="cn">NA</span></span>
-<span id="cb34-39"><a href="#cb34-39" aria-hidden="true" tabindex="-1"></a>    score <span class="ot">=</span> score <span class="sc">-</span> heldout_obj<span class="sc">$</span><span class="fu">fn</span>(fit<span class="sc">$</span>par)</span>
-<span id="cb34-40"><a href="#cb34-40" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb34-41"><a href="#cb34-41" aria-hidden="true" tabindex="-1"></a>  loo_enzyme[m] <span class="ot">=</span> score</span>
-<span id="cb34-42"><a href="#cb34-42" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb34-43"><a href="#cb34-43" aria-hidden="true" tabindex="-1"></a>n_failed</span>
-<span id="cb34-44"><a href="#cb34-44" aria-hidden="true" tabindex="-1"></a>loo_enzyme</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
 </section>
 <section id="exercise-3-fecundity-of-fir-trees" class="level1" data-number="3">
 <h1 data-number="3"><span class="header-section-number">3</span> Exercise 3: Fecundity of fir trees</h1>
@@ -939,41 +892,41 @@ bic  64.88719 68.90580</code></pre>
 </ol>
 <p>The function below needs <code>normal_nll()</code>, <code>normal_obj</code>, <code>normal_fit</code>, <code>titre_data</code> and <code>titre_start</code> from Exercise 1, the helper <code>cmb()</code>, and the object <code>critical_value</code> (the critical value of the standard Normal distribution for a 95% interval). It draws every sample with the function <code>simulate()</code> of the fitted object, and stores the results of every sample in one row of a data frame. In each gap, replace <code>NA</code> by your own code. The lines that follow a gap use the names of the objects that the gap creates, so keep those names.</p>
 <div class="cell">
-<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Hypothetical samples of the 27 titres from the Normal model fitted in Exercise 1. For</span></span>
-<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="co"># each sample: the estimate of the time of the peak, its 95% Wald interval, and whether</span></span>
-<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a><span class="co"># the fit converged.</span></span>
-<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a>simulate_peak_time <span class="ot">=</span> <span class="cf">function</span>(n_samples) {</span>
-<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a>  results <span class="ot">=</span> <span class="fu">data.frame</span>(</span>
-<span id="cb35-6"><a href="#cb35-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">estimate =</span> <span class="fu">rep</span>(<span class="cn">NA</span>, <span class="at">times =</span> n_samples),</span>
-<span id="cb35-7"><a href="#cb35-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">lower =</span> <span class="fu">rep</span>(<span class="cn">NA</span>, <span class="at">times =</span> n_samples),</span>
-<span id="cb35-8"><a href="#cb35-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">upper =</span> <span class="fu">rep</span>(<span class="cn">NA</span>, <span class="at">times =</span> n_samples),</span>
-<span id="cb35-9"><a href="#cb35-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">converged =</span> <span class="fu">rep</span>(<span class="cn">NA</span>, <span class="at">times =</span> n_samples)</span>
-<span id="cb35-10"><a href="#cb35-10" aria-hidden="true" tabindex="-1"></a>  )</span>
-<span id="cb35-11"><a href="#cb35-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_len</span>(n_samples)) {</span>
-<span id="cb35-12"><a href="#cb35-12" aria-hidden="true" tabindex="-1"></a>    <span class="co"># One hypothetical sample: titres on the same days, simulated at the estimates.</span></span>
-<span id="cb35-13"><a href="#cb35-13" aria-hidden="true" tabindex="-1"></a>    titre_sim <span class="ot">=</span> normal_obj<span class="sc">$</span><span class="fu">simulate</span>(normal_fit<span class="sc">$</span>par)<span class="sc">$</span>titre</span>
-<span id="cb35-14"><a href="#cb35-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb35-15"><a href="#cb35-15" aria-hidden="true" tabindex="-1"></a>    <span class="co"># GAP 1: connect normal_nll() to the days and the simulated titres and process it</span></span>
-<span id="cb35-16"><a href="#cb35-16" aria-hidden="true" tabindex="-1"></a>    <span class="co"># with MakeADFun(), starting from titre_start, and store the result in an object</span></span>
-<span id="cb35-17"><a href="#cb35-17" aria-hidden="true" tabindex="-1"></a>    <span class="co"># called sim_obj. Then fit it with optim() and method = "BFGS", and store the result</span></span>
-<span id="cb35-18"><a href="#cb35-18" aria-hidden="true" tabindex="-1"></a>    <span class="co"># in an object called sim_fit.</span></span>
-<span id="cb35-19"><a href="#cb35-19" aria-hidden="true" tabindex="-1"></a>    sim_obj <span class="ot">=</span> <span class="cn">NA</span></span>
-<span id="cb35-20"><a href="#cb35-20" aria-hidden="true" tabindex="-1"></a>    sim_fit <span class="ot">=</span> <span class="cn">NA</span></span>
-<span id="cb35-21"><a href="#cb35-21" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb35-22"><a href="#cb35-22" aria-hidden="true" tabindex="-1"></a>    <span class="co"># GAP 2: from the row peak_time of summary(sdreport(sim_obj), select = "report"),</span></span>
-<span id="cb35-23"><a href="#cb35-23" aria-hidden="true" tabindex="-1"></a>    <span class="co"># the estimate of the time of the peak and the endpoints of its 95% Wald interval on</span></span>
-<span id="cb35-24"><a href="#cb35-24" aria-hidden="true" tabindex="-1"></a>    <span class="co"># the original scale, in objects called estimate, lower and upper.</span></span>
-<span id="cb35-25"><a href="#cb35-25" aria-hidden="true" tabindex="-1"></a>    estimate <span class="ot">=</span> <span class="cn">NA</span></span>
-<span id="cb35-26"><a href="#cb35-26" aria-hidden="true" tabindex="-1"></a>    lower <span class="ot">=</span> <span class="cn">NA</span></span>
-<span id="cb35-27"><a href="#cb35-27" aria-hidden="true" tabindex="-1"></a>    upper <span class="ot">=</span> <span class="cn">NA</span></span>
-<span id="cb35-28"><a href="#cb35-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb35-29"><a href="#cb35-29" aria-hidden="true" tabindex="-1"></a>    results<span class="sc">$</span>estimate[i] <span class="ot">=</span> estimate</span>
-<span id="cb35-30"><a href="#cb35-30" aria-hidden="true" tabindex="-1"></a>    results<span class="sc">$</span>lower[i] <span class="ot">=</span> lower</span>
-<span id="cb35-31"><a href="#cb35-31" aria-hidden="true" tabindex="-1"></a>    results<span class="sc">$</span>upper[i] <span class="ot">=</span> upper</span>
-<span id="cb35-32"><a href="#cb35-32" aria-hidden="true" tabindex="-1"></a>    results<span class="sc">$</span>converged[i] <span class="ot">=</span> sim_fit<span class="sc">$</span>convergence <span class="sc">==</span> <span class="dv">0</span></span>
-<span id="cb35-33"><a href="#cb35-33" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb35-34"><a href="#cb35-34" aria-hidden="true" tabindex="-1"></a>  results</span>
-<span id="cb35-35"><a href="#cb35-35" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Hypothetical samples of the 27 titres from the Normal model fitted in Exercise 1. For</span></span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="co"># each sample: the estimate of the time of the peak, its 95% Wald interval, and whether</span></span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a><span class="co"># the fit converged.</span></span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a>simulate_peak_time <span class="ot">=</span> <span class="cf">function</span>(n_samples) {</span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>  results <span class="ot">=</span> <span class="fu">data.frame</span>(</span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">estimate =</span> <span class="fu">rep</span>(<span class="cn">NA</span>, <span class="at">times =</span> n_samples),</span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">lower =</span> <span class="fu">rep</span>(<span class="cn">NA</span>, <span class="at">times =</span> n_samples),</span>
+<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">upper =</span> <span class="fu">rep</span>(<span class="cn">NA</span>, <span class="at">times =</span> n_samples),</span>
+<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">converged =</span> <span class="fu">rep</span>(<span class="cn">NA</span>, <span class="at">times =</span> n_samples)</span>
+<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a>  )</span>
+<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (i <span class="cf">in</span> <span class="fu">seq_len</span>(n_samples)) {</span>
+<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a>    <span class="co"># One hypothetical sample: titres on the same days, simulated at the estimates.</span></span>
+<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a>    titre_sim <span class="ot">=</span> normal_obj<span class="sc">$</span><span class="fu">simulate</span>(normal_fit<span class="sc">$</span>par)<span class="sc">$</span>titre</span>
+<span id="cb34-14"><a href="#cb34-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-15"><a href="#cb34-15" aria-hidden="true" tabindex="-1"></a>    <span class="co"># GAP 1: connect normal_nll() to the days and the simulated titres and process it</span></span>
+<span id="cb34-16"><a href="#cb34-16" aria-hidden="true" tabindex="-1"></a>    <span class="co"># with MakeADFun(), starting from titre_start, and store the result in an object</span></span>
+<span id="cb34-17"><a href="#cb34-17" aria-hidden="true" tabindex="-1"></a>    <span class="co"># called sim_obj. Then fit it with optim() and method = "BFGS", and store the result</span></span>
+<span id="cb34-18"><a href="#cb34-18" aria-hidden="true" tabindex="-1"></a>    <span class="co"># in an object called sim_fit.</span></span>
+<span id="cb34-19"><a href="#cb34-19" aria-hidden="true" tabindex="-1"></a>    sim_obj <span class="ot">=</span> <span class="cn">NA</span></span>
+<span id="cb34-20"><a href="#cb34-20" aria-hidden="true" tabindex="-1"></a>    sim_fit <span class="ot">=</span> <span class="cn">NA</span></span>
+<span id="cb34-21"><a href="#cb34-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-22"><a href="#cb34-22" aria-hidden="true" tabindex="-1"></a>    <span class="co"># GAP 2: from the row peak_time of summary(sdreport(sim_obj), select = "report"),</span></span>
+<span id="cb34-23"><a href="#cb34-23" aria-hidden="true" tabindex="-1"></a>    <span class="co"># the estimate of the time of the peak and the endpoints of its 95% Wald interval on</span></span>
+<span id="cb34-24"><a href="#cb34-24" aria-hidden="true" tabindex="-1"></a>    <span class="co"># the original scale, in objects called estimate, lower and upper.</span></span>
+<span id="cb34-25"><a href="#cb34-25" aria-hidden="true" tabindex="-1"></a>    estimate <span class="ot">=</span> <span class="cn">NA</span></span>
+<span id="cb34-26"><a href="#cb34-26" aria-hidden="true" tabindex="-1"></a>    lower <span class="ot">=</span> <span class="cn">NA</span></span>
+<span id="cb34-27"><a href="#cb34-27" aria-hidden="true" tabindex="-1"></a>    upper <span class="ot">=</span> <span class="cn">NA</span></span>
+<span id="cb34-28"><a href="#cb34-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-29"><a href="#cb34-29" aria-hidden="true" tabindex="-1"></a>    results<span class="sc">$</span>estimate[i] <span class="ot">=</span> estimate</span>
+<span id="cb34-30"><a href="#cb34-30" aria-hidden="true" tabindex="-1"></a>    results<span class="sc">$</span>lower[i] <span class="ot">=</span> lower</span>
+<span id="cb34-31"><a href="#cb34-31" aria-hidden="true" tabindex="-1"></a>    results<span class="sc">$</span>upper[i] <span class="ot">=</span> upper</span>
+<span id="cb34-32"><a href="#cb34-32" aria-hidden="true" tabindex="-1"></a>    results<span class="sc">$</span>converged[i] <span class="ot">=</span> sim_fit<span class="sc">$</span>convergence <span class="sc">==</span> <span class="dv">0</span></span>
+<span id="cb34-33"><a href="#cb34-33" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb34-34"><a href="#cb34-34" aria-hidden="true" tabindex="-1"></a>  results</span>
+<span id="cb34-35"><a href="#cb34-35" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 
 
