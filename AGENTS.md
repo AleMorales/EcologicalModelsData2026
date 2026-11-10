@@ -121,17 +121,18 @@ elsewhere.
   this is a simplification and points to Chapter 7.
 - Where topics live: method of moments in Chapter 3; AIC and AICc in Chapter 4; the delta
   method as a box in Chapter 4 (one parameter) and in Chapter 6 (several parameters,
-  applied to a fitted curve through `ADREPORT()`), never calculated by hand in R; BIC,
-  leave-one-out cross-validation and scaled quantile residuals in Chapter 6; conditional
-  distributions, random effects, the marginal likelihood and the Laplace approximation,
-  REML, model matrices from formulas (`model.matrix()`) and leave-one-group-out
-  cross-validation in Chapter 7 (grouped models are compared
-  with AIC and leave-one-group-out only, because $n$ is ambiguous for AICc and BIC); how
+  applied to a fitted curve through `ADREPORT()`), never calculated by hand in R; BIC and
+  scaled quantile residuals in Chapter 6; conditional distributions, random effects, the
+  marginal likelihood and the Laplace approximation, REML and model matrices from formulas
+  (`model.matrix()`) in Chapter 7 (grouped models are compared with AIC only, because $n$
+  is ambiguous for AICc and BIC); how
   gradient methods search, exact and approximate gradients, stopping rules, the diagnosis of
   a fit, multiple starting values, structural and practical identifiability, estimates at a
   boundary, scaling and parameterisation, `nlminb()`, Nelder–Mead, `optimize()` and
   differential evolution in Chapter 8 (Chapter 4 only uses transformations and points
   forward; bounds are only mentioned, and SANN and genetic algorithms are not used).
+  Cross-validation was removed from the course (author's decision of 10 November) to reduce
+  the number of skills in the later chapters; do not reintroduce it.
 - Use simulation to connect known parameters to samples, estimates and repeated-sampling
   behaviour. Introduce an unfamiliar R tool when it is needed.
 - Exercises ask students to calculate, simulate, plot, compare and explain; solutions

@@ -592,10 +592,6 @@ fir_fit = optim(par = fir_obj$par, fn = fir_obj$fn, gr = fir_obj$gr, method = "B
   plots and the dispersion statistic as exploratory evidence; DHARMa's `plot()` also
   prints tests with p-values, and one sentence says why the course does not rest decisions
   on them.
-- **Cross-validation** is leave-one-out with the log score: every parameter is refitted
-  to the other observations from the same fixed starting values, and the held-out
-  observation is scored by its log probability or log density under that fit; the score
-  is the sum. For grouped data it is leave-one-group-out (below).
 - **Random effects** (from Chapter 7): the NLL is the joint NLL, minus the log density of
   the random effects plus minus the log density of the observations for given effects;
   the random effects are an element of the list of parameters (`u`, one starting value per
@@ -607,11 +603,8 @@ fir_fit = optim(par = fir_obj$par, fn = fir_obj$fn, gr = fir_obj$gr, method = "B
   adds the fixed effects to `random`; models with different fixed effects are compared
   with maximum likelihood fits. `obj$simulate()` draws new group effects (unconditional
   simulation), and DHARMa residuals per group come from `recalculateResiduals(group = ...)`
-  with an integer index of the groups. Leave-one-group-out cross-validation refits every
-  parameter without the held-out group and scores the group by its marginal
-  log-likelihood: an object for the held-out group with every parameter fixed by `map` at
-  its estimate and `random = "u"`, whose `fn()` is that group's marginal NLL. Grouped
-  models are compared with AIC and leave-one-group-out only, never AICc or BIC.
+  with an integer index of the groups. Grouped models are compared with AIC only, never
+  AICc or BIC.
 - **Predictors from factors** (from Chapter 7, `#sec-model-matrix`): the effects of
   predictors are built with `model.matrix()` from a formula, not with hand-built 0/1
   indicators. Group-level predictors use a data frame with one row per group (`plant_info`,

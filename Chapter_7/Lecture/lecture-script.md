@@ -1,8 +1,8 @@
 # Chapter 7 lecture script: Grouped ecological response curves
 
-Draft for the course author's review. **Target: 150 minutes in total, with 120 minutes of
-slides on 32 slides (including the discussion, the three practice questions and one live demo
-of 18 minutes), 10 minutes of slack and two breaks of 10 minutes.** The breaks separate the
+Draft for the course author's review. **Target: 150 minutes in total, with 116 minutes of
+slides on 31 slides (including the discussion, the three practice questions and one live demo
+of 18 minutes), 14 minutes of slack and two breaks of 10 minutes.** The breaks separate the
 three blocks of the lecture. The only code that is run live is the demo of slide 22, from the
 script `demo-pooling.R`.
 
@@ -59,15 +59,14 @@ Times are measured from the start of the session and include the breaks.
 | 25 | Practice 3: sapling growth in forest stands | 3 | 115–118 |
 | 26 | Checking a grouped model | 4 | 118–122 |
 | 27 | AIC for grouped models | 4 | 122–126 |
-| 28 | Leave-one-group-out cross-validation | 4 | 126–130 |
-| 29 | Comparing the candidates | 3 | 130–133 |
-| 30 | A recipe for a grouped response curve | 2 | 133–135 |
-| 31 | The Chapter 7 R practical | 2 | 135–137 |
-| 32 | Summary and closing questions | 3 | 137–140 |
-| | Slack for discussion | 10 | 140–150 |
+| 28 | Comparing the candidates | 3 | 126–129 |
+| 29 | A recipe for a grouped response curve | 2 | 129–131 |
+| 30 | The Chapter 7 R practical | 2 | 131–133 |
+| 31 | Summary and closing questions | 3 | 133–136 |
+| | Slack for discussion | 14 | 136–150 |
 | | **Total** | **150** | |
 
-Slides 120 minutes (blocks of 35, 34 and 51, the demo included), slack 10, breaks 20: 150
+Slides 116 minutes (blocks of 35, 34 and 47, the demo included), slack 14, breaks 20: 150
 minutes. The break before the demo lets you open R and run section 0 of `demo-pooling.R`.
 
 ## Slides 1 and 2 — Ecological Models and Data Analysis; Overview of the lecture
@@ -100,8 +99,8 @@ This lecture adds one entry to two boxes of the cycle. In the model box it is "g
 model now has two levels, a distribution for the groups and a distribution for the observations
 of each group. In the estimation box it is "marginalise (7)": the effects of the groups are not
 observed, so they are integrated out of the likelihood before it is maximised. The comparison box
-keeps the information criteria and cross-validation of Chapters 4 and 6, with two changes that
-slides 27 and 28 explain.
+keeps the information criteria of Chapters 4 and 6, of which grouped models use only AIC, for
+reasons that slide 27 explains.
 
 **Delivery**
 
@@ -618,7 +617,7 @@ parameters can be calculated from the other. In the example, both forms reach a 
 
 The second form makes the differences between treatments parameters, so their estimates, standard
 errors and intervals come directly from the fit, and a simpler model is obtained by leaving a term
-out of the formula (the interaction, for example; slide 29 does that). The first form makes the
+out of the formula (the interaction, for example; slide 28 does that). The first form makes the
 typical value of each group a parameter. Which one to use depends on the question: for the CO₂
 experiment, whose question is how chilling affects the two origins, the differences are what we want
 to report.
@@ -691,7 +690,7 @@ Break (10 minutes).
 
 The demo runs the steps of slides 11 to 20 for the CO₂ data, from complete pooling to the model with
 origin and chilling, and ends with the curves of observed and new plants, which slide 24 explains. It has no model
-comparison: the comparison follows on slides 27 to 29. The script needs the packages RTMB and
+comparison: the comparison follows on slides 27 and 28. The script needs the packages RTMB and
 RTMBdist; the data set `CO2` is built into R. Its code and object names are those of the chapter, so
 the numbers agree with the chapter and the slides. The whole script runs in a few seconds (1.5
 seconds in a check in R 4.6.1), so there is no waiting.
@@ -926,7 +925,7 @@ AICc and BIC need the number of independent observations $n$, and for grouped da
 of a group are not independent, because they share its deviation, but they are not one observation either, because
 each adds information about the curve of its group. The effective number lies somewhere between the number of groups
 and the number of observations, and depends on how large the variance among groups is compared with the variance
-within groups. So we do not use AICc and BIC for grouped models, and compare them with AIC and with cross-validation.
+within groups. So we do not use AICc and BIC for grouped models, and compare them with AIC.
 This is the question that Chapter 6 deferred to this chapter when it chose 16 tanks and not 610
 tadpoles as $n$.
 
@@ -934,70 +933,36 @@ For the CO₂ data, the model with a random asymptote has $K=5$, not 17: the 12 
 $\sigma_{\mathrm{plant}}$. Ask the question of the example box (84 measurements or 12 plants?) before giving the
 answer of the last bullet.
 
-## Slide 28 — Leave-one-group-out cross-validation
+## Slide 28 — Comparing the candidates
 
-**Leave-one-group-out cross-validation** holds out one whole group at a time. Every parameter is estimated again from
-the other groups, and the held-out group is scored by its marginal log-likelihood under that fit: the log density of
-all its observations together, with its effect integrated out, because the effect of a new group is not known. The
-score of a model is the sum over the groups, and a larger score is better, as in Chapter 6.
-
-Chapter 6 noted that each held-out part should be a block of related observations. If we held out single
-observations, the other observations of the same group would stay in the fit, and their group deviation would make
-the held-out observation look easier to predict than an observation of a new group. Holding out whole groups scores
-the models by how well they predict a group that was not used to fit them, which is the question of partial pooling.
-
-To score a held-out group we need its marginal log-likelihood at the estimates from the other groups. That is the
-value of `fn` of an object for the data of that group, with every parameter except the random effects fixed at those
-estimates. The argument `map` of `MakeADFun()` fixes parameters: it is a list with one element for each parameter to
-fix, named as in the list of parameters, and each element is a factor with one value per element of the parameter;
-`NA` fixes an element at its value in the list of parameters, so `factor(rep(NA, 4))` fixes the four coefficients of
-`beta_asym`. The fixed parameters are left
-out of `par`, so when every parameter but the random effects is fixed, `par` is empty, and `fn(par)` returns the
-marginal NLL of the data at the fixed values. Every fit starts from the same fixed starting values, and we count the
-fits that did not converge.
-
-For the CO₂ data we leave out one plant at a time: 12 fits per model, 60 for the five candidates of slide 29, and all
-of them converged.
-
-**Delivery**
-
-The functions `subset_plants()` and `plant_loglik()` and the loop are on the chapter page ("Comparing grouped
-models"); do not show them. If a student asks why the held-out plant is not scored by its predicted effect: it has
-none, because it was not in the fit, and a new plant's effect is unknown.
-
-## Slide 29 — Comparing the candidates
-
-Only differences between models matter for each criterion, so the table gives the difference of each model from the
-best one: the lowest AIC and the highest leave-one-plant-out score, whose differences are therefore zero or negative.
-Recall that a difference of one unit in the log score corresponds to about two units of AIC.
+Only differences between models matter, so the table gives the difference of the AIC of each model from the lowest
+AIC, which is zero for the preferred model.
 
 With a model matrix, candidates that differ only in their fixed effects share one NLL and differ in their formulas.
 The three candidates with plant deviations use `treatment_nll` of slide 18: the formula `~ 1` gives a model matrix
 with the column `(Intercept)` only, which is the random asymptote without predictors, `~ Type + Treatment` gives
 origin and chilling without their interaction, and `~ Type * Treatment` the model of slide 17. Complete pooling has no
-plant deviations, so it needs an NLL of its own, which takes the model matrix in the same way, with `~ 1` and
-`~ Type * Treatment`. The chapter builds the list of data and the starting values of a candidate from its formula with
-two short functions, so the loops over the candidates need no change of code; the caption of the slide gives the
-formulas.
+plant deviations, so it needs an NLL of its own; the chapter writes it with a model matrix as well, so that with the
+formula `~ 1` it goes through the same bookkeeping as the other candidates. The chapter builds the list of data and
+the starting values of a candidate from its formula with two short functions, so the loop over the candidates needs
+no change of code; the caption of the slide gives the formulas.
 
-The five candidates answer two questions: do the plants differ beyond their origin and treatment, and do origin and
-chilling explain part of the differences? Both criteria prefer the random asymptote with origin, chilling and their
-interaction, and both rank complete pooling without predictors last by far. They agree that the plants differ beyond
-their origin and treatment: with the same fixed effects, the random asymptote is better than complete pooling by 19.2
-units of AIC and 22.2 units of log score. They agree on the direction of the interaction but not on its strength: AIC
-prefers the model with the interaction by 8.6 units, leave-one-plant-out by only 0.33 units of log score. And they
-disagree on the order of two models. AIC prefers complete pooling with predictors to the random asymptote without
-predictors (by 5.9 units), whereas leave-one-plant-out prefers the random asymptote, by 19.2 units of log score. The
-likelihood of complete pooling treats the seven measurements of a plant as independent, so its AIC estimates how well
-it predicts new measurements that are independent of each other; a new plant has seven measurements that share its
-deviation, which this model cannot predict. Leave-one-plant-out scores exactly that, so it is the better guide when
-models with and without random effects are compared.
+The four candidates answer three questions: do the plants differ at all, do origin and chilling explain part of the
+differences, and does the effect of chilling depend on the origin? AIC prefers the random asymptote with origin, chilling and their
+interaction. The model without the interaction is worse by 8.6 units, so the data support an effect of chilling that
+differs between the two origins, and the random asymptote without predictors is worse by 25.0 units, so origin and
+chilling explain a large part of the differences among the plants. Complete pooling comes last, 175 units above the
+random asymptote without predictors. It lies at the boundary $\sigma_{\mathrm{plant}}=0$ (slide 27), so this
+difference is only an approximate guide, but one of this size leaves no doubt that the plants differ. Whether they
+still differ once their origin and treatment are known is a question that this comparison cannot answer, because
+every candidate with origin and chilling also has plant deviations. The likelihood profile interval of
+$\sigma_{\mathrm{plant}}$ on slide 23 answers it: plants of the same origin and treatment differ by between about 5%
+and 14%, and values near zero lie outside the interval.
 
 No pooling is not in the table. Its AIC, 372.9, is lower than that of every mixed model, but it answers another
 question. Its likelihood describes new measurements of the same 12 plants, with their 12 asymptotes as parameters,
 whereas the marginal likelihood of a mixed model describes the measurements of a new plant, whose asymptote is
-unknown. The two likelihoods are probabilities of different things, so their AICs cannot be compared. Nor can
-leave-one-plant-out score no pooling, because it has no asymptote for a plant that was not used to fit it.
+unknown. The two likelihoods are probabilities of different things, so their AICs cannot be compared.
 
 For the ecological question the chapter uses the model with the interaction. Chilling multiplies the typical uptake
 capacity of plants from Quebec by about 0.90 (0.79 to 1.03) and that of plants from Mississippi by about 0.59 (0.52
@@ -1008,12 +973,14 @@ three plants per combination, these conclusions rest on 12 plants, which is why 
 
 **Delivery**
 
-Read the table by rows in pairs: rows 1 and 3 (and 2 and 5) differ only in the plant deviations; rows 4 and 5 only in
-the interaction; rows 2 and 3 are the pair on which the criteria disagree. The takeaway is the general point: the
-criteria rank the candidates and can disagree, and what the ranking means for the question is a matter of ecological
-interpretation. Do not present the choice of the model with the interaction as settled by the criteria alone.
+Read the table by rows in pairs: rows 1 and 2 differ only in the plant deviations, rows 2 and 3 in origin and
+chilling, and rows 3 and 4 only in the interaction. Ask which pair of rows would tell whether plants of the same
+origin and treatment differ: none, because every model with origin and chilling has plant deviations, so point back
+to the interval of slide 23. The takeaway is the general point: AIC ranks the candidates,
+and what the ranking means for the question is a matter of ecological interpretation. Do not present the choice of
+the model with the interaction as settled by AIC alone.
 
-## Slide 30 — A recipe for a grouped response curve
+## Slide 29 — A recipe for a grouped response curve
 
 The steps of this chapter extend the recipe of Chapter 6 to observations that come in groups, and the chapter
 collects them in a note callout before the summary. Read the nine steps with the tool of each: identify the
@@ -1027,16 +994,15 @@ components and predicted effects from `sdreport()`, with likelihood profile inte
 REML when the variances are the question; draw the curves of observed groups, the typical curve and the range of new
 groups, each for the question that it answers; mark the response with `OBS()`, simulate with `obj$simulate()` and
 check the residuals of the observations and of the groups; compare the candidates, fitted by maximum likelihood to
-the same observations, with AIC and leave-one-group-out cross-validation, where candidates that differ only in their
-fixed effects share one NLL and differ in their formulas; and interpret the fixed effects and the
-variance among groups in units, saying what the number of groups leaves uncertain.
+the same observations, with AIC, where candidates that differ only in their fixed effects share one NLL and differ
+in their formulas; and interpret the fixed effects and the variance among groups in units, saying what the number of groups leaves uncertain.
 
 **Delivery**
 
 About two minutes. Steps 2, 4 and 8 extend steps of Chapter 6; point at the new ones (1, 3, 5 with REML, 6 and 7 with
 the residuals of the groups). The practical follows the same sequence in its worked exercise.
 
-## Slide 31 — The Chapter 7 R practical
+## Slide 30 — The Chapter 7 R practical
 
 The practical fits models with random effects to four data sets in which the observations come in groups; three of
 them were used in earlier chapters, where the observations were treated as independent. Exercise 1, on the growth of
@@ -1052,7 +1018,7 @@ extra practice: it compares maximum likelihood and REML estimates of a variance 
 
 Try each exercise before checking the solution.
 
-## Slide 32 — Summary and closing questions
+## Slide 31 — Summary and closing questions
 
 Observations that come in groups share the conditions of their group, so they are not independent. A grouped model
 describes this with two levels: the effects of the groups follow a distribution, and the observations follow a
@@ -1065,9 +1031,8 @@ variation among groups, the variance component describes the variation that rema
 groups are shrunk towards the typical value. The predictors enter the NLL through a model matrix, which
 `model.matrix()` builds from a formula, as the formula interfaces of R do. A variance among groups is informed by the number of groups, and REML
 reduces the bias of its estimate. The curve of an observed group, the typical curve and the range of new groups answer
-different questions. Grouped models are checked at both levels and compared with AIC and leave-one-group-out
-cross-validation. On the diagram of slide 3, the lecture added groups to the model and marginalisation to the
-estimation.
+different questions. Grouped models are checked at both levels and compared with AIC. On the diagram of slide 3,
+the lecture added groups to the model and marginalisation to the estimation.
 
 Return to this slide for the two closing questions.
 
@@ -1091,7 +1056,7 @@ Chapter 8 returns to that example. The practical comes first.
 
 ## Adjustments during delivery
 
-The slides take 120 minutes and leave 10 minutes of slack, which comes last. The demo is kept whole; if it overruns,
+The slides take 116 minutes and leave 14 minutes of slack, which comes last. The demo is kept whole; if it overruns,
 it takes the slack first. If discussion overruns, use the slack first, then shorten in this order:
 
 - Slide 3 to one sentence: recovers about half a minute.
@@ -1100,8 +1065,7 @@ it takes the slack first. If discussion overruns, use the slack first, then shor
 - Slide 19 to the takeaway, with one sentence on the two columns: about one and a half minutes.
 - Slide 12 to questions 2 and 4: about one and a half minutes.
 - Slide 25 given as homework, with the answers in one sentence: about two and a half minutes.
-- Slide 28 to the definition and the first bullet, without `map`: about one and a half minutes.
-- Slides 30 and 31 to one sentence each: about two minutes together.
+- Slides 29 and 30 to one sentence each: about two minutes together.
 
 Keep the conditional and marginal distributions (slides 6 and 7), the model with a random asymptote (slide 8), the
 three ways to share information (slide 11), the marginal likelihood (slide 13), random effects in RTMB (slide 15),
@@ -1119,5 +1083,4 @@ comparison. Students can follow the chunks of the chapter page at home, by secti
 fit with the fixed effects in `random`), "Checking a grouped model" (the NLL with `OBS()`, the loop over
 `treatment_obj$simulate()`, `DHARMa::createDHARMa()` and `DHARMa::recalculateResiduals()`) and "Comparing grouped
 models" (the NLL of complete pooling with a model matrix, the list `models` of NLLs and formulas, `formula_data()`,
-`start_values()`, `fit_model()`, AIC, `subset_plants()`, `plant_loglik()` with `map`, and the loop that leaves out one
-plant at a time).
+`start_values()`, `fit_model()` and the loop that calculates the AIC of each candidate).

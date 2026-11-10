@@ -132,6 +132,22 @@ them. All dates are in 2026.
   lost its question 4 (the comparison with `glmmTMB`; author's decision), also on slide 31
   and in the script. `lecture-script.pdf` regenerated with breakable tables
   (`STYLE_GUIDE_LECTURE.md`).
+- **10 November:** on the author's request (plan `.plans/plan_remove_cross_validation.md`),
+  cross-validation was removed from the course on branch `remove-cross-validation`, to
+  reduce the number of skills in the later chapters. Leave-one-out was removed from the
+  Chapter 6 theory, practical (Exercise 2, question 5) and lecture; leave-one-group-out from
+  the Chapter 7 theory, practical (one sentence) and lecture and from Case study 2; the
+  promises in Chapter 1 (theory and lecture script), Chapter 4 (theory and Lecture 2
+  script) and two glossary entries were removed or trimmed. Author's decisions: new quiz
+  questions 10 in Chapters 6 and 7; Chapter 7 compares four candidates (complete pooling
+  with origin × chilling dropped); the freed minutes of both lectures go to the slack.
+  **Pending:**
+  the author edits `ModelCycle.png` (both copies; its comparison box still lists
+  "Cross-validation (6)"), after which the `fig-alt` of the modelling-cycle slide in the
+  eight lectures (Chapters 1, 2, 3, 4 (both), 6, 7 and 8) drops "cross-validation 6". The
+  rewritten passages are generated drafts awaiting review. Pre-existing and not fixed:
+  the coverage figures quoted in the simulation section of Case study 2 (94.6% and 92.8%)
+  disagree with the printed output (0.95 and 0.93).
 
 | Material | Status and use |
 |---|---|

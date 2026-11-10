@@ -198,7 +198,7 @@ covers the marginal likelihood that hierarchical models need.
 
 Model comparison and answer: more than one model may be plausible. Chapter 4
 introduces the Akaike information criterion, AIC, to compare fitted candidate
-models. Chapter 6 adds other information criteria and cross-validation, checks how
+models. Chapter 6 adds another information criterion, checks how
 well the models describe the data and interprets the parameters in terms of the question.
 We compare fitted candidates; we do not assign probabilities to models.
 
