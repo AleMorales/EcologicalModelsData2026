@@ -124,6 +124,14 @@ them. All dates are in 2026.
   by sub-agents, with every printed number checked identical against the previous code and
   an independent review; rule added to `STYLE_GUIDE.md` and a glossary entry "Model matrix".
   Generated draft awaiting review.
+- **10 November:** on the author's request, the production build was checked from scratch
+  (`quarto render --profile prod` with `_freeze` moved aside, as in CI: 41 pages, exit 0,
+  no warnings, about 11 minutes; the only error cells are the intended ones of the Chapter 1
+  practical). Every slide of the Chapter 7 lecture was looked at; slide 32 ran into the
+  footer and its model-matrix bullet was shortened. Exercise 4 of the Chapter 7 practical
+  lost its question 4 (the comparison with `glmmTMB`; author's decision), also on slide 31
+  and in the script. `lecture-script.pdf` regenerated with breakable tables
+  (`STYLE_GUIDE_LECTURE.md`).
 
 | Material | Status and use |
 |---|---|

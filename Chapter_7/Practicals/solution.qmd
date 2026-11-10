@@ -822,17 +822,6 @@ $$
    the simulations now draw new site deviations, so the expected value of a count is the
    typical mean ($u_j=0$) of its site
    ([Checking a grouped model](../Theory.qmd#sec-grouped-residuals)).
-4. Fit the same model with
-   `glmmTMB::glmmTMB(count ~ mined + cover + (1 | site), family = poisson, data = ...)`,
-   without attaching the package. Compare the log-likelihood and the estimates with those
-   of question 2. Why are the fixed effects of the two fits the same? Hint: `data` is the
-   data frame of the counts of the spring salamander of question 1 (with the new reference
-   level of `mined`), whose columns have the names used in the formula. `logLik()`,
-   `glmmTMB::fixef()` and `glmmTMB::VarCorr()` return the log-likelihood, the fixed effects
-   and the standard deviation among sites (see the
-   [`glmmTMB` supplement](../../Supplements/canned.qmd#sec-glmmtmb)). Compare the names of
-   the fixed effects with the column names of your model matrix, and see
-   [The model matrix](../Theory.qmd#sec-model-matrix).
 
 ## Solution
 
@@ -1072,52 +1061,6 @@ records, for example, the days since the last rain and the water temperature of 
 visit), so predictors measured on the visits, or a Negative Binomial distribution for a
 given site deviation, are candidates to compare with this model. As always, we read the
 residuals and the dispersion statistic as exploratory evidence.
-
-### Question 4
-
-`glmmTMB()` fits the same model from a formula: `mined + cover` are the fixed effects on
-the log scale of the mean, `(1 | site)` is a random intercept for each site, and the
-Poisson family has a log link (see the
-[`glmmTMB` supplement](../../Supplements/canned.qmd#sec-glmmtmb)). It also uses TMB and the
-Laplace approximation:
-
-```{r}
-# The same model with glmmTMB, called with the prefix so that the package is not attached.
-salamander_glmmtmb = glmmTMB::glmmTMB(
-  count ~ mined + cover + (1 | site),
-  family = poisson,
-  data = spring
-)
-
-# Log-likelihoods of the two fits.
-c(glmmtmb = as.numeric(logLik(salamander_glmmtmb)), rtmb = -site_poisson_fit$value)
-
-# Fixed effects of the two fits.
-cbind(
-  glmmtmb = glmmTMB::fixef(salamander_glmmtmb)$cond,
-  rtmb = beta_lambda_mle
-)
-
-# Standard deviation among sites: column Std.Dev. of glmmTMB, then the RTMB fit.
-glmmTMB::VarCorr(salamander_glmmtmb)
-exp(site_poisson_fit$par[["log_sd_site"]])
-```
-
-The two log-likelihoods agree, and so do the fixed effects and the standard deviation among
-sites, up to differences smaller than 0.001 (the two fits use different optimisers,
-which stop at slightly different points). The fixed effects are the same because
-`glmmTMB()` builds the model matrix of its fixed effects from `mined + cover` with
-`model.matrix()`, as we did: its columns, and so its coefficients, have the names of the
-columns of `X_lambda`. The reference level is a property of the factor and not of the
-formula, and `spring` holds `mined` with the level `no` first since question 1, so in both
-fits the intercept is the log mean of a typical unmined site with average cover and
-`minedyes` is the difference of a mined site from it. The only difference is that glmmTMB
-builds the matrix with one row per count, whereas `X_lambda` has one row per site; mining
-and cover are properties of the sites, so the four rows of the counts of a site are the
-same, and both give each count the mean of its site. `(1 | site)` then adds a deviation for
-each site to the intercept, as `+ u` does in our NLL. The reference level of question 1
-therefore matters for glmmTMB in the same way: with the original order of the levels, its
-intercept would belong to a typical mined site.
 
 # Exercise 5: Variance among groups estimated by ML and REML
 
