@@ -10,7 +10,7 @@
 #    	gnuplot home:     http://www.gnuplot.info
 #    	faq, bugs, etc:   type "help FAQ"
 #    	immediate help:   type "help"  (plot window: hit 'h')
- set terminal png truecolor nocrop enhanced butt size 640,480 font "arial,14.0" 
+ set terminal pngcairo truecolor nocrop enhanced butt size 640,480 font "arial,14.0" 
 unset clip points
 set clip one
 unset clip two
@@ -156,7 +156,6 @@ set lmargin  -1
 set bmargin  -1
 set rmargin  -1
 set tmargin  -1
-set locale "nl_NL.UTF-8"
 set pm3d explicit at s
 set pm3d scansautomatic
 set pm3d interpolate 1,1 flush begin noftriangles noborder corners2color mean
@@ -190,14 +189,16 @@ set label 1 "a/b" at 0.300000, 4.60000, 0.00000 left norotate back nopoint
 replot
 
 unset label
-set arrow 1 from 0.00000, a, 0.00000 to 100, a, 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype 2
+set arrow 1 from 0.00000, a, 0.00000 to 10, a, 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype 2
  set output 'MM-limit.png'
 replot
+set arrow 1 from 0.00000, a, 0.00000 to 100, a, 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype 2
  set xrange [0:100]
  set output 'MM-limit2.png'
 replot
 
  set xrange [0:10]
+set arrow 1 from 0.00000, a, 0.00000 to 10, a, 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype 2
 set label 1 "a" at 1, 9.400, 0.00000 left norotate back nopoint
  set output 'MM-limit_withLabel.png'
 replot
