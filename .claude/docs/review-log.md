@@ -103,6 +103,13 @@ them. All dates are in 2026.
   `supplement-function-figures`). The landmarks drawn were checked numerically against the
   formulas and the page renders with the dev profile; figures, captions and the sentence in
   the introduction await the author's check.
+- **10 November:** on the author's request, `Case_study_1/Theory.qmd` (rock crabs,
+  `MASS::crabs`) was written on branch `case-study`: introduction, research question,
+  exploration of the data, the differences between the species and between the sexes,
+  the answer and the comparison with Campbell and Mahon (1974), with edits by the author
+  during drafting and a final language pass. Added to the "Theory" sidebar of both
+  profiles and to the production render list. Renders with the dev profile; a generated
+  draft awaiting review (see `case-study-1.md`).
 
 | Material | Status and use |
 |---|---|
@@ -119,6 +126,7 @@ them. All dates are in 2026.
 | `Supplements/distributions.qmd` | Binomial, Poisson and Negative Binomial text is the author's (only code and function names changed); other entries, the three mussel examples and the RTMB changes are drafts |
 | Chapter 4 (theory and practical) | Draft: rewritten from scratch, trimmed by the author, then rewritten to the RTMB pattern. The author's own edits and sentences stay |
 | Chapter 5 (theory and practical), `Supplements/deterministic-functions.qmd`, `Supplements/calculus.qmd` | Drafts, rewritten from scratch |
+| `Case_study_1/Theory.qmd` | Generated draft (10 November), complete, with the author's own edits and sentences, which stay. Never a model of voice |
 | `Supplements/canned.qmd` | Draft, rewritten on 7 October. The paragraph of `index.qmd` that describes it is generated text in the author's first person and awaits check |
 | Chapter 6 (theory, practical) | Draft, rewritten from scratch on 3 and 4 November in seven stages (`Chapter_6/rewrite-handoff.md`), with an independent review (Stage 4) but no review by the author. Never a model of voice |
 | `Chapter_6/Lecture/` | Generated draft: a session of 150 minutes with 32 slides (121 minutes, 9 of slack) in three blocks with two breaks of 10 minutes, including one live demo of 18 minutes (2 at the slide, 16 in R) from `demo-cycle.R`. Every figure is a copy of a chapter figure or made from the chapter's code (`lecture-assets/figures.R`; `parameter-derivatives.png` is a copy of the Chapter 5 figure, whose axis labels are small at slide size). Slides, script and demo script await review. Never a model of voice |
