@@ -30,9 +30,14 @@ Read this before working on `Case_study_2/Theory.qmd`; AGENTS.md points here.
   drought; the page says the data do not tell why.
 - **Exploration:** base R figures with visible code (as Case study 1): growth curves per
   plot by year (Forrest `#0072B2`, open circles; PI `#E69F00`, filled), SD against mean of
-  plots per date (constant CV), and the relative growth rate from plot means between
-  dates (`dplyr::lead()`) on a log axis, which motivates the Gompertz curve and gives its
-  starting values (b ≈ 0.03/day from the slope, c ≈ 65 days where RGR = b, a ≈ e × 15 g).
+  plots per date and coefficient of variation against mean (roughly constant CV). The
+  section on the relative growth rate was removed (author's decision of 10 November: the
+  shape is visible in the growth plot). Gompertz starting values are read from the growth
+  plot: a ≈ 40 g (twice the final 1988 weight, as the curve approaches its asymptote
+  slowly), c ≈ 65 days (where the weight is a/e ≈ 15 g), b ≈ 0.03/day (slope at the
+  inflection, about 3 g/week, divided by 15 g). The fits are sensitive to b: from 0.04 or
+  0.05/day with the same a and c every candidate stops at the flat curve (b ≈ 0); 0.02 and
+  0.035 reach the same maximum.
 - **Model decisions (author's, 10 November):** compare logistic and Gompertz (Gompertz
   wins by about 55 AIC units; Gamma and LogNormal tied); **Gompertz main**, LogNormal
   (tied; Gamma fits about 7 times slower in RTMBdist, which matters for the simulation),

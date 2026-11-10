@@ -164,7 +164,7 @@ PI in orange with filled circles, and connect the measurements of each plot with
 in the order of the levels of `Variety` (Forrest first), as in Case study 1:
 
 ```{r}
-# Colours and symbols for Forrest and the PI, in the order of the levels of Variety.
+# Colours and symbols for Forrest and PI, in the order of the levels of Variety.
 variety_colours = c("#0072B2", "#E69F00")
 variety_symbols = c(1, 19)
 ```
@@ -173,7 +173,7 @@ The figure loops over the years, and within each year over the plots:
 
 ```{r}
 #| label: fig-soy-growth
-#| fig-cap: "Average leaf weight per plant of the 48 plots against the age of the plants, one panel per year. Blue lines with open circles are the plots of Forrest, orange lines with filled circles those of the PI."
+#| fig-cap: "Average leaf weight per plant of the 48 plots against the age of the plants, one panel per year. Blue lines with open circles are the plots of Forrest, orange lines with filled circles those of PI."
 #| fig-height: 4
 #| fig-width: 9
 # One panel per year; restore the graphics settings afterwards.
@@ -204,7 +204,7 @@ were still growing at the last date. The plots of the same variety in the same y
 to each other, but not identical, so the plots form groups of measurements that share a
 curve, as the plants of the CO₂ experiment did in Chapter 7.
 
-We can see already some differences between cultivars. The PI tends to lie
+We can see already some differences between cultivars. PI tends to lie
 above Forrest, slightly in 1988 and 1990 and more clearly in 1989, when Forrest reached only
 about 10 g per plant. The years differ as well, in the final leaf weight and in the rate of
 growth. These are three particular seasons, and Hudak and Patterson describe how they
@@ -224,12 +224,10 @@ the last grouping variable), and their ratio, the coefficient of variation:
 
 ```{r}
 #| message: false
-# Mean, standard deviation and coefficient of variation of the leaf weight of the plots
+# Mean, standard deviation of the leaf weight of the plots
 # at each date, for each year and variety.
 soy_dates = group_by(soy, Year, Variety, Time)
 soy_means = summarise(soy_dates, mean_weight = mean(weight), sd_weight = sd(weight))
-soy_means = mutate(soy_means, cv_weight = sd_weight / mean_weight)
-summary(soy_means$cv_weight)
 ```
 
 We plot the standard deviation against the mean, with the colours of the varieties:
@@ -247,58 +245,27 @@ plot(sd_weight ~ mean_weight, data = soy_means,
 ```
 
 The standard deviation grows roughly in proportion to the mean, so the coefficient of
-variation does not change much with the leaf weight: half of its values lie between about
-0.12 and 0.23, around a median of 0.17. A Normal distribution with a constant standard deviation would therefore be a poor model:
-it would allow far too much variation at the beginning and too little at the end. The Gamma
-and LogNormal distributions with a constant coefficient of variation, which we parameterised
-in Case study 1, describe exactly this pattern.
-
-## The relative growth rate
-
-The shape of a growth curve is easier to judge from the **relative growth rate**, the rate
-of growth per gram of leaf, which is the slope of the logarithm of the leaf weight against
-time:
-
-$$
-\frac{1}{W}\frac{dW}{dt}=\frac{d\log(W)}{dt},
-$$
-
-where $W$ is the leaf weight and $t$ the age (the equality follows from the chain rule of
-[Chapter 5](../Chapter_5/Theory.qmd#sec-function-derivatives)). It has the units 1/day: a
-relative growth rate of 0.1/day means that the leaf weight grows by about 10% per day. We can
-estimate it between two consecutive dates as the difference between the logarithms of the
-mean leaf weights divided by the number of days between the dates. The function `lead()` of
-`dplyr` shifts a column up by one row, so `lead(mean_weight)` is the mean at the next date
-of the same year and variety (because the data are still grouped by year and variety) and
-`NA` for the last date:
+variation does not change much with the leaf weight:
 
 ```{r}
-# Relative growth rate (1/day) between consecutive dates of each year and variety, placed
-# halfway between the two dates.
-soy_means = mutate(soy_means,
-                   rgr = (log(lead(mean_weight)) - log(mean_weight)) / (lead(Time) - Time),
-                   rgr_time = (Time + lead(Time)) / 2)
-```
-
-We plot it against the age, with a logarithmic vertical axis (`log = "y"`), for a reason that
-will become clear in a moment; `plot()` leaves out the missing values of the last dates:
-
-```{r}
-#| label: fig-soy-rgr
-#| fig-cap: "Relative growth rate of the leaf weight between consecutive dates, calculated from the mean of the plots of each year and variety (Forrest in blue, open circles; PI in orange, filled circles), on a logarithmic axis."
+#| label: fig-soy-sv
+#| fig-cap: "Coefficient of variation against the mean of the leaf weight of the plots measured on the same date, for each year and variety (Forrest in blue, open circles; PI in orange, filled circles)."
 #| fig-height: 4
 #| fig-width: 5
-plot(rgr ~ rgr_time, data = soy_means, log = "y",
+# Coefficient of variation
+soy_means = mutate(soy_means, cv_weight = sd_weight/mean_weight)
+plot(cv_weight ~ mean_weight, data = soy_means,
      col = variety_colours[as.numeric(soy_means$Variety)],
      pch = variety_symbols[as.numeric(soy_means$Variety)],
-     xlab = "Days after planting", ylab = "Relative growth rate (1/day)")
+     xlab = "Mean leaf weight (g per plant)",
+     ylab = "Cofficient of variation")
 ```
 
-The relative growth rate is highest at the start, between about 0.14 and 0.19/day, and it
-falls steadily as the plants grow, to about 0.05/day at 60 days. On the logarithmic axis this
-decline is close to a straight line. After 60 days the rate drops much faster, to between
-0.005 and 0.04/day at the end, as the plants stop adding leaf mass. The points of the two
-varieties are mixed, so the two genotypes differ little in the shape of their growth.
+Half of its values lie between about 0.12 and 0.23, around a median of 0.17. A Normal
+distribution with a constant standard deviation would therefore be a poor model. The Gamma
+and LogNormal distributions would be a better model as they imply a constance coefficient of
+variation. We could also model how this coefficient of variation changes and check if it is
+worth the complexity with model comparison.
 
 ## What we take forward
 
@@ -307,20 +274,19 @@ The exploration suggests the main elements of the model:
 - **The curve.** An S-shaped curve that levels off. The logistic curve, which Pinheiro and
   Bates used for these data, and the Gompertz curve of the
   [Supplement](../Supplements/deterministic-functions.qmd#sec-fn-gompertz) are the natural
-  candidates. They differ precisely in their relative growth rate, as we will see in the next
+  candidates. They differ in how they approach the asymptote, as we will see in the next
   section.
 - **The observations.** Leaf weights are positive, and their coefficient of variation is
   roughly constant, so we try the Gamma and the LogNormal distributions with a mean and a
   coefficient of variation.
-- **The groups.** The measurements of a plot share its curve, so the plot is the group.
-  Plots of the same variety and year differ mostly in the height of their curve, which is
-  what a random effect on the asymptote describes ([Chapter 7](../Chapter_7/Theory.qmd)).
+- **The groups.** The measurements of a plot share its curve, so the plot is the experimental unit.
+  Plots of the same variety and year differ mostly in the height of their curve, so we model
+  the variation in the asymptote with a random effect ([Chapter 7](../Chapter_7/Theory.qmd)).
 - **The predictors.** Variety and year are properties of the plot, so they are group-level
   predictors and enter as fixed effects. With only three years, we could not estimate a
-  variance among years with any precision (in Chapter 7, 12 plants gave an interval for the
+  variance among years with much precision (in Chapter 7, 12 plants gave an interval for the
   variance among plants that spanned a factor of ten), and our
-  question is about these particular comparisons, so the year is a fixed effect as well (as
-  in the analysis of Hudak and Patterson).
+  question is about these particular comparisons, so the year is a fixed effect as well.
 
 # The model {#sec-soy-model}
 
@@ -338,36 +304,28 @@ $$
 the logistic curve (left) and the Gompertz curve (right), where $a_j$ is the asymptote of plot
 $j$ (g per plant), $b_j$ is a rate (1/day) and $c_j$ is the age of the inflection point (days),
 at which the logistic curve reaches half of its asymptote and the Gompertz curve $1/e$, about
-37%, of it. The Supplement derives the relative growth rates of the
-[logistic](../Supplements/deterministic-functions.qmd#sec-fn-logistic) and the
-[Gompertz](../Supplements/deterministic-functions.qmd#sec-fn-gompertz) curves:
+37%, of it. The logistic curve is symmetric around its inflection point, while the Gompertz
+curve leaves low values quickly and approaches its asymptote slowly (see the
+[logistic](../Supplements/deterministic-functions.qmd#sec-fn-logistic) and
+[Gompertz](../Supplements/deterministic-functions.qmd#sec-fn-gompertz) entries of the
+Supplement). Since the leaf weight does not reach a clear plateau in every year, it is hard to
+tell from @fig-soy-growth which shape describes the data better, so we let the likelihood
+compare them.
 
-$$
-\frac{f'(t)}{f(t)}=b\left(1-\frac{f(t)}{a}\right)
-\qquad\text{and}\qquad
-\frac{f'(t)}{f(t)}=b\,e^{-b(t-c)}.
-$$
-
-In plain English, the relative growth rate of the logistic curve stays close to $b$ while the
-leaf weight is small compared with the asymptote, and falls to zero only as the curve
-approaches it. That of the Gompertz curve falls from the start, exponentially, so that its
-logarithm is a straight line with slope $-b$, and it equals $b$ at the inflection point. In
-@fig-soy-rgr the relative growth rate falls steadily from the first weeks, which is what the
-Gompertz curve does, but the fast drop after 60 days looks more like the end of a logistic
-curve. Neither curve describes the whole pattern exactly, so we let the likelihood compare
-them.
-
-The same figure gives us starting values. For the Gompertz curve, the slope of the logarithm
-of the relative growth rate is about $-\log(0.18/0.05)/(60-17)\approx-0.03$/day, so
-$b\approx0.03$/day; the relative growth rate equals $b$ at about 65 days, so $c\approx65$
-days; and at that age the leaf weight in 1988 is about 15 g, which is $a/e$, so
-$a\approx2.7\times15\approx40$ g. For the logistic curve we read the values from
-@fig-soy-growth, as in
-[Chapter 5](../Chapter_5/Theory.qmd#sec-starting-values): an asymptote of about 20 g, half of
-it reached at about 55 days, and about 40 days between 10% and 90% of the asymptote, so
-$b\approx4.4/40\approx0.1$/day (see the Supplement).^[The starting values matter more for
-the Gompertz curve than for the curves of the earlier chapters. From some starting values,
-for example those of the logistic curve, the optimiser stops at a nearly flat curve with $b$
+We read starting values for both curves from @fig-soy-growth, as in
+[Chapter 5](../Chapter_5/Theory.qmd#sec-starting-values). For the logistic curve, the
+asymptote is about 20 g, half of it is reached at about 55 days, and there are about 40 days
+between 10% and 90% of the asymptote, so $b\approx4.4/40\approx0.1$/day (see the Supplement).
+For the Gompertz curve, the asymptote cannot be read from the figure, because the curve
+approaches it so slowly that it would lie well above the last measurements. We start from
+about twice the leaf weight at the end of 1988, $a\approx40$ g. The curve then has its
+inflection point where the leaf weight is $a/e\approx15$ g, which in 1988 happens at about 65
+days, so $c\approx65$ days. The Supplement gives the slope at the inflection point as $ab/e$,
+that is, $b$ times the leaf weight at that point. Around 65 days the leaf weight of Forrest in
+1988 rises by about 3 g per week, so $b\approx(3/7)/15\approx0.03$/day.^[The starting values
+matter more for the Gompertz curve than for the curves of the earlier chapters. From some
+starting values, for example those of the logistic curve, or ours with $b=0.04$/day instead of
+0.03/day, the optimiser stops at a nearly flat curve with $b$
 close to zero, far below the maximum of the likelihood, and still reports a convergence code
 of zero. A plot of the fitted curves over the data, or a log-likelihood far below that of
 the logistic curve, gives the problem away. [Chapter 8](../Chapter_8/Theory.qmd) explains
@@ -391,11 +349,11 @@ $$
 +\beta_{a,\mathrm{PI}\times1989}P_jY^{1989}_j+\beta_{a,\mathrm{PI}\times1990}P_jY^{1990}_j+u_j,
 $$
 
-where $P_j$ is 1 if plot $j$ was sown with the PI and 0 for Forrest, $Y^{1989}_j$ is 1 for a
+where $P_j$ is 1 if plot $j$ was sown with PI and 0 for Forrest, $Y^{1989}_j$ is 1 for a
 plot of 1989 and $Y^{1990}_j$ is 1 for a plot of 1990. The baseline $a$ is the typical
-asymptote ($u_j=0$) of Forrest in 1988. $\beta_{a,\mathrm{PI}}$ is the effect of the PI in
+asymptote ($u_j=0$) of Forrest in 1988. $\beta_{a,\mathrm{PI}}$ is the effect of PI in
 1988, $\beta_{a,1989}$ and $\beta_{a,1990}$ are the effects of the years on Forrest, and the
-two interactions are the changes of the effect of the PI in 1989 and 1990 compared with 1988.
+two interactions are the changes of the effect of PI in 1989 and 1990 compared with 1988.
 $\log(b_j)$ and $c_j$ are written in the same way, with their own
 coefficients and without a random effect (we use the logarithm for $b$ because it is
 positive; $c$ is an age, which can take any value). The model with all these terms is the
@@ -435,7 +393,7 @@ combination, in the order Forrest 1988, PI 1988, Forrest 1989, PI 1989, Forrest 
 1990, and every plot gets the index (1 to 6) of its combination. Because the rows are sorted
 by year and variety, the year and the variety of the first row of a plot give its
 combination: `as.numeric()` turns a factor into the position of its level (1 to 3 for the
-year, 1 for Forrest and 2 for the PI):
+year, 1 for Forrest and 2 for PI):
 
 ```{r}
 # Names of the plots in the order of the rows, the index (1 to 48) of the plot of each
@@ -601,8 +559,8 @@ coefficient of variation of 0.2, the two distributions are a little more skewed 
 of Case study 1, but still similar enough that 412 measurements can hardly tell them apart.
 
 We continue with the Gompertz curve and the LogNormal distribution. The Gompertz curve
-describes the decline of the relative growth rate in the first two months, which is where
-most of the measurements are, and with a constant coefficient of variation the small leaf
+describes the growth in the first two months better, which is where most of the measurements
+are, and with a constant coefficient of variation the small leaf
 weights of the first weeks count as much as the large ones. The LogNormal distribution has a
 practical advantage on this page: our fits with the Gamma distribution take several times
 longer, and below we will fit the model hundreds of times for the
@@ -756,7 +714,7 @@ model.
 ## Leaf mass at the same age
 
 How should we express the difference between the varieties? The additive model has three
-effects of the PI on the asymptote (one per year) and one on the inflection point, and it is
+effects of PI on the asymptote (one per year) and one on the inflection point, and it is
 tempting to read the answer from the asymptotes. Their values, however, are not what they
 seem. The typical asymptotes and inflection points of the six combinations are:
 
@@ -781,15 +739,15 @@ The asymptote of Forrest in 1988 is about 67 g per plant, although no plot weigh
 31 g, and the inflection point lies at 81 days, after the last measurement of 1988 (77
 days). The data cover
 only the first part of the Gompertz curve, and the asymptote is an extrapolation far beyond
-it: it tells us where the curve would go if the relative growth rate kept declining as it
-did in the first two months, which, as @fig-soy-rgr shows, it does not. We will see in
+it: it tells us where the curve would go if the growth kept slowing down as gradually as in
+the first two months, which, as we will see in @sec-soy-checks, it does not. We will see in
 @sec-soy-logistic that the logistic curve gives completely different asymptotes for the same
 data. A parameter that lies outside the range of the data is a poor basis for an answer.
 
 So we answer the question with a quantity inside the range of the data: the ratio of the
 leaf mass of a typical PI plot to that of a typical Forrest plot of the same age and year,
 at 6, 8 and 10 weeks after planting (42, 56 and 70 days, within the period of measurement of
-every year). The ratio says how many times more leaf mass the PI has, so a ratio of 1.2 means
+every year). The ratio says how many times more leaf mass PI has, so a ratio of 1.2 means
 20% more. It is positive, so we calculate it on the log scale, as the difference between the
 logarithms of the two typical curves, and request its standard errors with `ADREPORT()`
 ([Chapter 6](../Chapter_6/Theory.qmd#sec-delta-method)). The NLL gains the ages as an element
@@ -799,7 +757,7 @@ years, which are the differences between combinations 2 and 1, 4 and 3, and 6 an
 `ADREPORT()` has to be called inside the NLL, we write the whole NLL again:
 
 ```{r}
-# The joint NLL with the log ratio of the typical leaf mass of the PI and Forrest at the
+# The joint NLL with the log ratio of the typical leaf mass of PI and Forrest at the
 # given ages, in each year.
 soy_nll = function(parms, data) {
   getAll(parms, data)
@@ -868,21 +826,21 @@ cbind(ratio_table[, c("year", "age")], round(ratio_table[, c("ratio", "lower", "
 ```
 
 In every year and at every age, a typical PI plot has more leaf mass than a typical Forrest
-plot of the same age. In 1988 and 1990 the difference is moderate: at 10 weeks the PI has
+plot of the same age. In 1988 and 1990 the difference is moderate: at 10 weeks PI has
 about 13% more leaf mass in 1988 (95% interval from 3% to 24% more) and 16% more in 1990
-(from 4% to 29%). In 1989 the difference is much larger: the PI has about 73% more leaf mass
+(from 4% to 29%). In 1989 the difference is much larger: PI has about 73% more leaf mass
 at 10 weeks, with an interval from 55% to 92%. In all three years the ratio is largest at 6
-weeks and declines a little as the plants grow, because the PI reaches each stage of its
+weeks and declines a little as the plants grow, because PI reaches each stage of its
 growth slightly earlier (see below): a head start of a day is worth more leaf mass, in
-relative terms, while the relative growth rate is high.
-The intervals of 1989 do not overlap with those of the other years, so the advantage of the
+relative terms, while the plants are small and grow fast.
+The intervals of 1989 do not overlap with those of the other years, so the advantage of
 PI is clearly not the same in every year; the intervals of 1988 and 1990 overlap almost
 completely.
 
 ## Timing and variation among plots
 
-The effect of the PI on the inflection point, `c_pi`, says how many days earlier (if
-negative) the PI reaches each stage of its growth. It has not been transformed, so we profile
+The effect of PI on the inflection point, `c_pi`, says how many days earlier (if
+negative) PI reaches each stage of its growth. It has not been transformed, so we profile
 it directly; for the standard deviation among plots we profile its logarithm and transform
 the endpoints back, as in
 [Chapter 7](../Chapter_7/Theory.qmd#sec-grouped-uncertainty). Each profile needs many fits
@@ -901,7 +859,7 @@ rbind(c_pi = confint(additive_profile_c)[1, ],
       sd_plot = exp(confint(additive_profile_sd)[1, ]))
 ```
 
-The PI reaches its inflection point about 1.2 days earlier than Forrest (profile interval
+PI reaches its inflection point about 1.2 days earlier than Forrest (profile interval
 from 0.5 to 1.8 days earlier). This is a small shift compared with the differences between
 the years (the inflection points of the years differ by about 10 and 20 days), but it is
 clearly different from zero. The standard deviation among plots is about 0.067 on the log
@@ -919,7 +877,7 @@ mark the three ages of the comparison with dashed lines:
 
 ```{r}
 #| label: fig-soy-fit
-#| fig-cap: "Average leaf weight per plant of the plots of Forrest (blue, open circles) and the PI (orange, filled circles), with the typical curves (u = 0) of the Gompertz model with additive effects. The dashed lines mark the ages of the comparison (6, 8 and 10 weeks)."
+#| fig-cap: "Average leaf weight per plant of the plots of Forrest (blue, open circles) and PI (orange, filled circles), with the typical curves (u = 0) of the Gompertz model with additive effects. The dashed lines mark the ages of the comparison (6, 8 and 10 weeks)."
 #| fig-height: 4
 #| fig-width: 9
 # Ages at which the typical curves (additive_typical, above) are drawn.
@@ -949,8 +907,9 @@ par(old_par)
 
 The typical curves follow the data closely during the first two months. At the last date of
 every year, however, most measurements lie below the curves, which keep rising while the
-measurements level off (most clearly for Forrest in 1989). This is the fast drop of the
-relative growth rate after 60 days, which the Gompertz curve does not have. The next section
+measurements level off (most clearly for Forrest in 1989). After about 60 days the growth
+slows down faster than the Gompertz curve, which approaches its asymptote slowly, allows. The
+next section
 checks this more formally.
 
 # Checking the model {#sec-soy-checks}
@@ -1094,7 +1053,7 @@ The logistic curve is worse by 54 units of AIC, as before. We compare its ratios
 with those of the Gompertz curve, and its typical asymptotes as well:
 
 ```{r}
-# Ratios of the PI to Forrest at 6, 8 and 10 weeks with the Gompertz and logistic curves.
+# Ratios of PI to Forrest at 6, 8 and 10 weeks with the Gompertz and logistic curves.
 logistic_ratio = summary(sdreport(logistic_additive$obj), select = "report")
 data.frame(year = ratio_table$year, age = ratio_table$age,
            gompertz = round(ratio_table$ratio, 2),
@@ -1223,21 +1182,21 @@ which is about the ratios, it does not matter.
 We asked how much leaf mass a PI plant develops compared with a Forrest plant of the same
 age, when water is not limiting, and whether the difference is the same in every year.
 
-The PI developed more leaf mass than Forrest at every age and in every year. At 10 weeks
+PI developed more leaf mass than Forrest at every age and in every year. At 10 weeks
 after planting, a typical PI plot had about 13% more leaf mass than a typical Forrest plot in
 1988 (95% confidence interval from 3% to 24%), 73% more in 1989 (from 55% to 92%) and 16%
-more in 1990 (from 4% to 29%). The difference was slightly larger at 6 weeks, because the PI
+more in 1990 (from 4% to 29%). The difference was slightly larger at 6 weeks, because PI
 reached each stage of its growth about 1.2 days earlier than Forrest (from 0.5 to 1.8 days).
 The difference was not the same in every year: in 1989, Forrest grew much less than in the
-other two years, while the PI grew only somewhat less, so the advantage of the PI was much
+other two years, while PI grew only somewhat less, so the advantage of PI was much
 larger. Hudak and Patterson attribute the poor growth of 1989 to the crust on the soil, the
-wet soil and the low light: the PI emerged more easily, perhaps because its seeds are
+wet soil and the low light: PI emerged more easily, perhaps because its seeds are
 larger, and they suggest that the low light reduced the branching of Forrest, which has many
 of its leaves on branches. Our data cannot test these explanations, and with three years we
 cannot say how often such years occur.
 
 For the hypothesis that motivated the experiment, the answer is clear: the drought tolerance
-of the PI does not come from a smaller leaf canopy, since under good conditions it develops
+of PI does not come from a smaller leaf canopy, since under good conditions it develops
 more leaf mass than the commercial variety. Its tolerance probably has other causes, such as
 the ability of its leaves to keep their water that Sloane and colleagues measured, or the
 larger, fibrous root system that Hudak and Patterson found.
@@ -1254,7 +1213,7 @@ of the samples, close to the 95% that they promise.
 
 Pinheiro and Bates (2000) used these data to introduce non-linear mixed models with
 covariates, and their analysis took a different route. They started by fitting a separate
-logistic curve to each plot (no pooling), and one of these 48 fits, for a plot of the PI in
+logistic curve to each plot (no pooling), and one of these 48 fits, for a plot of PI in
 1989, did not converge. A mixed model is less prone to this, because the distribution of
 plot effects keeps the curve of every plot within the range of the others. They then
 fitted a model with random effects on all three parameters of the logistic curve, allowed to
@@ -1275,8 +1234,8 @@ among plots. Our comparison of three candidates with AIC and leave-one-plot-out
 cross-validation led to the same model. Their
 estimates with the logistic curve are very close to those of our logistic fit in
 @sec-soy-logistic. Their asymptote of Forrest in 1988 is 19.4 g per plant (ours 19.6 g),
-that of the PI in 1988 is 1.6 g higher (ours 1.4 g), that of Forrest in 1989 is 8.8 g lower
-than in 1988 (ours 8.9 g), and their inflection point of the PI is 1.3 days earlier than that
+that of PI in 1988 is 1.6 g higher (ours 1.4 g), that of Forrest in 1989 is 8.8 g lower
+than in 1988 (ours 8.9 g), and their inflection point of PI is 1.3 days earlier than that
 of Forrest (ours 1.4 days with the logistic curve and 1.2 days with the Gompertz curve).
 Small differences are expected, as their model has a Normal distribution with a power
 variance function and a random effect on the asymptote itself, where ours is on its
@@ -1288,7 +1247,7 @@ two curves showed that the asymptotes, on which most of their effects of variety
 act, are determined largely by the shape assumed for the curve, while the leaf mass at a
 given age is determined by the data. Second, they judged the
 effects by their p-values, whereas we expressed the answer as ratios of leaf mass with
-confidence intervals, which say how large the advantage of the PI is and how precisely we
+confidence intervals, which say how large the advantage of PI is and how precisely we
 know it.
 
 Hudak and Patterson (1995) analysed the leaf mass together with their other measurements.
@@ -1297,17 +1256,17 @@ influence to the larger and more variable measurements at the end of the season 
 weights correspond to a standard deviation proportional to the curve to the power 0.85, close
 to our constant coefficient of variation), and compared the averages of the estimated
 parameters between years and genotypes with significance tests. Their asymptotes of the leaf
-mass (their "limiting growth values") were 19.3 g per plant for Forrest and 20.9 g for the PI
+mass (their "limiting growth values") were 19.3 g per plant for Forrest and 20.9 g for PI
 in 1988, 10.3 and 18.2 g in 1989, and 16.0 and 17.7 g in 1990. These are close to the typical
 asymptotes of our logistic fit in @sec-soy-logistic (19.6 and 21.0, 10.7 and 17.7, 15.6 and
 17.4 g), and their rates (0.122 to 0.137/day) are close to ours (0.125 to 0.141/day), which
 confirms that the data set comes from their experiment. They summarised the asymptotes of
-the PI as about 25% greater than those of Forrest, for both leaf mass and leaf area, and
-concluded, as we do, that the PI "does not appear to conserve water by a reduction in leaf
+PI as about 25% greater than those of Forrest, for both leaf mass and leaf area, and
+concluded, as we do, that PI "does not appear to conserve water by a reduction in leaf
 area production". Our analysis adds the size of the advantage at a given age, with its
 interval, and shows how much it depended on the year (from about 13% to 73% at 10 weeks),
 and it does not rest on asymptotes that, as we saw, depend on the curve that is assumed.
-Beyond the leaf mass, they found that the PI had a small number of very large leaves where
+Beyond the leaf mass, they found that PI had a small number of very large leaves where
 Forrest had many smaller ones, and a larger, fibrous root system, which they proposed as an
 explanation of its drought tolerance, alongside the properties of its leaves measured by
 Sloane and colleagues.
