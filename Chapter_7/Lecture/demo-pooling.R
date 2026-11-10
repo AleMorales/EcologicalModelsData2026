@@ -181,35 +181,59 @@ round(mixed_effects, 3)
 
 # ---- 4. Origin and chilling, and shrinkage --------------------------------------------
 
-# Indicators for each plant: 1 for Mississippi and 0 for Quebec; 1 for chilled and 0
-# for non-chilled.
-co2_data$mississippi = as.numeric(co2$Type[first_row] == "Mississippi")
-co2_data$chilled = as.numeric(co2$Treatment[first_row] == "chilled")
+# Origin and treatment of each plant, one row per plant.
+plant_info = co2[first_row, c("Type", "Treatment")]
+rownames(plant_info) = plant_names
+
+# Levels of the two factors; the first one is the reference level (Quebec, nonchilled).
+levels(plant_info$Type)
+levels(plant_info$Treatment)
+
+# Model matrix of the log asymptote: one row per plant, one column per coefficient. The
+# first plant of each origin and treatment: rows (1, 0, 0, 0) for Qn1 to (1, 1, 1, 1) for
+# Mc1.
+X_asym = model.matrix(~ Type * Treatment, data = plant_info)
+X_asym[c("Qn1", "Qc1", "Mn1", "Mc1"), ]
+
+# One row per combination of origin and treatment, and its model matrix. unique() keeps
+# the order of first appearance in the data, which the row names follow.
+group_info = unique(plant_info)
+rownames(group_info) = c(
+  "Quebec, non-chilled", "Quebec, chilled", "Mississippi, non-chilled",
+  "Mississippi, chilled"
+)
+X_asym_group = model.matrix(~ Type * Treatment, data = group_info)
+
+# The model matrices of the plants and of the four combinations, in the list of data.
+co2_data$X_asym = X_asym
+co2_data$X_asym_group = X_asym_group
 
 # Joint NLL with a random asymptote and the effects of origin and chilling.
 treatment_nll = function(parms, data) {
   getAll(parms, data)
   sd_plant = exp(log_sd_plant)
   nll = -sum(dnorm(x = u, mean = 0, sd = sd_plant, log = TRUE))
-  # Log asymptote of each plant: baseline, effects of its origin and treatment, deviation.
-  log_a = log_asym + beta_miss * mississippi + beta_chill * chilled +
-    beta_int * mississippi * chilled + u
+  # Log asymptote of each plant: its row of the model matrix times the coefficients,
+  # plus its deviation.
+  log_a = X_asym %*% beta_asym + u
   a = exp(log_a)
   b = exp(log_rate)
   sd_obs = exp(log_sd_obs)
-  # Logarithms of the factors by which chilling multiplies the asymptote (Quebec,
-  # Mississippi).
-  log_chill_factor = c(beta_chill, beta_chill + beta_int)
+  # Logarithms of the factors by which chilling multiplies the typical asymptote:
+  # chilled minus non-chilled, for Quebec and for Mississippi.
+  log_typical = X_asym_group %*% beta_asym
+  log_chill_factor = log_typical[c(2, 4)] - log_typical[c(1, 3)]
   ADREPORT(log_chill_factor)
   mu = a[plant] * (1 - exp(-b * (conc - c0)))
   nll - sum(dnorm(x = uptake, mean = mu, sd = sd_obs, log = TRUE))
 }
 
-# The effects start at zero, the other parameters as before.
+# One coefficient per column of the model matrix: log(30) for the baseline, zero for the
+# effects; the other parameters as before.
 treatment_obj = MakeADFun(
   cmb(treatment_nll, co2_data),
   list(
-    log_asym = log(30), beta_miss = 0, beta_chill = 0, beta_int = 0,
+    beta_asym = c(log(30), rep(0, ncol(X_asym) - 1)),
     log_rate = log(0.01), c0 = 50,
     log_sd_plant = log(0.1), log_sd_obs = log(2), u = rep(0, 12)
   ),
@@ -223,8 +247,14 @@ treatment_fit = optim(
   method = "BFGS"
 )
 treatment_fit$convergence
+
+# Standard errors on the optimised scales, with the coefficients named after the columns
+# of the model matrix.
 treatment_sd = sdreport(treatment_obj)
-summary(treatment_sd, select = "fixed")
+treatment_estimates = summary(treatment_sd, select = "fixed")
+beta_rows = rownames(treatment_estimates) == "beta_asym"
+rownames(treatment_estimates)[beta_rows] = colnames(X_asym)
+treatment_estimates
 
 # Standard deviation among plants without and with origin and chilling: 0.34 and 0.079.
 c(
@@ -244,18 +274,13 @@ chill_factor = exp(cbind(
 rownames(chill_factor) = c("Quebec", "Mississippi")
 chill_factor
 
-# Typical asymptote (u = 0) of the group of each plant, and the predicted asymptote of
-# each plant.
+# Typical asymptote (u = 0) of the group of each plant: its row of the model matrix times
+# the estimates. Then the predicted asymptote of each plant.
 treatment_par = treatment_fit$par
-typical_treatment = exp(
-  treatment_par[["log_asym"]] +
-    treatment_par[["beta_miss"]] * co2_data$mississippi +
-    treatment_par[["beta_chill"]] * co2_data$chilled +
-    treatment_par[["beta_int"]] * co2_data$mississippi * co2_data$chilled
-)
+beta_asym_mle = treatment_par[names(treatment_par) == "beta_asym"]
+typical_treatment = exp(drop(X_asym %*% beta_asym_mle))
 treatment_asym = typical_treatment *
   exp(summary(treatment_sd, select = "random")[, "Estimate"])
-names(treatment_asym) = plant_names
 
 # Mc2: 14.2 without pooling, 15.6 predicted, typical asymptote of its group 18.5.
 round(cbind(separate = separate_asym, predicted = treatment_asym,
@@ -275,13 +300,17 @@ legend("topright", legend = c("No pooling", "Predicted", "Typical"),
 
 # ---- 5. Curves of observed plants and the range of new plants -------------------------
 
-# Typical asymptote of chilled plants from Mississippi, and the range that contains the
-# asymptotes of 95% of new plants of this group: 18.5 (15.8 to 21.5).
+# Typical asymptote of each combination of origin and treatment, from the model matrix of
+# the four combinations, and the range that contains the asymptotes of 95% of new plants:
+# chilled plants from Mississippi 18.5 (15.8 to 21.5).
 sd_plant = exp(treatment_par[["log_sd_plant"]])
-log_typical_mc = treatment_par[["log_asym"]] + treatment_par[["beta_miss"]] +
-  treatment_par[["beta_chill"]] + treatment_par[["beta_int"]]
-new_plant_mc = exp(log_typical_mc + qnorm(p = c(0.5, 0.025, 0.975)) * sd_plant)
-new_plant_mc
+log_typical = drop(X_asym_group %*% beta_asym_mle)
+new_plant_asym = exp(cbind(
+  typical = log_typical,
+  lower = log_typical + qnorm(p = 0.025) * sd_plant,
+  upper = log_typical + qnorm(p = 0.975) * sd_plant
+))
+new_plant_asym
 
 # The shared part of the curve, on a grid of concentrations.
 conc_grid = seq(from = 95, to = 1000, length.out = 200)
@@ -296,9 +325,10 @@ plot(co2_data$conc[mc_rows], co2_data$uptake[mc_rows], pch = co2_data$plant[mc_r
 for (j in 10:12) {
   lines(conc_grid, treatment_asym[j] * curve_shape, lty = j - 9)
 }
-lines(conc_grid, new_plant_mc[1] * curve_shape, col = "#D55E00", lwd = 3)
-lines(conc_grid, new_plant_mc[2] * curve_shape, col = "#D55E00", lty = "dashed")
-lines(conc_grid, new_plant_mc[3] * curve_shape, col = "#D55E00", lty = "dashed")
+new_plant_mc = new_plant_asym["Mississippi, chilled", ]
+lines(conc_grid, new_plant_mc[["typical"]] * curve_shape, col = "#D55E00", lwd = 3)
+lines(conc_grid, new_plant_mc[["lower"]] * curve_shape, col = "#D55E00", lty = "dashed")
+lines(conc_grid, new_plant_mc[["upper"]] * curve_shape, col = "#D55E00", lty = "dashed")
 legend("bottomright", legend = c(plant_names[10:12], "Typical", "New plants (95%)"),
        pch = c(1, 2, 3, NA, NA), lty = c(1, 2, 3, 1, 2),
        col = c("black", "black", "black", "#D55E00", "#D55E00"), lwd = c(1, 1, 1, 3, 1))

@@ -44,9 +44,15 @@ Read this before working on `Case_study_2/Theory.qmd`; AGENTS.md points here.
   one random effect per plot on the log asymptote only (no second random effect); candidate
   structures compared with AIC and leave-one-plot-out (asymptote only, additive = Pinheiro
   and Bates's final structure, full); additive wins. One NLL takes the curve and the
-  distribution as elements of the list of data; candidates are `map` lists that fix
-  effects at zero. Indicators are `is_pi`, `is_1989`, `is_1990` (one value per
-  combination of year and variety).
+  distribution as elements of the list of data. **Effects through model matrices**
+  (author's decision of 10 November, as in Chapter 7 `#sec-model-matrix`): `plot_info`
+  (one row per plot) and `combinations` (the six combinations, Forrest 1988 to PI 1990)
+  give `X_a`, `X_b`, `X_c` and `X_a_typical` etc. with coefficients `beta_a`, `beta_b`,
+  `beta_c`; candidates are lists of three formulas (asymptote: `~ Variety * Year`, `~ 1`,
+  `~ 1`; additive: `~ Variety * Year`, `~ Year`, `~ Variety + Year`; full: all
+  `~ Variety * Year`), set up by `soy_setup()`; `map` is used only to score the held-out
+  plot. The comparison with Pinheiro and Bates notes that `nlme()` states the same
+  structure with a list of formulas in `fixed`.
 - **The answer is a quantity inside the data** (author's decision): the ratio PI/Forrest of
   typical leaf mass at 6, 8 and 10 weeks per year, by `ADREPORT()` on the log scale with
   Wald intervals transformed back. The Gompertz asymptotes (67 g for Forrest 1988) lie far

@@ -65,17 +65,21 @@ is the variance of these deviations among tanks.
 2. Fit two models to the 48 tanks and check the convergence of both: the model above, with
    `random = "u"`, and a Beta-Binomial model without tank deviations, with the precision
    $\kappa$ of Chapter 6, whose mean probability of survival $p_i$ has the same linear
-   predictor, $\operatorname{logit}(p_i)=\beta_0+\beta_{\mathrm{pred}}P_i$. Report the
-   estimates of $\beta_0$, $\beta_{\mathrm{pred}}$, $\sigma_{\mathrm{tank}}$ and $\kappa$.
-   Hint: the list of data holds the survivors, the initial numbers and an indicator of
-   predators, `as.numeric(ReedfrogPred$pred == "pred")`. There is one tank per row, so `u`
+   predictor, $\operatorname{logit}(p_i)=\beta_0+\beta_{\mathrm{pred}}P_i$. In both models,
+   build the linear predictor from the model matrix of `~ pred`. Report the estimates of
+   $\beta_0$, $\beta_{\mathrm{pred}}$, $\sigma_{\mathrm{tank}}$ and $\kappa$.
+   Hint: the list of data holds the survivors, the initial numbers and the model matrix
+   `X_p = model.matrix(~ pred, data = ReedfrogPred)`. Check its columns: `no` is the first
+   level of `pred`, so it is the reference, and the second column is $P_i$. In the NLL,
+   `X_p %*% beta_p` is then $\beta_0+\beta_{\mathrm{pred}}P_i$ for every tank
+   ([The model matrix](../Theory.qmd#sec-model-matrix)). There is one tank per row, so `u`
    has 48 elements and needs no index vector. The mixed model follows
    [Random effects in RTMB](../Theory.qmd#sec-random-effects-rtmb), with `plogis()` for the
    probability. The Beta-Binomial model follows
    [A model for overdispersed proportions](../../Chapter_6/Theory.qmd#sec-beta-binomial-fit)
    in Chapter 6: `dbetabinom()` of RTMBdist takes the shape parameters $\kappa p_i$ and
    $\kappa(1-p_i)$. Logits of zero (a probability of 0.5) are good starting values for
-   $\beta_0$ and $\beta_{\mathrm{pred}}$ in both models.
+   both elements of `beta_p` in both models.
 3. Compare the two models with AIC. The theory calls a comparison between models with and
    without random effects only an approximate guide: why does that reason not apply here?
    Hint: what do the two likelihoods describe, and is one model a special case of the other
@@ -88,8 +92,9 @@ is the variance of these deviations among tanks.
    hardly with them? Compare both with the mean probabilities of the Beta-Binomial model.
    Hint: proceed as in the practice "sapling growth in forest stands" in
    [Curves for observed and new plants](../Theory.qmd#sec-new-groups), with `plogis()` in
-   place of `exp()`. For the difference, look at the shape of the inverse logit near each
-   typical probability (the box on Jensen's inequality in
+   place of `exp()`; $\beta_0$ and $\beta_{\mathrm{pred}}$ are the elements of `par` named
+   `beta_p`, in the order of the columns of the model matrix. For the difference, look at the
+   shape of the inverse logit near each typical probability (the box on Jensen's inequality in
    [Chapter 4](../../Chapter_4/Theory.qmd#sec-wald-constrained)).
 5. Calculate the predicted tank effects, plot them against the initial density with the
    code below the questions, and calculate the mean predicted effect of each of the four
@@ -163,20 +168,32 @@ Beta-Binomial model they give the mean probability of the tanks (question 4).
 
 ### Question 2
 
-The list of data holds the number of survivors and of tadpoles of each tank and an
-indicator of predators. The joint NLL has the density of the deviations first, as in the
-theory:
+The list of data holds the number of survivors and of tadpoles of each tank and the model
+matrix of `~ pred`, with one row per tank. The levels of `pred` are `no` and `pred`, in this
+order, so the tanks without predators are the reference: the first column of the matrix,
+`(Intercept)`, is 1 for every tank, and the second, `predpred`, is 1 for the tanks with
+predators, which is $P_i$ of the model:
 
 ```{r}
-# Load the reed frog data and put the survivors, the initial number of tadpoles and an
-# indicator of predators (1 with predators, 0 without) in a list of data.
+# Load the reed frog data, and the model matrix of the logit of survival.
 data(ReedfrogPred, package = "emdbook")
+levels(ReedfrogPred$pred)
+X_p = model.matrix(~ pred, data = ReedfrogPred)
+colnames(X_p)
+
+# List of data: the survivors, the initial number of tadpoles and the model matrix.
 tank_data = list(
   survivors = ReedfrogPred$surv,
   tadpoles = ReedfrogPred$density,
-  predators = as.numeric(ReedfrogPred$pred == "pred")
+  X_p = X_p
 )
+```
 
+In the joint NLL, `X_p %*% beta_p` multiplies each column of the matrix by its coefficient
+and adds them up, which gives $\beta_0+\beta_{\mathrm{pred}}P_i$ for every tank at once.
+The density of the deviations comes first, as in the theory:
+
+```{r}
 # Joint NLL of the Binomial model with a random effect for each tank on the logit scale.
 tank_nll = function(parms, data) {
   getAll(parms, data)
@@ -184,19 +201,21 @@ tank_nll = function(parms, data) {
   # Minus the log density of the deviations of the tanks, before they are used.
   nll = -sum(dnorm(x = u, mean = 0, sd = sd_tank, log = TRUE))
   # Probability of survival in each tank, and minus the log probability of its survivors.
-  p = plogis(beta_0 + beta_pred * predators + u)
+  p = plogis(X_p %*% beta_p + u)
   nll - sum(dbinom(x = survivors, size = tadpoles, prob = p, log = TRUE))
 }
 ```
 
-We start from a probability of 0.5 in both treatments (logit 0), a standard deviation among
-tanks of 0.5 on the logit scale and one deviation of zero for each of the 48 tanks:
+We start from a probability of 0.5 in both treatments (every element of `beta_p` is zero),
+a standard deviation among tanks of 0.5 on the logit scale and one deviation of zero for
+each of the 48 tanks. `summary()` names both elements of `beta_p` after the vector, so we
+name its rows after the columns of the model matrix:
 
 ```{r}
 # Process the joint NLL, integrating out the deviations of the tanks, and fit it.
 tank_obj = MakeADFun(
   cmb(tank_nll, tank_data),
-  list(beta_0 = 0, beta_pred = 0, log_sd_tank = log(0.5), u = rep(0, 48)),
+  list(beta_p = rep(0, ncol(X_p)), log_sd_tank = log(0.5), u = rep(0, 48)),
   random = "u",
   silent = TRUE
 )
@@ -208,9 +227,12 @@ tank_fit = optim(
 )
 tank_fit$convergence
 
-# Standard errors on the optimised scales, and the standard deviation among tanks.
+# Standard errors on the optimised scales, with the rows of beta_p named after the
+# columns of the model matrix, and the standard deviation among tanks.
 tank_sd = sdreport(tank_obj)
-summary(tank_sd, select = "fixed")
+tank_summary = summary(tank_sd, select = "fixed")
+rownames(tank_summary)[rownames(tank_summary) == "beta_p"] = colnames(X_p)
+tank_summary
 exp(tank_fit$par[["log_sd_tank"]])
 ```
 
@@ -221,13 +243,13 @@ standard deviation of 0.78 on the logit scale.
 In the Beta-Binomial model of Chapter 6, the probability $p_i$ is the mean of a Beta
 distribution with precision $\kappa$, whose shape parameters are $\kappa p_i$ and
 $\kappa(1-p_i)$. We give $p_i$ the same linear predictor on the logit scale, without the
-deviations:
+deviations, from the same model matrix:
 
 ```{r}
 # NLL of the Beta-Binomial model: the logit of the mean probability depends on predators.
 betabinomial_nll = function(parms, data) {
   getAll(parms, data)
-  p = plogis(beta_0 + beta_pred * predators)
+  p = plogis(X_p %*% beta_p)
   kappa = exp(log_kappa)
   -sum(dbetabinom(
     x = survivors, size = tadpoles, shape1 = kappa * p, shape2 = kappa * (1 - p), log = TRUE
@@ -237,7 +259,7 @@ betabinomial_nll = function(parms, data) {
 # Process the NLL, starting from logit 0 and a precision of 10, and fit it.
 betabinomial_obj = MakeADFun(
   cmb(betabinomial_nll, tank_data),
-  list(beta_0 = 0, beta_pred = 0, log_kappa = log(10)),
+  list(beta_p = rep(0, ncol(X_p)), log_kappa = log(10)),
   silent = TRUE
 )
 betabinomial_fit = optim(
@@ -248,8 +270,11 @@ betabinomial_fit = optim(
 )
 betabinomial_fit$convergence
 
-# Estimates: the logits, and the precision on the original scale.
-betabinomial_fit$par
+# Estimates: the coefficients of the logit, named after the columns of the model matrix,
+# and the precision on the original scale.
+betabinomial_beta = betabinomial_fit$par[names(betabinomial_fit$par) == "beta_p"]
+names(betabinomial_beta) = colnames(X_p)
+betabinomial_beta
 exp(betabinomial_fit$par[["log_kappa"]])
 ```
 
@@ -284,15 +309,20 @@ bounds, as in the tanks without predators where nearly every tadpole survived.
 ### Question 4
 
 The probability of survival of a typical tank is the inverse logit of the linear predictor
-with $u_i=0$. The mean probability over tanks averages the inverse logit over the
-distribution of the deviations, which we approximate by the average over one million
-simulated deviations:
+with $u_i=0$, and $\beta_0$ and $\beta_{\mathrm{pred}}$ are the elements of `par` named
+`beta_p`, in the order of the columns of the model matrix. The mean probability over tanks
+averages
+the inverse logit over the distribution of the deviations, which we approximate by the
+average over one million simulated deviations:
 
 ```{r}
+# Coefficients of the logit: the intercept, then the effect of predators.
+beta_p_mle = tank_fit$par[names(tank_fit$par) == "beta_p"]
+
 # Probability of survival of a typical tank, without and with predators.
 logit_typical = c(
-  no = tank_fit$par[["beta_0"]],
-  pred = tank_fit$par[["beta_0"]] + tank_fit$par[["beta_pred"]]
+  no = beta_p_mle[[1]],
+  pred = beta_p_mle[[1]] + beta_p_mle[[2]]
 )
 plogis(logit_typical)
 
@@ -306,8 +336,8 @@ c(
 
 # Mean probability of survival under the Beta-Binomial model.
 plogis(c(
-  no = betabinomial_fit$par[["beta_0"]],
-  pred = betabinomial_fit$par[["beta_0"]] + betabinomial_fit$par[["beta_pred"]]
+  no = betabinomial_beta[[1]],
+  pred = betabinomial_beta[[1]] + betabinomial_beta[[2]]
 ))
 ```
 
@@ -371,8 +401,9 @@ $-0.32$), most clearly at densities of 25 and 35 tadpoles, whereas at a density 
 most tanks with predators have positive effects, whatever the size. So the size of the
 tadpoles, and perhaps the density, seem to explain part of the variation among the tanks
 with predators. They could enter the model as group-level predictors on the logit scale,
-with their interactions with predators, as origin and chilling did in the theory, and the
-models could then be compared with this one by AIC. The plot
+with their interactions with predators (a model matrix of `~ pred * size`, for example), as
+origin and chilling did in the theory, and the models could then be compared with this one
+by AIC. The plot
 suggests this, but it does not show it: the predicted effects are shrunk towards zero and
 have standard errors between 0.35 and 0.69, so a pattern among them is only a lead to
 follow with a model.
@@ -415,25 +446,31 @@ model; the nest deviations include its effect.
    [Observations in groups](../Theory.qmd#sec-grouped-observations) and the definition of a
    group-level predictor in
    [Group-level predictors and shrinkage](../Theory.qmd#sec-group-predictors). `table()` of
-   the index of the nests counts the visits, and `table()` of the index and the indicator
-   of satiated broods shows whether the food treatment changes within a nest. The levels of
+   the index of the nests counts the visits, and `table()` of the index and
+   `FoodTreatment` shows whether the food treatment changes within a nest. The levels of
    `Nest` are the names of the nests in alphabetical order, so `as.numeric(Owls$Nest)`
    gives an index from 1 to 27 whose names are `levels(Owls$Nest)`; `match()` as in
    Exercise 1 works as well. For the symbols, use `pch = ifelse(...)` as in Exercise 2 of
    the [Chapter 6 practical](../../Chapter_6/Practicals/no_solution.qmd).
 2. Fit the model without nest deviations (with $u_j=0$ for all nests) and the model with
-   them, with `dnbinom2()` of RTMBdist, and check the convergence. For the model with nest
+   them, with `dnbinom2()` of RTMBdist and the model matrix of `~ FoodTreatment + time`,
+   where `time` is a new column of the data frame with the time of arrival minus 24 (hours
+   from midnight), and check the convergence. For the model with nest
    deviations, report the effects of food and of one hour of time as factors by which they
    multiply the expected number of calls, with 95% Wald intervals. How do these factors and
    the shape $k$ change when the nest deviations are left out? Compare the two models with
    AIC. What does $\hat\sigma_{\mathrm{nest}}$ say about the nests? At midnight, between
    which values lies the expected number of calls of a deprived brood in 95% of new nests?
-   Hint: `u[nest]` is the
-   deviation of the nest of each visit, as `A[tree]` was the asymptote of the tree of each
-   measurement in Exercise 1. Calculate the Wald intervals on the log scale and transform
-   the endpoints with `exp()`, as for the factors of chilling in
+   Hint: both predictors are measured on the visits, so the model matrix `X_mu` is built
+   from the whole data frame and has one row per visit, not one per nest, and
+   `X_mu %*% beta_mu` is the log mean of each visit without its nest deviation
+   ([The model matrix](../Theory.qmd#sec-model-matrix)). `u[nest]` is the deviation of the
+   nest of each visit, as `A[tree]` was the asymptote of the tree of each measurement in
+   Exercise 1. Calculate the Wald intervals on the log scale and transform the endpoints
+   with `exp()`, as for the factors of chilling in
    [Group-level predictors and shrinkage](../Theory.qmd#sec-group-predictors), here from the
-   rows `beta_sat` and `beta_time` of `summary()` with `select = "fixed"`. For
+   second and third rows of `summary()` with `select = "fixed"`, which belong to the
+   second and third columns of `X_mu`. For
    $\hat\sigma_{\mathrm{nest}}$, see "Variance components and predicted plant effects" in
    [Maximum marginal likelihood](../Theory.qmd#sec-marginal-likelihood). A nest deviation
    multiplies the expected number of calls, so in 95% of new nests it lies between the
@@ -442,15 +479,21 @@ model; the nest deviations include its effect.
    Exercise 1 (see also
    [Curves for observed and new plants](../Theory.qmd#sec-new-groups)).
 3. Fit the model with one log mean $\log(\mu_{0j})$ for each nest and no distribution of
-   nest values (no pooling), with the same effects of food and time. Plot, against the
+   nest values (no pooling), with the same effects of food and time, from the model matrix
+   of `~ 0 + Nest + FoodTreatment + time`. Plot, against the
    number of visits of each nest, its log mean without pooling and its predicted log mean
    $\log(\hat\mu_0)+\hat u_j$ under the mixed model, with a line at the typical value
    $\log(\hat\mu_0)$. Which nests are pulled most towards the typical value, and why? Hint:
-   write the no-pooling NLL as in
-   [Three ways to share information](../Theory.qmd#sec-pooling): `log_mu0` starts as a
-   vector of 27 values, `log_mu0[nest]` selects the value of the nest of each visit, and
-   `names(fit$par) == "log_mu0"` selects the 27 estimates from `par`. For the reasons, see
-   [Shrinkage](../Theory.qmd#sec-shrinkage).
+   `0 +` removes the intercept, so the model matrix has one column for each nest, followed
+   by the columns of food and time (without an intercept only the first factor, `Nest`,
+   gets a column for every level, and `FoodTreatment` keeps its reference level): the
+   first form in "Two ways to encode groups" in
+   [Group-level predictors and shrinkage](../Theory.qmd#sec-group-predictors). The model
+   has no nest deviations, so the NLL of question 2 for the model without nest deviations
+   fits it unchanged, with this matrix in the list of data (see
+   [Three ways to share information](../Theory.qmd#sec-pooling) for no pooling). The first
+   27 elements of `par` are the log means of the nests, in the order of
+   `levels(Owls$Nest)`. For the reasons, see [Shrinkage](../Theory.qmd#sec-shrinkage).
 
 ## Solution
 
@@ -460,31 +503,24 @@ The observational unit is one visit of a parent to a nest, and the group is the 
 visits to a nest share its brood, its site and its parents. The levels of `Nest` are the
 names of the nests in alphabetical order, so `as.numeric()` gives the position of the nest
 of each visit among them, a number from 1 to 27, and `levels(Owls$Nest)` gives the names in
-the same order. We put the calls, an indicator of satiated broods, the time of arrival and
-the nest in a list of data. `table()` of the index of the nests counts the visits of each
-nest, and `table()` of the index and the indicator of satiated broods counts the visits of
-each nest under each treatment, so a zero in it would be a nest without visits under one
-of the treatments:
+the same order. `table()` of the index of the nests counts the visits of each nest, and
+`table()` of the index and `FoodTreatment` counts the visits of each nest under each
+treatment, so a zero in it would be a nest without visits under one of the treatments:
 
 ```{r}
-# Load the owl data and put the calls, the food treatment (1 satiated, 0 deprived), the
-# time of arrival (hours) and the nest of each visit in a list of data.
+# Load the owl data, the names of the nests and the index (1 to 27) of the nest of each
+# visit.
 data(Owls, package = "glmmTMB")
 nest_names = levels(Owls$Nest)
-owl_data = list(
-  calls = Owls$SiblingNegotiation,
-  satiated = as.numeric(Owls$FoodTreatment == "Satiated"),
-  time = Owls$ArrivalTime,
-  nest = as.numeric(Owls$Nest)
-)
+nest = as.numeric(Owls$Nest)
 
 # Number of visits of each nest.
-n_visits = as.numeric(table(owl_data$nest))
+n_visits = as.numeric(table(nest))
 range(n_visits)
 
-# Visits of each nest (rows) under each food treatment (columns 0 deprived, 1 satiated),
-# and the number of zeros in this table.
-nest_food = table(owl_data$nest, owl_data$satiated)
+# Visits of each nest (rows) under each food treatment (columns), and the number of zeros
+# in this table.
+nest_food = table(nest, Owls$FoodTreatment)
 sum(nest_food == 0)
 ```
 
@@ -498,7 +534,8 @@ and 52 visits, so they contribute very different amounts of information.
 #| label: fig-owl_calls
 #| fig-cap: "Number of calls of barn owl nestlings at 599 visits of a parent, against the time of arrival of the parent, for deprived (open circles) and satiated broods (filled circles)."
 # Calls against the time of arrival, with a filled symbol for satiated broods.
-plot(calls ~ time, data = owl_data, pch = ifelse(owl_data$satiated == 1, 16, 1),
+plot(SiblingNegotiation ~ ArrivalTime, data = Owls,
+     pch = ifelse(Owls$FoodTreatment == "Satiated", 16, 1),
      xlab = "Time of arrival (hours)", ylab = "Number of calls")
 legend("topright", legend = c("Deprived", "Satiated"), pch = c(1, 16), bty = "n")
 ```
@@ -510,14 +547,31 @@ later in the night.
 ### Question 2
 
 The model without nest deviations is a Negative Binomial model with the log mean as a
-linear function of the two predictors, with the time measured from midnight so that $\mu_0$
-is the expected number at midnight. `dnbinom2()` takes the mean and the shape:
+linear function of the two predictors. We add to the data frame the time measured from
+midnight, so that $\mu_0$ is the expected number at midnight. Both predictors are measured
+on the visits, so the model matrix is built from the whole data frame and has one row per
+visit, unlike that of the plants in the theory, which has one row per plant. `Deprived` is
+the first level of `FoodTreatment`, so deprived broods are the reference and the column
+`FoodTreatmentSatiated` is $S_{ij}$ of the model:
+
+```{r}
+# Time of arrival in hours from midnight, and the model matrix of the log mean, with one
+# row per visit.
+Owls$time = Owls$ArrivalTime - 24
+X_mu = model.matrix(~ FoodTreatment + time, data = Owls)
+colnames(X_mu)
+
+# List of data: the calls, the model matrix and the nest of each visit.
+owl_data = list(calls = Owls$SiblingNegotiation, X_mu = X_mu, nest = nest)
+```
+
+`dnbinom2()` takes the mean and the shape:
 
 ```{r}
 # NLL of the Negative Binomial model without nest deviations.
 owl_nll = function(parms, data) {
   getAll(parms, data)
-  mu = exp(log_mu0 + beta_sat * satiated + beta_time * (time - 24))
+  mu = exp(X_mu %*% beta_mu)
   -sum(dnbinom2(x = calls, mu = mu, size = exp(log_k), log = TRUE))
 }
 
@@ -528,7 +582,7 @@ nest_nll = function(parms, data) {
   # Minus the log density of the deviations of the nests, before they are used.
   nll = -sum(dnorm(x = u, mean = 0, sd = sd_nest, log = TRUE))
   # u[nest] is the deviation of the nest of each visit.
-  mu = exp(log_mu0 + beta_sat * satiated + beta_time * (time - 24) + u[nest])
+  mu = exp(X_mu %*% beta_mu + u[nest])
   nll - sum(dnbinom2(x = calls, mu = mu, size = exp(log_k), log = TRUE))
 }
 ```
@@ -538,7 +592,7 @@ standard deviation among nests of 0.5 on the log scale:
 
 ```{r}
 # Starting values shared by the two models.
-owl_start = list(log_mu0 = log(5), beta_sat = 0, beta_time = 0, log_k = 0)
+owl_start = list(beta_mu = c(log(5), rep(0, ncol(X_mu) - 1)), log_k = 0)
 
 # Fit the model without nest deviations.
 owl_obj = MakeADFun(cmb(owl_nll, owl_data), owl_start, silent = TRUE)
@@ -557,16 +611,18 @@ c(owl = owl_fit$convergence, nest = nest_fit$convergence)
 
 Both fits converged. The effects are on the log scale of the mean, so their exponentials
 are the factors by which they multiply the expected number of calls, and we calculate their
-Wald intervals on the log scale and transform the endpoints back:
+Wald intervals on the log scale and transform the endpoints back. As in Exercise 2, we name
+the rows of `beta_mu` after the columns of the model matrix:
 
 ```{r}
 # Estimates and standard errors of the model with nest deviations.
 nest_sd = sdreport(nest_obj)
 nest_summary = summary(nest_sd, select = "fixed")
+rownames(nest_summary)[rownames(nest_summary) == "beta_mu"] = colnames(X_mu)
 
 # Factors of food and of one hour of time, with 95% Wald intervals from the log scale.
 critical_value = qnorm(p = 0.975)
-effect_rows = c("beta_sat", "beta_time")
+effect_rows = c("FoodTreatmentSatiated", "time")
 exp(cbind(
   factor = nest_summary[effect_rows, "Estimate"],
   lower = nest_summary[effect_rows, "Estimate"] -
@@ -576,9 +632,11 @@ exp(cbind(
 ))
 
 # Typical mean at midnight (deprived), the two factors and the shape k, without and with
-# nest deviations: the exponentials of the estimates.
-owl_rows = c("log_mu0", "beta_sat", "beta_time", "log_k")
-owl_compare = exp(rbind(without = owl_fit$par[owl_rows], with = nest_fit$par[owl_rows]))
+# nest deviations: the exponentials of every estimate except log_sd_nest.
+owl_compare = exp(rbind(
+  without = owl_fit$par,
+  with = nest_fit$par[names(nest_fit$par) != "log_sd_nest"]
+))
 colnames(owl_compare) = c("mu0", "food_factor", "time_factor", "k")
 owl_compare
 
@@ -608,14 +666,15 @@ mean. It is not small, so it is no longer close to a coefficient of variation. A
 deviation multiplies the expected number of calls, so in 95% of new nests the expected
 number lies between the typical value multiplied by $e^{-1.96\,\hat\sigma_{\mathrm{nest}}}$
 and by $e^{1.96\,\hat\sigma_{\mathrm{nest}}}$. For a deprived brood at midnight the typical
-value is $\hat\mu_0$:
+value is $\hat\mu_0$, the exponential of the intercept:
 
 ```{r}
 # Factors that give the range of 95% of new nests, and the range of the expected number
-# of calls at midnight of a deprived brood.
+# of calls at midnight of a deprived brood (the intercept is the first element of beta_mu).
 new_nest_factor = exp(qnorm(p = c(0.025, 0.975)) * exp(nest_fit$par[["log_sd_nest"]]))
 new_nest_factor
-exp(nest_fit$par[["log_mu0"]]) * new_nest_factor
+beta_mu_mle = nest_fit$par[names(nest_fit$par) == "beta_mu"]
+exp(beta_mu_mle[[1]]) * new_nest_factor
 ```
 
 In 95% of nests the expected number of calls lies between 0.44 and 2.3 times that of the
@@ -627,22 +686,27 @@ out the uncertainty of the estimates themselves.
 
 ### Question 3
 
-Without pooling, `log_mu0` is a vector with one log mean for each nest, and
-`log_mu0[nest]` selects the value of the nest of each visit; the effects of food and time
-and the shape are shared by all the nests:
+Without pooling, each nest has its own log mean, and the effects of food and time and the
+shape are shared by all the nests. With `0 +` the formula has no intercept, so the model
+matrix has one column for each nest, which is 1 at the visits to that nest and 0 at the
+others, followed by the columns `FoodTreatmentSatiated` and `time` (without an intercept
+only the first factor gets a column for every level, so `FoodTreatment` keeps its reference
+level). Its first 27
+coefficients are the log means of the nests (at midnight, for a deprived brood), in the
+order of `nest_names`. This model has no nest deviations, so the NLL of the model without
+them, `owl_nll`, fits it unchanged with this model matrix in the list of data:
 
 ```{r}
-# NLL with one log mean for each nest (no pooling).
-separate_nll = function(parms, data) {
-  getAll(parms, data)
-  mu = exp(log_mu0[nest] + beta_sat * satiated + beta_time * (time - 24))
-  -sum(dnbinom2(x = calls, mu = mu, size = exp(log_k), log = TRUE))
-}
+# List of data with one column of the model matrix for each nest (no pooling).
+separate_data = list(
+  calls = Owls$SiblingNegotiation,
+  X_mu = model.matrix(~ 0 + Nest + FoodTreatment + time, data = Owls)
+)
 
 # Process the NLL with the same starting values, one log mean per nest, and fit it.
 separate_obj = MakeADFun(
-  cmb(separate_nll, owl_data),
-  list(log_mu0 = rep(log(5), 27), beta_sat = 0, beta_time = 0, log_k = 0),
+  cmb(owl_nll, separate_data),
+  list(beta_mu = c(rep(log(5), 27), 0, 0), log_k = 0),
   silent = TRUE
 )
 separate_fit = optim(
@@ -662,9 +726,11 @@ other:
 ```{r}
 #| label: fig-owl_shrinkage
 #| fig-cap: "Log mean number of calls at midnight of a deprived brood in each of 27 barn owl nests, against the number of visits of the nest: without pooling (open circles) and predicted by the model with nest deviations (filled circles). The dashed line is the typical value of the mixed model."
-# Log means without pooling and predicted by the mixed model.
-log_mu0_separate = separate_fit$par[names(separate_fit$par) == "log_mu0"]
-log_mu0_typical = nest_fit$par[["log_mu0"]]
+# Log means without pooling (the first 27 elements of beta_mu) and predicted by the mixed
+# model.
+separate_beta = separate_fit$par[names(separate_fit$par) == "beta_mu"]
+log_mu0_separate = separate_beta[1:27]
+log_mu0_typical = beta_mu_mle[[1]]
 log_mu0_predicted = log_mu0_typical + summary(nest_sd, select = "random")[, "Estimate"]
 
 plot(n_visits, log_mu0_separate, xlab = "Number of visits",
@@ -721,16 +787,20 @@ X_{ij}\mid u_j\sim\operatorname{Poisson}\left(\lambda_j\right),
 \log(\lambda_j)=\log(\lambda_0)+\beta_{\mathrm{mined}}M_j+\beta_{\mathrm{cover}}C_j+u_j.
 $$
 
-1. Calculate the mean count at mined and at unmined sites. Fit the Poisson model with the
-   effects of mining and cover and without site deviations ($u_j=0$ for all sites). Set
-   seed 741, simulate 1,000 hypothetical samples from the fit and calculate the scaled
-   quantile residuals of the counts with DHARMa. Report the dispersion statistic and the
-   residuals of the sites. What do they show? Hint: `site` is an ordered factor, so build
-   the index of the sites with `match()`, as for the trees in Exercise 1. The two predictors
-   are properties of the sites, so put them in the list of data as vectors with one value
-   per site, taken from the first count of each site, as origin and treatment in
-   [Group-level predictors and shrinkage](../Theory.qmd#sec-group-predictors); in the NLL,
-   `lambda[site]` is then the mean of each count. For the residuals, mark the counts with
+1. Calculate the mean count at mined and at unmined sites. Make `no` the reference level
+   of `mined` with `relevel()`, so that $\log(\lambda_0)$ belongs to an unmined site, and
+   fit the Poisson model with the model matrix of `~ mined + cover` and without site
+   deviations ($u_j=0$ for all sites). Set seed 741, simulate 1,000 hypothetical samples
+   from the fit and calculate the scaled quantile residuals of the counts with DHARMa.
+   Report the dispersion statistic and the residuals of the sites. What do they show?
+   Hint: `model.matrix()` takes the first level of a factor as the reference, so look at
+   `levels(spring$mined)` before and after
+   `spring$mined = relevel(spring$mined, ref = "no")`. `site` is an ordered factor, so
+   build the index of the sites with `match()`, as for the trees in Exercise 1. The two
+   predictors are properties of the sites, so build the model matrix from a data frame with
+   one row per site, taken from the first count of each site, as `plant_info` in
+   [The model matrix](../Theory.qmd#sec-model-matrix); in the NLL, `lambda[site]` is then
+   the mean of each count. For the residuals, mark the counts with
    `OBS()` and follow [Checking a grouped model](../Theory.qmd#sec-grouped-residuals), with
    `integerResponse = TRUE` because the counts are whole numbers (as in
    [Checking the fitted model](../../Chapter_6/Theory.qmd#sec-response-residuals) in
@@ -755,43 +825,54 @@ $$
 4. Fit the same model with
    `glmmTMB::glmmTMB(count ~ mined + cover + (1 | site), family = poisson, data = ...)`,
    without attaching the package. Compare the log-likelihood and the estimates with those
-   of question 2. Why do the intercept and the effect of mining differ? Hint: `data` is the
-   data frame of the counts of the spring salamander, whose columns have the names used in
-   the formula. `logLik()`, `glmmTMB::fixef()` and `glmmTMB::VarCorr()` return the
-   log-likelihood, the fixed effects and the standard deviation among sites (see the
-   [`glmmTMB` supplement](../../Supplements/canned.qmd#sec-glmmtmb)). For the difference,
-   compare `levels(spring$mined)` with your indicator of mining, and see "Two ways to encode
-   groups" in [Group-level predictors and shrinkage](../Theory.qmd#sec-group-predictors).
+   of question 2. Why are the fixed effects of the two fits the same? Hint: `data` is the
+   data frame of the counts of the spring salamander of question 1 (with the new reference
+   level of `mined`), whose columns have the names used in the formula. `logLik()`,
+   `glmmTMB::fixef()` and `glmmTMB::VarCorr()` return the log-likelihood, the fixed effects
+   and the standard deviation among sites (see the
+   [`glmmTMB` supplement](../../Supplements/canned.qmd#sec-glmmtmb)). Compare the names of
+   the fixed effects with the column names of your model matrix, and see
+   [The model matrix](../Theory.qmd#sec-model-matrix).
 
 ## Solution
 
 ### Question 1
 
-The site is the group, and both predictors are properties of the sites, so, as in the
-theory, the list of data holds them as vectors with one value for each site, in the order
-of the integer index of the sites. `site` is an ordered factor, so we build the index with
-`match()`, numbering the sites in the order in which they first appear, and take the
-predictors of each site from its first count:
+The levels of `mined` are `yes` and `no`, in this order, and `model.matrix()` takes the
+first level of a factor as the reference. Without `relevel()`, the intercept would be the
+log mean of a mined site and the column of mining would be 1 for the unmined sites. With
+`no` as the first level, the column `minedyes` is $M_j$ of the model:
 
 ```{r}
-# Spring salamander counts, the index (1 to 23) of the site of each count, and the row of
-# the first count of each site.
+# Spring salamander counts, with the unmined sites as the reference level of mined.
 data(Salamanders, package = "glmmTMB")
 spring = Salamanders[Salamanders$spp == "GP", ]
+levels(spring$mined)
+spring$mined = relevel(spring$mined, ref = "no")
+levels(spring$mined)
+```
+
+The site is the group, and both predictors are properties of the sites, so, as for the
+plants in the theory, we build the model matrix from a data frame with one row for each
+site, in the order of the integer index of the sites. `site` is an ordered factor, so we
+build the index with `match()`, numbering the sites in the order in which they first
+appear, and take the predictors of each site from its first count:
+
+```{r}
+# Index (1 to 23) of the site of each count, and the row of the first count of each site.
 site_names = unique(as.character(spring$site))
 site = match(as.character(spring$site), site_names)
 first_row = match(seq_along(site_names), site)
 
-# List of data: the counts and their sites, and for each site an indicator of mining
-# (1 mined, 0 not mined) and its cover.
-salamander_data = list(
-  count = spring$count,
-  site = site,
-  mined = as.numeric(spring$mined[first_row] == "yes"),
-  cover = spring$cover[first_row]
-)
+# Predictors of each site, and the model matrix of the log mean, with one row per site.
+site_info = spring[first_row, c("mined", "cover")]
+X_lambda = model.matrix(~ mined + cover, data = site_info)
+colnames(X_lambda)
 
-# Mean count at mined and unmined sites.
+# List of data: the counts, their sites and the model matrix.
+salamander_data = list(count = spring$count, site = site, X_lambda = X_lambda)
+
+# Mean count at unmined and mined sites.
 tapply(spring$count, spring$mined, mean)
 ```
 
@@ -806,14 +887,14 @@ poisson_nll = function(parms, data) {
   getAll(parms, data)
   count = OBS(count)
   # Mean count of each site.
-  lambda = exp(log_lambda0 + beta_mined * mined + beta_cover * cover)
+  lambda = exp(X_lambda %*% beta_lambda)
   -sum(dpois(x = count, lambda = lambda[site], log = TRUE))
 }
 
 # Process the NLL, starting from a mean of one and no effects, and fit it.
 poisson_obj = MakeADFun(
   cmb(poisson_nll, salamander_data),
-  list(log_lambda0 = 0, beta_mined = 0, beta_cover = 0),
+  list(beta_lambda = rep(0, ncol(X_lambda))),
   silent = TRUE
 )
 poisson_fit = optim(
@@ -839,11 +920,7 @@ for (j in seq_len(n_sim)) {
 }
 
 # Expected count of each visit: the mean of its site.
-poisson_lambda = exp(
-  poisson_fit$par[["log_lambda0"]] +
-    poisson_fit$par[["beta_mined"]] * salamander_data$mined +
-    poisson_fit$par[["beta_cover"]] * salamander_data$cover
-)
+poisson_lambda = exp(X_lambda %*% poisson_fit$par)
 poisson_residuals = DHARMa::createDHARMa(
   simulatedResponse = poisson_simulations,
   observedResponse = salamander_data$count,
@@ -882,15 +959,14 @@ site_poisson_nll = function(parms, data) {
   sd_site = exp(log_sd_site)
   # Minus the log density of the deviations of the sites, before they are used.
   nll = -sum(dnorm(x = u, mean = 0, sd = sd_site, log = TRUE))
-  lambda = exp(log_lambda0 + beta_mined * mined + beta_cover * cover + u)
+  lambda = exp(X_lambda %*% beta_lambda + u)
   nll - sum(dpois(x = count, lambda = lambda[site], log = TRUE))
 }
 
 # Process the joint NLL, integrating out the deviations of the sites, and fit it.
 site_poisson_obj = MakeADFun(
   cmb(site_poisson_nll, salamander_data),
-  list(log_lambda0 = 0, beta_mined = 0, beta_cover = 0, log_sd_site = log(0.5),
-       u = rep(0, 23)),
+  list(beta_lambda = rep(0, ncol(X_lambda)), log_sd_site = log(0.5), u = rep(0, 23)),
   random = "u",
   silent = TRUE
 )
@@ -904,17 +980,20 @@ site_poisson_fit$convergence
 ```
 
 The fit converged. The effects of mining and cover are on the log scale of the mean, so we
-transform their estimates and the endpoints of their Wald intervals with `exp()`:
+transform their estimates and the endpoints of their Wald intervals with `exp()`, after
+naming the rows of `beta_lambda` after the columns of the model matrix:
 
 ```{r}
 # Estimates and standard errors on the optimised scales.
 site_poisson_sd = sdreport(site_poisson_obj)
 site_poisson_summary = summary(site_poisson_sd, select = "fixed")
+beta_rows = rownames(site_poisson_summary) == "beta_lambda"
+rownames(site_poisson_summary)[beta_rows] = colnames(X_lambda)
 site_poisson_summary
 
 # Factors of mining and of one unit of cover, with 95% Wald intervals from the log scale
 # (critical_value from Exercise 3).
-effect_rows = c("beta_mined", "beta_cover")
+effect_rows = c("minedyes", "cover")
 exp(cbind(
   factor = site_poisson_summary[effect_rows, "Estimate"],
   lower = site_poisson_summary[effect_rows, "Estimate"] -
@@ -923,8 +1002,9 @@ exp(cbind(
     critical_value * site_poisson_summary[effect_rows, "Std. Error"]
 ))
 
-# Typical mean at an unmined site of average cover, and the standard deviation among sites.
-exp(site_poisson_fit$par[c("log_lambda0", "log_sd_site")])
+# Typical mean at an unmined site of average cover (the intercept), and the standard
+# deviation among sites.
+exp(site_poisson_summary[c("(Intercept)", "log_sd_site"), "Estimate"])
 
 # AIC of the two models.
 K_salamanders = c(poisson = length(poisson_fit$par), site = length(site_poisson_fit$par))
@@ -962,12 +1042,10 @@ for (j in seq_len(n_sim)) {
   site_poisson_simulations[, j] = site_poisson_obj$simulate(site_poisson_fit$par)$count
 }
 
-# Expected count of each visit: the typical mean (u = 0) of its site.
-site_poisson_lambda = exp(
-  site_poisson_fit$par[["log_lambda0"]] +
-    site_poisson_fit$par[["beta_mined"]] * salamander_data$mined +
-    site_poisson_fit$par[["beta_cover"]] * salamander_data$cover
-)
+# Expected count of each visit: the typical mean (u = 0) of its site, from the estimates
+# of beta_lambda.
+beta_lambda_mle = site_poisson_fit$par[names(site_poisson_fit$par) == "beta_lambda"]
+site_poisson_lambda = exp(X_lambda %*% beta_lambda_mle)
 site_poisson_residuals = DHARMa::createDHARMa(
   simulatedResponse = site_poisson_simulations,
   observedResponse = salamander_data$count,
@@ -1014,27 +1092,32 @@ salamander_glmmtmb = glmmTMB::glmmTMB(
 # Log-likelihoods of the two fits.
 c(glmmtmb = as.numeric(logLik(salamander_glmmtmb)), rtmb = -site_poisson_fit$value)
 
-# Fixed effects and the standard deviation among sites (column Std.Dev.) of glmmTMB.
-glmmTMB::fixef(salamander_glmmtmb)$cond
-glmmTMB::VarCorr(salamander_glmmtmb)
+# Fixed effects of the two fits.
+cbind(
+  glmmtmb = glmmTMB::fixef(salamander_glmmtmb)$cond,
+  rtmb = beta_lambda_mle
+)
 
-# The same quantities from the RTMB fit.
-site_poisson_fit$par
+# Standard deviation among sites: column Std.Dev. of glmmTMB, then the RTMB fit.
+glmmTMB::VarCorr(salamander_glmmtmb)
 exp(site_poisson_fit$par[["log_sd_site"]])
 ```
 
-The two log-likelihoods agree, as do the effect of cover and the standard deviation among
-sites. The intercept and the effect of mining differ only because the two fits encode the
-two kinds of site differently (see "Two ways to encode groups" in the
-[theory](../Theory.qmd#sec-group-predictors)). The levels of `mined` are `yes` and `no`, in
-that order, so glmmTMB takes the mined sites as the reference level: its intercept,
-$-3.11$, is the log mean of a typical mined site with average cover, and `minedno`,
-$3.74$, is the difference of an unmined site from it. In the RTMB fit the reference is an
-unmined site, so `log_lambda0` is the log mean of a typical unmined site, and
-`beta_mined`, $-3.74$, is the difference of a mined site from it. The intercept of glmmTMB
-equals `log_lambda0 + beta_mined` ($0.633-3.743=-3.110$). Both fits describe the same
-model with the same likelihood, so they give the same fitted means; which encoding to use
-depends on the question.
+The two log-likelihoods agree, and so do the fixed effects and the standard deviation among
+sites, up to differences smaller than 0.001 (the two fits use different optimisers,
+which stop at slightly different points). The fixed effects are the same because
+`glmmTMB()` builds the model matrix of its fixed effects from `mined + cover` with
+`model.matrix()`, as we did: its columns, and so its coefficients, have the names of the
+columns of `X_lambda`. The reference level is a property of the factor and not of the
+formula, and `spring` holds `mined` with the level `no` first since question 1, so in both
+fits the intercept is the log mean of a typical unmined site with average cover and
+`minedyes` is the difference of a mined site from it. The only difference is that glmmTMB
+builds the matrix with one row per count, whereas `X_lambda` has one row per site; mining
+and cover are properties of the sites, so the four rows of the counts of a site are the
+same, and both give each count the mean of its site. `(1 | site)` then adds a deviation for
+each site to the intercept, as `+ u` does in our NLL. The reference level of question 1
+therefore matters for glmmTMB in the same way: with the original order of the levels, its
+intercept would belong to a typical mined site.
 
 # Exercise 5: Variance among groups estimated by ML and REML
 
@@ -1282,7 +1365,7 @@ In 42 of the 500 samples the maximum likelihood estimate of $\sigma^2_{\mathrm{s
 below 0.01, and in 37 the REML estimate is. An estimate close to zero says that the sites do
 not differ beyond what the variation among quadrats explains, so every predicted site
 effect is shrunk almost completely to zero and the model is close to complete pooling (as
-in Question 5 of the theory's quiz). It occurs because the six site means also vary by
+in Question 6 of the theory's quiz). It occurs because the six site means also vary by
 chance: each is the mean of five quadrats, with a variance of $\sigma^2_{\mathrm{obs}}/5$
 from the quadrats alone, and with only six sites the site means can by chance lie closer
 together than the quadrats suggest. The maximum of the likelihood then lies at
