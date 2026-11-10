@@ -6,9 +6,9 @@
 # Every PNG is an unchanged copy of a figure chunk of Chapter_7/Theory.qmd:
 #   co2-data.png             fig-co2_data            slide 5   (7 x 5)
 #   laplace.png              fig-laplace             slide 14  (7 x 5)
-#   shrinkage.png            fig-shrinkage           slide 19  (7 x 6)
-#   new-plants.png           fig-new_plants          slide 23  (7 x 5)
-#   residuals-grouped.png    fig-residuals_grouped   slide 25  (9 x 4.5)
+#   shrinkage.png            fig-shrinkage           slide 20  (7 x 6)
+#   new-plants.png           fig-new_plants          slide 24  (7 x 5)
+#   residuals-grouped.png    fig-residuals_grouped   slide 26  (9 x 4.5)
 # The chunks of the chapter run here in the chapter's order, after the chunks that they
 # depend on, with the chapter's seed (701) for the simulations behind the residuals, so
 # that the random draws are the same. Only the last line of each figure chunk changes, to
@@ -66,7 +66,7 @@ ggsave(
 )
 
 # ---------------------------------------------------------------------------
-# No pooling (needed for slide 19)
+# No pooling (needed for slide 20)
 # ---------------------------------------------------------------------------
 
 # Connect a likelihood to a data set.
@@ -192,7 +192,7 @@ print(c(
 ))
 
 # ---------------------------------------------------------------------------
-# The random asymptote, with and without origin and chilling (needed for slide 19)
+# The random asymptote, with and without origin and chilling (needed for slide 20)
 # ---------------------------------------------------------------------------
 
 # Joint negative log-likelihood with a random asymptote.
@@ -232,25 +232,41 @@ mixed_sd = sdreport(mixed_obj)
 # Row of the first measurement of each plant.
 first_row = match(seq_along(plant_names), plant)
 
-# Indicators for each plant: 1 for Mississippi and 0 for Quebec; 1 for chilled and 0
-# for non-chilled.
-co2_data$mississippi = as.numeric(co2$Type[first_row] == "Mississippi")
-co2_data$chilled = as.numeric(co2$Treatment[first_row] == "chilled")
+# Origin and treatment of each plant, one row per plant.
+plant_info = co2[first_row, c("Type", "Treatment")]
+rownames(plant_info) = plant_names
+
+# Model matrix of the log asymptote: one row per plant, one column per coefficient.
+X_asym = model.matrix(~ Type * Treatment, data = plant_info)
+
+# One row per combination of origin and treatment, and its model matrix. unique() keeps
+# the order of first appearance in the data, which the row names follow.
+group_info = unique(plant_info)
+rownames(group_info) = c(
+  "Quebec, non-chilled", "Quebec, chilled", "Mississippi, non-chilled",
+  "Mississippi, chilled"
+)
+X_asym_group = model.matrix(~ Type * Treatment, data = group_info)
+
+# The model matrices of the plants and of the four combinations, in the list of data.
+co2_data$X_asym = X_asym
+co2_data$X_asym_group = X_asym_group
 
 # Joint NLL with a random asymptote and the effects of origin and chilling.
 treatment_nll = function(parms, data) {
   getAll(parms, data)
   sd_plant = exp(log_sd_plant)
   nll = -sum(dnorm(x = u, mean = 0, sd = sd_plant, log = TRUE))
-  # Log asymptote of each plant: baseline, effects of its origin and treatment, deviation.
-  log_a = log_asym + beta_miss * mississippi + beta_chill * chilled +
-    beta_int * mississippi * chilled + u
+  # Log asymptote of each plant: its row of the model matrix times the coefficients,
+  # plus its deviation.
+  log_a = X_asym %*% beta_asym + u
   a = exp(log_a)
   b = exp(log_rate)
   sd_obs = exp(log_sd_obs)
-  # Logarithms of the factors by which chilling multiplies the asymptote (Quebec,
-  # Mississippi).
-  log_chill_factor = c(beta_chill, beta_chill + beta_int)
+  # Logarithms of the factors by which chilling multiplies the typical asymptote:
+  # chilled minus non-chilled, for Quebec and for Mississippi.
+  log_typical = X_asym_group %*% beta_asym
+  log_chill_factor = log_typical[c(2, 4)] - log_typical[c(1, 3)]
   ADREPORT(log_chill_factor)
   mu = a[plant] * (1 - exp(-b * (conc - c0)))
   nll - sum(dnorm(x = uptake, mean = mu, sd = sd_obs, log = TRUE))
@@ -260,7 +276,7 @@ treatment_nll = function(parms, data) {
 treatment_obj = MakeADFun(
   cmb(treatment_nll, co2_data),
   list(
-    log_asym = log(30), beta_miss = 0, beta_chill = 0, beta_int = 0,
+    beta_asym = c(log(30), rep(0, ncol(X_asym) - 1)),
     log_rate = log(0.01), c0 = 50,
     log_sd_plant = log(0.1), log_sd_obs = log(2), u = rep(0, 12)
   ),
@@ -278,17 +294,13 @@ treatment_fit = optim(
 treatment_sd = sdreport(treatment_obj)
 
 # ---------------------------------------------------------------------------
-# Slide 19: shrinkage.png (copy of fig-shrinkage; 7 x 6)
+# Slide 20: shrinkage.png (copy of fig-shrinkage; 7 x 6)
 # ---------------------------------------------------------------------------
 
 # Typical asymptote (u = 0) of the group of each plant under the model with predictors.
 treatment_par = treatment_fit$par
-typical_treatment = exp(
-  treatment_par[["log_asym"]] +
-    treatment_par[["beta_miss"]] * co2_data$mississippi +
-    treatment_par[["beta_chill"]] * co2_data$chilled +
-    treatment_par[["beta_int"]] * co2_data$mississippi * co2_data$chilled
-)
+beta_asym_mle = treatment_par[names(treatment_par) == "beta_asym"]
+typical_treatment = exp(drop(X_asym %*% beta_asym_mle))
 typical_mixed = rep(exp(mixed_fit$par[["log_asym"]]), times = 12)
 
 # Asymptotes without pooling, predicted by each mixed model, and typical.
@@ -329,29 +341,26 @@ ggsave(
   width = 7, height = 6, dpi = fig_dpi
 )
 
-# The numbers quoted on slide 19: Mc2 without pooling, predicted without and with the
+# The numbers quoted on slide 20: Mc2 without pooling, predicted without and with the
 # predictors, and the typical asymptote of its group.
 print(round(c(
   separate = separate_asym[["Mc2"]],
   mixed = shrink_data$predicted[11],
   treatment = shrink_data$predicted[23],
-  typical = typical_treatment[11]
+  typical = typical_treatment[["Mc2"]]
 ), 2))
 
 # ---------------------------------------------------------------------------
-# Slide 23: new-plants.png (copy of fig-new_plants; 7 x 5)
+# Slide 24: new-plants.png (copy of fig-new_plants; 7 x 5)
 # ---------------------------------------------------------------------------
 
 # Estimates, the standard deviation among plants, and the log typical asymptote of each
-# combination of origin and treatment.
+# combination of origin and treatment (drop() turns the matrix of one column into a
+# vector named after its rows).
 treatment_par = treatment_fit$par
 sd_plant = exp(treatment_par[["log_sd_plant"]])
-mississippi_group = c(0, 0, 1, 1)
-chilled_group = c(0, 1, 0, 1)
-log_typical = treatment_par[["log_asym"]] +
-  treatment_par[["beta_miss"]] * mississippi_group +
-  treatment_par[["beta_chill"]] * chilled_group +
-  treatment_par[["beta_int"]] * mississippi_group * chilled_group
+beta_asym_mle = treatment_par[names(treatment_par) == "beta_asym"]
+log_typical = drop(X_asym_group %*% beta_asym_mle)
 
 # Typical asymptote and the range that contains the asymptotes of 95% of new plants
 # (µmol/m²/s).
@@ -360,10 +369,6 @@ new_plant_asym = exp(cbind(
   lower = log_typical + qnorm(p = 0.025) * sd_plant,
   upper = log_typical + qnorm(p = 0.975) * sd_plant
 ))
-rownames(new_plant_asym) = c(
-  "Quebec, non-chilled", "Quebec, chilled", "Mississippi, non-chilled",
-  "Mississippi, chilled"
-)
 print(round(new_plant_asym, 1))
 
 # Concentrations at which the curves are drawn, and the shared part of the curve.
@@ -423,7 +428,7 @@ ggsave(
 )
 
 # ---------------------------------------------------------------------------
-# Slide 25: residuals-grouped.png (copy of fig-residuals_grouped; 9 x 4.5)
+# Slide 26: residuals-grouped.png (copy of fig-residuals_grouped; 9 x 4.5)
 # ---------------------------------------------------------------------------
 
 # The NLL with origin and chilling, with one more line.
@@ -433,12 +438,12 @@ treatment_nll = function(parms, data) {
   uptake = OBS(uptake)
   sd_plant = exp(log_sd_plant)
   nll = -sum(dnorm(x = u, mean = 0, sd = sd_plant, log = TRUE))
-  log_a = log_asym + beta_miss * mississippi + beta_chill * chilled +
-    beta_int * mississippi * chilled + u
+  log_a = X_asym %*% beta_asym + u
   a = exp(log_a)
   b = exp(log_rate)
   sd_obs = exp(log_sd_obs)
-  log_chill_factor = c(beta_chill, beta_chill + beta_int)
+  log_typical = X_asym_group %*% beta_asym
+  log_chill_factor = log_typical[c(2, 4)] - log_typical[c(1, 3)]
   ADREPORT(log_chill_factor)
   mu = a[plant] * (1 - exp(-b * (conc - c0)))
   nll - sum(dnorm(x = uptake, mean = mu, sd = sd_obs, log = TRUE))
@@ -448,7 +453,7 @@ treatment_nll = function(parms, data) {
 treatment_obj = MakeADFun(
   cmb(treatment_nll, co2_data),
   list(
-    log_asym = log(30), beta_miss = 0, beta_chill = 0, beta_int = 0,
+    beta_asym = c(log(30), rep(0, ncol(X_asym) - 1)),
     log_rate = log(0.01), c0 = 50,
     log_sd_plant = log(0.1), log_sd_obs = log(2), u = rep(0, 12)
   ),
@@ -470,10 +475,10 @@ for (j in seq_len(n_sim)) {
   treatment_simulations[, j] = treatment_obj$simulate(treatment_fit$par)$uptake
 }
 
-# Expected uptake of each measurement on the typical curve (u = 0) of its plant's group.
-typical_asym = exp(log_typical)
-plant_group = 1 + 2 * co2_data$mississippi + co2_data$chilled
-treatment_expected = typical_asym[plant_group[co2_data$plant]] *
+# Typical asymptote (u = 0) of each plant, then the expected uptake of each measurement
+# on the typical curve of its plant's origin and treatment.
+typical_asym = exp(drop(X_asym %*% beta_asym_mle))
+treatment_expected = typical_asym[co2_data$plant] *
   (1 - exp(-exp(treatment_par[["log_rate"]]) * (co2_data$conc - treatment_par[["c0"]])))
 
 # Scaled quantile residuals and the two standard panels.
@@ -489,7 +494,7 @@ png(
 plot(treatment_residuals)
 dev.off()
 
-# The numbers quoted on slide 25: the dispersion statistic (0.80) and the residuals of
+# The numbers quoted on slide 26: the dispersion statistic (0.80) and the residuals of
 # the plants (Mc2 0.010).
 print(DHARMa::testDispersion(treatment_residuals, plot = FALSE)$statistic)
 plant_residuals = DHARMa::recalculateResiduals(treatment_residuals, group = co2_data$plant)

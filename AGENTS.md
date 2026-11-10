@@ -124,7 +124,8 @@ elsewhere.
   applied to a fitted curve through `ADREPORT()`), never calculated by hand in R; BIC,
   leave-one-out cross-validation and scaled quantile residuals in Chapter 6; conditional
   distributions, random effects, the marginal likelihood and the Laplace approximation,
-  REML and leave-one-group-out cross-validation in Chapter 7 (grouped models are compared
+  REML, model matrices from formulas (`model.matrix()`) and leave-one-group-out
+  cross-validation in Chapter 7 (grouped models are compared
   with AIC and leave-one-group-out only, because $n$ is ambiguous for AICc and BIC); how
   gradient methods search, exact and approximate gradients, stopping rules, the diagnosis of
   a fit, multiple starting values, structural and practical identifiability, estimates at a

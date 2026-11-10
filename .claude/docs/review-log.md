@@ -117,6 +117,13 @@ them. All dates are in 2026.
   production render list; `nlme` added to `publish.yml`; `{#sec-grouped-recipe}` added to
   the recipe heading of Chapter 7. Renders with the dev profile; a generated draft awaiting
   review (see `case-study-2.md`).
+- **10 November:** on the author's request (plan `.plans/plan_model_matrix.md`, approved),
+  predictors are built with `model.matrix()` from formulas in the Chapter 7 theory (new
+  subsection `#sec-model-matrix`, comparison by formulas), the Chapter 7 practical
+  (Exercises 2 to 4), the Chapter 7 lecture (new slide 18) and demo, and Case study 2. Done
+  by sub-agents, with every printed number checked identical against the previous code and
+  an independent review; rule added to `STYLE_GUIDE.md` and a glossary entry "Model matrix".
+  Generated draft awaiting review.
 
 | Material | Status and use |
 |---|---|
@@ -139,7 +146,7 @@ them. All dates are in 2026.
 | Chapter 6 (theory, practical) | Draft, rewritten from scratch on 3 and 4 November in seven stages (`Chapter_6/rewrite-handoff.md`), with an independent review (Stage 4) but no review by the author. Never a model of voice |
 | `Chapter_6/Lecture/` | Generated draft: a session of 150 minutes with 32 slides (121 minutes, 9 of slack) in three blocks with two breaks of 10 minutes, including one live demo of 18 minutes (2 at the slide, 16 in R) from `demo-cycle.R`. Every figure is a copy of a chapter figure or made from the chapter's code (`lecture-assets/figures.R`; `parameter-derivatives.png` is a copy of the Chapter 5 figure, whose axis labels are small at slide size). Slides, script and demo script await review. Never a model of voice |
 | Chapter 7 (theory, practical) | Draft, rewritten from scratch on 4 November in seven stages (`Chapter_7/rewrite-handoff.md`), with an independent review (Stage 4) but no review by the author. Never a model of voice |
-| `Chapter_7/Lecture/` | Generated draft: a session of 150 minutes with 31 slides (116 minutes, 14 of slack) in three blocks with two breaks of 10 minutes, including one live demo of 18 minutes (2 at the slide, 16 in R) from `demo-pooling.R`. Every figure is made from the chapter's code (`lecture-assets/figures.R`); the DHARMa panels of slide 25 are small at slide size. Slides, script and demo script await review. Never a model of voice |
+| `Chapter_7/Lecture/` | Generated draft: a session of 150 minutes with 32 slides (120 minutes, 10 of slack; slide 18 on the model matrix added 10 November) in three blocks with two breaks of 10 minutes, including one live demo of 18 minutes (2 at the slide, 16 in R) from `demo-pooling.R`. Every figure is made from the chapter's code (`lecture-assets/figures.R`); the DHARMa panels of slide 26 are small at slide size. Slides, script and demo script await review. Never a model of voice |
 | Chapter 8 (theory, practical) | Draft, rewritten from scratch on 4 November in seven stages (`Chapter_8/rewrite-handoff.md`), with an independent review (Stage 4) but no review by the author. The theory is longer than its target (about 1,940 source lines against 1,600; open question in the handoff). Never a model of voice |
 | `Chapter_8/Lecture/` | Generated draft: a session of 150 minutes with 31 slides (116 minutes, 14 of slack) in three blocks with two breaks of 10 minutes, including one live demo of 18 minutes (2 at the slide, 16 in R) from `demo-diagnosis.R`. Three figures are copies of chapter figures and one is a schematic (`lecture-assets/figures.R`). Slides, script and demo script await review. Never a model of voice |
 

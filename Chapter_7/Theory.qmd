@@ -47,7 +47,8 @@ In this chapter, we will cover:
 - the marginal likelihood and the Laplace approximation;
 - random effects in RTMB;
 - variance components and predicted group effects;
-- group-level predictors and shrinkage;
+- group-level predictors and the model matrix;
+- shrinkage;
 - the uncertainty of variance components and REML;
 - curves for observed and new groups;
 - checking a grouped model;
@@ -67,11 +68,11 @@ it answers and the R tools that we use for it.
 | The model | How does the curve vary among groups, and how do the observations vary around it? | the deviations of the groups as a vector in the list of parameters |
 | Pooling | Should the groups share one curve, have curves of their own, or something in between? | one NLL for each choice |
 | The fit | Which parameter values make the observations most probable, once the deviations of the groups are integrated out? | `MakeADFun()` with `random`, `optim()`, `sdreport()` |
-| Predictors | Do properties of the groups explain part of the variation among them? | fixed effects on the parameter that varies, `ADREPORT()` |
+| Predictors | Do properties of the groups explain part of the variation among them? | `model.matrix()` with a formula, `%*%` in the NLL, `ADREPORT()` |
 | Uncertainty and REML | How precisely are the variances estimated, and how biased are they? | `TMB::tmbprofile()`, `random` with the fixed effects |
 | New groups | Which curves do we expect for groups that were not measured? | the distribution of the group deviations, `qnorm()` |
 | Checking | Does the fitted model describe the observations and the groups? | `OBS()`, `obj$simulate()`, `DHARMa::recalculateResiduals()` |
-| Comparison | Which of the candidate models do the data support? | AIC, `map` in `MakeADFun()`, a `for` loop that leaves out one group at a time |
+| Comparison | Which of the candidate models do the data support? | AIC, one formula per candidate, `map` in `MakeADFun()`, a `for` loop that leaves out one group at a time |
 
 : Roadmap of the chapter.
 
@@ -820,8 +821,7 @@ $$
 
 where $M_j$ is 1 for a plant from Mississippi and 0 for a plant from Quebec, $C_j$ is 1 for
 a chilled plant and 0 otherwise, and $a$ is now the typical asymptote (with $u_j=0$) of the
-baseline group, the non-chilled plants from Quebec (the first levels of the factors `Type`
-and `Treatment`, which R uses as reference levels). $\beta_{\mathrm{miss}}$ is the effect
+baseline group, the non-chilled plants from Quebec. $\beta_{\mathrm{miss}}$ is the effect
 of the origin in non-chilled plants, $\beta_{\mathrm{chill}}$ the effect of chilling in
 plants from Quebec, and the **interaction** $\beta_{\mathrm{int}}$ is the difference between
 the effect of chilling in plants from Mississippi and in plants from Quebec. On the log
@@ -830,40 +830,159 @@ multiplies the typical asymptote of a Quebec plant by $e^{\beta_{\mathrm{chill}}
 of a Mississippi plant by $e^{\beta_{\mathrm{chill}}+\beta_{\mathrm{int}}}$, and
 $e^{\beta_{\mathrm{int}}}$ is the ratio of these two factors.
 
+## The model matrix {#sec-model-matrix}
+
+The **model matrix** (also called the design matrix) of a set of predictors has one row
+for each group, or for each observation when the predictors are measured on the
+observations, and one column for each coefficient. Row $j$ holds the values by which the
+coefficients are multiplied for group $j$, so for the equation above it holds $1$ (for the
+baseline $\log(a)$), $M_j$, $C_j$ and $M_jC_j$. We could calculate the indicators $M_j$
+and $C_j$ ourselves, but R builds the whole matrix from a **formula** with the function
+`model.matrix()`, and from now on we let it do this bookkeeping in every model with
+predictors.
+
+The predictors are properties of the plants, so the model matrix has one row for each
+plant, in the order of `plant_names`. We take the origin and the treatment of each plant
+from its first measurement, and name the rows after the plants:
+
+```{r}
+# Row of the first measurement of each plant.
+first_row = match(seq_along(plant_names), plant)
+
+# Origin and treatment of each plant, one row per plant.
+plant_info = co2[first_row, c("Type", "Treatment")]
+rownames(plant_info) = plant_names
+```
+
+`model.matrix()` takes a formula and a data frame. The formula `~ Type * Treatment` asks
+for the effects of origin and treatment and their interaction (`Type * Treatment` is short
+for `Type + Treatment + Type:Treatment`). We print the rows of the first plant of each
+combination of origin and treatment:
+
+```{r}
+# Model matrix of the log asymptote: one row per plant, one column per coefficient.
+X_asym = model.matrix(~ Type * Treatment, data = plant_info)
+X_asym[c("Qn1", "Qc1", "Mn1", "Mc1"), ]
+```
+
+The first column, `(Intercept)`, is 1 for every plant and goes with the baseline
+$\log(a)$. The name of each other column joins the name of a factor and the level for
+which the column is 1: `TypeMississippi` is $M_j$, `Treatmentchilled` is $C_j$, and
+`TypeMississippi:Treatmentchilled`, with a colon for an interaction, is the product
+$M_jC_j$, which is 1 only for the chilled plants from Mississippi. The levels that appear
+in no column name, `Quebec` and `nonchilled`, are those of the baseline.
+
+`model.matrix()` takes the first level of each factor as its **reference level**, the
+level that belongs to the baseline, and gives a column to each of the other levels.
+`levels()` shows the order of the levels:
+
+```{r}
+# Levels of the two factors; the first one is the reference level.
+levels(plant_info$Type)
+levels(plant_info$Treatment)
+```
+
+`relevel()` makes another level the first one. With
+`relevel(plant_info$Type, ref = "Mississippi")`, for example, the baseline would be the
+non-chilled plants from Mississippi, and a column `TypeQuebec` would hold the effect of the
+Quebec origin. The model would be the same, with the same maximum likelihood and the same
+fitted curves, but its coefficients would be other differences between the groups. So we
+choose as reference levels those against which the question compares the others. Here the
+reference levels of the data set suit the question: the effects of origin and of chilling
+are measured against plants from Quebec, the colder origin, that were not chilled.
+
+::: {.callout-warning title="Reference levels and ordered factors"}
+Two properties of a factor change the columns of the model matrix without any message.
+The reference level is the first level, and for a factor created with `factor()` the
+levels are in alphabetical order unless they are given; check them with `levels()` and
+change the reference with `relevel()`. And an **ordered** factor (`is.ordered()` returns
+`TRUE`) gets polynomial contrasts: its columns, with names ending in `.L`, `.Q`, and so on,
+describe linear, quadratic and higher trends across the levels and are not differences
+from a reference level. The column `Plant` of `CO2` is an ordered factor. Convert an
+ordered factor with `factor(x, ordered = FALSE)` before building the model matrix.
+:::
+
+In the NLL the log asymptotes of all the plants are calculated at once with the **matrix
+product** `X_asym %*% beta_asym`, where `beta_asym` is the vector of the four coefficients
+in the order of the columns, $\log(a)$, $\beta_{\mathrm{miss}}$, $\beta_{\mathrm{chill}}$
+and $\beta_{\mathrm{int}}$. The matrix product multiplies each column of the matrix by its
+coefficient and adds up the columns, so row $j$ of the result is
+$\log(a)+\beta_{\mathrm{miss}}M_j+\beta_{\mathrm{chill}}C_j+\beta_{\mathrm{int}}M_jC_j$,
+the sum of the equation without $u_j$. For a non-chilled plant from Quebec the row of the
+matrix is $(1, 0, 0, 0)$ and the product is $\log(a)$; for a chilled plant from Mississippi
+the row is $(1, 1, 1, 1)$ and the product is
+$\log(a)+\beta_{\mathrm{miss}}+\beta_{\mathrm{chill}}+\beta_{\mathrm{int}}$.
+
+The same formula gives the typical log asymptote of any combination of origin and
+treatment: a data frame with one row per combination gives a model matrix with one row per
+combination, and its product with the coefficients gives their typical log asymptotes
+($u_j=0$). This is what `predict()` does with the argument `newdata` for the models that
+R fits from a formula. We take the four combinations from the distinct rows of
+`plant_info`. `unique()` keeps the factors with their levels, so the reference levels and
+the columns are those of `X_asym` (a data frame typed by hand needs factors with the same
+levels, for example `factor("chilled", levels = levels(plant_info$Treatment))`). It also
+keeps the rows in the order in which they first appear in the data: Quebec non-chilled,
+Quebec chilled, Mississippi non-chilled and Mississippi chilled. The names that we give to
+the rows follow that order. We add both matrices to the list of data:
+
+```{r}
+# One row per combination of origin and treatment, and its model matrix.
+group_info = unique(plant_info)
+rownames(group_info) = c(
+  "Quebec, non-chilled", "Quebec, chilled", "Mississippi, non-chilled",
+  "Mississippi, chilled"
+)
+X_asym_group = model.matrix(~ Type * Treatment, data = group_info)
+
+# The model matrices of the plants and of the four combinations, in the list of data.
+co2_data$X_asym = X_asym
+co2_data$X_asym_group = X_asym_group
+```
+
 ::: {.callout-note title="Two ways to encode groups"}
 The effects of groups defined by predictors, such as the four combinations of origin and
 treatment, can be written in two ways. With one parameter for each group, each group has
 its own typical value (here, four typical log asymptotes). With a baseline plus effects and
 interactions, one group is the baseline and the other parameters are differences from it
 (here, $\log(a)$, $\beta_{\mathrm{miss}}$, $\beta_{\mathrm{chill}}$ and
-$\beta_{\mathrm{int}}$). Both have the same number of parameters and describe the same
-model: they have the same maximum likelihood and give the same fitted curves, and each set
-of parameters can be calculated from the other. The second form makes the differences
+$\beta_{\mathrm{int}}$). In `model.matrix()`, the formula `~ 0 + Type:Treatment` gives the
+first form, one column for each combination and no intercept (the `0`), and
+`~ Type * Treatment` the second. Without an intercept, the first factor in the formula gets
+a column for every level, and later factors or covariates keep their reference level:
+`~ 0 + Type + Treatment` gives one column for each origin (its typical value in
+non-chilled plants) and the column `Treatmentchilled` for the effect of chilling. Both have the same number of parameters and describe the
+same model: they have the same maximum likelihood and give the same fitted curves, and each
+set of parameters can be calculated from the other. The second form makes the differences
 between treatments parameters, so their estimates, standard errors and intervals come
-directly from the fit, and a simpler model is obtained by leaving a term out (the
-interaction, for example). The first form makes the typical value of each group a
+directly from the fit, and a simpler model is obtained by leaving a term out of the formula
+(the interaction, for example). The first form makes the typical value of each group a
 parameter. Which one to use depends on the question.
 :::
 
-The predictors are properties of the plants, so we add them to the list of data as two
-vectors with one value for each plant, in the order of `plant_names`. We take the origin
-and the treatment of each plant from its first measurement:
+The functions of R that fit models from a formula, such as `lm()`, `glm()` and
+`glmmTMB()`, build the same model matrix from it and multiply it by their coefficients:
+their coefficients are named after the columns of the matrix, and their reference levels
+follow the same rules (see the supplement on
+[formula-based methods](../Supplements/canned.qmd)). In RTMB we build the matrix
+ourselves, which lets us use it wherever the model needs it, here on the log asymptote of a
+non-linear curve.
 
-```{r}
-# Row of the first measurement of each plant.
-first_row = match(seq_along(plant_names), plant)
+## Effects of origin and chilling
 
-# Indicators for each plant: 1 for Mississippi and 0 for Quebec; 1 for chilled and 0
-# for non-chilled.
-co2_data$mississippi = as.numeric(co2$Type[first_row] == "Mississippi")
-co2_data$chilled = as.numeric(co2$Treatment[first_row] == "chilled")
-```
-
-The NLL calculates the log asymptote of each plant from the baseline, the effects of its
-origin and treatment and its deviation. It also reports, with `ADREPORT()`, the logarithms
-of the two factors by which chilling multiplies the asymptote, $\beta_{\mathrm{chill}}$ in
-Quebec plants and $\beta_{\mathrm{chill}}+\beta_{\mathrm{int}}$ in Mississippi plants,
-which answer the ecological question of the experiment:
+The NLL calculates the log asymptote of each plant as its row of the model matrix times
+the coefficients, plus its deviation. It also reports, with `ADREPORT()`, the logarithms of
+the two factors by which chilling multiplies the asymptote, which answer the ecological
+question of the experiment. The logarithm of a chilling factor is the difference between
+the typical log asymptotes of chilled and non-chilled plants of the same origin. The NLL
+takes these from `X_asym_group %*% beta_asym`, whose rows are the four combinations in the
+order of `group_info` (Quebec non-chilled, Quebec chilled, Mississippi non-chilled,
+Mississippi chilled), so it subtracts rows 1 and 3 from rows 2 and 4. With
+`~ Type * Treatment` these differences are $\beta_{\mathrm{chill}}$ for Quebec plants and
+$\beta_{\mathrm{chill}}+\beta_{\mathrm{int}}$ for Mississippi plants: the third
+coefficient, and the sum of the third and the fourth, which we can check against the
+estimates below.
+Written in this way, the line does not depend on the formula, which we will need when we
+compare models in @sec-grouped-comparison:
 
 ```{r}
 # Joint NLL with a random asymptote and the effects of origin and chilling.
@@ -871,29 +990,31 @@ treatment_nll = function(parms, data) {
   getAll(parms, data)
   sd_plant = exp(log_sd_plant)
   nll = -sum(dnorm(x = u, mean = 0, sd = sd_plant, log = TRUE))
-  # Log asymptote of each plant: baseline, effects of its origin and treatment, deviation.
-  log_a = log_asym + beta_miss * mississippi + beta_chill * chilled +
-    beta_int * mississippi * chilled + u
+  # Log asymptote of each plant: its row of the model matrix times the coefficients,
+  # plus its deviation.
+  log_a = X_asym %*% beta_asym + u
   a = exp(log_a)
   b = exp(log_rate)
   sd_obs = exp(log_sd_obs)
-  # Logarithms of the factors by which chilling multiplies the asymptote (Quebec,
-  # Mississippi).
-  log_chill_factor = c(beta_chill, beta_chill + beta_int)
+  # Logarithms of the factors by which chilling multiplies the typical asymptote:
+  # chilled minus non-chilled, for Quebec and for Mississippi.
+  log_typical = X_asym_group %*% beta_asym
+  log_chill_factor = log_typical[c(2, 4)] - log_typical[c(1, 3)]
   ADREPORT(log_chill_factor)
   mu = a[plant] * (1 - exp(-b * (conc - c0)))
   nll - sum(dnorm(x = uptake, mean = mu, sd = sd_obs, log = TRUE))
 }
 ```
 
-The effects start at zero, the other parameters at the same values as before:
+The coefficients start at $\log(30)$ for the baseline and at zero for the effects, one for
+each column of the model matrix, and the other parameters at the same values as before:
 
 ```{r}
 # Process the joint NLL, integrating out u, and fit it.
 treatment_obj = MakeADFun(
   cmb(treatment_nll, co2_data),
   list(
-    log_asym = log(30), beta_miss = 0, beta_chill = 0, beta_int = 0,
+    beta_asym = c(log(30), rep(0, ncol(X_asym) - 1)),
     log_rate = log(0.01), c0 = 50,
     log_sd_plant = log(0.1), log_sd_obs = log(2), u = rep(0, 12)
   ),
@@ -907,14 +1028,23 @@ treatment_fit = optim(
   method = "BFGS"
 )
 treatment_fit$convergence
-
-# Standard errors on the optimised scales.
-treatment_sd = sdreport(treatment_obj)
-summary(treatment_sd, select = "fixed")
 ```
 
-The fit converged. The rate, the location and $\sigma_{\mathrm{obs}}$ hardly change, because
-the predictors act on the asymptote only. The standard deviation among plants does change:
+The fit converged. `sdreport()` gives every element of `beta_asym` the same name, so we
+label the rows of the coefficients with the column names of the model matrix:
+
+```{r}
+# Standard errors on the optimised scales, with the coefficients named after the columns
+# of the model matrix.
+treatment_sd = sdreport(treatment_obj)
+treatment_estimates = summary(treatment_sd, select = "fixed")
+beta_rows = rownames(treatment_estimates) == "beta_asym"
+rownames(treatment_estimates)[beta_rows] = colnames(X_asym)
+treatment_estimates
+```
+
+The rate, the location and $\sigma_{\mathrm{obs}}$ hardly change, because the predictors
+act on the asymptote only. The standard deviation among plants does change:
 
 ```{r}
 # Standard deviation of the plant deviations without and with origin and chilling.
@@ -1017,12 +1147,8 @@ precisely than those of the other plants.
 #| fig-cap: "Asymptote of each plant without pooling (open circles) and predicted by a mixed model (filled circles), joined by a line where they differ visibly. Top: the model with a random asymptote only, whose dashed line is the median asymptote of plants in general. Bottom: the model with the effects of origin and chilling, whose dashed lines are the typical asymptote (u = 0) of each combination of origin and treatment."
 # Typical asymptote (u = 0) of the group of each plant under the model with predictors.
 treatment_par = treatment_fit$par
-typical_treatment = exp(
-  treatment_par[["log_asym"]] +
-    treatment_par[["beta_miss"]] * co2_data$mississippi +
-    treatment_par[["beta_chill"]] * co2_data$chilled +
-    treatment_par[["beta_int"]] * co2_data$mississippi * co2_data$chilled
-)
+beta_asym_mle = treatment_par[names(treatment_par) == "beta_asym"]
+typical_treatment = exp(drop(X_asym %*% beta_asym_mle))
 typical_mixed = rep(exp(mixed_fit$par[["log_asym"]]), times = 12)
 
 # Asymptotes without pooling, predicted by each mixed model, and typical.
@@ -1127,12 +1253,18 @@ gives the interval of the variance, because both functions are increasing.
 We profile the log standard deviation among plants and the interaction of the model with
 origin and chilling. The interaction is on the log scale of the asymptote, and
 $e^{\beta_{\mathrm{int}}}$ is the ratio of the factors by which chilling multiplies the
-asymptote of a Mississippi plant and of a Quebec plant (@sec-group-predictors):
+asymptote of a Mississippi plant and of a Quebec plant (@sec-group-predictors). The
+argument `name` of `TMB::tmbprofile()` takes the name of a parameter or its position in
+`par`. All four coefficients are called `beta_asym`, so for the interaction, the fourth
+element of `beta_asym`, we give its position:
 
 ```{r}
+# Position of the interaction in par: the fourth element of beta_asym.
+int_position = which(names(treatment_obj$par) == "beta_asym")[4]
+
 # Profiles of log(sd_plant) and of the interaction.
 treatment_profile_sd = TMB::tmbprofile(treatment_obj, name = "log_sd_plant", trace = FALSE)
-treatment_profile_int = TMB::tmbprofile(treatment_obj, name = "beta_int", trace = FALSE)
+treatment_profile_int = TMB::tmbprofile(treatment_obj, name = int_position, trace = FALSE)
 
 # 95% intervals of sd_plant and of its variance, and of the interaction and its
 # exponential.
@@ -1149,11 +1281,11 @@ treatment_intervals
 ```{r}
 #| include: false
 # Wald intervals from the optimised scales, for comparison with the profile intervals.
-treatment_fixed = summary(treatment_sd, select = "fixed")
-exp(treatment_fixed["log_sd_plant", "Estimate"] +
-  c(-1, 1) * critical_value * treatment_fixed["log_sd_plant", "Std. Error"])
-treatment_fixed["beta_int", "Estimate"] +
-  c(-1, 1) * critical_value * treatment_fixed["beta_int", "Std. Error"]
+int_name = "TypeMississippi:Treatmentchilled"
+exp(treatment_estimates["log_sd_plant", "Estimate"] +
+  c(-1, 1) * critical_value * treatment_estimates["log_sd_plant", "Std. Error"])
+treatment_estimates[int_name, "Estimate"] +
+  c(-1, 1) * critical_value * treatment_estimates[int_name, "Std. Error"]
 ```
 
 The standard deviation among plants of the same origin and treatment lies between 0.045
@@ -1205,11 +1337,11 @@ plant deviations. Only the variance parameters are left for `optim()`:
 reml_obj = MakeADFun(
   cmb(treatment_nll, co2_data),
   list(
-    log_asym = log(30), beta_miss = 0, beta_chill = 0, beta_int = 0,
+    beta_asym = c(log(30), rep(0, ncol(X_asym) - 1)),
     log_rate = log(0.01), c0 = 50,
     log_sd_plant = log(0.1), log_sd_obs = log(2), u = rep(0, 12)
   ),
-  random = c("u", "log_asym", "beta_miss", "beta_chill", "beta_int", "log_rate", "c0"),
+  random = c("u", "beta_asym", "log_rate", "c0"),
   silent = TRUE
 )
 reml_fit = optim(par = reml_obj$par, fn = reml_obj$fn, gr = reml_obj$gr, method = "BFGS")
@@ -1286,20 +1418,19 @@ asymptotes between $a_{\mathrm{typ}}e^{-1.96\,\sigma_{\mathrm{plant}}}$ and
 $a_{\mathrm{typ}}e^{1.96\,\sigma_{\mathrm{plant}}}$, where $a_{\mathrm{typ}}$ is the
 typical asymptote of their origin and treatment. The curve increases with $u$ at every
 concentration, so these two curves are the 2.5% and 97.5% quantiles of the curves of new
-plants at every concentration. We calculate the typical asymptote of each combination of
-origin and treatment from the estimates, and the range with `qnorm()`:
+plants at every concentration. The typical log asymptotes of the four combinations of
+origin and treatment are the product of their model matrix, `X_asym_group`
+(@sec-model-matrix), and the estimates of the coefficients, and the range comes from
+`qnorm()`:
 
 ```{r}
 # Estimates, the standard deviation among plants, and the log typical asymptote of each
-# combination of origin and treatment.
+# combination of origin and treatment (drop() turns the matrix of one column into a
+# vector named after its rows).
 treatment_par = treatment_fit$par
 sd_plant = exp(treatment_par[["log_sd_plant"]])
-mississippi_group = c(0, 0, 1, 1)
-chilled_group = c(0, 1, 0, 1)
-log_typical = treatment_par[["log_asym"]] +
-  treatment_par[["beta_miss"]] * mississippi_group +
-  treatment_par[["beta_chill"]] * chilled_group +
-  treatment_par[["beta_int"]] * mississippi_group * chilled_group
+beta_asym_mle = treatment_par[names(treatment_par) == "beta_asym"]
+log_typical = drop(X_asym_group %*% beta_asym_mle)
 
 # Typical asymptote and the range that contains the asymptotes of 95% of new plants
 # (µmol/m²/s).
@@ -1308,10 +1439,6 @@ new_plant_asym = exp(cbind(
   lower = log_typical + qnorm(p = 0.025) * sd_plant,
   upper = log_typical + qnorm(p = 0.975) * sd_plant
 ))
-rownames(new_plant_asym) = c(
-  "Quebec, non-chilled", "Quebec, chilled", "Mississippi, non-chilled",
-  "Mississippi, chilled"
-)
 new_plant_asym
 ```
 
@@ -1450,12 +1577,12 @@ treatment_nll = function(parms, data) {
   uptake = OBS(uptake)
   sd_plant = exp(log_sd_plant)
   nll = -sum(dnorm(x = u, mean = 0, sd = sd_plant, log = TRUE))
-  log_a = log_asym + beta_miss * mississippi + beta_chill * chilled +
-    beta_int * mississippi * chilled + u
+  log_a = X_asym %*% beta_asym + u
   a = exp(log_a)
   b = exp(log_rate)
   sd_obs = exp(log_sd_obs)
-  log_chill_factor = c(beta_chill, beta_chill + beta_int)
+  log_typical = X_asym_group %*% beta_asym
+  log_chill_factor = log_typical[c(2, 4)] - log_typical[c(1, 3)]
   ADREPORT(log_chill_factor)
   mu = a[plant] * (1 - exp(-b * (conc - c0)))
   nll - sum(dnorm(x = uptake, mean = mu, sd = sd_obs, log = TRUE))
@@ -1465,7 +1592,7 @@ treatment_nll = function(parms, data) {
 treatment_obj = MakeADFun(
   cmb(treatment_nll, co2_data),
   list(
-    log_asym = log(30), beta_miss = 0, beta_chill = 0, beta_int = 0,
+    beta_asym = c(log(30), rep(0, ncol(X_asym) - 1)),
     log_rate = log(0.01), c0 = 50,
     log_sd_plant = log(0.1), log_sd_obs = log(2), u = rep(0, 12)
   ),
@@ -1497,18 +1624,19 @@ for (j in seq_len(n_sim)) {
 
 The expected value of a measurement before its plant deviation is known is the typical
 curve of the origin and treatment of its plant, so that is what we give DHARMa as
-`fittedPredictedResponse`. The uptake is continuous, so `integerResponse` keeps its default
-value. The residuals of the 84 measurements are:
+`fittedPredictedResponse`. The typical log asymptote of each plant is its row of the model
+matrix `X_asym` times the estimates. The uptake is continuous, so `integerResponse` keeps
+its default value. The residuals of the 84 measurements are:
 
 ```{r}
 #| label: fig-residuals_grouped
 #| fig-width: 9
 #| fig-height: 4.5
 #| fig-cap: "Scaled quantile residuals of the 84 measurements under the model with a random asymptote and the effects of origin and chilling, from 1,000 hypothetical samples with new plant deviations, as drawn by DHARMa. Left: quantile–quantile plot against a uniform distribution. Right: residuals against the rank of the typical curve of each measurement, with the quartiles of a uniform distribution (dashed lines) and lines fitted to the quartiles of the residuals."
-# Expected uptake of each measurement on the typical curve (u = 0) of its plant's group.
-typical_asym = exp(log_typical)
-plant_group = 1 + 2 * co2_data$mississippi + co2_data$chilled
-treatment_expected = typical_asym[plant_group[co2_data$plant]] *
+# Typical asymptote (u = 0) of each plant, then the expected uptake of each measurement
+# on the typical curve of its plant's origin and treatment.
+typical_asym = exp(drop(X_asym %*% beta_asym_mle))
+treatment_expected = typical_asym[co2_data$plant] *
   (1 - exp(-exp(treatment_par[["log_rate"]]) * (co2_data$conc - treatment_par[["c0"]])))
 
 # Scaled quantile residuals and the two standard panels.
@@ -1607,82 +1735,93 @@ treatment, and do origin and chilling explain part of the differences? Besides t
 models already fitted (complete pooling, the random asymptote, and the random asymptote
 with origin, chilling and their interaction), we fit complete pooling with origin,
 chilling and their interaction, and the random asymptote with origin and chilling but no
-interaction. Their NLLs are those of @sec-pooling and @sec-group-predictors with one term
-removed:
+interaction. With a model matrix, the three candidates with plant deviations differ only in
+their formulas, and they share the NLL `treatment_nll`: the formula `~ 1` gives a model
+matrix with the column `(Intercept)` only, which is the random asymptote without
+predictors, `~ Type + Treatment` gives origin and chilling without their interaction, and
+`~ Type * Treatment` the model of @sec-group-predictors. Complete pooling has no plant
+deviations, so it needs an NLL of its own, which takes the model matrix in the same way;
+with the formula `~ 1` it is the model of @sec-pooling:
 
 ```{r}
-# Complete pooling with origin, chilling and their interaction: no plant deviations.
-pooled_treatment_nll = function(parms, data) {
+# Complete pooling with a model matrix for the log asymptote: no plant deviations.
+pooled_matrix_nll = function(parms, data) {
   getAll(parms, data)
-  log_a = log_asym + beta_miss * mississippi + beta_chill * chilled +
-    beta_int * mississippi * chilled
+  log_a = X_asym %*% beta_asym
   a = exp(log_a)
   b = exp(log_rate)
   sd_obs = exp(log_sd_obs)
   mu = a[plant] * (1 - exp(-b * (conc - c0)))
   -sum(dnorm(x = uptake, mean = mu, sd = sd_obs, log = TRUE))
 }
-
-# Random asymptote with origin and chilling, without their interaction.
-additive_nll = function(parms, data) {
-  getAll(parms, data)
-  sd_plant = exp(log_sd_plant)
-  nll = -sum(dnorm(x = u, mean = 0, sd = sd_plant, log = TRUE))
-  log_a = log_asym + beta_miss * mississippi + beta_chill * chilled + u
-  a = exp(log_a)
-  b = exp(log_rate)
-  sd_obs = exp(log_sd_obs)
-  mu = a[plant] * (1 - exp(-b * (conc - c0)))
-  nll - sum(dnorm(x = uptake, mean = mu, sd = sd_obs, log = TRUE))
-}
 ```
 
-As in Chapter 6, we collect the candidates in a list, each with its NLL, its starting
-values without the plant deviations, and whether it has them. A function adds one starting
-deviation per plant in the data when the model has deviations, processes the NLL with
-`random = "u"` in that case, and fits it:
+As in Chapter 6, we collect the candidates in a list, each with its NLL, its formula and
+whether it has plant deviations:
 
 ```{r}
-# Starting values shared by the candidates.
-curve_start = list(log_asym = log(30), log_rate = log(0.01), c0 = 50)
-sd_start = list(log_sd_plant = log(0.1), log_sd_obs = log(2))
-effect_start = list(beta_miss = 0, beta_chill = 0, beta_int = 0)
-
-# The NLL of each candidate, its starting values in the order of its list of parameters,
-# and whether it has plant deviations.
+# The NLL and the formula of each candidate, and whether it has plant deviations.
 models = list(
-  pooled = list(
-    nll = pooled_nll, random = FALSE,
-    start = c(curve_start, sd_start["log_sd_obs"])
-  ),
+  pooled = list(nll = pooled_matrix_nll, formula = ~ 1, random = FALSE),
   pooled_treatment = list(
-    nll = pooled_treatment_nll, random = FALSE,
-    start = c(curve_start[1], effect_start, curve_start[2:3], sd_start["log_sd_obs"])
+    nll = pooled_matrix_nll, formula = ~ Type * Treatment, random = FALSE
   ),
-  mixed = list(
-    nll = mixed_nll, random = TRUE,
-    start = c(curve_start, sd_start)
-  ),
-  additive = list(
-    nll = additive_nll, random = TRUE,
-    start = c(curve_start[1], effect_start[1:2], curve_start[2:3], sd_start)
-  ),
-  treatment = list(
-    nll = treatment_nll, random = TRUE,
-    start = c(curve_start[1], effect_start, curve_start[2:3], sd_start)
-  )
+  mixed = list(nll = treatment_nll, formula = ~ 1, random = TRUE),
+  additive = list(nll = treatment_nll, formula = ~ Type + Treatment, random = TRUE),
+  treatment = list(nll = treatment_nll, formula = ~ Type * Treatment, random = TRUE)
 )
+```
 
-# Fit one candidate to one list of data, with one starting deviation per plant if it has
-# plant deviations.
+Three short functions do the bookkeeping for a candidate:
+
+- `formula_data()` makes the list of data of a formula: the measurements, taken from a
+  list of data such as `co2_data`, and the model matrices of the plants and of the four
+  combinations of origin and treatment, built from the data frames `plant_info` and
+  `group_info` that it receives as arguments, as in @sec-model-matrix;
+- `start_values()` makes the starting values: $\log(30)$ for the baseline and zero for the
+  other columns of the model matrix, so that a change of formula needs no change of code,
+  and one deviation per plant in the data when the model has plant deviations;
+- `fit_model()` processes the NLL of a candidate for a list of data, with `random = "u"`
+  when the model has plant deviations, and fits it.
+
+```{r}
+# List of data for a formula: the measurements, and the model matrices of the plants and
+# of the four combinations of origin and treatment.
+formula_data = function(formula, data, plant_info, group_info) {
+  list(
+    conc = data$conc,
+    uptake = data$uptake,
+    plant = data$plant,
+    X_asym = model.matrix(formula, data = plant_info),
+    X_asym_group = model.matrix(formula, data = group_info)
+  )
+}
+
+# Starting values of a candidate, with one coefficient per column of the model matrix and
+# one deviation per plant in the data if it has plant deviations.
+start_values = function(model, data) {
+  start = list(
+    beta_asym = c(log(30), rep(0, ncol(data$X_asym) - 1)),
+    log_rate = log(0.01),
+    c0 = 50
+  )
+  if (model$random) {
+    c(start, list(log_sd_plant = log(0.1), log_sd_obs = log(2), u = rep(0, nrow(data$X_asym))))
+  } else {
+    c(start, list(log_sd_obs = log(2)))
+  }
+}
+
+# Fit one candidate to one list of data, integrating out the plant deviations if it has
+# them.
 fit_model = function(model, data) {
-  start = model$start
   random = NULL
   if (model$random) {
-    start$u = rep(0, length(data$mississippi))
     random = "u"
   }
-  obj = MakeADFun(cmb(model$nll, data), start, random = random, silent = TRUE)
+  obj = MakeADFun(
+    cmb(model$nll, data), start_values(model, data), random = random, silent = TRUE
+  )
   optim(par = obj$par, fn = obj$fn, gr = obj$gr, method = "BFGS")
 }
 ```
@@ -1693,7 +1832,8 @@ A loop fits the five candidates to the 84 measurements and calculates their AIC:
 # Fit every candidate to the 12 plants; K is the number of estimated parameters.
 comparison = data.frame(model = names(models), K = NA, loglik = NA, convergence = NA)
 for (m in seq_along(models)) {
-  fit = fit_model(models[[m]], co2_data)
+  candidate_data = formula_data(models[[m]]$formula, co2_data, plant_info, group_info)
+  fit = fit_model(models[[m]], candidate_data)
   comparison$K[m] = length(fit$par)
   comparison$loglik[m] = -fit$value
   comparison$convergence[m] = fit$convergence
@@ -1709,39 +1849,50 @@ The argument `map` of `MakeADFun()` fixes parameters:
 
 - `map` is a list with one element for each parameter to fix, named as in the list of
   parameters;
-- each element is a factor with one value per element of the parameter, and `factor(NA)`
-  fixes a parameter with one element at its value in the list of parameters (here, at the
-  estimate);
+- each element is a factor with one value per element of the parameter, and `NA` fixes an
+  element at its value in the list of parameters (here, at the estimate), so
+  `factor(rep(NA, 4))` fixes the four coefficients of `beta_asym`;
 - the fixed parameters are left out of `par`, so when every parameter but the random
   effects is fixed, `par` is empty, and `fn(par)` returns the marginal NLL of the data at the
   fixed values.
 
 We also need the data of some of the plants, with the plants numbered again from one and
-the indicators of origin and treatment of the plants that are kept:
+the rows of the model matrix of the plants that are kept (`drop = FALSE` keeps the result a
+matrix when a single row is kept, as for the held-out plant). The model matrix of the four
+combinations does not depend on the plants and is kept whole. In the vector of estimates
+every coefficient is called `beta_asym`, so the function that calculates the
+log-likelihood puts the estimates with the same name back into one element of the list of
+parameters with `split()`, which groups the elements of a vector by their names into a
+list. That list is in alphabetical order of the names, so its elements replace the
+starting values by name, not by position:
 
 ```{r}
-# Keep only the given plants in the list of data, numbered again from 1.
+# Keep only the given plants in the list of data, numbered again from 1, with their rows
+# of the model matrix.
 subset_plants = function(data, plants) {
   rows = data$plant %in% plants
   list(
     conc = data$conc[rows],
     uptake = data$uptake[rows],
     plant = match(data$plant[rows], plants),
-    mississippi = data$mississippi[plants],
-    chilled = data$chilled[plants]
+    X_asym = data$X_asym[plants, , drop = FALSE],
+    X_asym_group = data$X_asym_group
   )
 }
 
 # Log-likelihood of the data at the given estimates: every parameter is fixed with map,
 # and the plant deviations, if any, are integrated out.
 plant_loglik = function(model, estimates, data) {
-  parms = as.list(estimates)
+  # Estimates grouped by name, replacing the starting values of the same names.
+  estimate_list = split(unname(estimates), names(estimates))
+  parms = start_values(model, data)
+  parms[names(estimate_list)] = estimate_list
+  # Fix every element of every estimated parameter.
+  fixed = lapply(estimate_list, function(x) factor(rep(NA, length(x))))
   random = NULL
   if (model$random) {
-    parms$u = rep(0, length(data$mississippi))
     random = "u"
   }
-  fixed = lapply(as.list(estimates), function(x) factor(NA))
   obj = MakeADFun(cmb(model$nll, data), parms, map = fixed, random = random, silent = TRUE)
   -obj$fn(obj$par)
 }
@@ -1757,11 +1908,12 @@ n_plants = length(plant_names)
 comparison$loo = NA
 n_failed = 0
 for (m in seq_along(models)) {
+  candidate_data = formula_data(models[[m]]$formula, co2_data, plant_info, group_info)
   score = 0
   for (i in seq_len(n_plants)) {
-    fit = fit_model(models[[m]], subset_plants(co2_data, setdiff(seq_len(n_plants), i)))
+    fit = fit_model(models[[m]], subset_plants(candidate_data, setdiff(seq_len(n_plants), i)))
     n_failed = n_failed + (fit$convergence != 0)
-    score = score + plant_loglik(models[[m]], fit$par, subset_plants(co2_data, i))
+    score = score + plant_loglik(models[[m]], fit$par, subset_plants(candidate_data, i))
   }
   comparison$loo[m] = score
 }
@@ -1821,7 +1973,9 @@ observations that come in groups:
 
 ::: {.callout-note title="A recipe for a grouped response curve"}
 1. Identify the observational unit and the groups, and whether each predictor is measured
-   on the observations or on the groups.
+   on the observations or on the groups. Build the model matrix of the predictors with
+   `model.matrix()`, from a formula and a data frame with one row per group (or per
+   observation), and check the reference level of each factor.
 2. Choose the curve and the observation model as in Chapter 6, and the parameter of the
    curve that varies among groups, on a scale on which a Normal deviation is plausible
    (the logarithm of a positive parameter, the logit of a probability).
@@ -1838,7 +1992,8 @@ observations that come in groups:
 7. Mark the response with `OBS()`, simulate hypothetical samples with `obj$simulate()`, and
    check the scaled quantile residuals of the observations and of the groups.
 8. Compare the candidate models, fitted by maximum likelihood to the same observations,
-   with AIC and leave-one-group-out cross-validation.
+   with AIC and leave-one-group-out cross-validation; candidates that differ only in their
+   fixed effects share one NLL and differ in their formulas.
 9. Interpret the fixed effects and the variance among groups in units, in terms of the
    ecological question, and say what the number of groups leaves uncertain.
 :::
@@ -1862,7 +2017,10 @@ the density of the random effects first. The variance components describe the va
 among groups and within groups; predicted group effects are shrunk towards the typical
 value of groups with the same predictors, more so for groups with few or imprecise
 observations. Group-level predictors explain part of the variation among groups, and the
-variance component then describes the variation that remains.
+variance component then describes the variation that remains. They enter the NLL through a
+model matrix, which `model.matrix()` builds from a formula, with one row per group and one
+column per coefficient; the first level of each factor is the reference level, and the
+formula interfaces of R build the same matrix.
 
 A variance among groups is estimated from the groups, so with few groups its interval is
 wide; likelihood profile intervals on the log scale of the standard deviation are the
@@ -1961,7 +2119,33 @@ estimate it more precisely, weigh more lizards.
 :::
 ::::
 
-:::: {.callout-important title="Question 5: lichen cover on rocks"}
+:::: {.callout-important title="Question 5: grazing at grassland sites"}
+
+The plant cover of quadrats at 30 grassland sites is modelled with a random effect per site
+on the log of the typical cover. A site-level factor `grazing`, created with `factor()` from
+the values `"none"`, `"light"` and `"heavy"`, enters through
+`model.matrix(~ grazing, data = sites)`, with one row per site. Which columns does the
+model matrix have, and what does each coefficient mean? How would you make the ungrazed
+sites the baseline? What would change if `grazing` were an ordered factor?
+
+::: {.callout-tip title="Answer" collapse="true"}
+
+`factor()` puts the levels in alphabetical order, `"heavy"`, `"light"`, `"none"`, so the
+reference level is heavy grazing. The columns are `(Intercept)`, `grazinglight` and
+`grazingnone`: the first coefficient is the typical log cover of heavily grazed sites, and
+the other two are the differences in typical log cover of lightly grazed and of ungrazed
+sites from heavily grazed ones.
+`sites$grazing = relevel(sites$grazing, ref = "none")` makes the ungrazed sites the
+baseline, with the columns `grazingheavy` and `grazinglight`; the model, its maximum
+likelihood and its fitted values stay the same, and only the meaning of the coefficients
+changes. An ordered factor would get polynomial contrasts, with the columns `grazing.L` and
+`grazing.Q` for linear and quadratic trends across the levels, which are not differences
+from a reference level; `factor(sites$grazing, ordered = FALSE)` converts it back.
+
+:::
+::::
+
+:::: {.callout-important title="Question 6: lichen cover on rocks"}
 
 In a model for the lichen cover of quadrats on rocks, with a random effect per rock, the
 variance among rocks is estimated close to zero. What happens to the predicted effects of
@@ -1977,7 +2161,7 @@ of a rock count for little when the model says that rocks do not differ.
 :::
 ::::
 
-:::: {.callout-important title="Question 6: a forgotten argument"}
+:::: {.callout-important title="Question 7: a forgotten argument"}
 
 A student fits the NLL of a model with a random intercept per site, but forgets the
 argument `random = "u"` in `MakeADFun()`. What does `optim()` then minimise, and what
@@ -1995,7 +2179,7 @@ integrates the site effects out, and the marginal NLL has a proper minimum.
 :::
 ::::
 
-:::: {.callout-important title="Question 7: variance among streams"}
+:::: {.callout-important title="Question 8: variance among streams"}
 
 The density of mayfly larvae is described with a random effect per stream and five fixed
 effects of stream-level predictors, fitted to eight streams. Why might REML be preferred
@@ -2014,7 +2198,7 @@ compared with their maximum likelihood fits.
 :::
 ::::
 
-:::: {.callout-important title="Question 8: phenology of observed and new sites"}
+:::: {.callout-important title="Question 9: phenology of observed and new sites"}
 
 A model with a random effect per site describes the date of first flowering of a shrub
 against spring temperature at 20 monitored sites. Which curve would you use to predict the
@@ -2031,7 +2215,7 @@ effects gives for new sites, which is wider.
 :::
 ::::
 
-:::: {.callout-important title="Question 9: cross-validation of nestling growth"}
+:::: {.callout-important title="Question 10: cross-validation of nestling growth"}
 
 The growth of nestlings is measured several times in 40 broods, and a model with a random
 effect per brood is compared with one without it by leave-one-out cross-validation that
@@ -2049,7 +2233,7 @@ marginal log-likelihood, with its effect integrated out.
 :::
 ::::
 
-:::: {.callout-important title="Question 10: seed mass of trees"}
+:::: {.callout-important title="Question 11: seed mass of trees"}
 
 The seed mass of 25 trees is modelled with complete pooling, with no pooling (one mean per
 tree) and with a random effect per tree. No pooling has the lowest AIC. Should it be

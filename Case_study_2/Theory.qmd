@@ -265,7 +265,7 @@ Half of its values lie between about 0.12 and 0.23, around a median of 0.17. A N
 distribution with a constant standard deviation would therefore be a poor model. The Gamma
 and LogNormal distributions would be a better model as they imply a constance coefficient of
 variation. We could also model how this coefficient of variation changes and check if it is
-worth the complexity with model comparison.
+worth the complexity with model comparison (I skip this for simplification).
 
 ## What we take forward
 
@@ -361,7 +361,7 @@ positive; $c$ is an age, which can take any value). The model with all these ter
 and the other candidates leave some of the terms out.
 
 Finally, the measurements of a plot vary around its curve with a constant coefficient of
-variation, which we call $v$ here, because $c$ is already a parameter of the curve:
+variation, which we call $v$ here,:
 $W_{ij}$ follows a Gamma or a LogNormal distribution with mean $\mu_{ij}$ and standard
 deviation $v\,\mu_{ij}$, and the measurements are independent for given deviations of the
 plots.
@@ -387,13 +387,18 @@ gompertz = function(x, a, b, c) {
 ```
 
 The list of data contains the measurements (age, leaf weight and the index of the plot of
-each measurement) and the predictors. The predictors are properties of the six
-combinations of year and variety, so we give them as three vectors with one value per
-combination, in the order Forrest 1988, PI 1988, Forrest 1989, PI 1989, Forrest 1990, PI
-1990, and every plot gets the index (1 to 6) of its combination. Because the rows are sorted
-by year and variety, the year and the variety of the first row of a plot give its
-combination: `as.numeric()` turns a factor into the position of its level (1 to 3 for the
-year, 1 for Forrest and 2 for PI):
+each measurement) and the predictors. The measurements are the same for every model on this
+page, so we keep them in one list, `soy_data`, together with the three ages at which we will
+compare the varieties (6, 8 and 10 weeks, see @sec-soy-answer-model). The variety and the
+year are properties of the plots, so, as in
+[Chapter 7](../Chapter_7/Theory.qmd#sec-model-matrix), we keep one row per plot in a data
+frame, `plot_info`, taken from the first measurement of each plot, and build the model
+matrices of the predictors from it with `model.matrix()`. We will also need the typical
+curves of the six combinations of year and variety, for which we keep one row per
+combination with `unique()`. It keeps the rows in the order in which they first appear, and
+the rows of `soy` are sorted by year and variety, so the combinations come in the order
+Forrest 1988, PI 1988, Forrest 1989, PI 1989, Forrest 1990, PI 1990, which we use as their
+names:
 
 ```{r}
 # Names of the plots in the order of the rows, the index (1 to 48) of the plot of each
@@ -402,46 +407,44 @@ plot_names = unique(soy$Plot)
 plot_index = match(soy$Plot, plot_names)
 first_row = match(seq_along(plot_names), plot_index)
 
-# Index (1 to 6) of the combination of year and variety of each plot.
-combination = 2 * (as.numeric(soy$Year[first_row]) - 1) +
-  as.numeric(soy$Variety[first_row])
+# Measurements shared by every model, and the ages of the comparison (days after planting).
+soy_data = list(time = soy$Time, weight = soy$weight, plot = plot_index,
+                age = c(42, 56, 70))
 
-# List of data: the measurements, the plot of each measurement, the combination of each
-# plot, and the indicators of the six combinations.
-soy_data = list(
-  time = soy$Time,
-  weight = soy$weight,
-  plot = plot_index,
-  combination = combination,
-  is_pi = c(0, 1, 0, 1, 0, 1),
-  is_1989 = c(0, 0, 1, 1, 0, 0),
-  is_1990 = c(0, 0, 0, 0, 1, 1)
-)
+# Variety and year of each plot (one row per plot), and the six combinations of year and
+# variety (one row per combination), named after the variety and the year.
+plot_info = soy[first_row, c("Variety", "Year")]
+combinations = unique(plot_info)
+combination_names = c("Forrest 1988", "PI 1988", "Forrest 1989", "PI 1989",
+                      "Forrest 1990", "PI 1990")
+rownames(combinations) = combination_names
+combinations
 ```
 
-The typical parameters of the six combinations follow from the equation above, and we will
-need them inside the NLL and again for figures and checks, so we write them as a function of
-the lists of parameters and data. The baselines are `log_a`, `log_b` and `c0`, and the
-effects are named after the parameter of the curve that they change (`a_pi`, `b_1989`,
-`c_pi_1990` and so on):
+In R, the equation of the full model corresponds to the formula `~ Variety * Year`, in which
+`*` stands for both predictors and their interaction. Its model matrix has one column for
+each term of the equation, in the same order: the intercept (the baseline), `VarietyP`
+($P_j$), `Year1989` and `Year1990` ($Y^{1989}_j$ and $Y^{1990}_j$), and the two
+interactions. Forrest and 1988 are the first levels of the factors `Variety` and `Year`, so
+they are the reference levels. The model matrix of the six combinations shows the row of a
+plot of each combination:
 
 ```{r}
-# Typical values (u = 0) of a, b and c for the six combinations of year and variety.
-typical_parameters = function(parms, data) {
-  getAll(parms, data)
-  log_a_typical = log_a + a_pi * is_pi + a_1989 * is_1989 + a_1990 * is_1990 +
-    a_pi_1989 * is_pi * is_1989 + a_pi_1990 * is_pi * is_1990
-  log_b_typical = log_b + b_pi * is_pi + b_1989 * is_1989 + b_1990 * is_1990 +
-    b_pi_1989 * is_pi * is_1989 + b_pi_1990 * is_pi * is_1990
-  c_typical = c0 + c_pi * is_pi + c_1989 * is_1989 + c_1990 * is_1990 +
-    c_pi_1989 * is_pi * is_1989 + c_pi_1990 * is_pi * is_1990
-  list(a = exp(log_a_typical), b = exp(log_b_typical), c = c_typical)
-}
+# Model matrix of the full model for one plot of each combination of year and variety,
+# printed by the names of its rows.
+full_matrix = model.matrix(~ Variety * Year, data = combinations)
+full_matrix[combination_names, ]
 ```
 
 The NLL has the structure of Chapter 7: minus the log density of the deviations of the plots
-first, then minus the log density of the measurements for given deviations. Two of our
-decisions, the curve and the distribution, are given as elements of the list of data:
+first, then minus the log density of the measurements for given deviations. The parameters
+of the plots come from the model matrices `X_a`, `X_b` and `X_c` (one row per plot) and the
+vectors of coefficients `beta_a`, `beta_b` and `beta_c`, whose first elements are the
+baselines $\log(a)$, $\log(b)$ and $c$. The matrix product `X_a %*% beta_a` multiplies each
+column by its coefficient and adds them up, so it gives the sum of the equation above for
+every plot at once, to which we add the deviations `u` of the plots.
+
+Two of our decisions, the curve and the distribution, are given as elements of the list of data:
 `growth_curve` is one of the two functions above, and `distribution` is `"Gamma"` or
 `"LogNormal"`, which an `if` inside the NLL uses to choose the density. The LogNormal
 distribution is parameterised by its mean and coefficient of variation as in
@@ -458,11 +461,10 @@ soy_nll = function(parms, data) {
   # Minus the log density of the deviations of the plots, before they are used.
   sd_plot = exp(log_sd_plot)
   nll = -sum(dnorm(x = u, mean = 0, sd = sd_plot, log = TRUE))
-  # Parameters of each plot: the typical values of its combination, and its deviation.
-  typical = typical_parameters(parms, data)
-  a_plot = typical$a[combination] * exp(u)
-  b_plot = typical$b[combination]
-  c_plot = typical$c[combination]
+  # Parameters of each plot: the effects of its variety and year, and its deviation.
+  a_plot = exp(X_a %*% beta_a + u)
+  b_plot = exp(X_b %*% beta_b)
+  c_plot = X_c %*% beta_c
   mu = growth_curve(time, a_plot[plot], b_plot[plot], c_plot[plot])
   # Minus the log density of the measurements for given deviations.
   cv = exp(log_cv)
@@ -477,40 +479,79 @@ soy_nll = function(parms, data) {
 }
 ```
 
-The starting values are those read from the figures, all effects zero (no differences
-between the varieties and the years), a coefficient of variation of 0.2 from
-@fig-soy-spread, and a standard deviation among plots of 0.1 (plots that differ by about
-10%):
+Every model that we fit on this page is described by a list of three formulas, one for each
+parameter of the curve ($\log(a)$, $\log(b)$ and $c$), together with a curve and a
+distribution. In the full model, the variety, the year and their interaction act on all
+three parameters:
 
 ```{r}
-# Effects of variety and year on the three parameters of the curve, all starting at zero.
-effects_start = list(
-  a_pi = 0, a_1989 = 0, a_1990 = 0, a_pi_1989 = 0, a_pi_1990 = 0,
-  b_pi = 0, b_1989 = 0, b_1990 = 0, b_pi_1989 = 0, b_pi_1990 = 0,
-  c_pi = 0, c_1989 = 0, c_1990 = 0, c_pi_1989 = 0, c_pi_1990 = 0
-)
-sd_start = list(log_cv = log(0.2), log_sd_plot = log(0.1))
-
-# Starting values for each curve: the baseline curve, the effects and the variation.
-logistic_start = c(list(log_a = log(20), log_b = log(0.1), c0 = 55), effects_start, sd_start)
-gompertz_start = c(list(log_a = log(40), log_b = log(0.03), c0 = 65), effects_start, sd_start)
+# The full model: one formula for each parameter of the curve.
+full_formulas = list(a = ~ Variety * Year, b = ~ Variety * Year, c = ~ Variety * Year)
 ```
 
-Every fit on this page repeats the same steps: add one starting deviation per plot in the
-data, process the NLL with `random = "u"`, and minimise it with BFGS. The function
-`fit_soy()` does this for a list of data and a list of starting values, and returns both the
-object of `MakeADFun()` and the result of `optim()`. It also takes the argument `map` of
-[Chapter 7](../Chapter_7/Theory.qmd#sec-grouped-comparison), which we will use to leave
-terms out of the model; by default (an empty list) every parameter is estimated:
+The function `soy_setup()` turns such a description into the lists of data and starting
+values. It takes the list of measurements (`soy_data`), the data frames of the plots and of
+the combinations, the list of formulas, the curve, the distribution and the starting values
+of the baseline curve (`baseline`, with the elements `a`, `b` and `c`), and returns a list
+with two elements:
+
+- `data`: the list of measurements with the curve and the distribution added, and the model
+  matrices of the plots (`X_a`, `X_b`, `X_c`) and of the six combinations (`X_a_typical`,
+  `X_b_typical`, `X_c_typical`), which we will need for the typical curves;
+- `start`: the starting values. The first coefficient of each parameter is its baseline and
+  every effect starts at zero (no differences between the varieties and the years), so a
+  change of formula needs no change of code; the coefficient of variation starts at 0.2,
+  from @fig-soy-spread, and the standard deviation among plots at 0.1 (plots that differ by
+  about 10%).
+
+```{r}
+# Lists of data and starting values for the measurements, the predictors of the plots and
+# of the combinations, a list of three formulas, a curve, a distribution and the starting
+# values of the baseline curve.
+soy_setup = function(data, plot_info, combinations, formulas, growth_curve, distribution,
+                     baseline) {
+  data$growth_curve = growth_curve
+  data$distribution = distribution
+  # Model matrices with one row per plot, and with one row per combination.
+  data$X_a = model.matrix(formulas$a, data = plot_info)
+  data$X_b = model.matrix(formulas$b, data = plot_info)
+  data$X_c = model.matrix(formulas$c, data = plot_info)
+  data$X_a_typical = model.matrix(formulas$a, data = combinations)
+  data$X_b_typical = model.matrix(formulas$b, data = combinations)
+  data$X_c_typical = model.matrix(formulas$c, data = combinations)
+  # The baseline curve, the effects (all zero) and the variation.
+  start = list(
+    beta_a = c(log(baseline[["a"]]), rep(0, ncol(data$X_a) - 1)),
+    beta_b = c(log(baseline[["b"]]), rep(0, ncol(data$X_b) - 1)),
+    beta_c = c(baseline[["c"]], rep(0, ncol(data$X_c) - 1)),
+    log_cv = log(0.2),
+    log_sd_plot = log(0.1)
+  )
+  list(data = data, start = start)
+}
+```
+
+The starting values of the baseline curve are those read from the figures:
+
+```{r}
+# Starting values of the baseline curve (Forrest in 1988) for each curve.
+logistic_baseline = c(a = 20, b = 0.1, c = 55)
+gompertz_baseline = c(a = 40, b = 0.03, c = 65)
+```
+
+Every fit on this page repeats the same steps: add one starting deviation per plot to the
+starting values, process the NLL with `random = "u"`, and minimise it with BFGS. The
+function `fit_soy()` does this for a list of data and a list of starting values, and returns
+both the object of `MakeADFun()` and the result of `optim()`:
 
 ```{r}
 # Connect a likelihood to a data set.
 cmb = function(f, d) function(p) f(p, d)
 
 # Process the joint NLL for one list of data, integrating out u, and minimise it.
-fit_soy = function(data, start, map = list()) {
+fit_soy = function(data, start) {
   start$u = rep(0, max(data$plot))
-  obj = MakeADFun(cmb(soy_nll, data), start, map = map, random = "u", silent = TRUE)
+  obj = MakeADFun(cmb(soy_nll, data), start, random = "u", silent = TRUE)
   fit = optim(par = obj$par, fn = obj$fn, gr = obj$gr, method = "BFGS")
   list(obj = obj, fit = fit)
 }
@@ -523,7 +564,8 @@ misses the shape of the data leaves a pattern in the measurements that a distrib
 try to absorb, and the other way around. With two candidates for each, there are only four
 combinations, so we fit them all, with the full model (every combination of year and variety
 with its own typical curve), so that the comparison is not affected by effects that we left
-out. The lists of data differ only in the two choices:
+out. The four fits differ only in the two choices and in the starting values of the
+baseline curve:
 
 ```{r}
 # The four combinations of curve and distribution.
@@ -533,15 +575,16 @@ choices = data.frame(
   K = NA, loglik = NA, convergence = NA
 )
 for (i in 1:4) {
-  choice_data = soy_data
-  choice_data$distribution = choices$distribution[i]
   if (choices$curve[i] == "logistic") {
-    choice_data$growth_curve = logistic
-    choice_fit = fit_soy(choice_data, logistic_start)
+    growth_curve = logistic
+    baseline = logistic_baseline
   } else {
-    choice_data$growth_curve = gompertz
-    choice_fit = fit_soy(choice_data, gompertz_start)
+    growth_curve = gompertz
+    baseline = gompertz_baseline
   }
+  choice = soy_setup(soy_data, plot_info, combinations, full_formulas, growth_curve,
+                     choices$distribution[i], baseline)
+  choice_fit = fit_soy(choice$data, choice$start)
   choices$K[i] = length(choice_fit$fit$par)
   choices$loglik[i] = -choice_fit$fit$value
   choices$convergence[i] = choice_fit$fit$convergence
@@ -583,56 +626,50 @@ on which parameters they act, so we compare three candidates:
   arrived, by a route that we discuss at the end.
 - **full**: the variety and the year (with their interaction) change all three parameters.
 
-The three models have the same NLL, because a model without a term is the full model with
-that effect fixed at zero. The argument `map` of `MakeADFun()` fixes a parameter at its
-starting value, which is zero for every effect, so each candidate is a list that maps the
-effects that it leaves out to `factor(NA)`. A small function creates such a list from the
-names of the effects:
+The three candidates have the same NLL and differ only in their formulas. A formula with
+fewer terms gives a model matrix with fewer columns, and so fewer coefficients:
+`~ Variety + Year` leaves out the interaction, `~ Year` the variety as well, and `~ 1` gives
+a single column of ones, so that the parameter has the same value (its baseline) in every
+plot. Each candidate is a list of three formulas, as for the full model:
 
 ```{r}
-# A map that fixes the named effects at their starting value of zero.
-leave_out = function(names) {
-  map = lapply(names, function(name) factor(NA))
-  names(map) = names
-  map
-}
-
-# The three candidates: the effects that each leaves out.
+# The three candidates: one formula for each parameter of the curve.
 candidates = list(
-  asymptote = leave_out(c("b_pi", "b_1989", "b_1990", "b_pi_1989", "b_pi_1990",
-                          "c_pi", "c_1989", "c_1990", "c_pi_1989", "c_pi_1990")),
-  additive = leave_out(c("b_pi", "b_pi_1989", "b_pi_1990", "c_pi_1989", "c_pi_1990")),
-  full = list()
+  asymptote = list(a = ~ Variety * Year, b = ~ 1, c = ~ 1),
+  additive = list(a = ~ Variety * Year, b = ~ Year, c = ~ Variety + Year),
+  full = full_formulas
 )
 ```
 
 We fit the three candidates to the 48 plots with the Gompertz curve and the LogNormal
-distribution, and calculate their AIC. The parameters fixed with `map` are left out of
-`par`, so $K$ is again the length of `par`:
+distribution, and calculate their AIC. Every coefficient is an element of `par`, so $K$ is
+again the length of `par`:
 
 ```{r}
-# The Gompertz curve and the LogNormal distribution.
-gompertz_data = soy_data
-gompertz_data$growth_curve = gompertz
-gompertz_data$distribution = "LogNormal"
-
-# Fit every candidate to the 48 plots.
+# Lists of data and starting values of every candidate, with the Gompertz curve and the
+# LogNormal distribution, and its fit to the 48 plots.
 comparison = data.frame(model = names(candidates), K = NA, loglik = NA, convergence = NA)
+candidate_setups = list()
 candidate_fits = list()
 for (m in seq_along(candidates)) {
-  candidate_fits[[m]] = fit_soy(gompertz_data, gompertz_start, map = candidates[[m]])
+  candidate_setups[[m]] = soy_setup(soy_data, plot_info, combinations, candidates[[m]],
+                                    gompertz, "LogNormal", gompertz_baseline)
+  candidate_fits[[m]] = fit_soy(candidate_setups[[m]]$data, candidate_setups[[m]]$start)
   comparison$K[m] = length(candidate_fits[[m]]$fit$par)
   comparison$loglik[m] = -candidate_fits[[m]]$fit$value
   comparison$convergence[m] = candidate_fits[[m]]$fit$convergence
 }
 comparison$aic = 2 * comparison$K - 2 * comparison$loglik
+comparison
 ```
 
 As in Chapter 7, we also compare the candidates with leave-one-plot-out cross-validation:
 each plot is held out in turn, every parameter is estimated again from the other 47 plots,
 and the held-out plot is scored by its marginal log-likelihood under that fit. We need two
 functions. The first keeps some of the plots in the list of data and numbers them again from
-one; the vectors of the six combinations do not change:
+one. It also keeps the rows of these plots in the model matrices of the plots
+(`drop = FALSE` keeps the result a matrix when it has a single row or column); the matrices
+of the six combinations do not change:
 
 ```{r}
 # Keep only the given plots in the list of data, numbered again from 1.
@@ -641,24 +678,27 @@ subset_plots = function(data, plots) {
   data$time = data$time[rows]
   data$weight = data$weight[rows]
   data$plot = match(data$plot[rows], plots)
-  data$combination = data$combination[plots]
+  data$X_a = data$X_a[plots, , drop = FALSE]
+  data$X_b = data$X_b[plots, , drop = FALSE]
+  data$X_c = data$X_c[plots, , drop = FALSE]
   data
 }
 ```
 
 The second calculates the marginal log-likelihood of some plots at given estimates, with
-every parameter fixed by `map` as in Chapter 7. The estimates in `par` do not include the
-effects that a candidate leaves out, so we start from the list of starting values, in which
-those effects are zero, and replace the estimated parameters by their estimates:
+every parameter fixed by `map` as in Chapter 7. The vector `par` of a fit repeats the name
+`beta_a` for every coefficient of the asymptote (and likewise for `beta_b` and `beta_c`), so
+`split()` first groups the estimates by name into a list with one vector per parameter,
+which is the form that `MakeADFun()` takes. The map then gives `factor(NA)` to every
+element of these vectors:
 
 ```{r}
 # Marginal log-likelihood of the plots in data at the given estimates: every parameter is
 # fixed with map, and the deviations of the plots are integrated out.
-plot_loglik = function(data, start, estimates) {
-  parms = start
-  parms[names(estimates)] = as.list(estimates)
+plot_loglik = function(data, estimates) {
+  parms = split(estimates, names(estimates))
+  fixed = lapply(parms, function(x) factor(rep(NA, length(x))))
   parms$u = rep(0, max(data$plot))
-  fixed = lapply(start, function(x) factor(NA))
   obj = MakeADFun(cmb(soy_nll, data), parms, map = fixed, random = "u", silent = TRUE)
   -obj$fn(obj$par)
 }
@@ -673,13 +713,13 @@ n_plots = length(plot_names)
 comparison$loo = NA
 n_failed = 0
 for (m in seq_along(candidates)) {
+  candidate_data = candidate_setups[[m]]$data
   score = 0
   for (j in seq_len(n_plots)) {
-    loo_fit = fit_soy(subset_plots(gompertz_data, setdiff(seq_len(n_plots), j)),
-                      gompertz_start, map = candidates[[m]])
+    loo_fit = fit_soy(subset_plots(candidate_data, setdiff(seq_len(n_plots), j)),
+                      candidate_setups[[m]]$start)
     n_failed = n_failed + (loo_fit$fit$convergence != 0)
-    score = score + plot_loglik(subset_plots(gompertz_data, j), gompertz_start,
-                                loo_fit$fit$par)
+    score = score + plot_loglik(subset_plots(candidate_data, j), loo_fit$fit$par)
   }
   comparison$loo[m] = score
 }
@@ -716,19 +756,35 @@ model.
 How should we express the difference between the varieties? The additive model has three
 effects of PI on the asymptote (one per year) and one on the inflection point, and it is
 tempting to read the answer from the asymptotes. Their values, however, are not what they
-seem. The typical asymptotes and inflection points of the six combinations are:
+seem.
+
+The typical values of the parameters ($u_j=0$) are the model matrices multiplied by the
+estimates of the coefficients, as in the NLL. We will need them for several figures and
+checks, so the function `typical_parameters()` calculates them for the rows of three model
+matrices, after grouping the estimates by name with `split()`:
 
 ```{r}
-# Estimates of every parameter (the effects left out are zero), and the typical curves of
-# the six combinations of year and variety.
-additive_fit = candidate_fits[[2]]$fit
-additive_obj = candidate_fits[[2]]$obj
-additive_estimates = gompertz_start
-additive_estimates[names(additive_fit$par)] = as.list(additive_fit$par)
-additive_typical = typical_parameters(additive_estimates, soy_data)
+# Typical values (u = 0) of a, b and c at the given estimates, for the rows of three model
+# matrices.
+typical_parameters = function(estimates, X_a, X_b, X_c) {
+  beta = split(estimates, names(estimates))
+  list(a = as.vector(exp(X_a %*% beta$beta_a)),
+       b = as.vector(exp(X_b %*% beta$beta_b)),
+       c = as.vector(X_c %*% beta$beta_c))
+}
+```
 
-combination_names = c("Forrest 1988", "PI 1988", "Forrest 1989", "PI 1989",
-                      "Forrest 1990", "PI 1990")
+With the model matrices of the six combinations, it gives their typical asymptotes and
+inflection points:
+
+```{r}
+# Lists of data and starting values of the additive model, its fit, and the typical
+# curves of the six combinations of year and variety.
+additive_data = candidate_setups[[2]]$data
+additive_start = candidate_setups[[2]]$start
+additive_fit = candidate_fits[[2]]$fit
+additive_typical = typical_parameters(additive_fit$par, additive_data$X_a_typical,
+                                      additive_data$X_b_typical, additive_data$X_c_typical)
 data.frame(combination = combination_names,
            a = round(additive_typical$a, 1),
            b = round(additive_typical$b, 3),
@@ -750,11 +806,13 @@ at 6, 8 and 10 weeks after planting (42, 56 and 70 days, within the period of me
 every year). The ratio says how many times more leaf mass PI has, so a ratio of 1.2 means
 20% more. It is positive, so we calculate it on the log scale, as the difference between the
 logarithms of the two typical curves, and request its standard errors with `ADREPORT()`
-([Chapter 6](../Chapter_6/Theory.qmd#sec-delta-method)). The NLL gains the ages as an element
-of the list of data and a few lines: a short function `log_mass()` that gives the logarithm of
-the typical curve of combination `k` at the three ages, and the log ratios for the three
-years, which are the differences between combinations 2 and 1, 4 and 3, and 6 and 5. As
-`ADREPORT()` has to be called inside the NLL, we write the whole NLL again:
+([Chapter 6](../Chapter_6/Theory.qmd#sec-delta-method)). The ages are already in the list of
+data (`age` in `soy_data`), and the NLL gains a few lines: the typical parameters of the six
+combinations, from their model matrices (`X_a_typical` and so on) and the same
+coefficients, a short function `log_mass()` that gives the logarithm of the typical curve of
+combination `k` at the three ages, and the log ratios for the three years, which are the
+differences between combinations 2 and 1, 4 and 3, and 6 and 5. As `ADREPORT()` has to be
+called inside the NLL, we write the whole NLL again:
 
 ```{r}
 # The joint NLL with the log ratio of the typical leaf mass of PI and Forrest at the
@@ -764,14 +822,17 @@ soy_nll = function(parms, data) {
   weight = OBS(weight)
   sd_plot = exp(log_sd_plot)
   nll = -sum(dnorm(x = u, mean = 0, sd = sd_plot, log = TRUE))
-  typical = typical_parameters(parms, data)
-  a_plot = typical$a[combination] * exp(u)
-  b_plot = typical$b[combination]
-  c_plot = typical$c[combination]
+  a_plot = exp(X_a %*% beta_a + u)
+  b_plot = exp(X_b %*% beta_b)
+  c_plot = X_c %*% beta_c
   mu = growth_curve(time, a_plot[plot], b_plot[plot], c_plot[plot])
-  # Log typical leaf mass of combination k at the given ages, and the log ratios of the
-  # PI to Forrest in 1988, 1989 and 1990.
-  log_mass = function(k) log(growth_curve(age, typical$a[k], typical$b[k], typical$c[k]))
+  # Typical parameters (u = 0) of the six combinations, the log typical leaf mass of
+  # combination k at the given ages, and the log ratios of PI to Forrest in 1988, 1989
+  # and 1990.
+  a_typical = exp(X_a_typical %*% beta_a)
+  b_typical = exp(X_b_typical %*% beta_b)
+  c_typical = X_c_typical %*% beta_c
+  log_mass = function(k) log(growth_curve(age, a_typical[k], b_typical[k], c_typical[k]))
   log_ratio = c(log_mass(2) - log_mass(1), log_mass(4) - log_mass(3),
                 log_mass(6) - log_mass(5))
   ADREPORT(log_ratio)
@@ -787,16 +848,12 @@ soy_nll = function(parms, data) {
 }
 ```
 
-We add the ages to the lists of data, fit the additive model again (the estimates do not
-change) and calculate the standard errors:
+We fit the additive model again (the estimates do not change) and calculate the standard
+errors:
 
 ```{r}
-# Ages at which the varieties are compared: 6, 8 and 10 weeks (days after planting).
-soy_data$age = c(42, 56, 70)
-gompertz_data$age = soy_data$age
-
 # Fit the additive model again, with the log ratios in ADREPORT().
-additive = fit_soy(gompertz_data, gompertz_start, map = candidates$additive)
+additive = fit_soy(additive_data, additive_start)
 additive_obj = additive$obj
 additive_fit = additive$fit
 additive_fit$convergence
@@ -817,7 +874,7 @@ ratio_summary = summary(additive_sd, select = "report")
 critical_value = qnorm(p = 0.975)
 ratio_table = data.frame(
   year = rep(years, each = 3),
-  age = rep(soy_data$age, times = 3),
+  age = rep(additive_data$age, times = 3),
   ratio = exp(ratio_summary[, "Estimate"]),
   lower = exp(ratio_summary[, "Estimate"] - critical_value * ratio_summary[, "Std. Error"]),
   upper = exp(ratio_summary[, "Estimate"] + critical_value * ratio_summary[, "Std. Error"])
@@ -839,23 +896,35 @@ completely.
 
 ## Timing and variation among plots
 
-The effect of PI on the inflection point, `c_pi`, says how many days earlier (if
-negative) PI reaches each stage of its growth. It has not been transformed, so we profile
-it directly; for the standard deviation among plots we profile its logarithm and transform
-the endpoints back, as in
-[Chapter 7](../Chapter_7/Theory.qmd#sec-grouped-uncertainty). Each profile needs many fits
-with a Laplace approximation, so this takes a few seconds:
+The effect of PI on the inflection point, the coefficient of the column `VarietyP` of
+`X_c`, says how many days earlier (if negative) PI reaches each stage of its growth. It has
+not been transformed, so we profile it directly; for the standard deviation among plots we
+profile its logarithm and transform the endpoints back, as in
+[Chapter 7](../Chapter_7/Theory.qmd#sec-grouped-uncertainty). The rows of the summary of
+`sdreport()` repeat the names `beta_a`, `beta_b` and `beta_c`, so we first label them with
+the parameter and the column names of its model matrix, in the order of the list of
+starting values. The same name cannot tell `TMB::tmbprofile()` which coefficient to profile
+either, so we give it the position of the coefficient in `par` (the row of the summary).
+Each profile needs many fits with a Laplace approximation, so this takes a few seconds:
 
 ```{r}
-# Estimates and standard errors on the optimised scales.
+# Estimates and standard errors on the optimised scales, each coefficient labelled by its
+# parameter and the column of its model matrix.
 additive_fixed = summary(additive_sd, select = "fixed")
-additive_fixed[c("c_pi", "log_cv", "log_sd_plot"), ]
+rownames(additive_fixed) = c(paste0("a_", colnames(additive_data$X_a)),
+                             paste0("b_", colnames(additive_data$X_b)),
+                             paste0("c_", colnames(additive_data$X_c)),
+                             "log_cv", "log_sd_plot")
+additive_fixed[c("c_VarietyP", "log_cv", "log_sd_plot"), ]
 
-# Likelihood profile intervals of c_pi (days) and of sd_plot. confint() may warn that it
-# collapses repeated values; the warning can be ignored.
-additive_profile_c = TMB::tmbprofile(additive_obj, name = "c_pi", trace = FALSE)
+# Position of the effect of PI on the inflection point in par.
+c_pi_position = which(rownames(additive_fixed) == "c_VarietyP")
+
+# Likelihood profile intervals of the effect of PI on c (days) and of sd_plot. confint()
+# may warn that it collapses repeated values; the warning can be ignored.
+additive_profile_c = TMB::tmbprofile(additive_obj, name = c_pi_position, trace = FALSE)
 additive_profile_sd = TMB::tmbprofile(additive_obj, name = "log_sd_plot", trace = FALSE)
-rbind(c_pi = confint(additive_profile_c)[1, ],
+rbind(c_VarietyP = confint(additive_profile_c)[1, ],
       sd_plot = exp(confint(additive_profile_sd)[1, ]))
 ```
 
@@ -891,7 +960,7 @@ for (y in 1:3) {
        col = variety_colours[as.numeric(soy_year$Variety)],
        pch = variety_symbols[as.numeric(soy_year$Variety)],
        xlab = "Days after planting", ylab = "Leaf weight (g per plant)")
-  abline(v = soy_data$age, lty = 2, col = "grey")
+  abline(v = additive_data$age, lty = 2, col = "grey")
   # Combinations 2y - 1 (Forrest) and 2y (PI) of this year.
   for (v in 1:2) {
     k = 2 * (y - 1) + v
@@ -924,7 +993,7 @@ with one row per measurement:
 ```{r}
 # 1,000 hypothetical samples: new plot deviations, then new measurements for them.
 n_sim = 1000
-soy_simulations = matrix(NA, nrow = length(soy_data$weight), ncol = n_sim)
+soy_simulations = matrix(NA, nrow = length(additive_data$weight), ncol = n_sim)
 set.seed(seed = 416937)
 for (s in seq_len(n_sim)) {
   soy_simulations[, s] = additive_obj$simulate(additive_fit$par)$weight
@@ -932,7 +1001,8 @@ for (s in seq_len(n_sim)) {
 ```
 
 The expected value of a measurement before the deviation of its plot is known is the typical
-curve of the combination of its plot at its age, which we give DHARMa as
+curve of its plot (that of its variety and year) at its age. We calculate it with
+`typical_parameters()` and the model matrices of the plots, and give it to DHARMa as
 `fittedPredictedResponse`:
 
 ```{r}
@@ -940,16 +1010,17 @@ curve of the combination of its plot at its age, which we give DHARMa as
 #| fig-width: 9
 #| fig-height: 4.5
 #| fig-cap: "Scaled quantile residuals of the 412 measurements under the Gompertz model with additive effects, from 1,000 hypothetical samples with new plot deviations, as drawn by DHARMa. Left: quantile–quantile plot against a uniform distribution. Right: residuals against the rank of the typical curve of each measurement, with the quartiles of a uniform distribution (dashed lines) and lines fitted to the quartiles of the residuals."
-# Typical curve of the combination of each plot, at the age of each measurement.
-measurement_combination = soy_data$combination[soy_data$plot]
-soy_expected = gompertz(soy_data$time, additive_typical$a[measurement_combination],
-                        additive_typical$b[measurement_combination],
-                        additive_typical$c[measurement_combination])
+# Typical parameters of each plot, and its typical curve at the age of each measurement.
+plot_typical = typical_parameters(additive_fit$par, additive_data$X_a, additive_data$X_b,
+                                  additive_data$X_c)
+measurement_plot = additive_data$plot
+soy_expected = gompertz(additive_data$time, plot_typical$a[measurement_plot],
+                        plot_typical$b[measurement_plot], plot_typical$c[measurement_plot])
 
 # Scaled quantile residuals and the two standard panels.
 soy_residuals = DHARMa::createDHARMa(
   simulatedResponse = soy_simulations,
-  observedResponse = soy_data$weight,
+  observedResponse = additive_data$weight,
   fittedPredictedResponse = soy_expected
 )
 plot(soy_residuals)
@@ -982,7 +1053,7 @@ measurements of each plot in the observed and in every simulated sample:
 
 ```{r}
 # One residual per plot, from the sum of its measurements, sorted from low to high.
-plot_residuals = DHARMa::recalculateResiduals(soy_residuals, group = soy_data$plot)
+plot_residuals = DHARMa::recalculateResiduals(soy_residuals, group = additive_data$plot)
 plot_scaled = residuals(plot_residuals)
 names(plot_scaled) = plot_names
 round(sort(plot_scaled), 3)
@@ -1003,8 +1074,8 @@ the standard deviation among plots:
 ```{r}
 # The additive model without the two plots with the lowest residuals.
 low_plots = which(plot_names %in% c("1989F6", "1990F2"))
-without_low = fit_soy(subset_plots(gompertz_data, setdiff(seq_len(n_plots), low_plots)),
-                      gompertz_start, map = candidates$additive)
+without_low = fit_soy(subset_plots(additive_data, setdiff(seq_len(n_plots), low_plots)),
+                      additive_start)
 without_low$fit$convergence
 without_low_ratio = summary(sdreport(without_low$obj), select = "report")
 
@@ -1033,15 +1104,16 @@ measured wrongly, and plots that grow poorly are part of what happens in a field
 The residuals show that the Gompertz curve, although much better than the logistic curve
 by AIC, does not describe the whole season well. Does this matter for our answer? As in
 Case study 1, we can check whether a decision affects the answer by changing it and looking at
-the result. We fit the logistic curve with the same additive structure and the same
-distribution, which only needs a new list of data and the starting values of the logistic
-curve:
+the result. We fit the logistic curve with the same formulas and the same distribution,
+which only needs the starting values of the logistic curve:
 
 ```{r}
-# The logistic curve, with the same additive structure and the LogNormal distribution.
-logistic_data = gompertz_data
-logistic_data$growth_curve = logistic
-logistic_additive = fit_soy(logistic_data, logistic_start, map = candidates$additive)
+# The logistic curve, with the formulas of the additive model and the LogNormal
+# distribution.
+logistic_setup = soy_setup(soy_data, plot_info, combinations, candidates$additive,
+                           logistic, "LogNormal", logistic_baseline)
+logistic_data = logistic_setup$data
+logistic_additive = fit_soy(logistic_data, logistic_setup$start)
 logistic_additive$fit$convergence
 
 # AIC of the additive model with each curve.
@@ -1060,9 +1132,8 @@ data.frame(year = ratio_table$year, age = ratio_table$age,
            logistic = round(exp(logistic_ratio[, "Estimate"]), 2))
 
 # Typical asymptotes (g per plant) of the six combinations with both curves.
-logistic_estimates = logistic_start
-logistic_estimates[names(logistic_additive$fit$par)] = as.list(logistic_additive$fit$par)
-logistic_typical = typical_parameters(logistic_estimates, soy_data)
+logistic_typical = typical_parameters(logistic_additive$fit$par, logistic_data$X_a_typical,
+                                      logistic_data$X_b_typical, logistic_data$X_c_typical)
 data.frame(combination = combination_names,
            gompertz = round(additive_typical$a, 1),
            logistic = round(logistic_typical$a, 1))
@@ -1110,11 +1181,11 @@ sim_sd_plot = rep(NA, n_samples)
 n_failed = 0
 for (i in seq_len(n_samples)) {
   # One hypothetical sample at the estimates for the soybean plots.
-  sim_data = gompertz_data
+  sim_data = additive_data
   sim_data$weight = additive_obj$simulate(additive_fit$par)$weight
 
   # Maximum likelihood, starting from the same values as for the soybean plots.
-  sim = fit_soy(sim_data, gompertz_start, map = candidates$additive)
+  sim = fit_soy(sim_data, additive_start)
   n_failed = n_failed + (sim$fit$convergence != 0)
   sim_report = summary(sdreport(sim$obj), select = "report")
   sim_log_ratio[i, ] = sim_report[c(3, 6, 9), "Estimate"]
@@ -1172,9 +1243,9 @@ c(simulated = exp(additive_fit$par[["log_sd_plot"]]),
 
 Its estimates are too small on average, by about 15%. This is the bias of maximum
 likelihood estimates of variances that
-[Chapter 7](../Chapter_7/Theory.qmd#sec-reml) described: the 15 fixed effects of the
-additive model are estimated from the same 48 plots, which makes the plots look more similar
-than they are. Restricted maximum likelihood would reduce this bias. For our question,
+[Chapter 7](../Chapter_7/Theory.qmd#sec-reml) described: the 13 coefficients of the curve
+in the additive model are estimated from the same 48 plots, which makes the plots look more
+similar than they are. Restricted maximum likelihood would reduce this bias. For our question,
 which is about the ratios, it does not matter.
 
 # The answer to our question {#sec-soy-answer}
@@ -1231,7 +1302,9 @@ random effects that were no longer needed. They arrived at the same structure as
 model: the asymptote depends on the year, the variety and their interaction, the inflection
 point on the year and the variety, the rate on the year only, and only the asymptote varies
 among plots. Our comparison of three candidates with AIC and leave-one-plot-out
-cross-validation led to the same model. Their
+cross-validation led to the same model. Their function `nlme()` describes such a structure
+as we did, with a list of formulas in its argument `fixed`, one for each parameter of the
+curve, from which it builds the model matrices. Their
 estimates with the logistic curve are very close to those of our logistic fit in
 @sec-soy-logistic. Their asymptote of Forrest in 1988 is 19.4 g per plant (ours 19.6 g),
 that of PI in 1988 is 1.6 g higher (ours 1.4 g), that of Forrest in 1989 is 8.8 g lower
