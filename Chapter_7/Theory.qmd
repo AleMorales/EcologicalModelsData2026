@@ -52,7 +52,7 @@ In this chapter, we will cover:
 - the uncertainty of variance components and REML;
 - curves for observed and new groups;
 - checking a grouped model;
-- comparing grouped models with AIC and leave-one-group-out cross-validation.
+- comparing grouped models with AIC.
 
 We will use the [Normal](../Supplements/distributions.qmd#sec-normal) entry of the
 distribution supplement and the
@@ -72,7 +72,7 @@ it answers and the R tools that we use for it.
 | Uncertainty and REML | How precisely are the variances estimated, and how biased are they? | `TMB::tmbprofile()`, `random` with the fixed effects |
 | New groups | Which curves do we expect for groups that were not measured? | the distribution of the group deviations, `qnorm()` |
 | Checking | Does the fitted model describe the observations and the groups? | `OBS()`, `obj$simulate()`, `DHARMa::recalculateResiduals()` |
-| Comparison | Which of the candidate models do the data support? | AIC, one formula per candidate, `map` in `MakeADFun()`, a `for` loop that leaves out one group at a time |
+| Comparison | Which of the candidate models do the data support? | AIC, one formula per candidate |
 
 : Roadmap of the chapter.
 
@@ -1717,31 +1717,21 @@ share its deviation, but they are not only 12 observations either, because each
 measurement adds information about the curve of its plant. The effective number lies
 somewhere between the number of groups and the number of observations, and depends on how
 large the variance among groups is compared with the variance within groups. So we do not
-use AICc and BIC for grouped models, and compare them with AIC and with cross-validation.
+use AICc and BIC for grouped models, and compare them with AIC.
 
-**Leave-one-group-out cross-validation** holds out one whole group at a time. Every
-parameter is estimated again from the other groups, and the held-out group is scored by
-its marginal log-likelihood under that fit: the log density of all its observations
-together, with its effect integrated out, because the effect of a new group is not known.
-[Chapter 6](../Chapter_6/Theory.qmd#sec-response-comparison) noted that each held-out part
-should be a block of related observations. If we held out single measurements, the other
-measurements of the same plant would stay in the fit, and their plant deviation would make
-the held-out measurement look easier to predict than a measurement of a new plant. Holding
-out whole plants scores the models by how well they predict a plant that was not used to
-fit them, which is the question of partial pooling.
-
-Five candidates answer two questions: do the plants differ beyond their origin and
-treatment, and do origin and chilling explain part of the differences? Besides the three
-models already fitted (complete pooling, the random asymptote, and the random asymptote
-with origin, chilling and their interaction), we fit complete pooling with origin,
-chilling and their interaction, and the random asymptote with origin and chilling but no
-interaction. With a model matrix, the three candidates with plant deviations differ only in
-their formulas, and they share the NLL `treatment_nll`: the formula `~ 1` gives a model
-matrix with the column `(Intercept)` only, which is the random asymptote without
-predictors, `~ Type + Treatment` gives origin and chilling without their interaction, and
-`~ Type * Treatment` the model of @sec-group-predictors. Complete pooling has no plant
-deviations, so it needs an NLL of its own, which takes the model matrix in the same way;
-with the formula `~ 1` it is the model of @sec-pooling:
+Four candidates answer three questions: do the plants differ at all, do origin and
+chilling explain part of the differences, and does the effect of chilling depend on the
+origin? Besides the
+three models already fitted (complete pooling, the random asymptote, and the random
+asymptote with origin, chilling and their interaction), we fit the random asymptote with
+origin and chilling but no interaction. With a model matrix, the three candidates with
+plant deviations differ only in their formulas, and they share the NLL `treatment_nll`:
+the formula `~ 1` gives a model matrix with the column `(Intercept)` only, which is the
+random asymptote without predictors, `~ Type + Treatment` gives origin and chilling
+without their interaction, and `~ Type * Treatment` the model of @sec-group-predictors.
+Complete pooling has no plant deviations, so it needs an NLL of its own. We write it with
+a model matrix as well, so that it goes through the same bookkeeping as the other
+candidates below; with the formula `~ 1` it is the model of @sec-pooling:
 
 ```{r}
 # Complete pooling with a model matrix for the log asymptote: no plant deviations.
@@ -1763,9 +1753,6 @@ whether it has plant deviations:
 # The NLL and the formula of each candidate, and whether it has plant deviations.
 models = list(
   pooled = list(nll = pooled_matrix_nll, formula = ~ 1, random = FALSE),
-  pooled_treatment = list(
-    nll = pooled_matrix_nll, formula = ~ Type * Treatment, random = FALSE
-  ),
   mixed = list(nll = treatment_nll, formula = ~ 1, random = TRUE),
   additive = list(nll = treatment_nll, formula = ~ Type + Treatment, random = TRUE),
   treatment = list(nll = treatment_nll, formula = ~ Type * Treatment, random = TRUE)
@@ -1826,7 +1813,8 @@ fit_model = function(model, data) {
 }
 ```
 
-A loop fits the five candidates to the 84 measurements and calculates their AIC:
+A loop fits the four candidates to the 84 measurements and calculates their AIC and its
+difference from the lowest AIC:
 
 ```{r}
 # Fit every candidate to the 12 plants; K is the number of estimated parameters.
@@ -1839,122 +1827,29 @@ for (m in seq_along(models)) {
   comparison$convergence[m] = fit$convergence
 }
 comparison$aic = 2 * comparison$K - 2 * comparison$loglik
+comparison$delta_aic = comparison$aic - min(comparison$aic)
 comparison
 ```
 
-All five fits converged. To score a held-out plant we need its marginal log-likelihood at
-the estimates from the other plants, which is the value of `fn` of an object for the data
-of that plant, with every parameter except the plant deviation fixed at those estimates.
-The argument `map` of `MakeADFun()` fixes parameters:
-
-- `map` is a list with one element for each parameter to fix, named as in the list of
-  parameters;
-- each element is a factor with one value per element of the parameter, and `NA` fixes an
-  element at its value in the list of parameters (here, at the estimate), so
-  `factor(rep(NA, 4))` fixes the four coefficients of `beta_asym`;
-- the fixed parameters are left out of `par`, so when every parameter but the random
-  effects is fixed, `par` is empty, and `fn(par)` returns the marginal NLL of the data at the
-  fixed values.
-
-We also need the data of some of the plants, with the plants numbered again from one and
-the rows of the model matrix of the plants that are kept (`drop = FALSE` keeps the result a
-matrix when a single row is kept, as for the held-out plant). The model matrix of the four
-combinations does not depend on the plants and is kept whole. In the vector of estimates
-every coefficient is called `beta_asym`, so the function that calculates the
-log-likelihood puts the estimates with the same name back into one element of the list of
-parameters with `split()`, which groups the elements of a vector by their names into a
-list. That list is in alphabetical order of the names, so its elements replace the
-starting values by name, not by position:
-
-```{r}
-# Keep only the given plants in the list of data, numbered again from 1, with their rows
-# of the model matrix.
-subset_plants = function(data, plants) {
-  rows = data$plant %in% plants
-  list(
-    conc = data$conc[rows],
-    uptake = data$uptake[rows],
-    plant = match(data$plant[rows], plants),
-    X_asym = data$X_asym[plants, , drop = FALSE],
-    X_asym_group = data$X_asym_group
-  )
-}
-
-# Log-likelihood of the data at the given estimates: every parameter is fixed with map,
-# and the plant deviations, if any, are integrated out.
-plant_loglik = function(model, estimates, data) {
-  # Estimates grouped by name, replacing the starting values of the same names.
-  estimate_list = split(unname(estimates), names(estimates))
-  parms = start_values(model, data)
-  parms[names(estimate_list)] = estimate_list
-  # Fix every element of every estimated parameter.
-  fixed = lapply(estimate_list, function(x) factor(rep(NA, length(x))))
-  random = NULL
-  if (model$random) {
-    random = "u"
-  }
-  obj = MakeADFun(cmb(model$nll, data), parms, map = fixed, random = random, silent = TRUE)
-  -obj$fn(obj$par)
-}
-```
-
-For each candidate and each plant, we fit the model to the other 11 plants from the same
-starting values as before, and add the marginal log-likelihood of the held-out plant to the
-score of the model. We count the fits that did not converge:
-
-```{r}
-# Leave-one-plant-out score of each candidate: fit to 11 plants, score the plant held out.
-n_plants = length(plant_names)
-comparison$loo = NA
-n_failed = 0
-for (m in seq_along(models)) {
-  candidate_data = formula_data(models[[m]]$formula, co2_data, plant_info, group_info)
-  score = 0
-  for (i in seq_len(n_plants)) {
-    fit = fit_model(models[[m]], subset_plants(candidate_data, setdiff(seq_len(n_plants), i)))
-    n_failed = n_failed + (fit$convergence != 0)
-    score = score + plant_loglik(models[[m]], fit$par, subset_plants(candidate_data, i))
-  }
-  comparison$loo[m] = score
-}
-n_failed
-```
-
-All 60 fits converged. The differences from the best model for each criterion:
-
-```{r}
-# Differences from the lowest AIC and from the highest leave-one-plant-out score.
-data.frame(
-  model = comparison$model,
-  K = comparison$K,
-  loglik = round(comparison$loglik, 2),
-  delta_aic = round(comparison$aic - min(comparison$aic), 2),
-  delta_loo = round(comparison$loo - max(comparison$loo), 2)
-)
-```
-
-Both criteria prefer the random asymptote with origin, chilling and their interaction, and
-both rank complete pooling without predictors last by far. They agree that the plants
-differ beyond their origin and treatment: with the same fixed effects, the random asymptote
-is better than complete pooling by 19.2 units of AIC and 22.2 units of log score (recall
-that one unit of log score corresponds to about two of AIC). They agree on the direction of
-the interaction, but not on its strength: AIC prefers the model with the interaction by 8.6
-units, leave-one-plant-out by only 0.33 units of log score. And they disagree on the order
-of two models. AIC prefers complete pooling with predictors to the random asymptote without
-predictors (by 5.9 units), whereas leave-one-plant-out prefers the random asymptote, by 19.2
-units of log score. The likelihood of complete pooling treats the seven measurements of a
-plant as independent, so its AIC estimates how well it predicts new measurements that are
-independent of each other; a new plant has seven measurements that share its deviation,
-which this model cannot predict. Leave-one-plant-out scores exactly that, so it is the
-better guide when models with and without random effects are compared.
+All four fits converged. AIC prefers the random asymptote with origin, chilling and their
+interaction. The model without the interaction is worse by 8.6 units, so the data support
+an effect of chilling that differs between the two origins, and the random asymptote
+without predictors is worse by 25.0 units, so origin and chilling explain a large part of
+the differences among the plants. Complete pooling comes last, 175 units above the random
+asymptote without predictors. It lies at the boundary $\sigma_{\mathrm{plant}}=0$, so this
+difference is only an approximate guide, but one of this size leaves no doubt that the
+plants differ. Whether they still differ once their origin and treatment are known is a
+question that this comparison cannot answer, because every candidate with origin and
+chilling also has plant deviations. The likelihood profile interval of
+$\sigma_{\mathrm{plant}}$ in @sec-grouped-uncertainty answers it: plants of the same
+origin and treatment differ by between about 5% and 14%, and values near zero lie outside
+the interval.
 
 No pooling is not in the table. Its AIC, 372.9, is lower than that of every mixed model,
 but it answers another question. Its likelihood describes new measurements of the same 12
 plants, with their 12 asymptotes as parameters, whereas the marginal likelihood of a mixed
 model describes the measurements of a new plant, whose asymptote is unknown. The two
-likelihoods are probabilities of different things, so their AICs cannot be compared. Nor
-can leave-one-plant-out score no pooling, because it has no asymptote for a plant that was
-not used to fit it.
+likelihoods are probabilities of different things, so their AICs cannot be compared.
 
 For the ecological question we use the model with the interaction. Chilling multiplies the
 typical uptake capacity of plants from Quebec by about 0.90 (Wald interval from the log
@@ -1992,8 +1887,8 @@ observations that come in groups:
 7. Mark the response with `OBS()`, simulate hypothetical samples with `obj$simulate()`, and
    check the scaled quantile residuals of the observations and of the groups.
 8. Compare the candidate models, fitted by maximum likelihood to the same observations,
-   with AIC and leave-one-group-out cross-validation; candidates that differ only in their
-   fixed effects share one NLL and differ in their formulas.
+   with AIC; candidates that differ only in their fixed effects share one NLL and differ
+   in their formulas.
 9. Interpret the fixed effects and the variance among groups in units, in terms of the
    ecological question, and say what the number of groups leaves uncertain.
 :::
@@ -2032,8 +1927,8 @@ curve and the range of new groups answer different questions.
 A grouped model is checked by unconditional simulation, with residuals of the observations
 and of the groups, each of which can hide what the other shows. Grouped models are
 compared with AIC on the marginal likelihood, with $K$ counting the variance parameters and
-not the random effects, and with leave-one-group-out cross-validation; AICc and BIC are not
-used, because the number of independent observations is ambiguous.
+not the random effects; AICc and BIC are not used, because the number of independent
+observations is ambiguous.
 
 The likelihoods of the CO₂ data were maximised without difficulty, but the practical meets
 fits that stop before the maximum. In [Chapter 8](../Chapter_8/Theory.qmd) we look at how
@@ -2215,20 +2110,26 @@ effects gives for new sites, which is wider.
 :::
 ::::
 
-:::: {.callout-important title="Question 10: cross-validation of nestling growth"}
+:::: {.callout-important title="Question 10: parameters of a nestling growth model"}
 
-The growth of nestlings is measured several times in 40 broods, and a model with a random
-effect per brood is compared with one without it by leave-one-out cross-validation that
-holds out one measurement at a time. What is wrong with this design, and how should it be
-changed?
+The growth in mass of nestlings is described by a curve with three parameters, with a
+random effect per brood on one of them and Normal variation of the measurements around
+the curve of each brood. The model is fitted to 40 broods, each measured several times.
+How many parameters $K$ enter its AIC? And why is it not compared with other models by
+AICc or BIC?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-The other measurements of the same brood stay in the fit, so the predicted effect of the
-brood is known when the held-out measurement is scored, and the model with brood effects
-looks better at predicting it than it would be at predicting a new brood. Hold out whole
-broods, refit every parameter to the other 39, and score each held-out brood by its
-marginal log-likelihood, with its effect integrated out.
+$K=5$: the three parameters of the curve, the standard deviation among broods
+$\sigma_{\mathrm{brood}}$ and the standard deviation of the measurements
+$\sigma_{\mathrm{obs}}$. The 40 brood effects are not counted, because they are integrated
+out of the marginal likelihood, so together they cost one parameter,
+$\sigma_{\mathrm{brood}}$, and $K$ is 5 and not 45. AICc and BIC need the number of
+independent observations $n$, which is ambiguous here: the measurements of a brood share
+its effect, so they are not independent, but each adds information about the curve of its
+brood. The effective number lies somewhere between the 40 broods and the number of
+measurements, depending on how large the variance among broods is compared with the
+variance within broods.
 
 :::
 ::::

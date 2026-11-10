@@ -93,18 +93,18 @@ glossary.
   with its printed tests (author's decision of 4 November); the plots and the dispersion
   statistic are exploratory, and one sentence says why the course does not rest decisions
   on p-values. `plotResiduals(form = ...)` is named but not run in the theory.
-- **Comparison:** AIC and AICc recalled, BIC added, and leave-one-out cross-validation with
-  the log score (every parameter refitted to the other 15 tanks from fixed starts; no
-  random folds; other folds named once as "5-fold or 10-fold", never "$K$-fold", which
-  clashes with $K$; no RMSE). $n$ in AICc and BIC is the
+- **Comparison:** AIC and AICc recalled and BIC added; no cross-validation (removed on
+  10 November, see `AGENTS.md`). $n$ in AICc and BIC is the
   16 tanks for all four models (author's decision of 4 November). Chapter 7 answers why
   not the tadpoles: tadpoles of one tank share it, so the tanks are the independent
   observations ("Observations in groups"); for grouped data $n$ lies somewhere between
-  the number of groups and of observations, so grouped models are compared with AIC and
-  leave-one-group-out cross-validation only. The criteria disagree on the curve under the
-  Beta-Binomial (AIC, AICc and BIC prefer Holling type II, leave-one-out the constant
-  probability), and the text keeps the disagreement so that students see it (author's
-  decision); the answer uses the Beta-Binomial Holling type II model.
+  the number of groups and of observations, so grouped models are compared with AIC only.
+  "Information criteria" calculates the three criteria and "Comparing the four models"
+  tabulates the differences and gives the answer. Under the Beta-Binomial all three
+  criteria prefer Holling type II by a small margin (2.7, 1.6 and 2.0 units); the answer
+  uses the Beta-Binomial Holling type II model. Quiz question 10 (seed removal by
+  rodents, AIC of models fitted to different plots) replaced the cross-validation question
+  on 10 November; awaiting the author's check.
 - **Coverage and bias by simulation:** only in the practical's extra exercise; the theory
   says in one sentence that a coverage check works as in Chapter 4.
 - Three numbered Practice callouts (`imp-seedlings-light`, `imp-ladybird-handling`,
@@ -119,17 +119,16 @@ glossary.
   (transformed to $2^b$) and, in question 6, the pointwise band of the mean fecundity from
   `ADREPORT()` of its logarithm on a grid of diameters (the only practice of recipe step
   6); Exercise 4 (extra) bias and coverage of the Wald interval of the time of the peak by
-  simulation, with a skeleton of `simulate_peak_time()` (two gaps). Leave-one-out
-  cross-validation in Exercise 2, question 5 is a skeleton with two gaps (the refit and
-  the score); the text above it explains that `as.list(fit$par)` fails for the vector
-  `log_a`, so the held-out observation is scored with `MakeADFun()` and `fn()`. No
+  simulation, with a skeleton of `simulate_peak_time()` (two gaps). Exercise 2, question 5
+  compares the two models with AIC, AICc and BIC only (they agree, by about 24 to 25
+  units). No
   restart from other starting values in this practical (a Chapter 8 skill). Questions of
   Exercises 2 to 4 end with inline "Hint:" sentences that name the theory section in
   quotes with a link to its `sec-` ID; the intro says to work in one R session (`cmb()`,
   `critical_value` and `n_sim` carry over). The Monte Carlo standard error is defined in
   the hints of Exercise 4 (it is not taught earlier). Estimated time of the core for an
-  average student: about 5 to 5.5 hours. Awaiting the author: the hints, the skeleton of
-  Exercise 2 and Exercise 3, question 6 (drafts of 4 November); `solution.qmd` repeats Exercise 1
+  average student: about 5 to 5.5 hours. Awaiting the author: the hints and Exercise 3,
+  question 6 (drafts of 4 November); `solution.qmd` repeats Exercise 1
   in full, whereas the solution pages of Chapters 4 and 5 link to their worked exercise;
   six fecundities that are not whole numbers are rounded with `round()` (dropping them is
   the alternative); the Wald
@@ -137,5 +136,7 @@ glossary.
   the lesson is the asymmetry that the profile interval captures.
 - **Lecture:** one of 150 minutes; its demo shows the modelling cycle for the Binomial
   model with the Holling type II curve, from the fit to the residuals, without model
-  comparison (author's decision of 3 November).
+  comparison (author's decision of 3 November). 31 slides, 117 minutes of slides and 13
+  of slack: the four minutes of the deleted cross-validation slide went to the slack
+  (author's decision of 10 November).
 

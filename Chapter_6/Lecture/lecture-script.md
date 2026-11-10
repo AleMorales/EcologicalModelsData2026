@@ -1,8 +1,8 @@
 # Chapter 6 lecture script: Fitting ecological response curves
 
-Draft for the course author's review. **Target: 150 minutes in total, with 121 minutes of
-slides on 32 slides (including the discussion, the three practice questions and one live demo
-of 18 minutes), 9 minutes of slack and two breaks of 10 minutes.** The breaks separate the three
+Draft for the course author's review. **Target: 150 minutes in total, with 117 minutes of
+slides on 31 slides (including the discussion, the three practice questions and one live demo
+of 18 minutes), 13 minutes of slack and two breaks of 10 minutes.** The breaks separate the three
 blocks of the lecture. The only code that is run live is the demo of slide 23, from the script
 `demo-cycle.R`.
 
@@ -58,15 +58,14 @@ Times are measured from the start of the session and include the breaks.
 | 25 | Practice 3: fruit set in inflorescences | 3 | 115–118 |
 | 26 | Candidate models | 3 | 118–121 |
 | 27 | AIC, AICc and BIC | 5 | 121–126 |
-| 28 | Leave-one-out cross-validation | 4 | 126–130 |
-| 29 | Comparing the candidates | 4 | 130–134 |
-| 30 | A recipe for a response curve | 2 | 134–136 |
-| 31 | The Chapter 6 R practical | 2 | 136–138 |
-| 32 | Summary and closing questions | 3 | 138–141 |
-| | Slack for discussion | 9 | 141–150 |
+| 28 | Comparing the candidates | 4 | 126–130 |
+| 29 | A recipe for a response curve | 2 | 130–132 |
+| 30 | The Chapter 6 R practical | 2 | 132–134 |
+| 31 | Summary and closing questions | 3 | 134–137 |
+| | Slack for discussion | 13 | 137–150 |
 | | **Total** | **150** | |
 
-Slides 121 minutes (blocks of 36, 37 and 48, the demo included), slack 9, breaks 20: 150
+Slides 117 minutes (blocks of 36, 37 and 44, the demo included), slack 13, breaks 20: 150
 minutes. The break before the demo lets you open R and run section 0 of `demo-cycle.R`.
 
 ## Slides 1 and 2 — Ecological Models and Data Analysis; Overview of the lecture
@@ -83,7 +82,7 @@ fits it, and ends with the gradient that RTMB supplies to the optimiser. The sec
 the uncertainty of the parameters and of the curve, and about checking the fitted model with
 residuals calculated by simulation. The third starts with a live demo of the whole cycle for
 one model, then revises the observation model and compares four candidate models with
-information criteria and cross-validation. It ends with the recipe, the practical and the
+information criteria. It ends with the recipe, the practical and the
 summary.
 
 **Delivery**
@@ -95,15 +94,15 @@ explain any term yet.
 
 This lecture goes round the whole cycle once, with one data set. In the model box it is the entry
 "covariates (5 and 6)": Chapter 5 studied the deterministic functions, and this chapter makes
-one of them a parameter of a distribution. In the comparison box it adds BIC and
-cross-validation to the AIC of Chapter 4, and it checks how well a fitted model describes the
+one of them a parameter of a distribution. In the comparison box it adds BIC to the
+AIC and AICc of Chapter 4, and it checks how well a fitted model describes the
 data. A check that fails sends us back to the model, which is why modelling is a cycle, and the
 lecture follows this path: model, estimation, check, revision, comparison, answer.
 
 **Delivery**
 
-One minute. Point to "covariates (5 and 6)", "information criteria (4 and 6)" and
-"cross-validation (6)", and to the arrow that leads from comparison back to the model.
+One minute. Point to "covariates (5 and 6)" and "information criteria (4 and 6)", and to
+the arrow that leads from comparison back to the model.
 
 ## Slide 4 — Two pillars: functions and distributions
 
@@ -659,7 +658,7 @@ Break (10 minutes).
 
 The demo runs the steps of slides 8 to 21 for one model, the Binomial model with the Holling type II
 curve, from the fit to the residuals, with the script `demo-cycle.R`. It has no model comparison: the
-comparison follows on slides 26 to 29. The script needs the packages RTMB, RTMBdist, TMB (for
+comparison follows on slides 26 to 28. The script needs the packages RTMB, RTMBdist, TMB (for
 `tmbprofile()`), `emdbook` (for the data) and DHARMa. Its code and object names are those of the chapter,
 and the simulation uses the chapter's seed (601), so the numbers and the residual plot agree with the
 chapter and the slides. The whole script runs in a few seconds (about 6 seconds in a check in R 4.6.1),
@@ -808,7 +807,8 @@ $e^2\approx7.4$ (for 16 tanks, $\log(16)\approx2.8$). So for most data sets BIC 
 parameters more strongly than AIC. The two criteria also have different aims. AIC estimates how well the
 fitted model would predict new data from the same process. BIC tends, as the sample grows, to select the
 model with the fewest parameters among the candidates that contain the data generating process. So in large
-samples BIC tends to prefer simpler models than AIC does. Like AIC, BIC is used as a difference between
+samples BIC tends to prefer simpler models than AIC does, and the two criteria can rank the same candidates
+differently. Like AIC, BIC is used as a difference between
 models fitted to the same observations, the lowest value is preferred, and it ranks the candidates without
 showing that the best of them describes the data well.
 
@@ -828,67 +828,27 @@ independent observation.
 Schwarz (1978), "Estimating the dimension of a model", *Annals of Statistics* 6: 461–464. The name comes from
 its derivation, as a large-sample approximation in Bayesian inference, but it is used in the same way as AIC.
 
-## Slide 28 — Leave-one-out cross-validation
-
-**Cross-validation** estimates how well a model predicts observations that were not used to fit it. The
-observations are split into parts, the model is fitted to all but one part and scored on the part that was
-held out, and this is repeated until every part has been held out once. In **leave-one-out
-cross-validation** each part is a single observation: every parameter of the model is estimated again from
-the other $n-1$ observations, and the held-out observation is scored by its **log score**, the log
-probability (or log density) that the refitted model assigns to it. The score of the model is the sum of the
-log scores of the $n$ observations, and a larger (less negative) score is better.
-
-The log score uses the whole distribution of the observation, and not only its distance from the curve, so
-it can be calculated for any observation model, and it rewards a model that describes the spread of the
-observations as well as their mean. A model that adapts too closely to the data used to fit it predicts the
-held-out observations badly, so cross-validation needs no penalty for the number of parameters.
-Leave-one-out cross-validation and AIC agree in large samples: AIC is approximately $-2$ times the
-leave-one-out log score. When fitting the model $n$ times takes too long, the observations are split into a
-few groups that are held out in turn, often 5 or 10 (5-fold or 10-fold cross-validation). When the
-observations are ordered in time or space, so that neighbouring observations are similar, each held-out part
-should be a block of neighbouring observations; otherwise its neighbours in the fit make it look easier to
-predict than a new observation would be.
-
-For the reed frogs we leave out one tank at a time: 16 fits per model, 64 in all, each from the same
-starting values as the fit to all the tanks, and all of them converged. Every parameter is refitted, also
-$\kappa$; fixing a parameter at its estimate from all the tanks would let the held-out tank contribute to its
-own prediction (quiz question 10 of the chapter).
-
-**Delivery**
-
-In the chapter, the log score of the held-out tank is calculated by calling the NLL directly with two lists:
-the estimates from the other 15 tanks (with `as.list()`) and the data of the held-out tank. Minus that NLL is
-the log probability of the tank. Leave-one-out needs no random split and no seed: every tank is held out once.
-
-**Optional remark (citation)**
-
-Stone (1977), "An asymptotic equivalence of choice of model by cross-validation and Akaike's criterion",
-*Journal of the Royal Statistical Society, Series B* 39: 44–47.
-
-## Slide 29 — Comparing the candidates
+## Slide 28 — Comparing the candidates
 
 Only differences between models matter for each criterion, so the table gives the difference of each model
-from the best one: the lowest AIC, AICc and BIC, and the highest leave-one-out score, whose differences are
-therefore zero or negative. Recall that a difference of one unit in the log score corresponds to about two
-units of AIC.
+from the one with the lowest value of that criterion.
 
 For the variation among tanks the criteria agree: with either curve, every criterion prefers the
 Beta-Binomial model to the Binomial model, by 6.7 (Holling type II) and 13.0 (constant probability) units of
-AIC, and by 3.3 and 8.2 units of log score. This agrees with the residuals of slide 21.
+AIC. This agrees with the residuals of slide 21.
 
 For the density dependence of the risk the answer depends on the distribution. Under the Binomial models, the
-Holling type II curve is clearly better than a constant probability (9.0 units of AIC, 4.0 of log score).
-Under the Beta-Binomial models the difference is small, and the criteria do not agree on its sign: AIC, AICc
-and BIC prefer the Holling type II curve by 2.7, 1.6 and 2.0 units, whereas the leave-one-out score prefers
-the constant probability by 0.9 units. The Binomial models overstated the evidence for density dependence
+Holling type II curve is clearly better than a constant probability (9.0 units of AIC). Under the
+Beta-Binomial models AIC, AICc and BIC still prefer the Holling type II curve, but only by 2.7, 1.6 and 2.0
+units. The Binomial models overstated the evidence for density dependence
 for the same reason that they understated the standard errors: they treated the tadpoles as independent
 trials. With 16 tanks that vary among themselves, the data say clearly that a tadpole is killed with a
 probability of about one half at low density and that the tanks vary more than a Binomial model allows, but
 they hardly distinguish a probability that decreases with density from a constant one over densities of 5 to
 100 tadpoles per tank.
 
-For the ecological answer the chapter uses the Beta-Binomial model with the Holling type II curve, which three
-of the four criteria prefer and which contains the constant probability as the case $H=0$. Its attack rate is
+For the ecological answer the chapter uses the Beta-Binomial model with the Holling type II curve, which all three
+criteria prefer, by a small margin, and which contains the constant probability as the case $H=0$. Its attack rate is
 estimated at 0.54 per experiment, with a likelihood profile interval from 0.38 to 0.76: at low density,
 between about two fifths and three quarters of the tadpoles are killed on average in the 14 days. Its handling
 time is estimated at 0.018 experiments per tadpole killed, with an interval from 0.0019 to 0.038, so the
@@ -900,12 +860,12 @@ well above the half-maximum, where the curve levels off (slide 14).
 **Delivery**
 
 Read the table by columns, then by rows: the two rows of the Binomial models are far from the best for every
-criterion; the two rows of the Beta-Binomial models are close, and the last column has the opposite sign. The
-takeaway is the general point: the criteria rank the candidates and can disagree, and what the ranking means
-for the question is a matter of ecological interpretation. Students should see that model comparison criteria
-can disagree; do not present the choice of the last model as settled by the criteria.
+criterion; the two rows of the Beta-Binomial models are close. The takeaway is the general point: the criteria
+rank the candidates, and what the ranking means for the question is a matter of ecological interpretation. Do
+not present the choice of the last model as settled by the criteria: under the Beta-Binomial the differences are
+small, and the interval of $H$ reaches almost to zero.
 
-## Slide 30 — A recipe for a response curve
+## Slide 29 — A recipe for a response curve
 
 The steps of this chapter extend the recipe of Chapter 4 to models in which a curve describes a parameter of
 the distribution of each observation, and the chapter collects them in a note callout before the summary.
@@ -914,8 +874,8 @@ parameter requires; write the NLL with the predictor and the response in the lis
 from a plot; fit, check `convergence` and plot the curve over the data; standard errors and correlations with
 `sdreport()`, likelihood profile intervals with `TMB::tmbprofile()` and `confint()`; the curve on a grid with
 `ADREPORT()` and its band; `OBS()`, `obj$simulate()` and the scaled quantile residuals; revise the curve or the
-observation model and check the revised model in the same way; compare the candidates with AIC, AICc, BIC and
-leave-one-out cross-validation; and interpret the estimates and intervals of the preferred model in units, in
+observation model and check the revised model in the same way; compare the candidates with AIC, AICc and BIC;
+and interpret the estimates and intervals of the preferred model in units, in
 terms of the ecological question, saying what the data leave uncertain.
 
 **Delivery**
@@ -923,7 +883,7 @@ terms of the ecological question, saying what the data leave uncertain.
 About two minutes. Steps 2, 4 and 5 are those of Chapter 4; point at the new ones (1, 3, 6 to 8 and 10). The
 practical follows the same sequence.
 
-## Slide 31 — The Chapter 6 R practical
+## Slide 30 — The Chapter 6 R practical
 
 The practical fits response curves to three data sets that the Chapter 5 practical used as a backdrop for curves
 placed by eye. Exercises 1 to 3 are the core and Exercise 4 is extra practice. Exercise 1, on the titre of the
@@ -932,14 +892,14 @@ model, Wald intervals of the time and the height of the peak from `ADREPORT()`, 
 the time of the peak, residuals with DHARMa, and a Gamma observation model compared with AIC, AICc and BIC.
 Exercise 2, on the rate of an enzymatic reaction (`Puromycin`), fits a Michaelis–Menten curve with one asymptote
 per state (cells treated with puromycin or not), the difference between the asymptotes from `ADREPORT()`, and a
-comparison with information criteria and leave-one-out cross-validation. Exercise 3, on the fecundity of fir trees
+comparison with information criteria. Exercise 3, on the fecundity of fir trees
 (`emdbook`), fits a power law with Poisson and Negative Binomial models and asks whether the data support a
 fecundity proportional to the cross-sectional area of the trunk. Exercise 4 simulates the coverage of the Wald
 interval of the time of the peak of Exercise 1, with a skeleton function that students complete.
 
 Try each exercise before checking the solution.
 
-## Slide 32 — Summary and closing questions
+## Slide 31 — Summary and closing questions
 
 Go back to slide 3 by speaking about it again; no new slide is needed. A response curve describes one parameter
 of the distribution of each observation, usually its mean or, for a Binomial distribution, its probability, and it
@@ -950,8 +910,8 @@ parameters of a curve are often strongly correlated, and their precision depends
 along the predictor. `ADREPORT()` on a grid gives a pointwise confidence band, calculated on an unbounded scale.
 Simulated residuals show where a fitted model disagrees with the data, but not why; for the reed frogs they showed
 overdispersion, and a Beta-Binomial model with the same curve described the variation among tanks. Candidate models
-fitted to the same observations are compared with AIC, AICc, BIC and leave-one-out cross-validation, with the
-number of independent observations as $n$. On the diagram of slide 3, the lecture went once round the whole cycle:
+fitted to the same observations are compared with AIC, AICc and BIC, with the number of
+independent observations as $n$. On the diagram of slide 3, the lecture went once round the whole cycle:
 model, estimation, check, revision, comparison and answer.
 
 Return to this slide for the two closing questions.
@@ -975,7 +935,7 @@ other, and the parameters of the curve vary among groups. The practical comes fi
 
 ## Adjustments during delivery
 
-The slides take 121 minutes and leave 9 minutes of slack, which comes last. The demo is kept whole; if it overruns,
+The slides take 117 minutes and leave 13 minutes of slack, which comes last. The demo is kept whole; if it overruns,
 it takes the slack first. If discussion overruns, use the slack first, then shorten in this order:
 
 - Slide 3 to one sentence: recovers about half a minute.
@@ -984,7 +944,7 @@ it takes the slack first. If discussion overruns, use the slack first, then shor
 - Slide 14 to the takeaway, pointing at the figure once: about two minutes.
 - Slide 22 to two of the four patterns (1 and 2): about one and a half minutes.
 - Slide 25 given as homework, with the answers in one sentence: about two and a half minutes.
-- Slides 30 and 31 to one sentence each: about two minutes together.
+- Slides 29 and 30 to one sentence each: about two minutes together.
 
 Keep the response curve as a parameter of a distribution and its range (slides 5 and 6), the likelihood of a
 response curve (slide 8), the correlation and precision of curve parameters (slide 13), the uncertainty of the curve
@@ -1000,6 +960,5 @@ No code is run live apart from the demo, which stops before the comparison. Stud
 chapter page at home, by section: "A model for overdispersed proportions" (the Beta-Binomial NLL with
 `dbetabinom()`, its fit, its simulations and its dispersion statistic), "Comparing candidate models" (the two NLLs
 with a constant probability, `fit_model()`, the list `models` and the loop that fits the four candidates),
-"Information criteria" (AIC, AICc and BIC with `n_tanks`), "Cross-validation" (`subset_tanks()` and the loop that
-leaves out one tank at a time) and "Comparing the four models" (the table of differences and the likelihood profile
+"Information criteria" (AIC, AICc and BIC with `n_tanks`, the table of differences and the likelihood profile
 intervals of the Beta-Binomial model).

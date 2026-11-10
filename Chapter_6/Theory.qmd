@@ -23,8 +23,8 @@ and deterministic functions ([Chapter 5](../Chapter_5/Theory.qmd)). What is new 
 likelihood of a response curve, in which every observation has a distribution of its own;
 how RTMB calculates the gradient of the negative log-likelihood that the optimiser uses;
 the uncertainty of a fitted curve; residuals calculated by simulation from the fitted
-model; and two further tools for comparing models, the Bayesian information criterion and
-cross-validation. One example runs through the chapter, the functional response of
+model; and a further information criterion for comparing models, the Bayesian information
+criterion (BIC). One example runs through the chapter, the functional response of
 dragonfly larvae that prey on reed frog tadpoles (Vonesh and Bolker 2005).^[Vonesh, J. R.
 and Bolker, B. M. (2005), "Compensatory larval responses shift trade-offs associated with
 predator-induced hatching plasticity", *Ecology* 86: 1580–1591. The data are in the
@@ -47,7 +47,7 @@ In this chapter, we will cover:
 - the uncertainty of the fitted curve;
 - simulation from a fitted model and scaled quantile residuals;
 - a model for overdispersed proportions;
-- model comparison with AIC, AICc, BIC and leave-one-out cross-validation.
+- model comparison with AIC, AICc and BIC.
 
 We will use the [Binomial](../Supplements/distributions.qmd#sec-binomial) and
 [Beta-Binomial](../Supplements/distributions.qmd#sec-beta_binomial) entries of the
@@ -67,7 +67,7 @@ it answers and the R tools that we use for it.
 | Uncertainty of the curve | How precisely is the curve itself estimated? | `ADREPORT()` on a grid of the predictor |
 | Checking the model | Does the fitted model describe the data? | `OBS()`, `obj$simulate()`, `DHARMa::createDHARMa()` |
 | Revising the observation model | What if the counts vary more than the model allows? | `dbetabinom()` |
-| Comparison | Which of the candidate models do the data support? | AIC, AICc and BIC from `fit$value`; a `for` loop that leaves out one tank at a time |
+| Comparison | Which of the candidate models do the data support? | AIC, AICc and BIC from `fit$value` |
 
 : Roadmap of the chapter.
 
@@ -1224,10 +1224,10 @@ constant_betabinomial_nll = function(parms, data) {
 }
 ```
 
-We will fit each model many times, to all the tanks and to subsets of them, so we write a
-small function that processes an NLL for a list of data and minimises it from the starting
-values that we give it, and a list with the NLL and the starting values of every candidate
-(the values read by eye in Chapter 5 and a precision of 10):
+We fit the four models in the same way, so we write a small function that processes an NLL
+for a list of data and minimises it from the starting values that we give it, and a list
+with the NLL and the starting values of every candidate (the values read by eye in Chapter 5
+and a precision of 10):
 
 ```{r}
 # Fit one model to one list of data, from the given starting values.
@@ -1305,9 +1305,10 @@ additional parameters more strongly than AIC. The two criteria also have differe
 AIC estimates how well the fitted model would predict new data from the same process. BIC
 tends, as the sample grows, to select the model with the fewest parameters among the
 candidates that contain the data generating process. So in large samples BIC tends to
-prefer simpler models than AIC does. Like AIC, BIC is used as a difference between models
-fitted to the same observations, the lowest value is preferred, and it ranks the candidates
-without showing that the best of them describes the data well.
+prefer simpler models than AIC does, and the two criteria can rank the same candidates
+differently. Like AIC, BIC is used as a difference between models fitted to the same
+observations, the lowest value is preferred, and it ranks the candidates without showing
+that the best of them describes the data well.
 
 In AICc and BIC, $n$ is the number of independent observations, which is the number of
 tanks, 16, and not the 610 tadpoles that they contained: under the Beta-Binomial model the
@@ -1324,75 +1325,10 @@ comparison$aicc = comparison$aic +
 comparison$bic = comparison$K * log(n_tanks) - 2 * comparison$loglik
 ```
 
-## Cross-validation
-
-**Cross-validation** estimates how well a model predicts observations that were not used to
-fit it. The observations are split into parts, the model is fitted to all but one part and
-scored on the part that was held out, and this is repeated until every part has been held
-out once. In **leave-one-out cross-validation** each part is a single observation: every
-parameter of the model is estimated again from the other $n-1$ observations, and the
-held-out observation is scored by its **log score**, the log probability (or log density)
-that the refitted model assigns to it. The score of the model is the sum of the log scores
-of the $n$ observations, and a larger (less negative) score is better.
-
-The log score uses the whole distribution of the observation, and not only its distance
-from the curve, so it can be calculated for any observation model, and it rewards a model
-that describes the spread of the observations as well as their mean. A model that adapts
-too closely to the data used to fit it predicts the held-out observations badly, so
-cross-validation needs no penalty for the number of parameters. Leave-one-out
-cross-validation and AIC agree in large samples: AIC is approximately $-2$ times the
-leave-one-out log score.^[Stone, M. (1977), "An asymptotic equivalence of choice of model by
-cross-validation and Akaike's criterion", *Journal of the Royal Statistical Society, Series
-B* 39: 44–47.] When fitting the model $n$ times takes too long, the observations are split
-into a few groups that are held out in turn, often 5 or 10, which is called 5-fold or
-10-fold cross-validation. When the observations are ordered in time or space, so that neighbouring
-observations are similar, each held-out part should be a block of neighbouring observations;
-otherwise its neighbours in the fit make it look easier to predict than a new observation
-would be.
-
-For the reed frogs we leave out one tank at a time. A function keeps some of the tanks in the
-list of data (the grid of densities stays):
-
-```{r}
-# Keep only the given tanks in the list of data.
-subset_tanks = function(data, tanks) {
-  data$initial = data$initial[tanks]
-  data$killed = data$killed[tanks]
-  data
-}
-```
-
-For each model and each tank, we fit the model to the other 15 tanks, from the same starting
-values as before. The NLL of the held-out tank at these estimates is minus the log
-probability of that tank, so we calculate it by calling the NLL directly with two lists: the
-estimates (`as.list()` turns the vector `par` into a list) and the data of the held-out tank.
-A negative index removes the tank from the data, and we count the fits that did not
-converge:
-
-```{r}
-# Leave-one-out log score of each model: fit to 15 tanks, score the tank held out.
-comparison$loo = NA
-n_failed = 0
-for (m in seq_along(models)) {
-  score = 0
-  for (i in seq_len(n_tanks)) {
-    fit = fit_model(models[[m]]$nll, models[[m]]$start, subset_tanks(frog_data, -i))
-    n_failed = n_failed + (fit$convergence != 0)
-    # Minus the NLL of the held-out tank is its log probability.
-    score = score - models[[m]]$nll(as.list(fit$par), subset_tanks(frog_data, i))
-  }
-  comparison$loo[m] = score
-}
-n_failed
-```
-
-All 64 fits converged.
-
 ## Comparing the four models
 
 Only differences between models matter for each criterion, so we calculate the difference
-of each model from the best one: the lowest AIC, AICc and BIC, and the highest
-leave-one-out score (whose differences are therefore zero or negative):
+of each model from the one with the lowest value of that criterion:
 
 ```{r}
 # Differences from the best model for each criterion.
@@ -1402,33 +1338,30 @@ data.frame(
   loglik = round(comparison$loglik, 2),
   delta_aic = round(comparison$aic - min(comparison$aic), 2),
   delta_aicc = round(comparison$aicc - min(comparison$aicc), 2),
-  delta_bic = round(comparison$bic - min(comparison$bic), 2),
-  delta_loo = round(comparison$loo - max(comparison$loo), 2)
+  delta_bic = round(comparison$bic - min(comparison$bic), 2)
 )
 ```
 
-Recall that a difference of one unit in the log score corresponds to about two units of AIC.
 For the variation among tanks the criteria agree: with either curve, every criterion
 prefers the Beta-Binomial model to the Binomial model, by 6.7 (Holling type II) and 13.0
-(constant probability) units of AIC, and by 3.3 and 8.2 units of log score. This agrees with
-the residuals of @sec-response-residuals.
+(constant probability) units of AIC. This agrees with the residuals of
+@sec-response-residuals.
 
 For the density dependence of the risk the answer depends on the distribution. Under the
 Binomial models, the Holling type II curve is clearly better than a constant probability (9.0
-units of AIC, 4.0 of log score). Under the Beta-Binomial models the difference is small, and
-the criteria do not agree on its sign: AIC, AICc and BIC prefer the Holling type II curve by
-2.7, 1.6 and 2.0 units, whereas the leave-one-out score prefers the constant probability by
-0.9 units. The Binomial models overstated the evidence for density dependence for the same
-reason that they understated the standard errors: they treated the tadpoles as independent
-trials. With 16 tanks that vary among themselves, the data say clearly that a tadpole is
-killed with a probability of about one half at low density, and that the tanks vary more
-than a Binomial model allows, but they hardly distinguish a probability that decreases with
-density from a constant one over densities of 5 to 100 tadpoles per tank.
+units of AIC). Under the Beta-Binomial models AIC, AICc and BIC still prefer the Holling type
+II curve, but only by 2.7, 1.6 and 2.0 units. The Binomial models overstated the evidence
+for density dependence for the same reason that they understated the standard errors: they
+treated the tadpoles as independent trials. With 16 tanks that vary among themselves, the
+data say clearly that a tadpole is killed with a probability of about one half at low
+density, and that the tanks vary more than a Binomial model allows, but they hardly
+distinguish a probability that decreases with density from a constant one over densities of
+5 to 100 tadpoles per tank.
 
 For the ecological answer we use the Beta-Binomial model with the Holling type II curve,
-which three of the four criteria prefer and which contains the constant probability as the
-case $H=0$, and we calculate likelihood profile intervals for its parameters as in
-@sec-curve-uncertainty:
+which all three criteria prefer by a small margin and which contains the constant
+probability as the case $H=0$, and we calculate likelihood profile intervals for its
+parameters as in @sec-curve-uncertainty:
 
 ```{r}
 #| warning: false
@@ -1485,8 +1418,7 @@ parameter of the distribution of each observation:
    check the scaled quantile residuals with DHARMa.
 8. Revise the curve or the observation model where the residuals show a disagreement, and
    check the revised model in the same way.
-9. Compare the candidate models, fitted to the same observations, with AIC, AICc, BIC and
-   leave-one-out cross-validation.
+9. Compare the candidate models, fitted to the same observations, with AIC, AICc and BIC.
 10. Interpret the estimates and intervals of the preferred model in units, in terms of the
     ecological question, and say what the data leave uncertain.
 :::
@@ -1516,9 +1448,9 @@ describes the data generating process. Their patterns show where the model disag
 the data, but not why. For the reed frogs they showed overdispersion relative to the
 Binomial distribution, and a Beta-Binomial model with the same curve described the
 variation among tanks. Candidate models fitted to the same observations are compared with
-AIC, AICc, BIC and leave-one-out cross-validation, with the number of independent
-observations as $n$. The criteria rank the candidates; what they mean for the question, and
-what remains uncertain, is a matter of interpretation in ecological terms.
+AIC, AICc and BIC, with the number of independent observations as $n$. The criteria rank
+the candidates; what they mean for the question, and what remains uncertain, is a matter of
+interpretation in ecological terms.
 
 In this chapter every tank was an independent observation. In
 [Chapter 7](../Chapter_7/Theory.qmd) the observations come in groups, such as repeated
@@ -1691,19 +1623,27 @@ $\mathrm{BIC}=3\log(30)+2\times41.2\approx10.20+82.4=92.6$.
 :::
 ::::
 
-:::: {.callout-important title="Question 10: seedling survival in plots"}
+:::: {.callout-important title="Question 10: seed removal by rodents"}
 
-The number of planted seedlings that survive in each of 40 plots is described with a
-Beta-Binomial model and a curve of soil moisture. To save time, a colleague estimates the
-precision $\kappa$ from all 40 plots, and then runs leave-one-out cross-validation in which only the parameters of
-the curve are refitted, with $\kappa$ fixed at that estimate. What is wrong?
+In each of 30 plots, 20 seeds are put out and the number removed by rodents after a week is
+counted. Two Binomial models are fitted: (a) a constant probability of removal; (b) a
+probability that decreases with the distance of the plot from shrub cover. The residuals of
+model (b) show two plots that stand out, so a colleague removes them, fits model (b) again
+to the other 28 plots, and finds that its AIC is lower than that of model (a), fitted to all
+30 plots. What is wrong with this comparison, and what should be done instead?
 
 ::: {.callout-tip title="Answer" collapse="true"}
 
-Every held-out plot contributed to the estimate of $\kappa$ that is used to predict it, so
-information from the held-out observation enters its own prediction. The score is then too
-optimistic, and the comparison favours this model unfairly. Every parameter must be
-estimated again without the held-out observation.
+The maximum log-likelihood is the log probability of the observations to which the model
+was fitted, so the two AICs describe different data. The log probability of each plot is
+negative, so every plot lowers the maximum log-likelihood: model (b) gains from having two
+observations fewer, and more still because
+the plots that it left out were the ones that it described worst. The difference in AIC
+says nothing about which model is better. Every candidate must be fitted to the same plots:
+all 30, or 28 for both models if there is a reason to exclude the two plots that does not
+depend on the fit (such as a recording error). Plots that stand out in the residuals are
+also information about the model, which may need another curve or a Beta-Binomial
+distribution.
 
 :::
 ::::

@@ -610,7 +610,7 @@ inference*, recommend AICc whenever $n/K$ is smaller than about 40.
 ## Slide 26 — Using AIC
 
 AIC ranks the candidate models that we give it. It does not tell us whether the best of them describes the data well: the Negative Binomial model is far better than the Poisson model for the owls, and it is still an approximation of the data generating process (for one thing, we treated visits to the same nest as i.i.d.).
-Chapter 6 returns to model comparison with further tools (BIC and cross-validation) and with checks of goodness of fit.
+Chapter 6 returns to model comparison with a further criterion (BIC) and with checks of goodness of fit.
 
 The chapter also points to a common use of AIC. Many authors use it to reject models that differ largely from the best model, which may be used as a form of hypothesis testing: if adding a new term does not lower the AIC by more than two units, that model is rejected. This is a form of null hypothesis testing in disguise, and the new term is treated as if it was "not
 significant". It carries over all the issues of null hypothesis testing discussed in Chapter 1, and it may actually be worse: traditional statistics has developed several techniques to control false positive error rates (for example when testing many hypotheses at the same time) which do not exist for AIC. Instead, we can have a more nuanced view of model comparison, where AIC is one of the criteria that
