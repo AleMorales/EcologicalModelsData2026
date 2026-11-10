@@ -1509,10 +1509,38 @@ L(\boldsymbol\theta)=\prod_{j}L_j(\boldsymbol\theta)
 <li class="fragment"><strong>Interaction:</strong> the effect of one predictor depends on the level of the other.</li>
 </ul>
 <div class="example fragment">
-<p><span class="math inline">\(\log(a_j)=\log(a)+\beta_{\mathrm{miss}}M_j+\beta_{\mathrm{chill}}C_j+\beta_{\mathrm{int}}M_jC_j+u_j\)</span>; <span class="math inline">\(\hat\sigma_{\mathrm{plant}}\)</span> 0.34 → 0.079. Chilling: × 0.90 (Quebec), × 0.59 (Mississippi).</p>
+<p><span class="math inline">\(\log(a_j)=\log(a)+\beta_{\mathrm{miss}}M_j+\beta_{\mathrm{chill}}C_j+\beta_{\mathrm{int}}M_jC_j+u_j\)</span>, with <span class="math inline">\(M_j=1\)</span> for Mississippi and <span class="math inline">\(C_j=1\)</span> for chilled; <span class="math inline">\(\hat\sigma_{\mathrm{plant}}\)</span> 0.34 → 0.079. Chilling: × 0.90 (Quebec), × 0.59 (Mississippi).</p>
 </div>
 <div class="takeaway fragment">
 <p>Predictors explain variation among groups; the variance describes what remains.</p>
+</div>
+</section>
+<section id="the-model-matrix" class="slide level2" data-timing="240">
+<h2>The model matrix</h2>
+<div class="definition">
+<p><strong>Model matrix:</strong> one row per group (or observation), one column per coefficient.</p>
+</div>
+<div class="columns">
+<div class="column" style="width:50%;">
+<ul>
+<li class="fragment"><strong><code>model.matrix()</code>:</strong> a formula and one row per group; <code>A * B</code> is <code>A + B + A:B</code>.</li>
+<li class="fragment"><strong>Reference level:</strong> the first level of each factor.</li>
+<li class="fragment"><strong><code>X %*% beta</code>:</strong> each column times its coefficient, summed; all groups at once.</li>
+<li class="fragment"><strong>Formula interfaces</strong> build the same matrix.</li>
+</ul>
+</div><div class="column" style="width:50%;">
+<div class="cell">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode numberSource r number-lines code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a aria-label="1"></a><span class="co"># Origin and treatment, one row per plant.</span></span>
+<span id="cb3-2"><a aria-label="2"></a>plant_info <span class="ot">=</span> co2[first_row,</span>
+<span id="cb3-3"><a aria-label="3"></a>                 <span class="fu">c</span>(<span class="st">&quot;Type&quot;</span>, <span class="st">&quot;Treatment&quot;</span>)]</span>
+<span id="cb3-4"><a aria-label="4"></a>X_asym <span class="ot">=</span> <span class="fu">model.matrix</span>(<span class="sc">~</span> Type <span class="sc">*</span> Treatment,</span>
+<span id="cb3-5"><a aria-label="5"></a>                      <span class="at">data =</span> plant_info)</span>
+<span id="cb3-6"><a aria-label="6"></a><span class="co"># In the NLL:</span></span>
+<span id="cb3-7"><a aria-label="7"></a>log_a <span class="ot">=</span> X_asym <span class="sc">%*%</span> beta_asym <span class="sc">+</span> u</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</div></div>
+<div class="takeaway fragment">
+<p>The formula builds the indicators; the matrix product adds up the effects.</p>
 </div>
 </section>
 <section id="two-ways-to-encode-groups" class="slide level2" data-timing="180">
@@ -1520,20 +1548,20 @@ L(\boldsymbol\theta)=\prod_{j}L_j(\boldsymbol\theta)
 <div class="columns">
 <div class="column fragment" style="width:50%;">
 <h3 id="one-parameter-per-group">One parameter per group</h3>
-<p>Each combination of predictors has its own typical value.</p>
+<p><code>~ 0 + A:B</code>: one column per combination of levels, no intercept; each has its own typical value.</p>
 </div><div class="column fragment" style="width:50%;">
 <h3 id="baseline-plus-effects">Baseline plus effects</h3>
-<p>One group is the baseline; the others are differences from it, with an interaction.</p>
+<p><code>~ A * B</code>: the intercept is the baseline; the other columns are differences from it, with an interaction.</p>
 </div></div>
 <ul>
 <li class="fragment"><strong>The same model:</strong> parameters, maximum likelihood and fitted curves.</li>
-<li class="fragment"><strong>Baseline plus effects:</strong> differences with standard errors and intervals; leave a term out for a simpler model.</li>
+<li class="fragment"><strong>Baseline plus effects:</strong> differences with standard errors and intervals; leave a term out of the formula for a simpler model.</li>
 </ul>
 <div class="example fragment">
-<p>Four typical log asymptotes, or <span class="math inline">\(\log(a)\)</span> and three <span class="math inline">\(\beta\)</span>: NLL 192.086 in both forms.</p>
+<p><code>~ 0 + Type:Treatment</code>: four typical log asymptotes; <code>~ Type * Treatment</code>: <span class="math inline">\(\log(a)\)</span> and three <span class="math inline">\(\beta\)</span>. NLL 192.086 in both.</p>
 </div>
 <div class="takeaway fragment">
-<p>Choose the form whose parameters answer the question.</p>
+<p>Choose the formula whose parameters answer the question.</p>
 </div>
 </section>
 <section id="shrinkage" class="slide level2 figure-slide" data-timing="240">
@@ -1576,7 +1604,7 @@ L(\boldsymbol\theta)=\prod_{j}L_j(\boldsymbol\theta)
 <li class="fragment"><strong>Complete pooling:</strong> one curve, and the spread of the observations around it.</li>
 <li class="fragment"><strong>No pooling:</strong> one asymptote for each group.</li>
 <li class="fragment"><strong>Partial pooling:</strong> <code>random = &quot;u&quot;</code>, the variance components and the predicted group effects.</li>
-<li class="fragment"><strong>Group-level predictors:</strong> the variance among groups falls; shrinkage.</li>
+<li class="fragment"><strong>Group-level predictors:</strong> the model matrix; the variance among groups falls; shrinkage.</li>
 <li class="fragment"><strong>Observed and new groups:</strong> the curves of measured groups and the range of new ones.</li>
 </ol>
 <div class="demo">
@@ -1726,7 +1754,7 @@ L(\boldsymbol\theta)=\prod_{j}L_j(\boldsymbol\theta)
 </table>
 </div>
 <div class="caption">
-<p>Δ: difference from the best model (lowest AIC; highest leave-one-plant-out log score, LOO). ×: with the interaction; +: without.</p>
+<p>Δ: difference from the best model (lowest AIC; highest leave-one-plant-out log score, LOO). Formulas of the log asymptote: <code>~ 1</code>, <code>~ Type + Treatment</code> (+) and <code>~ Type * Treatment</code> (×).</p>
 </div>
 <div class="takeaway fragment">
 <p>The criteria rank; the ecology interprets. No pooling predicts the same groups: left out.</p>
@@ -1737,7 +1765,7 @@ L(\boldsymbol\theta)=\prod_{j}L_j(\boldsymbol\theta)
 <div class="columns">
 <div class="column" style="width:50%;">
 <ol type="1">
-<li class="fragment"><strong>Groups:</strong> the observational unit, the groups, the level of each predictor.</li>
+<li class="fragment"><strong>Groups:</strong> the observational unit, the groups, the level of each predictor; the model matrix.</li>
 <li class="fragment"><strong>Model:</strong> curve, observation model, and the parameter that varies, on a log or logit scale.</li>
 <li class="fragment"><strong>Joint NLL:</strong> the density of the random effects first.</li>
 <li class="fragment"><strong>Fit:</strong> <code>MakeADFun()</code> with <code>random</code>, <code>optim()</code>, <code>convergence</code>.</li>
@@ -1747,7 +1775,7 @@ L(\boldsymbol\theta)=\prod_{j}L_j(\boldsymbol\theta)
 <ol start="6" type="1">
 <li class="fragment"><strong>Curves:</strong> observed groups, the typical curve, new groups.</li>
 <li class="fragment"><strong>Check:</strong> <code>OBS()</code>, <code>obj$simulate()</code>, residuals of observations and groups.</li>
-<li class="fragment"><strong>Compare:</strong> maximum likelihood fits, AIC, leave-one-group-out.</li>
+<li class="fragment"><strong>Compare:</strong> maximum likelihood fits, one formula per candidate, AIC, leave-one-group-out.</li>
 <li class="fragment"><strong>Interpret</strong> in units, with what the number of groups leaves uncertain.</li>
 </ol>
 </div></div>
@@ -1758,7 +1786,7 @@ L(\boldsymbol\theta)=\prod_{j}L_j(\boldsymbol\theta)
 <li class="fragment"><strong>Growth of loblolly pines</strong> (Exercise 1, worked): a random asymptote for each tree.</li>
 <li class="fragment"><strong>Survival of tadpoles in tanks</strong> (Exercise 2): Binomial with a random effect for each tank, against the Beta-Binomial.</li>
 <li class="fragment"><strong>Begging calls at owl nests</strong> (Exercise 3): Negative Binomial with a random effect for each nest.</li>
-<li class="fragment"><strong>Salamanders at mined and unmined sites</strong> (Exercise 4): Poisson with a random effect for each site, and the same model with a formula.</li>
+<li class="fragment"><strong>Salamanders at mined and unmined sites</strong> (Exercise 4): Poisson with a random effect for each site.</li>
 <li class="fragment"><strong>Maximum likelihood and REML by simulation</strong> (Exercise 5): extra.</li>
 </ul>
 <div class="takeaway fragment">
@@ -1771,7 +1799,7 @@ L(\boldsymbol\theta)=\prod_{j}L_j(\boldsymbol\theta)
 <li class="fragment">Grouped observations are independent for a given group effect, dependent marginally.</li>
 <li class="fragment">Partial pooling describes the measured groups and groups in general.</li>
 <li class="fragment">The marginal likelihood integrates the random effects out; RTMB uses the Laplace approximation with <code>random</code>.</li>
-<li class="fragment">Predictors explain variation among groups; predicted effects shrink towards the typical value.</li>
+<li class="fragment">Predictors, via a model matrix, explain variation among groups; effects shrink.</li>
 <li class="fragment">A variance among groups is informed by the number of groups; REML reduces its bias.</li>
 <li class="fragment">Check both levels; compare with AIC and leave-one-group-out.</li>
 </ul>
