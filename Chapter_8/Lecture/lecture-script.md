@@ -1,8 +1,8 @@
 # Chapter 8 lecture script: Numerical optimisation
 
-Draft for the course author's review. **Target: 150 minutes in total, with 116 minutes of
+Draft for the course author's review. **Target: 150 minutes in total, with 114 minutes of
 slides on 31 slides (including two discussions, the three practice questions and one live demo
-of 18 minutes), 14 minutes of slack and two breaks of 10 minutes.** The breaks separate the
+of 18 minutes), 16 minutes of slack and two breaks of 10 minutes.** The breaks separate the
 three blocks of the lecture. The only code that is run live is the demo of slide 22, from the
 script `demo-diagnosis.R`.
 
@@ -41,34 +41,34 @@ Times are measured from the start of the session and include the breaks.
 | 7 | How a gradient method searches | 4 | 14–18 |
 | 8 | Exact and approximate gradients | 3 | 18–21 |
 | 9 | Stopping rules and convergence codes | 3 | 21–24 |
-| 10 | Diagnosing a fit | 4 | 24–28 |
-| 11 | Practice 1: three fits of a parasitoid | 3 | 28–31 |
-| 12 | Discussion: has this fit found the maximum? | 4 | 31–35 |
-| | Break | 10 | 35–45 |
-| 13 | The Hessian at the end of a search | 3 | 45–48 |
-| 14 | Multiple starting values | 4 | 48–52 |
-| 15 | Starting values in a model with random effects | 3 | 52–55 |
-| 16 | Structural and practical non-identifiability | 4 | 55–59 |
-| 17 | Estimates at a boundary | 4 | 59–63 |
-| 18 | Practice 2: identifiability of seed predation | 3 | 63–66 |
-| 19 | Scaling | 3 | 66–69 |
-| 20 | Parameterisation | 3 | 69–72 |
-| 21 | Practice 3: scaling a growth curve | 3 | 72–75 |
-| | Break | 10 | 75–85 |
-| 22 | Live demo: diagnosing a failed fit | 2 + 16 | 85–103 |
-| 23 | Other local optimisers | 4 | 103–107 |
-| 24 | One parameter: a search within an interval | 2 | 107–109 |
-| 25 | Comparing optimisers fairly | 3 | 109–112 |
-| 26 | Global search: differential evolution | 5 | 112–117 |
-| 27 | Global search, then local refinement | 5 | 117–122 |
-| 28 | Discussion: which remedy for which symptom? | 4 | 122–126 |
-| 29 | A recipe for a difficult fit | 3 | 126–129 |
-| 30 | The Chapter 8 R practical | 2 | 129–131 |
-| 31 | Summary and closing questions | 5 | 131–136 |
-| | Slack for discussion | 14 | 136–150 |
+| 10 | Diagnosing a fit | 5 | 24–29 |
+| 11 | Practice 1: three fits of a parasitoid | 3 | 29–32 |
+| 12 | Discussion: has this fit found the maximum? | 4 | 32–36 |
+| | Break | 10 | 36–46 |
+| 13 | Curvature at the end of a search | 3 | 46–49 |
+| 14 | Multiple starting values | 4 | 49–53 |
+| 15 | Starting values in a model with random effects | 2 | 53–55 |
+| 16 | Structural and practical non-identifiability | 5 | 55–60 |
+| 17 | Estimates at a boundary | 4 | 60–64 |
+| 18 | Practice 2: identifiability of seed predation | 3 | 64–67 |
+| 19 | Scaling | 3 | 67–70 |
+| 20 | Parameterisation | 3 | 70–73 |
+| 21 | Practice 3: scaling a growth curve | 3 | 73–76 |
+| | Break | 10 | 76–86 |
+| 22 | Live demo: diagnosing a failed fit | 2 + 16 | 86–104 |
+| 23 | Other local optimisers | 4 | 104–108 |
+| 24 | One parameter: a search within an interval | 2 | 108–110 |
+| 25 | Comparing optimisers fairly | 2 | 110–112 |
+| 26 | Global search: differential evolution | 4 | 112–116 |
+| 27 | Global search, then local refinement | 4 | 116–120 |
+| 28 | Discussion: which remedy for which symptom? | 4 | 120–124 |
+| 29 | A recipe for a difficult fit | 3 | 124–127 |
+| 30 | The Chapter 8 R practical | 2 | 127–129 |
+| 31 | Summary and closing questions | 5 | 129–134 |
+| | Slack for discussion | 16 | 134–150 |
 | | **Total** | **150** | |
 
-Slides 116 minutes (blocks of 35, 30 and 51, the demo included), slack 14, breaks 20: 150
+Slides 114 minutes (blocks of 36, 30 and 48, the demo included), slack 16, breaks 20: 150
 minutes. The break before the demo lets you open R and run section 0 of `demo-diagnosis.R`.
 
 ## Slides 1 and 2 — Ecological Models and Data Analysis; Overview of the lecture
@@ -90,7 +90,7 @@ the course; the other optimisers are the next tool when it fails.
 The session has three blocks, separated by two breaks. The first block shows a fit that stops in
 the wrong place, explains how a gradient method searches, what the gradient costs, when the search
 stops and how to diagnose a fit, and ends with a practice question and a discussion. The second
-turns to the Hessian at the end of a search, multiple starting values, identifiability,
+turns to the curvature at the end of a search, multiple starting values, identifiability,
 boundaries, scaling and parameterisation. The third starts with a live demo that diagnoses a
 failed fit and repairs it, then shows other local optimisers and global search, and ends with the
 recipe, the practical and the summary.
@@ -193,7 +193,7 @@ although the point is not a stationary point in the strict sense.
 The three wrong stops of slide 5 are of these kinds. The constant curve lies on a ridge: once the
 rate is large enough, making it larger changes nothing. The curve at zero lies on another, where the
 asymptote and the rate run towards zero together. The stop near $c=90$ µL/L has a small gradient,
-but the NLL falls in one direction, a combination of the location and the rate (slide 13).
+but the NLL falls in one direction, a combination of the location and the rate (slide 13 returns to it).
 
 **Figure walkthrough**
 
@@ -216,11 +216,8 @@ not along it.
 
 **Newton's method** also uses the curvature. Near a minimum the NLL is close to a parabola, the
 quadratic approximation of Chapter 4, and Newton's method jumps to the minimum of the parabola that
-has the gradient and the Hessian of the current point. With one parameter the step is $-g/H$, the
-slope divided by the curvature; with several it is
-$\boldsymbol\theta_{t+1}=\boldsymbol\theta_t-\mathbf H(\boldsymbol\theta_t)^{-1}\mathbf g(\boldsymbol\theta_t)$,
-where $\mathbf H$ is the Hessian, the matrix of second derivatives. Close to the minimum this is
-fast. Far from it the parabola can be a poor description: the jump can be far too long, and where the
+has the gradient and the Hessian (the matrix of second derivatives, the curvature) of the current
+point. Close to the minimum this is fast. Far from it the parabola can be a poor description: the jump can be far too long, and where the
 curvature is negative in some direction, the parabola has no minimum and the step can go uphill.
 
 **BFGS**, the method we have used since Chapter 4, is a **quasi-Newton** method: it takes steps like
@@ -230,8 +227,8 @@ what the curvature measures. So BFGS needs only `fn` and `gr`, and it becomes ab
 Newton's method close to a minimum. In `optim()`, its first step goes along the negative gradient,
 because it has not yet learned any curvature. The method is named after Broyden, Fletcher, Goldfarb
 and Shanno, who published it independently in 1970; Nocedal and Wright (2006), *Numerical
-Optimization*, 2nd edition, Springer, describe it in detail. The update formula is in the chapter's
-box "Statistical detail: Newton's method and BFGS"; students do not need it.
+Optimization*, 2nd edition, Springer, describe it in detail. The update formulas are not needed in
+this course.
 
 Newton's method still has a place in the course: RTMB uses it for the inner optimisation of a model
 with random effects in Chapter 7, where automatic differentiation supplies the exact second
@@ -260,13 +257,12 @@ the chapter's table does.
 
 When `optim()` is not given `gr`, it approximates the gradient. Each partial derivative is replaced
 by a **finite difference**, the change in the NLL between two nearby values of one parameter divided
-by their distance, as in Chapter 5. `optim()` uses central differences, one evaluation on each side
-of the current value, so each approximate gradient of a model with $p$ parameters costs $2p$ extra
+by their distance, as in Chapter 5. `optim()` uses one evaluation on each side
+of the current value, so each approximate gradient of a model with $K$ parameters costs $2K$ extra
 evaluations of the NLL. The distance between the two values is a compromise: a large distance makes
 the straight line between the two points a poor approximation of the slope at the point, and a very
 small one makes the difference of two nearly equal numbers inaccurate, because the computer rounds
-every number it stores. The default step is $10^{-3}$ for every parameter (the control argument
-`ndeps`; details in the chapter's box "Technical detail: finite differences"). The gradient that
+every number it stores. The gradient that
 RTMB calculates by automatic differentiation (Chapter 6) has neither problem: it is exact up to
 rounding error, and it costs about as much as a few evaluations of the NLL, whatever the number of
 parameters.
@@ -344,8 +340,8 @@ alone:
 2. **The gradient at the solution**, `obj$gr(fit$par)`, whose elements should be close to zero. A
    large element shows that the search stopped on a slope. A small one is necessary but not enough,
    because the gradient is also close to zero on a ridge and near a saddle point.
-3. **The curvature**, from `sdreport()`. At a minimum the Hessian is positive definite (slide 13), and
-   the element `pdHess` of the result is `TRUE`. When it is not, the standard errors are `NaN` and
+3. **The curvature**, from `sdreport()`. At a minimum the NLL curves upwards in every direction (slide
+   13), and the element `pdHess` of the result is `TRUE`. When it is not, the standard errors are `NaN` and
    printing the result gives the warning "Hessian of fixed effects was not positive definite". Huge
    standard errors are a warning sign as well (slide 16). By default `sdreport()` uses the parameter
    values with the lowest NLL that the object has evaluated, so after several fits of the same object
@@ -358,7 +354,7 @@ alone:
    behaves beyond the point where the optimiser stopped.
 
 For the four CO₂ fits, the fit from the starting values of Chapter 7 passes every check: a small
-gradient (0.0025 at its largest), a positive definite Hessian, and a refit that stays where it is.
+gradient (0.0025 at its largest), `pdHess` `TRUE`, and a refit that stays where it is.
 The fits that ended at the constant curve and at zero have even smaller gradients, so the gradient
 does not reveal them, but `sdreport()` does: for the constant curve the largest gradient is
 $5\times10^{-6}$, but `pdHess` is `FALSE` and none of the standard errors can be calculated. At that
@@ -437,39 +433,35 @@ not there, because in practice we do not know the lowest NLL in advance.
 
 Break (10 minutes).
 
-## Slide 13 — The Hessian at the end of a search
+## Slide 13 — Curvature at the end of a search
 
-The **Hessian** $\mathbf H(\boldsymbol\theta)$ is the matrix of second derivatives of the NLL. It
-describes the curvature of the NLL in every direction: for a direction $\mathbf d$, a vector of
-changes in the parameters, the curvature of the NLL along the straight line through the point in that
-direction is proportional to $\mathbf d^{\top}\mathbf H\,\mathbf d$. The Hessian is **positive
-definite** when this curvature is positive in every direction, that is, when the NLL curves upwards
-whichever way we move. A point with a zero gradient and a positive definite Hessian is a local
-minimum, and the inverse of the Hessian is the covariance matrix of Chapter 4, from which
-`sdreport()` calculates the standard errors.
+The **Hessian** $\mathbf H(\boldsymbol\theta)$ is the matrix of second derivatives of the NLL, and it
+measures the curvature of the NLL (Chapter 4). The third check of slide 10 asks
+`sdreport()` about it. At a minimum the NLL curves upwards in every direction away from the solution;
+`sdreport()` checks this, and the element `pdHess` is `TRUE` when it holds. The standard errors of
+Chapter 4 are calculated from this curvature, so they exist only then.
 
-The curvatures along a set of perpendicular directions are the **eigenvalues** of the Hessian, and
-the Hessian is positive definite when all of them are positive. A zero eigenvalue is a flat
-direction, as on a ridge: the NLL does not change to second order along it, the Hessian has no
-inverse, and the standard errors are `NaN`. A negative eigenvalue is a direction in which the NLL
-curves downwards, so the point is not a minimum; if the gradient is also zero there, the point is a
-saddle point. This is what `pdHess` checks: that the NLL rises in every direction from the solution,
-which is what a minimum requires. The details are in the chapter's box "Statistical detail: the
-Hessian at a minimum".
+Two things can go wrong. In a flat direction, as on a ridge, the NLL does not change along it, so
+there is no curvature to calculate a standard error from: the standard errors are `NaN` and printing
+the result gives the warning that the Hessian was not positive definite. That is what slide 10 showed
+for the constant curve and the curve at zero. In the other case the NLL curves downwards in some
+direction, so the point is not a minimum, even though the gradient may be small and a refit may stay
+where it is. The exact condition (positive definite) is not needed here: "curves upwards in every
+direction" is enough. Huge standard errors are a warning sign as well; slide 16
+returns to them.
 
-The stop of the CO₂ model at $c=90.3$ µL/L is the case of a negative curvature. Its gradient is small
-(0.019 at its largest) and a refit stays where it is. Of the four curvatures of its Hessian, three
-are clearly positive and one is slightly negative, along a direction that combines the location
-and the rate: if both change together, the NLL falls. A slice along $c$ alone would show a minimum
-at 90.3 µL/L, because the direction in which the NLL falls is not along one parameter. That is the
-takeaway: the Hessian looks in every direction at once, while a slice looks along one.
+The stop of the CO₂ model at $c=90.3$ µL/L is the case of a downward curvature. Its gradient is small
+(0.019 at its largest) and a refit stays where it is. The NLL falls along a direction that combines
+the location and the rate: if both change together, it falls. A slice along $c$ alone would show a
+minimum at 90.3 µL/L, because the direction in which the NLL falls is not along one parameter. That is
+the takeaway: the Hessian looks in every direction at once, while a slice looks along one.
 
 **Delivery**
 
-Connect to slide 7: at a point with a negative curvature, the parabola of Newton's method has no
+Connect to slide 7: at a point with a downward curvature, the parabola of Newton's method has no
 minimum, which is why the quadratic approximation of Chapter 4 only describes the NLL near a
-minimum. If students ask how to see the eigenvalues: the chapter checks them in a hidden chunk; for
-their own fits, `pdHess` and the standard errors from `sdreport()` are the check.
+minimum. If students ask how to see the curvatures themselves: for their own fits, `pdHess` and the
+standard errors from `sdreport()` are the check.
 
 ## Slide 14 — Multiple starting values
 
@@ -536,7 +528,7 @@ slide 17 and Exercise 3 of the practical return to it.
 
 **Delivery**
 
-Keep this slide short if the block runs late (see "Adjustments during delivery"). The point to keep
+Two minutes. Keep it shorter if the block runs late (see "Adjustments during delivery"). The point to keep
 is that nothing in this lecture is specific to models without random effects.
 
 ## Slide 16 — Structural and practical non-identifiability
@@ -559,7 +551,7 @@ Both kinds show through the checks of slide 10: estimates that stay close to the
 or that differ between fits from different starts with practically the same NLL; very large standard
 errors, or standard errors that are `NaN`; correlations between estimates close to 1 or $-1$; the
 warning of `sdreport()` that the Hessian is not positive definite, which is typical of structural
-non-identifiability; and a slice or a likelihood profile that is flat over a wide range. The remedies
+non-identifiability; and a slice or a likelihood profile (`TMB::tmbprofile()`) that is flat over a wide range. The remedies
 depend on the kind. A structurally non-identifiable model must be changed: a parameter is removed or
 fixed, or the model is reparameterised so that only the combination that the data determine is
 estimated. A practically non-identifiable model may be fine, and more informative data would solve
@@ -608,7 +600,7 @@ NLL, and stops with code 0 when the decreases fall below the tolerance of slide 
 optimised scale is a large number that depends on where the search happened to stop, and its
 standard error cannot be calculated, because the NLL is flat out there. That is the takeaway: such an
 estimate is reported as being at the boundary (an attack rate of 1, a handling time of 0), or the model
-is changed; the number on the optimised scale is not reported.
+is changed; the number on the optimised scale is not reported alone, but together with the estimate on the original scale.
 
 The two reed frog searches of slide 7 are examples. The search from a small attack rate stopped with
 $\operatorname{logit}(\alpha)$ at about 204, an attack rate of 1 to the precision of the computer, and
@@ -618,7 +610,8 @@ and neither passes the check of the Hessian. Neither is the maximum, because the
 lower (46.72 against 59.77 and 52.22): these are boundaries towards which the searches were drawn from
 poor starting values, and multiple starts would reveal them as failures.
 
-A boundary can also be where the maximum lies. A variance among groups whose maximum likelihood
+This is the third bullet of the slide: a boundary can be a failure or the maximum, and other starts or the
+likelihood profile tell which. A boundary can also be where the maximum lies. A variance among groups whose maximum likelihood
 estimate is zero is the common case in grouped models: it happens when the groups differ less than the
 variation within groups would make them differ by chance. On the scale of the log standard deviation
 the maximum then lies at $-\infty$, and BFGS stops on its way there with code 0. The estimate is
@@ -840,7 +833,7 @@ search that controls its steps differently avoids the ridge, the curve at zero a
 from these starts.
 
 The **Nelder–Mead** method, `optim(method = "Nelder-Mead")`, the default of `optim()`, uses no gradient
-at all. With $p$ parameters it keeps a **simplex** of $p+1$ points (a triangle for two parameters) and
+at all. With $K$ parameters it keeps a **simplex** of $K+1$ points (a triangle for two parameters) and
 the NLL at each of them. At each step it replaces the worst point by its reflection through the centre
 of the others; if the reflected point is much better it tries a point further out (an expansion), and if
 it is worse it tries one closer in (a contraction); when nothing helps, the whole simplex shrinks
@@ -898,23 +891,18 @@ values, the number of evaluations, and more than one model or start.
 ## Slide 26 — Global search: differential evolution
 
 Every method so far is **local**: it follows one path from its starting values. A **global** method
-explores a whole box of parameter values instead. **Differential evolution** keeps a **population** of
+explores a whole box of parameter values instead (the definition on the slide). **Differential evolution** keeps a **population** of
 parameter vectors, drawn at random within the box, and improves it over many **generations**. In each
 generation, every member of the population gets a challenger. The challenger is made by adding a scaled
 difference of two other members to a third member (**mutation**), and by taking each of its parameters
-either from this mutant or from the current member (**crossover**). The challenger replaces the member
+either from this mutant or from the current member (**crossover**; one bullet on the slide). The challenger replaces the member
 if its NLL is lower (**selection**). Differences between members are large while the population is
 spread over the box and shrink as it gathers around a minimum, so the steps adapt to the surface without
 a gradient.
 
-In symbols, the classical mutant for member $i$ is
-$\mathbf v_i=\mathbf x_{r_0}+F\left(\mathbf x_{r_1}-\mathbf x_{r_2}\right)$, where
-$\mathbf x_{r_0}$, $\mathbf x_{r_1}$ and $\mathbf x_{r_2}$ are three other members chosen at random and
-$F$ is a weight, usually between 0 and 1; in the crossover each element comes from the mutant with
-probability $CR$. `DEoptim()` uses $F=0.8$ and $CR=0.5$ by default, and its default strategy also moves
-each mutant part of the way towards the best member of the population. With $NP$ members and $G$
-generations the search evaluates the NLL $NP\times(G+1)$ times. The method is due to Storn and Price
-(1997), "Differential evolution: a simple and efficient heuristic for global optimization over
+The formulas of the mutation and the crossover, and the defaults of `DEoptim()`, are in the chapter's
+box "Technical detail: differential evolution"; the slide and the lecture do not use them. The method is
+due to Storn and Price (1997), "Differential evolution: a simple and efficient heuristic for global optimization over
 continuous spaces", *Journal of Global Optimization* 11: 341–359; the R package DEoptim is described by
 Mullen, Ardia, Gil, Windover and Cline (2011), *Journal of Statistical Software* 40(6): 1–26.
 
@@ -1076,7 +1064,7 @@ The formula-based tools of the supplement "Formula-based methods" rely on the sa
 
 ## Adjustments during delivery
 
-The slides take 116 minutes and leave 14 minutes of slack, which comes last. The demo is kept whole; if
+The slides take 114 minutes and leave 16 minutes of slack, which comes last. The demo is kept whole; if
 it overruns, it takes the slack first. If discussion overruns, use the slack first, then shorten in this
 order:
 
@@ -1084,10 +1072,10 @@ order:
 - Slide 6 to the definitions, without the schematic walkthrough: about one minute.
 - Slide 8 to the takeaway, with one sentence on the cost of finite differences: about one and a half
   minutes.
-- Slide 15 to one sentence (the same failures, and slower fits): about two minutes.
+- Slide 15 to one sentence (the same failures, and slower fits): about one minute.
 - Slide 20 to the definition and the example box: about one minute.
-- Slide 24 to one sentence: about one and a half minutes.
-- Slide 25 to the takeaway: about two minutes.
+- Slide 24 to one sentence: about one minute.
+- Slide 25 to the takeaway: about one minute.
 - Slide 21 given as homework, with the answers in one sentence: about two and a half minutes.
 - Slides 29 and 30 to one sentence each: about three minutes together.
 
@@ -1095,7 +1083,7 @@ Keep the fit that stops in the wrong place (slide 5), how a gradient method sear
 stopping rule (slide 9), the diagnosis (slide 10), multiple starting values (slide 14), identifiability
 (slide 16), boundaries (slide 17) and global search followed by local refinement (slide 27).
 
-The breaks are placed between the blocks, after slides 12 and 21 (minutes 35 and 75). If a block runs
+The breaks are placed between the blocks, after slides 12 and 21 (minutes 36 and 76). If a block runs
 over, shorten the block rather than the following break.
 
 **If time is left: code to run**

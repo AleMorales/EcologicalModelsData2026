@@ -42,14 +42,16 @@ stops after a single step and reports convergence code 0. Load the data with
 whose mass is missing (`NA`).
 
 1. Fit the Gamma model to the masses in grams with `dgamma()`, starting at the
-   method-of-moments estimates $k=\bar x^2/s^2$ and $r=\bar x/s^2$, where $\bar x$ is the
-   mean of the masses and $s^2$ their empirical variance with divisor $n$. Report the
+   method-of-moments estimates $\hat k=\overline x^2/\hat\sigma^2$ and $\hat r=\overline x/\hat\sigma^2$, where $\overline x$ is the
+   mean of the masses and $\hat\sigma^2$ their empirical variance with divisor $n$. Before
+   the fit, check that `fn` and `gr` return ordinary numbers at the starting values. Report the
    convergence code, the numbers of evaluations of `fn` and `gr`, and the shape at the start
    and at the end of the search. What do the counts say about the search? Hint: the NLL is
    the one of Exercise 4 of the Chapter 4 practical. The element `counts` of the result of
    `optim()` is explained in [Exact and approximate gradients](../Theory.qmd#sec-gradients);
    BFGS evaluates the gradient at its starting values and again after every step that
-   counts as progress ([Stopping rules and convergence codes](../Theory.qmd#sec-stopping)).
+   counts as progress, and the rule that decides which steps count is in
+   [Stopping rules and convergence codes](../Theory.qmd#sec-stopping).
 2. Diagnose the fit with the gradient at the solution and a refit from the solution. How
    much lower is the NLL at the end of the refit? Then use the stopping rule of BFGS to
    explain why the first search stopped: compare the decrease of the NLL in its single step
@@ -110,7 +112,7 @@ gamma_nll = function(parms, data) {
 ```
 
 The method-of-moments estimates come from $E[X]=k/r$ and $\operatorname{Var}(X)=k/r^2$,
-which give $k=\bar x^2/s^2$ and $r=\bar x/s^2$. Question 3 needs them again for the masses
+which give $\hat k=\overline x^2/\hat\sigma^2$ and $\hat r=\overline x/\hat\sigma^2$. Question 3 needs them again for the masses
 in kilograms, so we calculate them with a small function that returns them as starting
 values on the log scale:
 
@@ -134,6 +136,11 @@ penguin_obj_g = MakeADFun(
   gamma_mom_start(mass_g),
   silent = TRUE
 )
+
+# Check of recipe step 1: ordinary numbers (no NaN or Inf) at the starting values.
+penguin_obj_g$fn(penguin_obj_g$par)
+penguin_obj_g$gr(penguin_obj_g$par)
+
 penguin_fit_g = optim(
   par = penguin_obj_g$par,
   fn = penguin_obj_g$fn,
@@ -150,7 +157,8 @@ c(
 )
 ```
 
-The fit reports code 0, with 8 evaluations of `fn` and a single one of `gr`. BFGS evaluates
+Both calls return ordinary numbers, so the objective and the gradient can be evaluated at
+the starting values. The fit reports code 0, with 8 evaluations of `fn` and a single one of `gr`. BFGS evaluates
 the gradient at its starting values and again after every step that counts as progress, so
 a single evaluation of `gr` means that no step counted as progress: the 8 evaluations of
 `fn` are the starting values and the trial points of one line search. The shape changed
@@ -409,7 +417,9 @@ reml_results$var_site = exp(2 * reml_results$log_sd_site)
 1. Count the samples in which the REML estimate of $\sigma^2_{\mathrm{site}}$ is below
    0.001, which we call practically zero, and check their convergence codes. For each of
    these samples, process the NLL again with its data, and calculate the largest absolute
-   element of the gradient at the estimates and the element `pdHess` of `sdreport()`. What
+   element of the gradient at the estimates and the element `pdHess` of `sdreport()`, which
+   is `TRUE` when the NLL curves upwards in every direction from the estimates, as it does
+   at a minimum, and `FALSE` when it is flat or curves downwards in some direction. What
    do the two checks show? Hint: `which()` gives the numbers of these samples. Process the
    NLL as in the loop above, with `random = c("u", "mu")`. The checks are those of
    [Diagnosing a fit](../Theory.qmd#sec-diagnosis); the estimates of a sample are two
@@ -425,15 +435,17 @@ reml_results$var_site = exp(2 * reml_results$log_sd_site)
    Exercise 1. Here the loop over the starting values sits inside the loop over the samples;
    store the NLL and the estimate of $\log(\sigma_{\mathrm{site}})$ of each of the 10 fits,
    and `which.min()` finds the best.
-3. Explain why the log scale puts a variance of zero at $-\infty$, and why BFGS stops on
-   its way there. When does the maximum of the likelihood lie at zero? For a balanced Normal
+3. Explain why the log scale puts a variance of zero at $-\infty$, why BFGS stops on
+   its way there, and why `pdHess` is `TRUE` in some of these fits and `FALSE` in others.
+   When does the maximum of the likelihood lie at zero? For a balanced Normal
    design such as this one, the REML estimate has a closed form,
    $\max\{0,\,s^2_{\mathrm{m}}-s^2_{\mathrm{w}}/5\}$, where $s^2_{\mathrm{m}}$ is the variance
    of the six site means (divisor 5) and $s^2_{\mathrm{w}}$ the variance of the quadrats
    around the means of their sites (divisor 24). This is an exact result of this special
    design, not of REML in general. Calculate it for the samples of question 1 and compare
    it with the refits of question 2. Hint: see
-   [Estimates at a boundary](../Theory.qmd#sec-boundaries). For the closed form, `tapply()`
+   [Estimates at a boundary](../Theory.qmd#sec-boundaries); for `pdHess`, the curvature in
+   [Diagnosing a fit](../Theory.qmd#sec-diagnosis). For the closed form, `tapply()`
    (question 5 of Exercise 1 of the Chapter 7 practical) gives the six site means, and
    `site_means[site_index]` repeats the mean of its site for each of the 30 quadrats.
 
@@ -599,7 +611,5 @@ from the maximum. The closed form exists only for this special design, but the c
 Hessian and the refits tell the two cases apart in the same way, and they can be used for
 any model.
 
-The maxima of the failed fits all lie below 0.16, so replacing their estimates could raise
-the mean of the 500 REML estimates by at most $9\times0.16/500\approx0.003$, far less than
-its Monte Carlo standard error of about 0.034 in Chapter 7. The conclusion of Chapter 7 about
-the bias of REML stands.
+Beyond the question: the maxima of the 9 failed fits are small (all below 0.16), so replacing their estimates would not
+change the conclusion of Chapter 7 about the bias of REML.

@@ -344,15 +344,9 @@ change is the usual solution. The practical advice of the chapter: call the NLL 
 lists on sensible parameter values first, and inspect `fn` and `gr` at the starting values before
 fitting.
 
-**Optional remark (the box of the chapter)**
+**Optional remark**
 
-The technical detail box says how automatic differentiation works. `MakeADFun()` runs the NLL once
-and records every elementary operation that it carries out on the parameters (each sum, product,
-division, exponential and logarithm) in order. This record is called a **tape**. The derivative of
-each operation is known, and the chain rule combines them along the tape into the derivative of the
-NLL with respect to every parameter. In plain English, RTMB differentiates the code step by step, as
-we would differentiate a formula by hand. Mention it only if asked; the word tape is not on the
-slide.
+The chapter explains in a box how automatic differentiation records and combines the operations of the NLL; mention it only if asked.
 
 Break (10 minutes).
 
@@ -472,17 +466,9 @@ Whether these intervals have a coverage close to 95% with 16 tanks can be checke
 the same way as in "Coverage checked by simulation" in Chapter 4. The chapter does not do it; the
 extra exercise of the practical does it for a quantity of a fitted curve.
 
-**Optional remark (the box of the chapter)**
+**Optional remark**
 
-The statistical detail box gives the delta method for several parameters; do not write the formula
-on the board unless asked. Close to the estimates, the quantity $g$ is replaced by its tangent plane.
-Each parameter contributes its variance multiplied by the square of the slope of $g$ in its
-direction, and each pair of parameters contributes its covariance multiplied by the two slopes. For
-the reed frog curve a larger $\alpha$ raises the curve and a larger $H$ lowers it, so the two slopes
-have opposite signs, while the estimates are positively correlated. The covariance term is therefore
-negative: the two errors partly cancel on the curve, which is estimated more precisely than the
-separate standard errors suggest. The approximation is poor when the quantity is close to a bound of
-its range on the scale on which it is calculated, which is another reason for the logit scale.
+The chapter gives the delta method for several parameters in a box; do not write the formula on the board unless asked.
 
 ## Slide 17 — A confidence band
 
@@ -732,7 +718,8 @@ The curve does not change: only the observation model is revised, so that the pr
 is killed varies among tanks around $p(N)$. This is the step of the modelling cycle in which a check sends
 us back to the model. The NLL uses `dbetabinom()` of RTMBdist, with the shape parameters $\kappa p$ and
 $\kappa(1-p)$, and includes `OBS()` from the start, because this model is checked in the same way. The fit
-starts from the estimates of the Binomial model and a precision of 10.
+starts from the estimates of the Binomial model and a precision of 10. The slide shows the call in words:
+`dbetabinom()` takes the two shapes.
 
 The estimates of the curve hardly change: $\hat\alpha\approx0.54$ per experiment and $\hat H\approx0.018$
 experiments per tadpole killed. Their standard errors on the optimised scales are larger, 0.38 against 0.29
@@ -783,16 +770,17 @@ the limit of the Beta-Binomial distribution as $\kappa$ grows without bound. So 
 probability and a Binomial distribution is nested in each of the others, and each Binomial model is nested
 in the Beta-Binomial model with the same curve. The Holling type II curve with a Binomial distribution and
 the constant probability with a Beta-Binomial distribution are not nested in each other, but they can still
-be compared, because they are fitted to the same observations.
+be compared, because they are fitted to the same observations. The last bullet of the slide
+gives the reason for the next slides: the maximum log-likelihood is highest for the model with the
+most parameters, as it must be for nested models, so a comparison needs criteria that penalise the
+number of parameters $K$.
 
 **Delivery**
 
 The special values $H=0$ and $\kappa=\infty$ cannot be reached on the optimised scales (they would be
 $\log(H)=-\infty$ and $\log(\kappa)=\infty$), so the two models with a constant probability have NLLs of
-their own in the chapter. The chapter fits all four with a small function, `fit_model()`, and a loop; all
-four fits converged. The maximum log-likelihood is highest for the model with the most parameters, as it
-must be for nested models, which is why the next slides need criteria that take the number of parameters
-into account.
+their own in the chapter. The chapter fits all four with a small function, `fit_model()`, and a loop (the
+slide says only that they are fitted in a loop); all four fits converged.
 
 ## Slide 27 — AIC, AICc and BIC
 
@@ -830,8 +818,10 @@ its derivation, as a large-sample approximation in Bayesian inference, but it is
 
 ## Slide 28 — Comparing the candidates
 
-Only differences between models matter for each criterion, so the table gives the difference of each model
-from the one with the lowest value of that criterion.
+Only differences between models matter for each criterion, so the table gives the difference (Δ) of each model
+from the one with the lowest value of that criterion. The second bullet of the slide is where the comparison
+ends: the ecological answer comes from the estimates and likelihood profile intervals of the preferred model,
+in units, with what remains uncertain.
 
 For the variation among tanks the criteria agree: with either curve, every criterion prefers the
 Beta-Binomial model to the Binomial model, by 6.7 (Holling type II) and 13.0 (constant probability) units of
@@ -860,8 +850,9 @@ well above the half-maximum, where the curve levels off (slide 14).
 **Delivery**
 
 Read the table by columns, then by rows: the two rows of the Binomial models are far from the best for every
-criterion; the two rows of the Beta-Binomial models are close. The takeaway is the general point: the criteria
-rank the candidates, and what the ranking means for the question is a matter of ecological interpretation. Do
+criterion; the two rows of the Beta-Binomial models are close. The takeaway is the general point: a model that
+ignores the variation among units overstates the evidence for the curve (the Binomial rows). Add that the criteria
+rank the candidates, while what the ranking means for the question is a matter of ecological interpretation. Do
 not present the choice of the last model as settled by the criteria: under the Beta-Binomial the differences are
 small, and the interval of $H$ reaches almost to zero.
 

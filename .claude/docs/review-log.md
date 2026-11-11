@@ -148,11 +148,46 @@ them. All dates are in 2026.
   rewritten passages are generated drafts awaiting review. Pre-existing and not fixed:
   the coverage figures quoted in the simulation section of Case study 2 (94.6% and 92.8%)
   disagree with the printed output (0.95 and 0.93).
+- **11 November:** on the author's request, a final check of the whole book by sub-agents in
+  stages (plan `.plans/plan_final_check.md`; inventories, notation ledger, reports and
+  reviews in `.plans/final_check/`, a git-ignored folder), on branch `main`. Six guarantees
+  were tested and repaired: practicals rely only on what the main text teaches and practise
+  its core skills; the slides of Chapters 6 to 8 cover the main text; solutions answer
+  exactly the questions; the examples of the distributions supplement differ from every
+  exercise; supplements agree with the chapters; one symbol per concept everywhere (rules
+  now in `STYLE_GUIDE.md`). An independent review followed the changes. **Everything
+  changed is a generated draft awaiting the author's review, including changes to approved
+  pages and to the author's own text:** the Chapter 1 practical (nine solutions corrected,
+  a short example of `lines()`, `abline()` and `legend()`, a default argument), the
+  practicals of Chapters 2 and 3 (see `chapters-2-3.md`), twelve examples and two callouts
+  of the distributions supplement, about 40 new glossary entries (the author reviewed them
+  on 11 November and 17 were removed as named functions, terms of one model or too
+  specific; rules in `STYLE_GUIDE.md`, "The glossary"). New questions: Chapter 2
+  Exercise 6 question 5 (joint table), Chapter 3 Exercise 2 question 4 (histogram, density
+  estimate, `ecdf()`), Chapter 5 Exercise 5 question 6 (extra; the derivation of the disc
+  equation, moved there from question 1 when the author reviewed the Chapter 5 practical
+  and theory changes on 11 November, and replacing a question with `outer()` and
+  `contour()` that the author dropped).
+  **Open for the author** (nothing was changed): no question fits a Beta-Binomial model
+  (Chapter 6); typical groups from a second model matrix and a comparison of candidates by
+  formula are not practised (Chapter 7); `tmbprofile()`, Nelder–Mead, `optimize()`, exact
+  against approximate gradients and identifiability have no exercise question (Chapter 8);
+  `K_i` (number killed) beside `K` (number of parameters) and `\boldsymbol\beta` for the
+  curve parameters in Chapter 6; the pine curve with `A`, `k`, `t_0` in the practicals of
+  Chapters 7 and 8; R names of estimates that break the `_mom` and `_mle` rule (`mu_hat`,
+  `variance_mm` in Chapter 3; `shape_ml`, `sim_k_ml` in Chapter 4). The lectures of
+  Chapters 1 to 4 were checked for notation only. The rules added to `STYLE_GUIDE.md`
+  (exercises and solutions, examples of the distributions supplement, one symbol per
+  concept) and to `STYLE_GUIDE_LECTURE.md` (coverage of the main text) record the author's
+  requirements as the check applied them; their wording awaits the author's check. The
+  author's checklist is `TODO.md` at the repository root (tracked by git): items for
+  Chapters 5 to 8 this year, items that touch Chapters 1 to 4 next year, because those
+  chapters had already been taught.
 
 | Material | Status and use |
 |---|---|
 | Chapter 1 practical (`material.qmd` and wrappers) | Approved. Primary reference for teaching voice, introductory R and conditional solutions |
-| `Chapter_1/Theory.qmd` | Approved, author's text. Reference for voice in its essay register only (see `STYLE_GUIDE.md`). Generated on the author's instruction and awaiting check: the two course objectives in "Overview of the book" and the roadmap entry "Supplement: Formula-based methods" |
+| `Chapter_1/Theory.qmd` | Approved, author's text. Reference for voice in its essay register only (see `STYLE_GUIDE.md`). Generated on the author's instruction and awaiting check: the two course objectives in "Overview of the book" and the roadmap entries "Supplement: Formula-based methods" and "Supplement: Symbols" |
 | `Chapter_1/Lecture/` (`lecture.qmd`, `lecture-script.md`) | Generated draft of a 60-minute lecture on the chapter (19 slides). The author sets the length of each lecture; when a request does not give it, ask (see `STYLE_GUIDE_LECTURE.md`). The author revised the slides on 26 October (they are the reference for format and amount of text); the script awaits review. Slides carry keywords for students new to the course and no speaker notes; the narrative is only in the script (author's decision), so slide numbers, titles and times in the script are changed together with the slides. The README was removed. Never a model of voice |
 | `Chapter_2/Lecture/` | Generated draft: 90 minutes of slides (33 slides) plus 40 minutes of live demos from the chapter's code and `Practice` callouts, in three blocks with two breaks of 10 minutes (150 minutes). Slides and script await review. Never a model of voice |
 | `Chapter_3/Lecture/` | Generated draft: a session of 150 minutes with 34 slides (125 minutes, 5 of slack) in three blocks with two breaks of 10 minutes. No live demos (author's decision of 30 October, because the slides of the Chapter 2 lecture took longer than planned): the author decides during the lecture whether to run code, and the script lists the chunks that fit, all visible on the chapter and practical pages, with no typed code. Slides and script await review. Never a model of voice |
@@ -166,6 +201,7 @@ them. All dates are in 2026.
 | Chapter 5 (theory and practical), `Supplements/deterministic-functions.qmd`, `Supplements/calculus.qmd` | Drafts, rewritten from scratch |
 | `Case_study_1/Theory.qmd` | Generated draft (10 November), complete, with the author's own edits and sentences, which stay. Never a model of voice |
 | `Case_study_2/Theory.qmd` | Generated draft (10 November), complete, not yet reviewed by the author. Never a model of voice |
+| `Supplements/symbols.qmd` | Approved by the author on 11 November (a reference for content and notation, not for voice). Generated on the author's request: the course-wide symbols and writing rules of the notation section of `STYLE_GUIDE.md`, for students, with the chapter where each symbol first appears (checked by search of the theory pages on `main`). Lists no local exceptions (author's decision); the text of an exercise explains a local meaning of a common letter. Kept in step with `STYLE_GUIDE.md`. Its entry "Supplement: Symbols" at the end of the roadmap of `Chapter_1/Theory.qmd` is generated and awaits the author's check |
 | `Supplements/canned.qmd` | Draft, rewritten on 7 October. The paragraph of `index.qmd` that describes it is generated text in the author's first person and awaits check |
 | Chapter 6 (theory, practical) | Draft, rewritten from scratch on 3 and 4 November in seven stages (`Chapter_6/rewrite-handoff.md`), with an independent review (Stage 4) but no review by the author. Never a model of voice |
 | `Chapter_6/Lecture/` | Generated draft: a session of 150 minutes with 32 slides (121 minutes, 9 of slack) in three blocks with two breaks of 10 minutes, including one live demo of 18 minutes (2 at the slide, 16 in R) from `demo-cycle.R`. Every figure is a copy of a chapter figure or made from the chapter's code (`lecture-assets/figures.R`; `parameter-derivatives.png` is a copy of the Chapter 5 figure, whose axis labels are small at slide size). Slides, script and demo script await review. Never a model of voice |

@@ -58,23 +58,32 @@ treat as independent.
    [Normal](../../Supplements/distributions.qmd#sec-normal) observation model with a
    constant standard deviation $\sigma$. Give the units of $a$, $b$ and $\sigma$. The
    titres in these data are all positive; why can a Normal model, which allows any real
-   value, be used for them?
+   value, be used for them? Hint: compare the probability that a Normal distribution gives
+   to negative values with the size of its standard deviation (question 2 asks you to check
+   this with the fitted model).
 2. Write the negative log-likelihood (NLL) with $\log(a)$, $\log(b)$ and $\log(\sigma)$ as
    parameters, and fit it from the values read by eye in the Chapter 5 practical. Check
-   the convergence, report the estimates with their units, and draw the fitted curve over
-   the data together with the curve by eye.
+   the convergence, report the estimates with their units, and calculate the gradient of
+   the NLL with `obj$gr()` at the starting values and at the estimates (see
+   [The gradient and automatic differentiation](../Theory.qmd#sec-makeadfun)). What does it
+   show? Use the fitted model to check your answer to question 1, and draw the fitted curve
+   over the data together with the curve by eye.
 3. Calculate the standard errors and the correlation between the estimates with
    `sdreport()`. Ask for the time of the peak, $1/b$, and the height of the peak,
    $a/(be)$, on their original scale with `ADREPORT()`, and calculate 95% Wald intervals
    for both. Why can these intervals be calculated on the original scale here? Then calculate the
    likelihood profile interval of $b$ with `TMB::tmbprofile()` and `confint()`, and from
    it an interval for the time of the peak. Compare the two intervals for the time of the
-   peak.
+   peak. Hint: a Wald interval is symmetric around the estimate, so on the original scale it
+   can reach beyond a bound of the quantity when the estimate lies close to that bound;
+   compare each estimate with its standard error.
 4. Simulate 1,000 hypothetical samples from the fitted model with `simulate()`, and
    calculate the scaled quantile residuals with DHARMa. Plot them, also against the day of
    the observation, and say what they show.
 5. Fit the same curve with a [Gamma](../../Supplements/distributions.qmd#sec-gamma)
-   observation model, with `dgamma()` and the arguments `shape` and `scale = mu / shape`.
+   observation model, with the curve as its mean $\mu$ and a shape $k$ (`dgamma()` takes
+   the arguments `shape` and `scale = mu / shape`, because the mean of a Gamma distribution
+   is the product of its shape and its scale).
    How does the spread of the titres around the curve differ between the two models?
    Compare them with AIC, AICc and BIC. Why do the three criteria give the same difference
    here?
@@ -162,10 +171,26 @@ c(a = a_mle, b = b_mle, sigma = sigma_mle)
 
 The convergence code is 0. The estimates are $\hat a\approx3.42$ units of titre/day,
 $\hat b\approx0.165$/day and $\hat\sigma\approx0.67$ units of titre. The first two are
-close to the values read by eye (3.44 and 0.167). We can now check the argument of
-question 1. The lowest mean titre in the data is the one of day 2, and the probability
-that the fitted model gives to a negative titre on that day is the cumulative probability
-of zero:
+close to the values read by eye (3.44 and 0.167). The element `gr` of the object returns
+the gradient of the NLL at the parameter values that we give it, on the log scale, with
+one element for each of `log_a`, `log_b` and `log_sigma`. We calculate it at the starting
+values, which are stored in `normal_obj$par`, and at the estimates:
+
+```{r}
+# Gradient of the NLL at the starting values and at the estimates.
+normal_obj$gr(normal_obj$par)
+normal_obj$gr(normal_fit$par)
+```
+
+At the starting values the gradient is not zero, and its signs tell BFGS in which direction
+to move each parameter to lower the NLL: the largest element is the one of `log_sigma`,
+because the starting value of 1 is far from the estimate, and its positive sign says that
+the NLL decreases when $\sigma$ decreases. At the estimates all three elements are close to
+zero, as they should be at a minimum.
+
+We can now check the argument of question 1. The lowest mean titre in the data is the one
+of day 2, and the probability that the fitted model gives to a negative titre on that day
+is the cumulative probability of zero:
 
 ```{r}
 # Ricker function: initial slope a and rate b.
@@ -198,10 +223,6 @@ curve(ricker(x, a = 3.44, b = 1 / 6), add = TRUE, lty = 2)
 legend("bottomright", legend = c("Maximum likelihood", "By eye (Chapter 5)"),
        lty = c(1, 2), col = c("#D55E00", "black"), bty = "n")
 ```
-
-The two curves are almost the same. The peak that we read by eye happened to be close to
-the peak of the fitted curve, and in the Ricker function the peak determines both
-parameters.
 
 ### Question 3
 
@@ -278,12 +299,12 @@ cbind(
 ```
 
 The peak is estimated on day 6.05 (95% Wald interval from 5.30 to 6.80 days) at a titre of
-7.61 (from 7.32 to 7.91). The height is well determined because many observations lie near
-the peak.
+7.61 (from 7.32 to 7.91).
 
 For the likelihood profile interval we profile $\log(b)$, transform the endpoints back
 with `exp()`, and obtain the interval for the time of the peak from that of $b$. The
-function $1/b$ decreases as $b$ increases, so the endpoints swap:
+function $1/b$ decreases as $b$ increases, so the endpoints swap, which `rev()` does by
+reversing the order of the two endpoints:
 
 ```{r}
 #| warning: false
@@ -305,8 +326,7 @@ than those above it. The Wald interval for the time of the peak (5.30 to 6.80 da
 symmetric by construction, because the delta method treats $1/b$ as a straight line near
 the estimate. So, compared with the profile interval, it is shifted towards earlier days.
 The two intervals differ by less than a fifth of a day at each end, which is small compared
-with their width; the extra Exercise 4 shows what it means for the coverage of the Wald
-interval.
+with their width.
 
 ### Question 4
 
@@ -371,23 +391,19 @@ its peak. In @fig-titre_residuals_day DHARMa draws the line of the upper quartil
 because its test gives a small p-value. As in the theory, we read the plot as exploratory
 evidence and not as a decision: with 27 observations and one to six per day the pattern
 rests on few observations, but it suggests that the Ricker curve describes the titre after
-the peak only approximately. A curve with a third parameter, such as the
-[generalised Ricker](../../Supplements/deterministic-functions.qmd#sec-fn-generalised-ricker)
-function, could be fitted and compared with it.
-
-DHARMa also calculates a dispersion statistic, but for a Normal model it is not informative:
-$\sigma$ is estimated from the spread of the observations around the curve, so the
-simulated spread matches the observed spread almost by construction.
+the peak only approximately.
 
 ### Question 5
 
-A Gamma distribution with shape $k$ and scale $\mu/k$ has mean $\mu$ and variance
-$k(\mu/k)^2=\mu^2/k$, so its standard deviation is $\mu/\sqrt{k}$: the spread of the titres
-is proportional to the mean, with a coefficient of variation $1/\sqrt{k}$ that is the same
-on every day. In the Normal model the spread is the same on every day, whatever the mean.
-The Gamma model also gives a probability of zero to negative titres. The NLL takes the
-logarithm of the shape as its third parameter; we start from the values by eye and a shape
-of 10:
+The Gamma model of the titre has the Ricker curve as its mean $\mu$ on each day and a shape
+$k$ that is the same for every observation. Its variance is $\mu^2/k$, so its standard
+deviation is $\mu/\sqrt{k}$: the spread of the titres is proportional to the mean, with a
+coefficient of variation $1/\sqrt{k}$ that is the same on every day. In the Normal model
+the spread is the same on every day, whatever the mean. `dgamma()` does not take the mean
+but a shape and a scale, and a scale of $\mu/k$ gives the distribution the mean $\mu$,
+because the mean of a Gamma distribution is the product of its shape and its scale. The NLL
+takes the logarithm of the shape as its third parameter; we start from the values by eye
+and a shape of 10:
 
 ```{r}
 # Negative log-likelihood of the Ricker curve with a Gamma observation model.
@@ -442,11 +458,7 @@ the three criteria because the two models have the same number of parameters and
 fitted to the same observations: the penalty is the same for both models within each
 criterion, and the difference between the models is twice the difference between their
 maximum log-likelihoods. So the comparison says that the titres are more probable under a
-spread that is the same on every day than under a spread that grows with the mean. This is
-plausible, because the titre is already a logarithm: variation by a constant factor in the
-number of infectious doses becomes a constant spread on the logarithmic scale. With 27
-observations, however, the evidence is moderate. The curve itself hardly depends on the
-choice: the estimates of $a$ and $b$ differ by a few percent between the two models.
+spread that is the same on every day than under a spread that grows with the mean.
 
 # Exercise 2: Enzyme kinetics
 
@@ -466,8 +478,8 @@ this exercise we fit and compare two models with a Normal observation model with
 standard deviation $\sigma$, and treat the 23 observations as independent.
 
 1. Write the model with one Michaelis–Menten curve for both states, with the units of $a$,
-   $b$ and $\sigma$. Fit it, starting from values close to those read by eye, check the
-   convergence, and draw the curve over the data with a different symbol for each state.
+   $b$ and $\sigma$. Fit it, reading the starting values of $a$ and $b$ from a plot of the
+   data as in the Chapter 5 practical, check the convergence, and draw the curve over the data with a different symbol for each state.
    Hint: the list of data holds the predictor and the response, as in
    [Fitting a response curve by maximum likelihood](../Theory.qmd#sec-fit-response). In
    `plot()`, the argument `pch = ifelse(Puromycin$state == "treated", 16, 1)` draws the

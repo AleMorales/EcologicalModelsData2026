@@ -37,24 +37,24 @@ Times are measured from the start of the session and include the breaks.
 | 5 | Response curves measured on the same groups | 3 | 7–10 |
 | 6 | Conditional distributions | 4 | 10–14 |
 | 7 | Marginal distributions | 4 | 14–18 |
-| 8 | A model with a random asymptote | 4 | 18–22 |
+| 8 | A two-level model with a random effect | 4 | 18–22 |
 | 9 | Fixed effects and random effects | 3 | 22–25 |
 | 10 | Practice 1: two seedlings in one quadrat | 3 | 25–28 |
 | 11 | Three ways to share information | 4 | 28–32 |
 | 12 | Discussion: which pooling answers which question? | 3 | 32–35 |
 | | Break | 10 | 35–45 |
 | 13 | The marginal likelihood | 4 | 45–49 |
-| 14 | The Laplace approximation | 4 | 49–53 |
-| 15 | Random effects in RTMB | 4 | 53–57 |
-| 16 | Variance components and predicted effects | 4 | 57–61 |
-| 17 | Group-level predictors | 4 | 61–65 |
-| 18 | The model matrix | 4 | 65–69 |
-| 19 | Two ways to encode groups | 3 | 69–72 |
-| 20 | Shrinkage | 4 | 72–76 |
-| 21 | Practice 2: wing length of chicks in nests | 3 | 76–79 |
-| | Break | 10 | 79–89 |
-| 22 | Live demo: from pooling to partial pooling | 2 + 16 | 89–107 |
-| 23 | Uncertainty of variance components and REML | 4 | 107–111 |
+| 14 | The Laplace approximation | 3 | 49–52 |
+| 15 | Random effects in RTMB | 4 | 52–56 |
+| 16 | Variance components and predicted effects | 4 | 56–60 |
+| 17 | Group-level predictors | 4 | 60–64 |
+| 18 | The model matrix | 4 | 64–68 |
+| 19 | Two ways to encode groups | 3 | 68–71 |
+| 20 | Shrinkage | 4 | 71–75 |
+| 21 | Practice 2: wing length of chicks in nests | 3 | 75–78 |
+| | Break | 10 | 78–88 |
+| 22 | Live demo: from pooling to partial pooling | 2 + 16 | 88–106 |
+| 23 | Uncertainty of variance components and REML | 5 | 106–111 |
 | 24 | Curves for observed and new groups | 4 | 111–115 |
 | 25 | Practice 3: sapling growth in forest stands | 3 | 115–118 |
 | 26 | Checking a grouped model | 4 | 118–122 |
@@ -66,7 +66,7 @@ Times are measured from the start of the session and include the breaks.
 | | Slack for discussion | 14 | 136–150 |
 | | **Total** | **150** | |
 
-Slides 116 minutes (blocks of 35, 34 and 47, the demo included), slack 14, breaks 20: 150
+Slides 116 minutes (blocks of 35, 33 and 48, the demo included), slack 14, breaks 20: 150
 minutes. The break before the demo lets you open R and run section 0 of `demo-pooling.R`.
 
 ## Slides 1 and 2 — Ecological Models and Data Analysis; Overview of the lecture
@@ -139,7 +139,7 @@ appears (repeated counts at the same transect, several leaves of one tree, chick
 ## Slide 5 — Response curves measured on the same groups
 
 A common design for response curves measures every group at the same values of the predictor, so
-that each group gives a whole curve. The chapter describes the curves with the saturating
+that each group gives a whole curve. The slide shows this in general; the example box gives the function. The chapter describes the curves with the saturating
 exponential shifted along $x$, $\mu(x)=a\left(1-e^{-b(x-c)}\right)$, where $\mu(x)$ is the
 expected response at $x$, $a$ the asymptote, $b$ the rate at which the curve approaches it (it
 reaches 63% of the asymptote at $x=c+1/b$), and $c$ the value of $x$ at which the expected response
@@ -228,13 +228,15 @@ the integral has no closed form, and slide 14 shows how it is approximated.
 
 The next slide writes the CO₂ model in this form.
 
-## Slide 8 — A model with a random asymptote
+## Slide 8 — A two-level model with a random effect
 
 Let $Y_{ij}$ be the $i$-th observation of group $j$ and $u_j$ the deviation of group $j$ from the
-common curve, on the log scale of the asymptote. The deviations follow a Normal distribution with
-mean zero and variance $\sigma^2_{\mathrm{group}}$, and for a given deviation the observations
-follow a Normal distribution around the curve of their group, $\mu_j(x)$, with variance
-$\sigma^2_{\mathrm{obs}}$. The asymptote of group $j$ is $a_j=a\,e^{u_j}$, that is,
+common curve. The deviation acts on one parameter of the curve, on a scale on which a Normal
+deviation is plausible: the logarithm of a positive parameter or the logit of a probability. The
+deviations follow a Normal distribution with mean zero and variance $\sigma^2_{\mathrm{group}}$,
+and for a given deviation the observations follow a Normal distribution around the curve of their
+group, $\mu_j(x)$, with variance $\sigma^2_{\mathrm{obs}}$. For the CO₂ data the parameter is the
+asymptote, and the curve is the one in the example box. The asymptote of group $j$ is $a_j=a\,e^{u_j}$, that is,
 $\log(a_j)=\log(a)+u_j$, so every asymptote is positive and the deviations act by multiplication:
 a group with $u_j=0.1$ has an asymptote about 10% above $a$, because $e^{0.1}\approx1.105$.
 
@@ -424,12 +426,9 @@ under the approximation is 0.3% smaller than the area under the integrand, which
 log-likelihood of this plant by 0.003. The figure is an illustration: the chapter draws it in a
 hidden chunk, and in practice no one calculates the integral, because RTMB does it (the takeaway).
 
-**Optional remark (the box of the chapter)**
+**Optional remark**
 
-The statistical detail box gives the formula: with $h(u)$ the logarithm of the integrand and $\hat u$
-its maximum, the integral is replaced by $e^{h(\hat u)}\sqrt{2\pi/(-h''(\hat u))}$, the height of the
-peak times its width. With several random effects per group the curvature becomes a Hessian matrix
-and the square root a determinant. Mention it only if asked.
+The chapter gives the formula of the Laplace approximation in a box; mention it only if asked.
 
 ## Slide 15 — Random effects in RTMB
 
@@ -457,20 +456,11 @@ and `par` holds five estimates; the deviations of the plants are not among them.
 **Delivery**
 
 Show the chunk without running it; section 3 of the demo runs it. Point at the first line of the
-body (the density of `u`), at `a[plant]` and at `random = "u"`.
+body (the density of `u`), at `a[plant]` and at `random = "u"`. The vector `plant` is an integer index: it gives the group of each observation, so `a[plant]` picks the asymptote of the plant of each measurement (the comment in the chunk says so).
 
-**Optional remark (the box of the chapter)**
+**Optional remark**
 
-The technical detail box says what RTMB does with `random`. Each time the optimiser calls `fn`, RTMB
-first carries out an **inner optimisation**: it minimises the joint NLL over the random effects for
-the current values of $\boldsymbol\theta$, which gives the peak of the integrand, with Newton's
-method (an optimiser that uses second derivatives; Chapter 8). Automatic differentiation, which
-Chapter 6 introduced, supplies the first and second derivatives, and the Hessian with respect to
-the random effects at the peak gives the curvature of the Laplace approximation. So every evaluation
-of the marginal NLL contains a complete optimisation over the random effects, which is why a mixed
-model takes longer to fit. The method is described by Kristensen, Nielsen, Berg, Skaug and Bell
-(2016), "TMB: automatic differentiation and Laplace approximation", *Journal of Statistical
-Software* 70(5): 1–21.
+The chapter describes in a box the inner optimisation that RTMB carries out for the random effects at every evaluation of the NLL; mention it only if asked.
 
 ## Slide 16 — Variance components and predicted effects
 
@@ -537,8 +527,10 @@ $\beta_{\mathrm{miss}}$ is the effect of the origin in non-chilled plants, $\bet
 the effect of chilling in plants from Quebec, and $\beta_{\mathrm{int}}$ the difference between the
 effect of chilling in plants from Mississippi and in plants from Quebec. Chilling multiplies the
 typical asymptote of a Quebec plant by $e^{\beta_{\mathrm{chill}}}$ and that of a Mississippi plant by
-$e^{\beta_{\mathrm{chill}}+\beta_{\mathrm{int}}}$. The next slide shows how R builds the indicators,
-and the NLL reports the logarithms of the two chilling factors with `ADREPORT()`.
+$e^{\beta_{\mathrm{chill}}+\beta_{\mathrm{int}}}$. The next slide shows how R builds the indicators.
+A quantity calculated from the coefficients, such as the logarithm of a chilling factor, is reported
+by the NLL with `ADREPORT()`; for a positive quantity the Wald interval is calculated on the log
+scale and its endpoints are transformed back with `exp()`.
 
 With origin and chilling in the model, $\hat\sigma_{\mathrm{plant}}$ falls from 0.34 to 0.079, so the
 variance among plants on the log scale falls by about 94%. Origin and chilling explain most of the
@@ -659,13 +651,9 @@ Mississippi. Mc2 moves most because it lies farthest below the typical asymptote
 because its uptake is the lowest of all: the same observation error of about 2 µmol/m²/s is a larger
 fraction of its uptake, so its measurements determine its asymptote on the log scale less precisely.
 
-**Optional remark (the box of the chapter)**
+**Optional remark**
 
-The statistical detail box gives the formula for the Normal linear model with a random intercept: the
-predicted mean of a group is a weighted average of its own mean, with weight
-$w_j=n_j\sigma^2_{\mathrm{group}}/(n_j\sigma^2_{\mathrm{group}}+\sigma^2_{\mathrm{obs}})$, and the common
-mean, with weight $1-w_j$. Practice 2 uses it. For non-linear curves and other distributions there is
-no such formula, but the same quantities determine the shrinkage.
+The chapter gives the shrinkage weight of a Normal linear model in a box; Practice 2 uses it.
 
 ## Slide 21 — Practice 2: wing length of chicks in nests
 
@@ -857,8 +845,8 @@ Students use R as a calculator. Expected answers, from the chapter's solution:
    cm/year, anywhere between about 9 and 44 cm/year.
 3. No: 20 cm/year is the median. The exponential stretches the stands above the median more than it
    compresses those below, so the mean is larger. Simulating one million stands with
-   `mean(20 * exp(rnorm(n = 1e6, mean = 0, sd = 0.4)))` gives about 21.65 (with seed 702), and the mean of the
-   LogNormal distribution, $20\,e^{0.4^2/2}$, is 21.67: about 21.7 cm/year, 8% above the median.
+   `mean(20 * exp(rnorm(n = 1e6, mean = 0, sd = 0.4)))` gives about 21.6 cm/year (21.65 with seed 702), 8% above the median. The mean of the
+   LogNormal distribution, $20\,e^{0.4^2/2}$, is 21.67 cm/year.
 
 The second answer is the point of slide 24: the curve of an observed group answers a question about that
 group, and the typical curve with its range a question about groups in general.
@@ -933,19 +921,22 @@ For the CO₂ data, the model with a random asymptote has $K=5$, not 17: the 12 
 $\sigma_{\mathrm{plant}}$. Ask the question of the example box (84 measurements or 12 plants?) before giving the
 answer of the last bullet.
 
+The second bullet of the slide is the rule behind the comparison: AIC is meaningful only as a difference between models fitted to the same observations, and it ranks them without showing that the best one fits.
+
 ## Slide 28 — Comparing the candidates
 
 Only differences between models matter, so the table gives the difference of the AIC of each model from the lowest
 AIC, which is zero for the preferred model.
 
-With a model matrix, candidates that differ only in their fixed effects share one NLL and differ in their formulas.
+With a model matrix, candidates that differ only in their fixed effects share one NLL and differ in their formulas
+(the first bullet of the slide), and they are fitted by maximum likelihood to the same observations.
 The three candidates with plant deviations use `treatment_nll` of slide 18: the formula `~ 1` gives a model matrix
 with the column `(Intercept)` only, which is the random asymptote without predictors, `~ Type + Treatment` gives
 origin and chilling without their interaction, and `~ Type * Treatment` the model of slide 17. Complete pooling has no
 plant deviations, so it needs an NLL of its own; the chapter writes it with a model matrix as well, so that with the
 formula `~ 1` it goes through the same bookkeeping as the other candidates. The chapter builds the list of data and
 the starting values of a candidate from its formula with two short functions, so the loop over the candidates needs
-no change of code; the caption of the slide gives the formulas.
+no change of code.
 
 The four candidates answer three questions: do the plants differ at all, do origin and chilling explain part of the
 differences, and does the effect of chilling depend on the origin? AIC prefers the random asymptote with origin, chilling and their
@@ -1067,12 +1058,12 @@ it takes the slack first. If discussion overruns, use the slack first, then shor
 - Slide 25 given as homework, with the answers in one sentence: about two and a half minutes.
 - Slides 29 and 30 to one sentence each: about two minutes together.
 
-Keep the conditional and marginal distributions (slides 6 and 7), the model with a random asymptote (slide 8), the
+Keep the conditional and marginal distributions (slides 6 and 7), the two-level model with a random effect (slide 8), the
 three ways to share information (slide 11), the marginal likelihood (slide 13), random effects in RTMB (slide 15),
 the model matrix (slide 18), which the practical uses in Exercises 2 to 4, shrinkage (slide 20) and the curves for
 observed and new groups (slide 24).
 
-The breaks are placed between the blocks, after slides 12 and 21 (minutes 35 and 79). If a block runs over, shorten the
+The breaks are placed between the blocks, after slides 12 and 21 (minutes 35 and 78). If a block runs over, shorten the
 block rather than the following break.
 
 **If time is left: code to run**

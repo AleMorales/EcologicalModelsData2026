@@ -62,7 +62,7 @@ session start:
 
 | Work on | Read |
 |---|---|
-| Review history; status and voice-reference table of every page | `.claude/docs/review-log.md` |
+| Review history; status and voice-reference table of every page; `Supplements/symbols.qmd` | `.claude/docs/review-log.md` |
 | Chapters 2 and 3, `Supplements/distributions.qmd` | `.claude/docs/chapters-2-3.md` |
 | Chapter 4 | `.claude/docs/chapter-4.md` |
 | Chapters 5 and 6, `Supplements/deterministic-functions.qmd`, `calculus.qmd`, `canned.qmd` | `.claude/docs/chapters-5-6.md` |
@@ -148,7 +148,7 @@ elsewhere.
   that profile merging cannot duplicate navigation.
 - The production build renders Chapters 1 to 8 (with the lectures of Chapters 1 to 4 and 6
   to 8), Case study 1 (listed under "Theory" between Chapters 4 and 5), Case study 2
-  (between Chapters 7 and 8) and five supplements.
+  (between Chapters 7 and 8) and six supplements.
 - Every package loaded in a rendered page must be in `.github/workflows/publish.yml`, or
   the production build fails. Production needs `MASS`, `ggplot2`, `patchwork`, `dplyr`,
   `RTMB`, `RTMBdist`, `TMB` (for `tmbprofile()`), `quarto`, `glmmTMB` (`Salamanders`,

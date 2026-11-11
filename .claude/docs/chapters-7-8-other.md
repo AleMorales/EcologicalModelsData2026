@@ -110,7 +110,14 @@ which stays until the author removes it.
   time` per visit, and `~ 0 + Nest + FoodTreatment + time` for no pooling with the same
   NLL (3); `relevel(mined, ref = "no")` in question 1 and `~ mined + cover` per site (4).
   Exercise 4 has three questions: its comparison with `glmmTMB` was dropped (author's
-  decision of 10 November).
+  decision of 10 November). Final check of 11 November (drafts awaiting the author): the
+  responses are $Y_{ij}$ and the tanks of Exercise 2 are indexed by $j$ ($Y_j$, $u_j$), as
+  in the theory; no hint sends students to a detail box (the hints of Exercise 2 question 4
+  and Exercise 5 question 3 explain what they need); question 2 of Exercise 4 reports the
+  expected count at a mined site with `ADREPORT()`; question 5 of Exercise 2 asks on paper
+  for the columns of `~ pred * size`; question 4 of Exercise 1 asks for the age at 63% of
+  the asymptote. **Open:** typical groups from a second model matrix and a fitted
+  comparison of candidates by formula are not practised.
 - **Lecture:** one of 150 minutes (31 slides, 116 minutes of slides, 14 of slack, two
   breaks of 10) with the demo above. Slide 18, "The model matrix", was added on 10
   November (4 minutes from the slack); the demo builds the predictors with
@@ -184,7 +191,13 @@ author reviews it.
   0.996 against practically zero) and does not ask about invariance; Exercise 3 has three
   questions, refits only from 10 random starts drawn with `runif()` between σ = 0.1 and 10
   (no `nlminb()`, which Exercise 2 practises), and the bias of REML is one sentence in
-  question 3, not a question.
+  question 3, not a question. Final check of 11 November (drafts awaiting the author): the
+  main text of `#sec-diagnosis` says in plain words what `pdHess` reports, and two sentences
+  in `#sec-multistart` teach the check of `obj$fn()` and `obj$gr()` at the starting values
+  (recipe step 1), which question 1 of Exercise 2 now practises; Practice 3 has a question
+  on `parscale`; the number of parameters is $K$ (not $p$) in the theory, the slides and
+  the script. **Open:** `tmbprofile()`, Nelder–Mead, `optimize()`, exact against
+  approximate gradients and identifiability have no exercise question.
 - **Lecture:** one of 150 minutes (31 slides, 116 minutes of slides, 14 of slack, two
   breaks of 10) with the demo above.
 - **Awaiting the author:** the theory has about 1,940 source lines against a target of

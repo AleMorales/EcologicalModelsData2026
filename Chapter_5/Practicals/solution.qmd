@@ -25,7 +25,9 @@ practice. The entries of the supplement that you need are the
 [saturating exponential](../../Supplements/deterministic-functions.qmd#sec-fn-monomolecular),
 [Holling type III](../../Supplements/deterministic-functions.qmd#sec-fn-holling3) and
 [Michaelis–Menten](../../Supplements/deterministic-functions.qmd#sec-fn-michaelis-menten)
-functions.
+functions. For the saturating exponential, remember that $e^{-u}\approx1-u$ for a small
+$u$: the straight line that touches the exponential at $u=0$ (see
+[The derivative](../../Supplements/calculus.qmd#sec-calc-derivatives)).
 
 1. The mean mass of a seedling (mg) as a function of the number of seedlings in a pot,
    $x$: $f(x)=\dfrac{480}{12+x}$.
@@ -112,24 +114,16 @@ $x=20$ mg. So the sketch starts at (5, 2), passes through (20, 7) and levels off
 ### Question 5
 
 At $x=0$ the function is zero. As $x\to\infty$ the factor $x^2$ grows and $e^{-0.4x}$
-decays. The exponential dominates any power, so the limit is zero. With L'Hôpital's rule,
-applied twice because the first application still gives $\infty/\infty$:
-
-$$
-\lim_{x\to\infty}\frac{0.5\,x^2}{e^{0.4x}}
-=\lim_{x\to\infty}\frac{x}{0.4\,e^{0.4x}}
-=\lim_{x\to\infty}\frac{1}{0.16\,e^{0.4x}}=0.
-$$
+decays. The exponential dominates any power, so the limit is zero.
 
 Close to zero the exponential is almost one, so $f(x)\approx0.5\,x^2$: the function starts
 as a parabola, with a slope of zero. A Ricker function starts as the straight line $ax$,
 with a slope of $a$. So both functions are humps that start and end at zero, but this one
 rises slowly at first and then accelerates, which the Ricker function cannot do. Since the
-function is zero at both ends and positive in between, it must have a maximum. The product
-rule gives $f'(x)=0.5\,x\,(2-0.4x)\,e^{-0.4x}$, which is zero at $x=2/0.4=5$.
+function is zero at both ends and positive in between, it must have a maximum.
 
-We can verify our math with R by evaluating each function at the lower end of its domain,
-close to it and at a very large value of $x$:
+We draw each function with `curve()` to check the sketches. The
+dashed line marks the asymptote when it is not zero:
 
 ```{r}
 # The five functions of the exercise.
@@ -139,58 +133,19 @@ seeds_removed = function(x) 30 * x^2 / (100 + x^2)
 clutch = function(x) 2 + 10 * (x - 5) / (15 + (x - 5))
 power_exponential = function(x) 0.5 * x^2 * exp(-0.4 * x)
 
-# Value at the lower end of the domain, close to it, and at a very large x.
-seedling_mass(c(0, 0.5, 100000))
-nitrogen(c(0, 0.5, 100000))
-seeds_removed(c(0, 0.5, 100000))
-clutch(c(5, 5.5, 100000))
-power_exponential(c(0, 0.5, 100000))
-
-# The approximations close to the lower end, at the same second value.
-18 * 0.5
-0.3 * 0.5^2
-2 + 10 / 15 * (5.5 - 5)
-0.5 * 0.5^2
-
-# A quick look at one of the functions; the others are drawn in the same way.
-curve(seeds_removed(x), from = 0, to = 60,
-      xlab = "Density of seeds (seeds/m²)", ylab = "Seeds removed (seeds/night)")
-```
-
-The values at the ends agree with the limits, and half a unit away from the lower end the
-approximations are close to the functions (for example, 9 against 8.56 kg/ha for the
-nitrogen). @fig-end_behaviour shows the five functions.
-
-```{r}
-#| echo: false
-#| label: fig-end_behaviour
-#| fig-width: 9
-#| fig-height: 6
-#| fig-cap: "The five functions of Exercise 2. Dashed lines mark the asymptotes that are not zero."
-# One panel per function, in two rows of three: the curve and, where there is one,
-# the asymptote
-old_par = par(no.readonly = TRUE)
-par(mfrow = c(2, 3))
-
-curve(seedling_mass(x), from = 0, to = 100, ylim = c(0, 40), main = "1. Hyperbolic",
+curve(seedling_mass(x), from = 0, to = 100, ylim = c(0, 40),
       xlab = "Seedlings per pot", ylab = "Mass per seedling (mg)")
-
-curve(nitrogen(x), from = 0, to = 30, ylim = c(0, 90), main = "2. Saturating exponential",
+curve(nitrogen(x), from = 0, to = 30, ylim = c(0, 90),
       xlab = "Time (weeks)", ylab = "Nitrogen released (kg/ha)")
 abline(h = 90, lty = 2)
-
-curve(seeds_removed(x), from = 0, to = 60, ylim = c(0, 30), main = "3. Holling type III",
+curve(seeds_removed(x), from = 0, to = 60, ylim = c(0, 30),
       xlab = "Density of seeds (seeds/m²)", ylab = "Seeds removed (seeds/night)")
 abline(h = 30, lty = 2)
-
-curve(clutch(x), from = 5, to = 150, ylim = c(0, 12), main = "4. Shifted Michaelis–Menten",
+curve(clutch(x), from = 5, to = 150, ylim = c(0, 12),
       xlab = "Body mass (mg)", ylab = "Eggs per clutch")
 abline(h = 12, lty = 2)
-
-curve(power_exponential(x), from = 0, to = 30, ylim = c(0, 1.7),
-      main = "5. Power and exponential", xlab = "x", ylab = "y")
-
-par(old_par)
+curve(power_exponential(x), from = 0, to = 30,
+      xlab = "x", ylab = "y")
 ```
 
 # Exercise 3: Derivatives and slopes
@@ -320,8 +275,7 @@ $$
 
 For $a=2$, $b=0.5$ and $x=2$ we have $e^{-bx}=e^{-1}\approx0.368$, so
 $\partial f/\partial a=2\times0.368\approx0.74$ and
-$\partial f/\partial b=-2\times4\times0.368\approx-2.94$. The derivative with respect to
-$b$ is negative for every $x>0$: a larger $b$ lowers the whole curve.
+$\partial f/\partial b=-2\times4\times0.368\approx-2.94$.
 
 A small change in $b$ moves the curve most where $x^2e^{-bx}$ is largest. This is again a
 function of $x$ with a maximum, which we find with the product rule:
@@ -331,11 +285,9 @@ $$
 \quad\Longrightarrow\quad x=\frac{2}{b}.
 $$
 
-So the curve is most sensitive to $b$ at $x=2/b$ (here $x=4$), which is the inflection
-point of the Ricker function, on its way down. The parameter $a$ moves the curve most at
-the peak, $x=1/b$, where $x\,e^{-bx}$ is largest. We will come back to this in
-[Chapter 6](../../Chapter_6/Theory.qmd): the observations that tell us most about a
-parameter are the ones taken where the curve responds most to it.
+So the curve is most sensitive to $b$ at $x=2/b$ (here $x=4$).
+
+### Check in R of questions 3 and 5
 
 We can verify our math with R:
 
@@ -408,15 +360,13 @@ $$
 \begin{aligned}
 a\left(1-e^{-bx_{1/2}}\right) &= \frac{a}{2}\\
 e^{-bx_{1/2}} &= \frac{1}{2}\\
--b\,x_{1/2} &= \log\frac{1}{2}=-\log2\\
-x_{1/2} &= \frac{\log2}{b}.
+-b\,x_{1/2} &= \log\left(\frac{1}{2}\right)=-\log(2)\\
+x_{1/2} &= \frac{\log(2)}{b}.
 \end{aligned}
 $$
 
 At twice that value, $e^{-2bx_{1/2}}=\left(e^{-bx_{1/2}}\right)^2=1/4$, so
-$f(2x_{1/2})=a\,(1-1/4)=3a/4$. That is, every interval of length $x_{1/2}$ halves the
-distance that remains to the asymptote, in the same way as every half-life halves an
-exponential decay. For the crop residue, $x_{1/2}=0.693/0.2\approx3.5$ weeks: half of the
+$f(2x_{1/2})=a\,(1-1/4)=3a/4$. For the crop residue, $x_{1/2}=0.693/0.2\approx3.5$ weeks: half of the
 nitrogen (45 kg/ha) has been released after three and a half weeks and three quarters
 (67.5 kg/ha) after 6.9 weeks. Note that the half-maximum is a time, read on the $x$
 axis, and that it depends only on $b$.
@@ -425,17 +375,15 @@ axis, and that it depends only on $b$.
 
 The concentration falls from 8 to 2 mg/kg, that is, to a quarter. A quarter is two
 successive halvings, so 30 days are two half-lives and the half-life is 15 days. The
-half-life of an exponential decay is $\log2/b$, so
+half-life of an exponential decay is $\log(2)/b$, so
 
 $$
-b=\frac{\log2}{15}\approx0.046 \text{/day}, \qquad
-\frac{1}{b}=\frac{15}{\log2}\approx21.6 \text{ days}.
+b=\frac{\log(2)}{15}\approx0.046 \text{/day}, \qquad
+\frac{1}{b}=\frac{15}{\log(2)}\approx21.6 \text{ days}.
 $$
 
 The characteristic scale $1/b$ is the time over which the concentration falls by a factor
-$e$: after 21.6 days it is $8/e\approx2.94$ mg/kg. It is longer than the half-life
-because a factor $e\approx2.72$ is a larger reduction than a factor 2. The parameter $a=8$
-mg/kg is the concentration at the start.
+$e$: from the initial 8 mg/kg, after 21.6 days it is $8/e\approx2.94$ mg/kg.
 
 ### Question 3
 
@@ -460,8 +408,6 @@ $$
 For the parasitoids the peak is at 40 eggs, with $1280/160=8$ adults. With more than 40
 eggs in a caterpillar, fewer adults emerge. The initial slope is $f'(0)=ab/b^3=a/b^2$, here
 $1280/1600=0.8$ adults per egg: when there are few eggs, four out of five become adults.
-The parameter $b$ has the units of $x$ (eggs), and the initial slope shows that $a$ has
-the units of $y$ times those of $x$.
 
 ### Question 4
 
@@ -489,10 +435,7 @@ $$
 
 For the rodents the inflection point is at $10/\sqrt3\approx5.8$ seeds/m², where they
 remove $30/4=7.5$ seeds/night and the slope is $0.65\times3\approx1.95$
-(seeds/night)/(seeds/m²). Note that the inflection point lies below the half-maximum ($b=10$
-seeds/m², with 15 seeds/night), whereas in a
-[logistic](../../Supplements/deterministic-functions.qmd#sec-fn-logistic) function the two
-coincide.
+(seeds/night)/(seeds/m²).
 
 ### Question 5
 
@@ -518,9 +461,9 @@ $$
 For the limit we divide the numerator and the denominator by $x^2$, which gives
 $a/(b/x^2+c/x+1)\to a=12$ g/min. So the peak is higher than the asymptote: the
 intake rises to 16 g/min at a biomass of 20 g/m² and then declines towards 12
-g/min. With a negative $c$ the function approaches its asymptote from above. Here
-$a$ has the units of $y$, $c$ the units of $x$ and $b$ the units of $x$ squared, since the
-three terms of the denominator must have the same units.
+g/min. With a negative $c$ the function approaches its asymptote from above.
+
+### Check in R of questions 3 and 5
 
 We can verify our math with R:
 
@@ -548,16 +491,18 @@ g/m², and the intake at a very large biomass is 12 g/min.
 The same curve can be written with different parameters, and a curve can be moved,
 stretched and bounded by changing its formula (see
 [Parameters](../Theory.qmd#sec-function-parameters) and
-[Building new functions](../Theory.qmd#sec-function-building) in the theory). Do all the
-questions on paper and give the units of every parameter. The first three questions are
-the core of this exercise and the last two are extra practice.
+[Building new functions](../Theory.qmd#sec-function-building) in the theory). Do
+all six questions on paper and give the units of every parameter. The first three questions
+are the core of this exercise and the last three are extra practice.
 
 1. A wolf spider searches an area of $\alpha=2$ m²/day for prey and needs $H=0.05$
-   days to handle each prey. Write its functional response in the Holling type II form,
-   $f(x)=\dfrac{\alpha x}{1+\alpha Hx}$, where $x$ is the density of prey (prey/m²),
-   and convert it to the Michaelis–Menten form, $f(x)=\dfrac{ax}{b+x}$. What are $a$ and
-   $b$, and what do they mean? A second species has $a=50$ prey/day and $b=25$
-   prey/m². What are its $\alpha$ and $H$?
+   days to handle each prey. In a habitat with a density of prey $x$ (prey/m²), its
+   functional response, the number of prey eaten per unit of time, is the Holling type II
+   function $f(x)=\dfrac{\alpha x}{1+\alpha Hx}$ (see
+   [Phenomenological and mechanistic functions](../Theory.qmd#sec-mechanistic)). Convert
+   it to the Michaelis–Menten form, $f(x)=\dfrac{ax}{b+x}$. What are $a$ and $b$, and what
+   do they mean? A second species has $a=50$ prey/day and $b=25$ prey/m². What are its
+   $\alpha$ and $H$?
 2. Rewrite the Ricker function $f(x)=a\,x\,e^{-bx}$ so that its two parameters are the
    location of the peak, $x_{\max}$, and the height of the peak, $y_{\max}$. What are
    $x_{\max}$ and $y_{\max}$ for $f(x)=8\,x\,e^{-0.25x}$?
@@ -576,6 +521,10 @@ the core of this exercise and the last two are extra practice.
    [Richards](../../Supplements/deterministic-functions.qmd#sec-fn-richards) function
    $f(x)=\dfrac{a}{\left[1+d\,e^{-b(x-c)}\right]^{1/d}}$ contains the logistic function.
    Which function does the Richards function become for $d=-1$?
+6. Derive the functional response of the wolf spider of question 1. While the spider
+   searches for a time $T_s$ it eats $N_e=\alpha xT_s$ prey, and its total time is the time
+   spent searching plus the time spent handling, $T=T_s+HN_e$. Show that the number of prey
+   eaten per unit of time, $f(x)=N_e/T$, is the Holling type II function of question 1.
 
 When you have finished, check your answers to questions 1 and 2 in R by evaluating both
 forms of each function at a few values of $x$.
@@ -599,17 +548,14 @@ $$
 
 The asymptote $a$ is the number of prey that the spider eats per day when prey are so
 dense that it spends all its time handling them: one prey every 0.05 days. The
-half-maximum $b$ is the density of prey at which it eats half of that, 10 prey/day.
+half-maximum $b$ is the density of prey, 10 prey/m², at which it eats half of that
+maximum, 10 prey/day.
 For the second species we invert the two relations:
 
 $$
 \alpha=\frac{a}{b}=\frac{50}{25}=2 \text{ m}^2\text{/day}, \qquad
 H=\frac{1}{a}=\frac{1}{50}=0.02 \text{ days per prey}.
 $$
-
-The two species search the same area per day, but the second one handles a prey in less
-than half the time (0.02 days is about half an hour). Note that the curves are different,
-whereas the two forms of each curve are the same function.
 
 ### Question 2
 
@@ -621,11 +567,8 @@ f(x)=\frac{y_{\max}\,e}{x_{\max}}\;x\;e^{-x/x_{\max}}
 =y_{\max}\,\frac{x}{x_{\max}}\,e^{1-x/x_{\max}}.
 $$
 
-As a check, at $x=x_{\max}$ the formula gives $y_{\max}\times1\times e^{0}=y_{\max}$. In
-this form both parameters can be read from a plot, $x_{\max}$ with the units of $x$ and
-$y_{\max}$ with the units of $y$. It is the
-[generalised Ricker](../../Supplements/deterministic-functions.qmd#sec-fn-generalised-ricker)
-function with an exponent of one. For $f(x)=8xe^{-0.25x}$ the peak is at
+In this form both parameters can be read from a plot, $x_{\max}$ with the units of $x$ and
+$y_{\max}$ with the units of $y$. For $f(x)=8xe^{-0.25x}$ the peak is at
 $x_{\max}=1/0.25=4$ and its height is $y_{\max}=8\times4/e\approx11.8$.
 
 ### Question 3
@@ -639,9 +582,6 @@ is halfway between $d$ and $d+a$ when $x-c=b$, so $b=10-2=8$ g:
 $$
 f(x)=3+\frac{24\,(x-2)}{8+(x-2)}=3+\frac{24\,(x-2)}{6+x}.
 $$
-
-As a check, $f(2)=3$, $f(10)=3+24\times8/16=15$, which is halfway between 3 and 27, and
-for a large $x$ the fraction approaches 24.
 
 ### Question 4
 
@@ -664,7 +604,6 @@ $$
 d-b\,(x-c)^2=0 \quad\Longrightarrow\quad x=c\pm\sqrt{d/b}=6\pm\sqrt{4}=6\pm2.
 $$
 
-So the species occurs with a probability above 0.5 between a pH of 4 and a pH of 8.
 
 ### Question 5
 
@@ -681,8 +620,25 @@ f(x)=\frac{a}{\left[1-e^{-b(x-c)}\right]^{-1}}=a\left(1-e^{-b(x-c)}\right).
 $$
 
 This is the saturating exponential function shifted by $c$ along the $x$ axis: it is zero
-at $x=c$ and approaches $a$. So the Richards function contains a sigmoid function and a
-saturating function without an inflection point, depending on the value of $d$.
+at $x=c$ and approaches $a$.
+
+### Question 6
+
+The spider eats $N_e=\alpha xT_s$ prey while it searches, and its total time is the sum of
+the time spent searching and the time spent handling, $T=T_s+HN_e$. We substitute
+$T_s=T-HN_e$ in the first expression and solve for $N_e$:
+
+$$
+\begin{aligned}
+N_e &= \alpha x\,(T-HN_e)\\
+N_e\,(1+\alpha Hx) &= \alpha xT\\
+f(x)=\frac{N_e}{T} &= \frac{\alpha x}{1+\alpha Hx},
+\end{aligned}
+$$
+
+which is the Holling type II function of question 1.
+
+### Check in R of questions 1 and 2
 
 We can verify our math with R:
 
@@ -701,8 +657,7 @@ y_max = 8 * 4 / exp(1)
 y_max * (x_values / 4) * exp(1 - x_values / 4)
 ```
 
-Both pairs of lines return the same values, and the second pair shows the height of the
-peak, 11.77, at $x=4$.
+Both pairs of lines return the same values.
 
 # Exercise 6: Enzyme kinetics
 
@@ -718,7 +673,11 @@ $f(x)=\dfrac{ax}{b+x}$, where $x$ is the concentration of the substrate and $f(x
 rate of the reaction (see the
 [Michaelis–Menten](../../Supplements/deterministic-functions.qmd#sec-fn-michaelis-menten)
 entry of the supplement). In this exercise you place the curve by eye and compare it
-with an alternative function.
+with an alternative function. To distinguish two groups or two curves in a base R plot,
+`pch` sets the symbol of the points of `plot()` and `lty` the line type of `curve()` and
+`lines()` (1 is solid, 2 dashed, 3 dotted), and `legend()` explains them: for example,
+`legend("bottomright", legend = c("treated", "untreated"), pch = c(16, 1), lty = c(1, 2))`.
+The call `lines(x, y)` draws a line through the points with coordinates `x` and `y`.
 
 1. Plot the rate against the concentration, with a different symbol for each state. Read
    $a$ and $b$ from the plot for each state, with their units, and draw the two curves
@@ -739,7 +698,6 @@ We load the data and write the function in R:
 ```{r}
 # Load the data and look at the first rows.
 data(Puromycin, package = "datasets")
-head(Puromycin)
 
 # Michaelis–Menten function: asymptote a and half-maximum b.
 michaelis_menten = function(x, a = 1, b = 1) {
@@ -782,9 +740,7 @@ legend("bottomright", legend = c("treated", "untreated"),
 Both curves follow the observations of their group. So, by eye, the two states
 differ in the asymptote $a$, which is the maximum rate of the reaction, and they share the
 half-maximum $b$: the treated cells reach a higher rate, but they reach half of it at the
-same concentration. Whether the data support one $b$ for both states is a question that
-needs fitted models and a comparison between them, which is the topic of
-[Chapter 6](../../Chapter_6/Theory.qmd).
+same concentration.
 
 ### Question 2
 
@@ -804,8 +760,8 @@ Note that the two parameters have inverse units, as they should: $b$ is a concen
 and $b_g$ is a rate per unit of concentration. At $x=b$ the Michaelis–Menten function is
 at half of its asymptote, by definition. The saturating exponential is at
 $1-e^{-b_gb}=1-e^{-1}\approx0.63$ of it. So the two functions start along the same line
-and end at the same value, but the saturating exponential bends later and more sharply. In
-R (@fig-puromycin_exponential):
+and end at the same value, but the saturating exponential is higher than the Michaelis–Menten function for every $x>0$.
+In R (@fig-puromycin_exponential):
 
 ```{r}
 #| label: fig-puromycin_exponential
@@ -838,12 +794,7 @@ legend("bottomright", legend = c("Michaelis–Menten", "Saturating exponential")
 ```
 
 The two functions differ most at a concentration of 0.15 ppm, where the Michaelis–Menten
-function gives a rate of 150 and the saturating exponential a rate of 193. The saturating
-exponential is practically at its asymptote from 0.3 ppm onwards, whereas the
-Michaelis–Menten function is still rising at 1.1 ppm, as the observations are. With the
-same asymptote and the same initial slope, the exponential function is therefore too high
-between 0.1 and 0.6 ppm. To follow the observations it would need other values of its
-parameters, and then it would no longer share the initial slope.
+function gives a rate of 150 and the saturating exponential a rate of 193.
 
 # Exercise 7: Choosing functions for fecundity and for recruitment
 
@@ -861,7 +812,10 @@ stays on the branch after the cone has fallen apart. Load the data with
 2. On paper, explain why a [power law](../../Supplements/deterministic-functions.qmd#sec-fn-power),
    $f(x)=ax^b$, is a candidate for these data. Read two points from the curve that you
    would draw through the middle of the cloud and calculate $b$ and $a$ from them. What
-   are the units of $a$? Draw the curve over the data.
+   are the units of $a$? Draw the curve over the data. Hint: for two points of a power law
+   the ratio $y_2/y_1$ equals $(x_2/x_1)^b$, in which $a$ cancels, and taking logarithms
+   solves for $b$ (see
+   [Exponents and logarithms](../../Supplements/calculus.qmd#sec-calc-exponents)).
 3. On paper, calculate by which factor the fecundity changes when the diameter doubles.
    Which measure of the size of a tree is proportional to the square of its diameter?
 
@@ -894,35 +848,24 @@ We count the missing values with `is.na()` and keep the trees for which the diam
 known:
 
 ```{r}
-# Load the fir data and count the trees without a diameter or without a fecundity.
+# Load the fir data and count the trees without a diameter.
 data(FirDBHFec_sum, package = "emdbook")
-nrow(FirDBHFec_sum)
 sum(is.na(FirDBHFec_sum$DBH))
-sum(is.na(FirDBHFec_sum$fecundity))
 
 # Keep the trees with a diameter.
 fir = FirDBHFec_sum[!is.na(FirDBHFec_sum$DBH), ]
 nrow(fir)
-range(fir$DBH)
-range(fir$fecundity)
 ```
 
-The diameter is missing for 22 of the 333 trees, which leaves 311 trees with a diameter
-between 3.2 and 17.4 cm and between 1 and 297 cone rachises. We draw the plot, with the curve of question 2 already included
-(@fig-fir):
+The diameter is missing for 22 of the 333 trees, which leaves 311 trees. We draw the plot
+(@fig-fir_data):
 
 ```{r}
-#| label: fig-fir
-#| fig-cap: "Fecundity of balsam fir trees against their diameter at breast height. The curve is a power law with parameters read by eye (a = 0.5, b = 2)."
-# Power law: a is the value at x = 1 and b is the exponent.
-power_law = function(x, a = 1, b = 1) {
-  a * x^b
-}
-
-# Observations as points and the curve of question 2 as a line.
+#| label: fig-fir_data
+#| fig-cap: "Fecundity of balsam fir trees against their diameter at breast height."
+# Fecundity against diameter.
 plot(fecundity ~ DBH, data = fir,
      xlab = "Diameter at breast height (cm)", ylab = "Fecundity (cone rachises)")
-curve(power_law(x, a = 0.5, b = 2), add = TRUE, lwd = 2, col = "#D55E00")
 ```
 
 The fecundity increases faster and faster with the diameter, and the points spread out
@@ -945,27 +888,37 @@ for $b$:
 
 $$
 b=\frac{\log(y_2/y_1)}{\log(x_2/x_1)}=\frac{\log(50/12.5)}{\log(10/5)}
-=\frac{\log4}{\log2}=2.
+=\frac{\log(4)}{\log(2)}=2.
 $$
 
 With $b$ known, either point gives $a$. From the second one, $50=a\times10^2$, so
 $a=0.5$. The units of $a$ depend on the exponent: $ax^b$ is a number of rachises and
-$x^2$ is in cm², so $a$ is in rachises per cm². The curve $f(x)=0.5\,x^2$ is the one drawn
-in @fig-fir, where it passes through the middle of the cloud.
+$x^2$ is in cm², so $a$ is in rachises/cm². We draw the curve $f(x)=0.5\,x^2$ over the data
+(@fig-fir):
+
+```{r}
+#| label: fig-fir
+#| fig-cap: "Fecundity of balsam fir trees against their diameter at breast height. The curve is a power law with parameters read by eye (a = 0.5, b = 2)."
+# Power law: a is the value at x = 1 and b is the exponent.
+power_law = function(x, a = 1, b = 1) {
+  a * x^b
+}
+
+# Observations as points and the curve as a line.
+plot(fecundity ~ DBH, data = fir,
+     xlab = "Diameter at breast height (cm)", ylab = "Fecundity (cone rachises)")
+curve(power_law(x, a = 0.5, b = 2), add = TRUE, lwd = 2, col = "#D55E00")
+```
 
 ### Question 3
 
 For a power law, $f(2x)=a\,(2x)^b=2^b\,ax^b=2^b f(x)$. So doubling the diameter multiplies
 the fecundity by $2^b=4$, whatever the diameter that we start from: from 5 to 10 cm as
-well as from 8 to 16 cm. This is the property that defines a power law, in the same way as
-a constant half-life defines an exponential decay.
+well as from 8 to 16 cm.
 
 The cross-sectional area of the trunk is $\pi(x/2)^2$, which is proportional to the square
 of the diameter. With an exponent of 2 the fecundity of a tree would be proportional to the
-cross-sectional area of its trunk, with $a\times4/\pi\approx0.64$ rachises per cm² of
-trunk. The exponent was read by eye, so this is a suggestion that the plot makes, and
-whether the data support an exponent of 2 requires an estimate with its confidence
-interval ([Chapter 6](../../Chapter_6/Theory.qmd)).
+cross-sectional area of its trunk.
 
 ### Question 4
 
@@ -982,9 +935,7 @@ DamselRecruitment_sum$surv.den / DamselRecruitment_sum$settler.den
 ```
 
 The density of survivors increases with the density of settlers and levels off at about 9
-fish per 0.1 m² from 50 settlers per 0.1 m² onwards. The densities of settlers go from
-1.7 to 315, and seven of the eleven are below 30, so most of the points are crowded at
-the left of the plot (@fig-damsel).
+fish per 0.1 m² from 50 settlers per 0.1 m² onwards.
 
 For the Michaelis–Menten function we need the asymptote and the half-maximum. The function
 approaches its asymptote slowly, so we take a value a little above the plateau,
@@ -993,7 +944,17 @@ settlers (3.96) and at 26.5 settlers (6.62), so we take $b=15$ settlers per 0.1 
 initial slope of this curve is $a/b\approx0.63$ survivors per settler. That is, at low
 density 63% of the settlers survive. At the four lowest densities the fraction that
 survived was 0.47, 0.65, 0.80 and 0.56, so the initial slope agrees with the data,
-although it was not used to choose the parameters.
+although it was not used to choose the parameters. We draw the data with the curve
+(@fig-damsel_mm):
+
+```{r}
+#| label: fig-damsel_mm
+#| fig-cap: "Density of surviving damselfish against the density of settlers, with a Michaelis–Menten function read by eye (a = 9.5, b = 15)."
+# The observations with the curve; michaelis_menten() was defined in Exercise 6.
+plot(surv.den ~ settler.den, data = DamselRecruitment_sum, ylim = c(0, 10),
+     xlab = "Settlers per 0.1 m²", ylab = "Survivors per 0.1 m²")
+curve(michaelis_menten(x, a = 9.5, b = 15), add = TRUE)
+```
 
 ### Question 5
 
@@ -1047,9 +1008,6 @@ A hockey stick has one slope and a sharp corner, so it cannot describe the steep
 at low density and the plateau at once. The Michaelis–Menten function describes a slope
 that decreases gradually, but with these values it bends too early.
 
-Note that the argument `c` of `hockey_stick()` does not interfere with the function `c()`
-(see [Functions in R](../Theory.qmd#sec-functions-r)).
-
 ### Question 6
 
 We write the function with the input first and its three parameters after it. For $c=1$
@@ -1090,9 +1048,7 @@ function keeps increasing without an asymptote (16.1 survivors at 315 settlers f
 $c=0.8$), and with $c>1$ it reaches a maximum and then declines towards zero (5.0
 survivors at 315 settlers for $c=1.2$). So the exponent is decided by the observations at
 the highest densities, of which there are four. They show a plateau, or a slight decline
-from 8.9 to 8.5 survivors, which a value of $c$ a little above one would describe. The
-standard errors of these means (the column `SE`) are between 0.3 and 1.1, so the decline
-is small compared with the uncertainty of the means.
+from 8.9 to 8.5 survivors, which a value of $c$ a little above one would describe.
 
 ### Question 7
 
@@ -1110,6 +1066,4 @@ by maximum likelihood in the place of values read by eye. The functions can then
 compared with AIC, which was introduced in
 [Chapter 4](../../Chapter_4/Theory.qmd#sec-aic) and works for nested functions and for
 functions that are not nested. This is what we do in
-[Chapter 6](../../Chapter_6/Theory.qmd). The ecology also has a say: a sharp corner means
-that survival is not limited at all until the anemone is full, whereas a gradual bend means
-that every additional settler lowers the survival of the others.
+[Chapter 6](../../Chapter_6/Theory.qmd).

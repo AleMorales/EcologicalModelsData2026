@@ -31,9 +31,22 @@ Moved from AGENTS.md. Read this before working on the pages it covers; AGENTS.md
   Exercises 6 (two questions) and 7 cases with real data, on paper and then in R. In
   Exercise 7 the power law is chosen from the shape of the cloud on ordinary axes, with
   the exponent calculated from two points. Students are told to read the calculus
-  supplement first if they need it.
+  supplement first if they need it. Final check of 11 November, reviewed by the author on
+  the same day: question 1 of Exercise 5 (core) gives the Holling type II function and asks
+  for its conversion to Michaelis–Menten form; the derivation of the disc equation is the
+  extra question 6 (author's decision; a question with `outer()` and `contour()` was
+  dropped); question 2 of Exercise 7 has a hint with the ratio rule and a link to
+  `sec-calc-exponents`; L'Hôpital's rule and the values at the inflection point left the
+  solution of Exercise 1. Author's decisions: the practical is full, so the inverse logit
+  of a line, `uniroot()`, the finite difference, `pmin()`, and functions of two inputs,
+  partial derivatives and composition outside extra questions get no question; the
+  practical may name entries of the functions supplement that the chapter does not
+  analyse, because that is what the supplement is for.
 - **`Supplements/calculus.qmd`** teaches the rules of calculus (worked cases, practice
-  set; `sec-calc-` IDs); the theory only recalls and uses them.
+  set; `sec-calc-` IDs); the theory only recalls and uses them. Added on 11 November
+  (drafts awaiting the author): the exponent of a power law from two points, the tangent as
+  an approximation ($e^{-u}\approx1-u$), and second and mixed partial derivatives with
+  practice problem 21 (optional: the Hessian is box material in the chapters).
 - **`Supplements/deterministic-functions.qmd`:** detailed descriptions of functions live
   only here (`sec-fn-` IDs). The author removed the examples, figures and `Practice`
   callouts on 7 October because the ecological basis of the examples was dubious. On 9
@@ -59,7 +72,10 @@ the page renders with the dev profile. For a Normal model `dispformula` describe
 logarithm of the residual standard deviation. The page uses `InsectSprays` and
 `Salamanders` directly and `relevel()` once (penguins); the `DHARMa` chunk is not
 evaluated. Filename and navigation are kept; it is in `_quarto-prod.yml` after the
-glossary.
+glossary. Since 11 November its mathematics follows Chapter 7 (draft awaiting the author):
+coefficients $\beta_0$, $\beta_{\mathrm{x}}$, $\beta_{\mathrm{level}}$ and so on, a capital
+indicator $M_i$, and $\eta$ defined once as the linear predictor of the fixed effects with
+$u_j$ added explicitly.
 
 ### Chapter 6
 
@@ -133,7 +149,13 @@ glossary.
   six fecundities that are not whole numbers are rounded with `round()` (dropping them is
   the alternative); the Wald
   interval of the peak time is calculated on the original scale (coverage 0.927), because
-  the lesson is the asymmetry that the profile interval captures.
+  the lesson is the asymmetry that the profile interval captures. Final check of 11 November
+  (drafts awaiting the author): question 2 of Exercise 1 also asks for `obj$gr()` at the
+  starting values and at the estimates; questions 1 and 3 of Exercise 1 carry hints;
+  question 1 of Exercise 2 asks to read the starting values from a plot of the data; the
+  Gamma model of Exercise 1 is presented with the mean and the shape. **Open:** no question
+  fits a Beta-Binomial model, because no data set of the practical is a proportion
+  (proposal: an extra question on `emdbook::ReedfrogPred`).
 - **Lecture:** one of 150 minutes; its demo shows the modelling cycle for the Binomial
   model with the Holling type II curve, from the fit to the residuals, without model
   comparison (author's decision of 3 November). 31 slides, 117 minutes of slides and 13

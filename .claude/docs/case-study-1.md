@@ -49,7 +49,8 @@ Read this before working on `Case_study_1/Theory.qmd`; AGENTS.md points here.
   the same distribution of this ratio (100 crabs per species). Gamma and LogNormal,
   parameterised by the mean and the **coefficient of variation** (author's choice over
   the standard deviation; `dgamma2(sd = cv * mu)`, LogNormal through
-  $\sigma^2=\log(1+c^2)$), compared with AIC separately per species: tied (0.09 and 0.32
+  $\sigma^2=\log(1+v^2)$; the coefficient of variation is $v$ in both case studies since
+  11 November), compared with AIC separately per species: tied (0.09 and 0.32
   units), so the Gamma continues. Then the blue species is the reference and the
   difference of the means $\delta$ is a parameter (not transformed); AIC compares only
   one CV with one CV per species (one CV is lower by 1.1 units, and $\hat\delta$ and its

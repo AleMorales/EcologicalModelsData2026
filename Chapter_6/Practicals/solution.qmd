@@ -50,23 +50,32 @@ treat as independent.
    [Normal](../../Supplements/distributions.qmd#sec-normal) observation model with a
    constant standard deviation $\sigma$. Give the units of $a$, $b$ and $\sigma$. The
    titres in these data are all positive; why can a Normal model, which allows any real
-   value, be used for them?
+   value, be used for them? Hint: compare the probability that a Normal distribution gives
+   to negative values with the size of its standard deviation (question 2 asks you to check
+   this with the fitted model).
 2. Write the negative log-likelihood (NLL) with $\log(a)$, $\log(b)$ and $\log(\sigma)$ as
    parameters, and fit it from the values read by eye in the Chapter 5 practical. Check
-   the convergence, report the estimates with their units, and draw the fitted curve over
-   the data together with the curve by eye.
+   the convergence, report the estimates with their units, and calculate the gradient of
+   the NLL with `obj$gr()` at the starting values and at the estimates (see
+   [The gradient and automatic differentiation](../Theory.qmd#sec-makeadfun)). What does it
+   show? Use the fitted model to check your answer to question 1, and draw the fitted curve
+   over the data together with the curve by eye.
 3. Calculate the standard errors and the correlation between the estimates with
    `sdreport()`. Ask for the time of the peak, $1/b$, and the height of the peak,
    $a/(be)$, on their original scale with `ADREPORT()`, and calculate 95% Wald intervals
    for both. Why can these intervals be calculated on the original scale here? Then calculate the
    likelihood profile interval of $b$ with `TMB::tmbprofile()` and `confint()`, and from
    it an interval for the time of the peak. Compare the two intervals for the time of the
-   peak.
+   peak. Hint: a Wald interval is symmetric around the estimate, so on the original scale it
+   can reach beyond a bound of the quantity when the estimate lies close to that bound;
+   compare each estimate with its standard error.
 4. Simulate 1,000 hypothetical samples from the fitted model with `simulate()`, and
    calculate the scaled quantile residuals with DHARMa. Plot them, also against the day of
    the observation, and say what they show.
 5. Fit the same curve with a [Gamma](../../Supplements/distributions.qmd#sec-gamma)
-   observation model, with `dgamma()` and the arguments `shape` and `scale = mu / shape`.
+   observation model, with the curve as its mean $\mu$ and a shape $k$ (`dgamma()` takes
+   the arguments `shape` and `scale = mu / shape`, because the mean of a Gamma distribution
+   is the product of its shape and its scale).
    How does the spread of the titres around the curve differ between the two models?
    Compare them with AIC, AICc and BIC. Why do the three criteria give the same difference
    here?
@@ -154,10 +163,26 @@ c(a = a_mle, b = b_mle, sigma = sigma_mle)
 
 The convergence code is 0. The estimates are $\hat a\approx3.42$ units of titre/day,
 $\hat b\approx0.165$/day and $\hat\sigma\approx0.67$ units of titre. The first two are
-close to the values read by eye (3.44 and 0.167). We can now check the argument of
-question 1. The lowest mean titre in the data is the one of day 2, and the probability
-that the fitted model gives to a negative titre on that day is the cumulative probability
-of zero:
+close to the values read by eye (3.44 and 0.167). The element `gr` of the object returns
+the gradient of the NLL at the parameter values that we give it, on the log scale, with
+one element for each of `log_a`, `log_b` and `log_sigma`. We calculate it at the starting
+values, which are stored in `normal_obj$par`, and at the estimates:
+
+```{r}
+# Gradient of the NLL at the starting values and at the estimates.
+normal_obj$gr(normal_obj$par)
+normal_obj$gr(normal_fit$par)
+```
+
+At the starting values the gradient is not zero, and its signs tell BFGS in which direction
+to move each parameter to lower the NLL: the largest element is the one of `log_sigma`,
+because the starting value of 1 is far from the estimate, and its positive sign says that
+the NLL decreases when $\sigma$ decreases. At the estimates all three elements are close to
+zero, as they should be at a minimum.
+
+We can now check the argument of question 1. The lowest mean titre in the data is the one
+of day 2, and the probability that the fitted model gives to a negative titre on that day
+is the cumulative probability of zero:
 
 ```{r}
 # Ricker function: initial slope a and rate b.
@@ -190,10 +215,6 @@ curve(ricker(x, a = 3.44, b = 1 / 6), add = TRUE, lty = 2)
 legend("bottomright", legend = c("Maximum likelihood", "By eye (Chapter 5)"),
        lty = c(1, 2), col = c("#D55E00", "black"), bty = "n")
 ```
-
-The two curves are almost the same. The peak that we read by eye happened to be close to
-the peak of the fitted curve, and in the Ricker function the peak determines both
-parameters.
 
 ### Question 3
 
@@ -270,12 +291,12 @@ cbind(
 ```
 
 The peak is estimated on day 6.05 (95% Wald interval from 5.30 to 6.80 days) at a titre of
-7.61 (from 7.32 to 7.91). The height is well determined because many observations lie near
-the peak.
+7.61 (from 7.32 to 7.91).
 
 For the likelihood profile interval we profile $\log(b)$, transform the endpoints back
 with `exp()`, and obtain the interval for the time of the peak from that of $b$. The
-function $1/b$ decreases as $b$ increases, so the endpoints swap:
+function $1/b$ decreases as $b$ increases, so the endpoints swap, which `rev()` does by
+reversing the order of the two endpoints:
 
 ```{r}
 #| warning: false
@@ -297,8 +318,7 @@ than those above it. The Wald interval for the time of the peak (5.30 to 6.80 da
 symmetric by construction, because the delta method treats $1/b$ as a straight line near
 the estimate. So, compared with the profile interval, it is shifted towards earlier days.
 The two intervals differ by less than a fifth of a day at each end, which is small compared
-with their width; the extra Exercise 4 shows what it means for the coverage of the Wald
-interval.
+with their width.
 
 ### Question 4
 
@@ -363,23 +383,19 @@ its peak. In @fig-titre_residuals_day DHARMa draws the line of the upper quartil
 because its test gives a small p-value. As in the theory, we read the plot as exploratory
 evidence and not as a decision: with 27 observations and one to six per day the pattern
 rests on few observations, but it suggests that the Ricker curve describes the titre after
-the peak only approximately. A curve with a third parameter, such as the
-[generalised Ricker](../../Supplements/deterministic-functions.qmd#sec-fn-generalised-ricker)
-function, could be fitted and compared with it.
-
-DHARMa also calculates a dispersion statistic, but for a Normal model it is not informative:
-$\sigma$ is estimated from the spread of the observations around the curve, so the
-simulated spread matches the observed spread almost by construction.
+the peak only approximately.
 
 ### Question 5
 
-A Gamma distribution with shape $k$ and scale $\mu/k$ has mean $\mu$ and variance
-$k(\mu/k)^2=\mu^2/k$, so its standard deviation is $\mu/\sqrt{k}$: the spread of the titres
-is proportional to the mean, with a coefficient of variation $1/\sqrt{k}$ that is the same
-on every day. In the Normal model the spread is the same on every day, whatever the mean.
-The Gamma model also gives a probability of zero to negative titres. The NLL takes the
-logarithm of the shape as its third parameter; we start from the values by eye and a shape
-of 10:
+The Gamma model of the titre has the Ricker curve as its mean $\mu$ on each day and a shape
+$k$ that is the same for every observation. Its variance is $\mu^2/k$, so its standard
+deviation is $\mu/\sqrt{k}$: the spread of the titres is proportional to the mean, with a
+coefficient of variation $1/\sqrt{k}$ that is the same on every day. In the Normal model
+the spread is the same on every day, whatever the mean. `dgamma()` does not take the mean
+but a shape and a scale, and a scale of $\mu/k$ gives the distribution the mean $\mu$,
+because the mean of a Gamma distribution is the product of its shape and its scale. The NLL
+takes the logarithm of the shape as its third parameter; we start from the values by eye
+and a shape of 10:
 
 ```{r}
 # Negative log-likelihood of the Ricker curve with a Gamma observation model.
@@ -434,11 +450,7 @@ the three criteria because the two models have the same number of parameters and
 fitted to the same observations: the penalty is the same for both models within each
 criterion, and the difference between the models is twice the difference between their
 maximum log-likelihoods. So the comparison says that the titres are more probable under a
-spread that is the same on every day than under a spread that grows with the mean. This is
-plausible, because the titre is already a logarithm: variation by a constant factor in the
-number of infectious doses becomes a constant spread on the logarithmic scale. With 27
-observations, however, the evidence is moderate. The curve itself hardly depends on the
-choice: the estimates of $a$ and $b$ differ by a few percent between the two models.
+spread that is the same on every day than under a spread that grows with the mean.
 
 # Exercise 2: Enzyme kinetics
 
@@ -458,8 +470,8 @@ this exercise we fit and compare two models with a Normal observation model with
 standard deviation $\sigma$, and treat the 23 observations as independent.
 
 1. Write the model with one Michaelis–Menten curve for both states, with the units of $a$,
-   $b$ and $\sigma$. Fit it, starting from values close to those read by eye, check the
-   convergence, and draw the curve over the data with a different symbol for each state.
+   $b$ and $\sigma$. Fit it, reading the starting values of $a$ and $b$ from a plot of the
+   data as in the Chapter 5 practical, check the convergence, and draw the curve over the data with a different symbol for each state.
    Hint: the list of data holds the predictor and the response, as in
    [Fitting a response curve by maximum likelihood](../Theory.qmd#sec-fit-response). In
    `plot()`, the argument `pch = ifelse(Puromycin$state == "treated", 16, 1)` draws the
@@ -543,9 +555,9 @@ pooled_nll = function(parms, data) {
 }
 ```
 
-As starting values we take an asymptote of 190 counts/min/min, between the two values read
-by eye, the half-maximum of 0.06 ppm read by eye and a standard deviation of 10
-counts/min/min:
+As in Chapter 5, we read the starting values from a plot of the data (@fig-puromycin_pooled
+shows it below): an asymptote of 190 counts/min/min, between the plateaus of the two
+states, a half-maximum of 0.06 ppm, and a standard deviation of 10 counts/min/min:
 
 ```{r}
 # Starting values, process the NLL and fit it.
@@ -585,9 +597,6 @@ curve(michaelis_menten(x, a = exp(pooled_fit$par[["log_a"]]),
       add = TRUE, col = "#D55E00")
 legend("bottomright", legend = c("treated", "untreated"), pch = c(16, 1), bty = "n")
 ```
-
-The curve passes between the two groups: above 0.1 ppm, most treated cells lie above it and
-most untreated cells below it.
 
 ### Question 2
 
@@ -669,10 +678,7 @@ state_summary["difference", "Estimate"] +
 
 The asymptote of the treated cells is higher by 42 counts/min/min, with a 95% Wald
 interval from 31 to 54 counts/min/min. So in this model the treatment with puromycin raises
-the maximum rate of the reaction by about a quarter ($208.6/166.6\approx1.25$), while the
-concentration at which the reaction reaches half of its maximum rate is the same in both
-states. That the half-maximum is shared is an assumption of the model; a model with one
-$b$ for each state could be fitted and compared with it in the same way as in question 5.
+the maximum rate of the reaction by about a quarter ($208.6/166.6\approx1.25$).
 
 ### Question 4
 
@@ -719,19 +725,17 @@ rbind(aic = aic_enzyme, aicc = aicc_enzyme, bic = bic_enzyme)
 
 Every criterion prefers the model with one asymptote for each state, by 25.1 units of AIC,
 24.1 of AICc and 24.0 of BIC. The criteria agree, and by a wide margin: the extra parameter
-improves the fit far more than any of the penalties. This agrees with the halving of
-$\hat\sigma$ in question 2.
+improves the fit far more than any of the penalties.
 
 ### Question 6
 
 We simulate from the model with one asymptote for each state, as in Exercise 1 (the rates
 were marked with `OBS()` in question 1). The expected rate of each observation is the curve
-of its state at its concentration. `DHARMa::plotQQunif()` draws only the left panel of
-`plot()`, the quantile–quantile plot; we use it because the residuals against the
-concentration, which `DHARMa::plotResiduals()` draws, replace the right panel:
+of its state at its concentration, and the rates are continuous, so `integerResponse =
+FALSE`:
 
 ```{r}
-#| fig-width: 5
+#| fig-width: 9
 #| fig-height: 4.5
 # 1,000 hypothetical samples of the 23 rates at the estimates.
 state_simulations = matrix(NA, nrow = n_enzyme, ncol = n_sim)
@@ -750,8 +754,15 @@ state_residuals = DHARMa::createDHARMa(
   integerResponse = FALSE
 )
 
-# Quantile–quantile plot, and residuals against the concentration of the substrate.
-DHARMa::plotQQunif(state_residuals)
+# The two standard panels.
+plot(state_residuals)
+```
+
+The residuals against the concentration of the substrate come from `DHARMa::plotResiduals()`
+with the argument `form`:
+
+```{r}
+# Residuals against the concentration of the substrate.
 DHARMa::plotResiduals(state_residuals, form = enzyme_data$conc)
 ```
 
@@ -763,8 +774,7 @@ them in the middle, as if the rate bent towards its maximum more gradually than 
 Michaelis–Menten curve can. However, there are only three or four observations at each
 concentration, and a pattern of this size can arise by chance with 23 observations (DHARMa
 draws one quartile in red, but its combined test does not flag the pattern), so the plot is
-a hint and not a conclusion. A curve with a third parameter that changes how gradually the
-curve bends could be fitted and compared with the criteria of question 5.
+a hint and not a conclusion.
 
 # Exercise 3: Fecundity of fir trees
 
@@ -843,8 +853,7 @@ fir$fecundity[fir$fecundity != round(fir$fecundity)]
 The diameter is missing for 22 trees and the fecundity for none, so 311 trees remain. A
 missing value means that the quantity was not recorded. Replacing it by zero would add
 observations that were never made (a tree with a diameter of zero, or without any cones)
-and would pull the curve towards them. Removing the incomplete rows assumes instead that
-whether a value was recorded does not depend on the fecundity of the tree.
+and would pull the curve towards them.
 
 Six fecundities are not whole numbers, for example 206.5. The help page does not explain
 them, but in the full data set `FirDBHFec` of the same package the yearly counts of these
@@ -907,9 +916,8 @@ c(a = exp(poisson_fit$par[["log_a"]]), b = poisson_fit$par[["b"]])
 
 The fit converged, with $\hat b\approx1.98$, close to the exponent of 2 read by eye. We
 simulate 1,000 hypothetical samples of the 311 trees and calculate the residuals. The
-counts are whole numbers, so `integerResponse = TRUE`. The element `scaledResiduals` of the
-result holds the residuals, and a residual of exactly 0 or 1 marks a tree whose count lies
-outside the range of all its simulated values, so we also count those trees:
+counts are whole numbers, so `integerResponse = TRUE`. We also calculate the dispersion
+statistic:
 
 ```{r}
 #| label: fig-fir_poisson_residuals
@@ -939,14 +947,13 @@ poisson_residuals = DHARMa::createDHARMa(
 )
 plot(poisson_residuals)
 
-# Trees outside the range of their simulations, and the dispersion statistic.
-sum(poisson_residuals$scaledResiduals %in% c(0, 1))
+# Dispersion statistic.
 DHARMa::testDispersion(poisson_residuals, plot = FALSE)$statistic
 ```
 
 The Poisson model does not describe these data. The residuals are far from uniform: most of
-them are close to 0 or 1, and 147 of the 311 trees have counts outside the range of all
-their 1,000 simulated values. The dispersion statistic is about 23, so the counts vary
+them are close to 0 or 1, and the stars mark the trees whose counts lie outside the range
+of all their 1,000 simulated values. The dispersion statistic is about 23, so the counts vary
 around the curve about 23 times as much (as a variance) as the Poisson distribution allows.
 Trees of the same diameter differ in fecundity for many reasons that the curve does not
 contain, and the Poisson model, whose variance equals its mean, leaves no room for them.
@@ -1020,10 +1027,7 @@ right panel the lower quartile of the residuals rises from below 0.25 for the tr
 the smallest expected fecundity to above 0.25 for the largest: large trees seldom have the
 very low counts that the model expects for some of them. Under a Negative Binomial model
 with one shape the variance, $\mu+\mu^2/k$, grows with the square of the mean, and the
-residuals suggest that the variation among the largest trees grows less than that. A possible
-revision would let the shape depend on the diameter. For the questions of this exercise,
-which concern the curve, the remaining disagreement is small compared with that of the
-Poisson model.
+residuals suggest that the variation among the largest trees grows less than that.
 
 Both curves are drawn over the data in @fig-fir_curves:
 
@@ -1042,11 +1046,7 @@ legend("topleft", legend = c("Negative Binomial", "Poisson"),
 ```
 
 The two curves are almost the same for trees up to about 10 cm, and above that the
-Negative Binomial curve lies below the Poisson curve. The two models weight the trees
-differently. Under the
-Negative Binomial model the variance grows with the square of the mean, so the large counts
-of the largest trees are less informative about the curve than under the Poisson model,
-whose variance grows only in proportion to the mean.
+Negative Binomial curve lies below the Poisson curve.
 
 ### Question 4
 
@@ -1092,10 +1092,7 @@ an interval from 2.9 to 4.2.
 The value $b=2$, for which the fecundity would be proportional to the cross-sectional area
 of the trunk, lies inside the interval of $b$, close to its upper end. So the data do not
 rule out this proportionality, but they favour a smaller exponent, for which the mean
-fecundity increases by a factor of about 3.5 and not 4 when the diameter doubles. Note that
-the Poisson model, with $\hat b\approx1.98$, would have suggested an exponent of 2 with an
-interval that is much too narrow, because it treats the trees as far less variable than
-they are.
+fecundity increases by a factor of about 3.5 and not 4 when the diameter doubles.
 
 ### Question 6
 
@@ -1173,10 +1170,7 @@ $\log(\mu(x))=\log(a)+b\log(x)$, and a line fitted to data is best determined in
 middle of the observations, here around the geometric mean of the diameters, 7.9 cm. Half
 of the trees have diameters between 6.5 and 9.8 cm, and only six are larger than 15 cm, so
 away from the middle a change in the exponent moves the curve more and fewer trees hold it
-in place. On the original scale the band also widens because it is multiplied by the
-mean: at 8 cm it runs from about 39 to 46 rachises, and at 17.4 cm from about 138 to 212.
-The band describes the uncertainty of the mean fecundity; the fecundities of single trees
-vary much more around the curve, as the cloud of points shows.
+in place.
 
 # Exercise 4: Coverage of an interval for the time of the peak
 
@@ -1266,11 +1260,10 @@ simulate_peak_time = function(n_samples) {
 
 ### Question 1
 
-Here is the function with its two gaps filled in. For each sample, gap 1 fits the model to
-the simulated titres exactly as Exercise 1 fitted it to the data, with `cmb()`,
-`MakeADFun()` and `optim()` from the values read by eye. Gap 2 takes the estimate and the
-standard error of the time of the peak from the row of `ADREPORT()` and calculates the Wald
-interval on the original scale, as in question 3 of Exercise 1:
+For each sample, gap 1 fits the model to the simulated titres exactly as Exercise 1 fitted
+it to the data, with `cmb()`, `MakeADFun()` and `optim()` from the values read by eye. The
+function is shown once, with both gaps filled in so that it can run; gap 2 is the subject
+of question 2:
 
 ```{r}
 # Hypothetical samples of the 27 titres from the Normal model fitted in Exercise 1. For
@@ -1327,9 +1320,7 @@ peak_time_sim
 sum(!peak_samples$converged | is.na(peak_samples$lower))
 ```
 
-No fit failed. Had some failed, we would report how many and count them in the coverage
-(for example as intervals that miss), because leaving them out silently would hide the
-samples in which the method breaks down. The bias is the mean of the estimates minus the
+No fit failed. The bias is the mean of the estimates minus the
 time of the peak used to simulate. Its Monte Carlo standard error, the standard error of a
 mean of 2,000 values, is the standard deviation of the estimates divided by
 $\sqrt{2000}$:
@@ -1354,7 +1345,10 @@ With 27 observations the standard error describes the spread of the estimator we
 
 ### Question 2
 
-The interval contains the time of the peak used to simulate when its lower endpoint is
+Gap 2 of the function of question 1 takes the estimate and the standard error of the time
+of the peak from the row `peak_time` of `ADREPORT()` and calculates the Wald interval on
+the original scale, as in question 3 of Exercise 1. The interval contains the time of the
+peak used to simulate when its lower endpoint is
 below that value and its upper endpoint above it. The coverage is the fraction of samples
 in which this is the case, and its Monte Carlo standard error is that of a proportion:
 

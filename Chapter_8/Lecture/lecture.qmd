@@ -176,6 +176,7 @@ The exact gradient helps; it does not cure a wrong stop.
 
 ## Stopping rules and convergence codes {data-timing="180"}
 
+
 ::: {.definition}
 **Stopping rule:** the condition that ends a search. BFGS in `optim()` stops when a step lowers
 the NLL by less than `reltol` × (|NLL| + `reltol`), and then a step along the gradient does
@@ -194,10 +195,10 @@ masses in grams (practical): a stop after one step.
 :::
 
 ::: {.takeaway .fragment}
-Code 0: the search stopped making progress.
+Code 0 says that the stopping rule was met, not that the maximum was found.
 :::
 
-## Diagnosing a fit {.figure-slide data-timing="240"}
+## Diagnosing a fit {.figure-slide data-timing="300"}
 
 :::: {.columns}
 ::: {.column width="52%"}
@@ -210,8 +211,7 @@ Code 0: the search stopped making progress.
 :::
 
 ::: {.example .fragment}
-Constant-curve stop: gradient $5\times10^{-6}$, but `pdHess` is `FALSE` and the standard
-errors are `NaN`.
+Constant-curve stop: gradient $5\times10^{-6}$, `pdHess` `FALSE`, standard errors `NaN`.
 :::
 :::
 ::: {.column width="48%"}
@@ -251,7 +251,7 @@ Three fits of a model with a rate and an asymptote, all with code 0:
 :::
 
 ::: {.takeaway}
-Estimates · Gradient · Hessian · Refit · Slice
+Estimates · Gradient · `sdreport()` · Refit · Slice
 :::
 
 ::: {.activity}
@@ -259,17 +259,19 @@ Estimates · Gradient · Hessian · Refit · Slice
 :::
 
 
-## The Hessian at the end of a search {data-timing="180"}
+## Curvature at the end of a search {data-timing="180"}
 
 ::: {.definition}
-**Hessian:** the matrix $\mathbf H(\boldsymbol\theta)$ of second derivatives of the NLL: its
-curvature in every direction.
+**Curvature:** how the NLL bends away from the solution in each direction; the Hessian
+$\mathbf H(\boldsymbol\theta)$ holds its second derivatives, and `sdreport()` checks it.
 :::
 
 ::: {.incremental}
-- **Positive definite:** every curvature positive; a minimum, and standard errors exist.
-- **A zero curvature:** a flat direction (a ridge); no inverse, standard errors `NaN`.
-- **A negative curvature:** the NLL falls in some direction; not a minimum.
+- **`pdHess` is `TRUE`:** the NLL curves upwards in every direction, as at a minimum, and the
+  standard errors can be calculated.
+- **A flat direction** (a ridge): the NLL does not change along it; standard errors `NaN` and a
+  warning.
+- **Curving downwards in some direction:** not a minimum, even if the gradient is small.
 :::
 
 ::: {.example .fragment}
@@ -299,13 +301,11 @@ far away.
 Agreement of many starts is evidence, not proof, of the global minimum.
 :::
 
-## Starting values in a model with random effects {data-timing="180"}
+## Starting values in a model with random effects {data-timing="120"}
 
 ::: {.incremental}
 - **The same failures:** ridges and early plateaus remain in the fixed effects.
-- **A joint NLL:** the random effects are integrated out inside every evaluation.
-- **Inner optimisation:** Newton's method for the random effects, with exact second
-  derivatives from RTMB.
+- **An inner optimisation:** every evaluation of the NLL integrates out the random effects.
 - **Slower fits:** multiple starts cost more.
 :::
 
@@ -314,7 +314,7 @@ CO₂ with a random asymptote: 207.61 from Chapter 7's start; 307.72 (rate to in
 261.17 ($c$ at 91.6 µL/L) from poor starts, both code 0.
 :::
 
-## Structural and practical non-identifiability {data-timing="240"}
+## Structural and practical non-identifiability {data-timing="300"}
 
 ::: {.definition}
 **Identifiable:** different values of the parameter give different distributions of the
@@ -326,8 +326,8 @@ data, so the likelihood can tell them apart.
   along a ridge.
 - **Practical:** the model could tell them apart, but the data cannot: no observations where the
   curve responds.
-- **Symptoms:** estimates that depend on the start, huge standard errors, correlations near
-  $\pm1$, a flat likelihood profile.
+- **Symptoms:** start-dependent estimates, huge standard errors, correlations near $\pm1$,
+  a flat profile (`TMB::tmbprofile()`).
 - **Remedies:** remove or fix a parameter, change the design, or report it as not determined.
 :::
 
@@ -342,8 +342,10 @@ Common asymptote plus a deviation per plant: 13 parameters for 12 asymptotes. On
 - **A boundary:** the edge of the allowed range (probability 0 or 1, a variance of zero).
 - **On the optimised scale** (log, logit) the edge lies at $\pm\infty$: the search walks towards
   it and stops where the slope is tiny.
-- **Report it** as "at the boundary", or change the model.
-- **Bounds:** `L-BFGS-B` and `nlminb()` accept them; the course keeps transformations.
+- **Failure or maximum:** other starts reaching a lower NLL show a failure; a variance among
+  groups can truly be zero.
+- **Report it** as "at the boundary", with the estimate on both scales, or change the
+  model; transformations, not bounds.
 :::
 
 ::: {.example .fragment}
@@ -374,8 +376,8 @@ what would you change?
 :::
 
 ::: {.incremental}
-- **Transformations:** the logarithm puts a rate of 0.01 and an asymptote of 30 on comparable
-  scales.
+- **Transformations:** on the log scale one unit multiplies a parameter by $e$, whatever its
+  size.
 - **Units of the data:** a change of units changes the size of the NLL and of the
   parameters.
 - **`parscale`:** tells `optim()` the typical size of each parameter; the course prefers
@@ -438,7 +440,7 @@ of 12 plants; no comparison of optimisers.
 ::: {.incremental}
 - **`nlminb()`:** the PORT routines; uses `fn` and `gr`; controls its steps with a trust
   region; glmmTMB's default.
-- **Nelder–Mead:** no gradient; a simplex of $p+1$ points reflected, expanded and contracted;
+- **Nelder–Mead:** no gradient; a simplex of $K+1$ points reflected, expanded and contracted;
   many evaluations and a less precise stop.
 - **Same object:** every optimiser takes `obj$fn` and `obj$gr` of the same `MakeADFun()`.
 :::
@@ -460,7 +462,7 @@ end within 0.01 of the minimum.
 Fir seedlings: $\log(\lambda)$ in $(-3,3)$ gives 2.14 seedlings per quadrat, the sample mean.
 :::
 
-## Comparing optimisers fairly {data-timing="180"}
+## Comparing optimisers fairly {data-timing="120"}
 
 ::: {.incremental}
 - **The same NLL** and the same starting values.
@@ -473,12 +475,17 @@ Fir seedlings: $\log(\lambda)$ in $(-3,3)$ gives 2.14 seedlings per quadrat, the
 Compare what each optimiser reaches, not how it is described.
 :::
 
-## Global search: differential evolution {data-timing="300"}
+## Global search: differential evolution {data-timing="240"}
+
+::: {.definition}
+**Global search:** explores a whole box of parameter values, not one path from a starting
+point.
+:::
 
 ::: {.incremental}
-- **Population:** parameter vectors drawn at random within a box.
-- **Mutation:** a scaled difference of two members added to a third.
-- **Crossover:** mix the mutant with the current member.
+- **Population:** parameter vectors drawn at random within the box.
+- **Mutation and crossover:** a challenger is a third member plus a scaled difference of two
+  others, mixed with the current member.
 - **Selection:** keep the challenger only if its NLL is lower.
 - **Cost:** a box, thousands of evaluations and a seed; it proves nothing.
 :::
@@ -487,7 +494,7 @@ Compare what each optimiser reaches, not how it is described.
 `DEoptim::DEoptim()` on the CO₂ NLL: population 40, 200 generations, 8,040 evaluations.
 :::
 
-## Global search, then local refinement {data-timing="300"}
+## Global search, then local refinement {data-timing="240"}
 
 ::: {.incremental}
 - **Global:** finds the region of the minimum without starting values.
@@ -534,7 +541,7 @@ Boundary or ridge · Multiple starts · Scaling · Identifiability · Another op
 ::: {.incremental}
 1. **NLL:** an ordinary number and gradient at the start.
 2. **Fit:** BFGS with the gradient of RTMB.
-3. **Diagnose:** estimates, gradient, Hessian, refit, slice.
+3. **Diagnose:** estimates, gradient, `sdreport()`, refit, slice.
 4. **Multiple starts** if in doubt.
 :::
 :::

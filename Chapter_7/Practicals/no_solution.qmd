@@ -84,11 +84,13 @@ of the plants did in the theory.
    curve of their tree?
 4. Calculate the predicted tree effects with their standard errors. Draw the curves of the
    14 trees, the typical curve and the range that contains the curves of 95% of new trees
-   over the data. Compare the asymptote with the tallest tree in the data: what does the
-   asymptote describe?
+   over the data. Compare the asymptote with the tallest tree in the data and calculate the
+   age at which the typical curve reaches 63% of its asymptote: what does the asymptote
+   describe?
 5. Simulate 1,000 hypothetical samples from the mixed model, and calculate the scaled
    quantile residuals of the measurements and of the trees with DHARMa. Plot the residuals
-   of the measurements against age. What do the two kinds of residuals show?
+   of the measurements against age. What do the two kinds of residuals show? Use the mean
+   height at each age to explain the pattern of the residuals of the measurements.
 6. Compare complete pooling and the mixed model with AIC. Why is this comparison only an
    approximate guide, and why do we not use AICc or BIC?
 
@@ -423,14 +425,8 @@ c((mean_height[["5"]] - mean_height[["3"]]) / 2, (mean_height[["10"]] - mean_hei
 The mean heights grow by 3.0 ft/year between 3 and 5 years and by 3.4 ft/year between 5 and
 10 years, so the young pines first accelerate their growth before it slows down, an
 S-shaped start that the saturating exponential cannot follow, because its slope is largest
-at $t_0$. DHARMa also flags that the spread of the residuals differs among the ages:
-at 3 years the heights vary less around the curves than $\hat\sigma_{\mathrm{obs}}$ allows,
-whereas the model has one $\sigma_{\mathrm{obs}}$ for all ages. As in the theory, we read
-the plots as exploratory evidence and not the tests that DHARMa prints with them. Both
-points concern the youngest trees; a curve with an inflection, such as the
-[logistic](../../Supplements/deterministic-functions.qmd#sec-fn-logistic) or the
-[Gompertz](../../Supplements/deterministic-functions.qmd#sec-fn-gompertz) function, could be
-fitted and compared with this one.
+at $t_0$. As in the theory, we read the plots as exploratory evidence and not the tests
+that DHARMa prints with them.
 
 The residuals of the trees come from the sums of the six heights of each tree:
 
@@ -452,7 +448,7 @@ other one shows.
 
 ### Question 6
 
-Complete pooling has $K=4$ parameters ($A$, $k$, $t_0$, $\sigma_{\mathrm{obs}}$), and the
+The number of parameters is $K$ in the AIC. Complete pooling has $K=4$ parameters ($A$, $k$, $t_0$, $\sigma_{\mathrm{obs}}$), and the
 mixed model $K=5$, because the 14 deviations of the trees are integrated out and cost one
 parameter, $\sigma_{\mathrm{tree}}$. Both are fitted to the same 84 heights in the same
 units, and the minimum of each NLL is minus its maximum log-likelihood (the marginal one
@@ -490,55 +486,55 @@ numbers of survivors vary among tanks much more than a Binomial model allows. In
 [Chapter 6](../../Chapter_6/Theory.qmd#sec-beta-binomial-fit) we described this kind of
 variation with a [Beta-Binomial](../../Supplements/distributions.qmd#sec-beta_binomial)
 distribution. Here we use all 48 tanks with a model in which the probability of survival
-depends on the presence of predators and varies among tanks. Let $X_i$ be the number of
-survivors in tank $i$, which started with $n_i$ tadpoles, and $P_i$ be 1 if the tank had
+depends on the presence of predators and varies among tanks. Let $Y_j$ be the number of
+survivors in tank $j$, which started with $n_j$ tadpoles, and $P_j$ be 1 if the tank had
 predators and 0 otherwise:
 
 $$
-u_i\sim\operatorname{Normal}\left(0,\sigma^2_{\mathrm{tank}}\right),
+u_j\sim\operatorname{Normal}\left(0,\sigma^2_{\mathrm{tank}}\right),
 \qquad
-X_i\mid u_i\sim\operatorname{Binomial}\left(n_i,\,p_i\right),
+Y_j\mid u_j\sim\operatorname{Binomial}\left(n_j,\,p_j\right),
 \qquad
-\operatorname{logit}(p_i)=\beta_0+\beta_{\mathrm{pred}}P_i+u_i,
+\operatorname{logit}(p_j)=\beta_0+\beta_{\mathrm{pred}}P_j+u_j,
 $$
 
-where $u_i$ is the deviation of tank $i$ on the logit scale and $\sigma^2_{\mathrm{tank}}$
+where $u_j$ is the deviation of tank $j$ on the logit scale and $\sigma^2_{\mathrm{tank}}$
 is the variance of these deviations among tanks.
 
 1. On paper, write the marginal probability of the number of survivors of one tank as an
    integral over its deviation. Each tank is observed once: what does the random effect
    describe, and how does this model differ from a Beta-Binomial model with the same effect
-   of predators? Hint: start from the Binomial probability of $X_i$ for a given $u_i$ and
-   average it over the distribution of $u_i$ ("The marginal likelihood" in
-   [Maximum marginal likelihood](../Theory.qmd#sec-marginal-likelihood)). A tank holds $n_i$
+   of predators? Hint: start from the Binomial probability of $Y_j$ for a given $u_j$ and
+   average it over the distribution of $u_j$ ("The marginal likelihood" in
+   [Maximum marginal likelihood](../Theory.qmd#sec-marginal-likelihood)). A tank holds $n_j$
    tadpoles, and the Beta-Binomial distribution is a marginal distribution of the same kind
    ([Conditional and marginal distributions](../Theory.qmd#sec-conditional)): compare
    the distribution that each model gives to the probabilities of the tanks, and how its
    integral is calculated.
 2. Fit two models to the 48 tanks and check the convergence of both: the model above, with
    `random = "u"`, and a Beta-Binomial model without tank deviations, with the precision
-   $\kappa$ of Chapter 6, whose mean probability of survival $p_i$ has the same linear
-   predictor, $\operatorname{logit}(p_i)=\beta_0+\beta_{\mathrm{pred}}P_i$. In both models,
+   $\kappa$ of Chapter 6, whose mean probability of survival $p_j$ has the same linear
+   predictor, $\operatorname{logit}(p_j)=\beta_0+\beta_{\mathrm{pred}}P_j$. In both models,
    build the linear predictor from the model matrix of `~ pred`. Report the estimates of
    $\beta_0$, $\beta_{\mathrm{pred}}$, $\sigma_{\mathrm{tank}}$ and $\kappa$.
    Hint: the list of data holds the survivors, the initial numbers and the model matrix
    `X_p = model.matrix(~ pred, data = ReedfrogPred)`. Check its columns: `no` is the first
-   level of `pred`, so it is the reference, and the second column is $P_i$. In the NLL,
-   `X_p %*% beta_p` is then $\beta_0+\beta_{\mathrm{pred}}P_i$ for every tank
+   level of `pred`, so it is the reference, and the second column is $P_j$. In the NLL,
+   `X_p %*% beta_p` is then $\beta_0+\beta_{\mathrm{pred}}P_j$ for every tank
    ([The model matrix](../Theory.qmd#sec-model-matrix)). There is one tank per row, so `u`
    has 48 elements and needs no index vector. The mixed model follows
    [Random effects in RTMB](../Theory.qmd#sec-random-effects-rtmb), with `plogis()` for the
    probability. The Beta-Binomial model follows
    [A model for overdispersed proportions](../../Chapter_6/Theory.qmd#sec-beta-binomial-fit)
-   in Chapter 6: `dbetabinom()` of RTMBdist takes the shape parameters $\kappa p_i$ and
-   $\kappa(1-p_i)$. Logits of zero (a probability of 0.5) are good starting values for
+   in Chapter 6: `dbetabinom()` of RTMBdist takes the shape parameters $\kappa p_j$ and
+   $\kappa(1-p_j)$. Logits of zero (a probability of 0.5) are good starting values for
    both elements of `beta_p` in both models.
 3. Compare the two models with AIC. The theory calls a comparison between models with and
    without random effects only an approximate guide: why does that reason not apply here?
    Hint: what do the two likelihoods describe, and is one model a special case of the other
    at the boundary of a parameter
    ([Comparing grouped models](../Theory.qmd#sec-grouped-comparison))?
-4. Calculate the probability of survival of a typical tank ($u_i=0$) with and without
+4. Calculate the probability of survival of a typical tank ($u_j=0$) with and without
    predators. Then set seed 721, simulate one million tank deviations from their estimated
    distribution, and calculate the mean probability of survival over tanks with and without
    predators. Why do the typical and the mean probability differ without predators and
@@ -547,16 +543,22 @@ is the variance of these deviations among tanks.
    [Curves for observed and new plants](../Theory.qmd#sec-new-groups), with `plogis()` in
    place of `exp()`; $\beta_0$ and $\beta_{\mathrm{pred}}$ are the elements of `par` named
    `beta_p`, in the order of the columns of the model matrix. For the difference, look at the
-   shape of the inverse logit near each typical probability (the box on Jensen's inequality in
-   [Chapter 4](../../Chapter_4/Theory.qmd#sec-wald-constrained)).
+   shape of the inverse logit near each typical probability. Where it is almost a straight
+   line, deviations of the same size above and below the typical value change the
+   probability by about the same amount and average out; where it bends, they do not, as
+   for the exponential in that practice.
 5. Calculate the predicted tank effects, plot them against the initial density with the
    code below the questions, and calculate the mean predicted effect of each of the four
    combinations of predators and size of the tadpoles. Does a property of the tanks seem to
-   explain part of the variation among them? Hint: the predicted effects are the rows of
-   `summary()` with `select = "random"` ("Variance components and predicted plant effects"
-   in [Maximum marginal likelihood](../Theory.qmd#sec-marginal-likelihood)). `tapply()`
-   (Exercise 1, question 5) calculates the means, with
-   `list(ReedfrogPred$size, ReedfrogPred$pred)` as its second argument.
+   explain part of the variation among them? If so, which formula would you give to
+   `model.matrix()` to add it to the logit of survival together with its interaction with
+   predators, and which columns would the matrix have? Hint: the predicted effects are the
+   rows of `summary()` with `select = "random"` ("Variance components and predicted plant
+   effects" in [Maximum marginal likelihood](../Theory.qmd#sec-marginal-likelihood)).
+   `tapply()` (Exercise 1, question 5) calculates the means, with
+   `list(ReedfrogPred$size, ReedfrogPred$pred)` as its second argument. The interaction
+   is written as in the formula of the chilling and origin of plants in
+   [The model matrix](../Theory.qmd#sec-model-matrix).
 
 The code below draws the plot of question 5. It needs the predicted tank effects, the
 result of `summary()` with `select = "random"`, in an object called `tank_effects`; if you
@@ -599,7 +601,7 @@ Load the data with `data(Owls, package = "glmmTMB")`.
 The [Chapter 3 practical](../../Chapter_3/Practicals/no_solution.qmd) and
 [Chapter 4](../../Chapter_4/Theory.qmd) used only the visits of the female parent to
 satiated broods, and treated them as i.i.d., although visits to the same nest may resemble
-each other. Here we use all 599 visits and describe the nests. Let $X_{ij}$ be the number of
+each other. Here we use all 599 visits and describe the nests. Let $Y_{ij}$ be the number of
 calls at visit $i$ to nest $j$, $S_{ij}$ be 1 if the brood was satiated and 0 if it was
 deprived, and $t_{ij}$ be the time of arrival. We use a
 [Negative Binomial](../../Supplements/distributions.qmd#sec-negative_binomial) model with
@@ -608,7 +610,7 @@ mean $\mu_{ij}$ and shape $k$ for a given nest deviation,
 $$
 u_j\sim\operatorname{Normal}\left(0,\sigma^2_{\mathrm{nest}}\right),
 \qquad
-X_{ij}\mid u_j\sim\operatorname{NegBin}\left(\mu_{ij},k\right),
+Y_{ij}\mid u_j\sim\operatorname{NegBin}\left(\mu_{ij},k\right),
 \qquad
 \log(\mu_{ij})=\log(\mu_0)+\beta_{\mathrm{sat}}S_{ij}+\beta_{\mathrm{time}}\left(t_{ij}-24\right)+u_j,
 $$
@@ -687,13 +689,13 @@ properties of the sites. Load the data with `data(Salamanders, package = "glmmTM
 Chapter 2 calculated a dispersion ratio for the 48 counts at the 12 unmined sites, and
 treated the four visits to a site as i.i.d. Here we model all 23 sites with a
 [Poisson](../../Supplements/distributions.qmd#sec-poisson) model for a given site
-deviation. Let $X_{ij}$ be the count at visit $i$ to site $j$, $M_j$ be 1 for a mined site
+deviation. Let $Y_{ij}$ be the count at visit $i$ to site $j$, $M_j$ be 1 for a mined site
 and 0 otherwise, and $C_j$ be the cover of site $j$:
 
 $$
 u_j\sim\operatorname{Normal}\left(0,\sigma^2_{\mathrm{site}}\right),
 \qquad
-X_{ij}\mid u_j\sim\operatorname{Poisson}\left(\lambda_j\right),
+Y_{ij}\mid u_j\sim\operatorname{Poisson}\left(\lambda_j\right),
 \qquad
 \log(\lambda_j)=\log(\lambda_0)+\beta_{\mathrm{mined}}M_j+\beta_{\mathrm{cover}}C_j+u_j.
 $$
@@ -720,12 +722,17 @@ $$
    chance?
 2. Fit the model with site deviations and check the convergence. Report the effects of
    mining and of one unit of cover as factors by which they multiply the expected count,
-   with 95% Wald intervals, the expected count at a typical unmined site of average cover,
-   and $\hat\sigma_{\mathrm{site}}$. Compare the two models with AIC. Hint: the NLL of
+   with 95% Wald intervals, the expected count at a typical unmined site of average cover
+   and at a typical mined site of average cover (with its 95% Wald interval), and
+   $\hat\sigma_{\mathrm{site}}$. Compare the two models with AIC. Hint: the NLL of
    question 1 gains the density of `u`, before the line that uses it, and `+ u` in the log
    mean of the sites ([Random effects in RTMB](../Theory.qmd#sec-random-effects-rtmb)). The
-   Wald intervals are calculated as in question 2 of Exercise 3, with `critical_value` of
-   that exercise.
+   Wald intervals of the factors are calculated as in question 2 of Exercise 3, with
+   `critical_value` of that exercise. The log of the expected count at a mined site is
+   `beta_lambda[1] + beta_lambda[2]`, a combination of two coefficients: pass it to
+   `ADREPORT()` in the NLL and read its estimate and standard error with `summary()` and
+   `select = "report"`, as for the chilling factors in
+   [Effects of origin and chilling](../Theory.qmd#sec-group-predictors).
 3. Set seed 742 and simulate 1,000 hypothetical samples from the model with site
    deviations, calculate the scaled quantile residuals of the counts, and report the
    dispersion statistic and the residuals of the sites. Compare them with those of
@@ -791,9 +798,10 @@ fill in.
 3. How many estimates of $\sigma^2_{\mathrm{site}}$ are below 0.01, by each method? What
    does a variance among sites close to zero mean for the predicted site effects, and why
    can it occur with six sites although the sites of the data generating process vary?
-   Hint: see the weight of the observed deviation of a group in the practice "wing length
-   of chicks in nests" in [Shrinkage](../Theory.qmd#sec-shrinkage), and recall that each
-   site mean is the mean of only five quadrats.
+   Hint: [Shrinkage](../Theory.qmd#sec-shrinkage) says when the predicted effect of a group
+   is pulled strongly towards the typical value (few observations per group, noisy
+   observations, a small variance among groups); recall that each site mean is the mean of
+   only five quadrats.
 4. Set seed 752 and run the simulation again with 12 sites, and repeat the calculations of
    questions 1 to 3. How does the bias of the maximum likelihood estimate change, and why?
    What do the results say about the number of groups that a study needs to estimate a
