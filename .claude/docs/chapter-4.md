@@ -145,5 +145,12 @@ Moved from AGENTS.md. Read this before working on the pages it covers; AGENTS.md
   questions are given in the questions. Exercise 4, question 3 has a hint that names the
   columns `log_shape` and `value` of the result of `tmbprofile()` and the argument `ytol`,
   because the theory uses them only in hidden code (added after a read-through as a
-  student on 4 November).
+  student on 4 November). Final check of 11 November (drafts awaiting the author): question
+  3 of Exercise 1 explains the Hessian in its own text as the curvature of the
+  log-likelihood and no longer sends students to the detail boxes; the closing caveat of
+  question 6 and the Beta-Binomial pointer of question 5 were removed because no question
+  asks for them; question 4 of Exercise 3 has a hint for the cumulative probabilities and
+  the introduction says that `zeroprob` is the argument of RTMBdist; question 1 of Exercise
+  5 asks to check convergence. Properties of estimators are practised only in the extra
+  Exercise 5.
 

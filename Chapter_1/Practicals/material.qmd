@@ -269,7 +269,7 @@ Compute the following operations in R:
 
 ```{r}
 (2^7)/(2^7-1)
-(1-1/2^7)^(-1)
+(1-1/2^7)^(-1)   # the same value as the line above
 ```
 
 
@@ -735,8 +735,7 @@ sd(dbh, na.rm = TRUE)
 ```{r}
 dbh[3]
 dbh[-1]
-dbh[dbh > 10]                    # includes an NA!
-dbh[!is.na(dbh) & dbh > 10]      # the correct way
+dbh[!is.na(dbh) & dbh > 10]      # without !is.na() the result would include an NA
 ```
 
 4.
@@ -841,10 +840,13 @@ values, just as they are in a vector.
 
 3. Calculate the total cover of each species and the total cover in each plot.
 
-4. Select all species with a cover greater than 20 in any plot.
+4. Select all species with a cover greater than 20 in any plot (hint: a logical vector can
+   be used as the row index, as with vectors).
 
 ::::: {.content-hidden unless-meta="show_solution"}
 :::: {.callout-tip title="Solution" collapse="true"}
+
+1.
 
 ```{r}
 cover = matrix(
@@ -854,21 +856,32 @@ cover = matrix(
   nrow = 3,
   byrow = TRUE
 )
+```
 
+2.
+
+```{r}
 rownames(cover) = c("grass", "moss", "fern")
 colnames(cover) = c("plot_A", "plot_B", "plot_C")
+```
 
+3.
+
+```{r}
 rowSums(cover)
 colSums(cover)
+```
 
-### this does not give a very satisfying answer:
-cover[cover > 20]
+4. The comparison `cover > 20` gives a matrix of `TRUE` and `FALSE`. Applying `rowSums` to
+it counts, for each species, in how many plots the cover is greater than 20, and `> 0`
+turns the counts into `TRUE` for the species with at least one such plot. Using this
+logical vector as the row index (note the comma, which leaves the columns empty) selects
+those species:
 
-### first checking per row, plotting those: (Note the comma!)
-cover[rowSums(cover>20)>0,]
-
-### if you want to understand what happens, also check the output of
-rowSums(cover>20)>0
+```{r}
+above_20 = rowSums(cover > 20) > 0
+above_20
+cover[above_20, ]
 ```
 
 ::::
@@ -972,6 +985,8 @@ organized hierarchically.
 ::::: {.content-hidden unless-meta="show_solution"}
 :::: {.callout-tip title="Solution" collapse="true"}
 
+1.
+
 ```{r}
 survey = list(
   species = c("Daphnia magna", "Gammarus pulex", "Asellus aquaticus"),
@@ -979,16 +994,30 @@ survey = list(
   site = factor(c("A", "B", "A")),
   complete = TRUE
 )
+```
 
+2.
+
+```{r}
 str(survey)
 names(survey)
+```
 
+3.
+
+```{r}
 survey$mass[2]
 mean(survey$mass)
+```
 
+4.
+
+```{r}
 survey$date = "2026-09-27"
 survey
 ```
+
+5.
 
 ```{r}
 model_run = list(
@@ -1133,8 +1162,7 @@ mean(birds$mass, na.rm = TRUE)
 4.
 
 ```{r}
-birds[birds$species == "Parus major", ]
-birds[birds$site == "A", ]
+birds[birds$species == "Parus major" & birds$site == "A", ]
 ```
 
 5.
@@ -1205,8 +1233,26 @@ You can customize the axis labels with `xlab` and `ylab`:
 ```{r}
 plot(Sepal.Length~Petal.Length, data = iris,
      col = as.numeric(Species), pch = as.numeric(Species),
-     xlab = "Petal Length (cm)",
+     xlab = "Petal length (cm)",
      ylab = "Sepal length (cm)")
+```
+
+Further elements are added to a plot that is already drawn with other functions. The
+function `abline` draws a straight line (here a horizontal one at the mean, with `h`; use
+`v` for a vertical one), `lines` joins the points given by two vectors with straight
+segments, and `legend` adds a legend. The argument `lty` sets the line type (1 is solid,
+2 is dashed, 3 is dotted):
+
+```{r}
+plot(Sepal.Length~Petal.Length, data = iris,
+     col = as.numeric(Species), pch = as.numeric(Species),
+     xlab = "Petal length (cm)",
+     ylab = "Sepal length (cm)")
+abline(h = mean(iris$Sepal.Length), lty = 2)
+# A line from (1, 4.5) to (7, 7.5), drawn by eye
+lines(x = c(1, 7), y = c(4.5, 7.5), lty = 3)
+legend("topleft", legend = levels(iris$Species),
+       col = 1:3, pch = 1:3)
 ```
 
 ### Histograms
@@ -1278,6 +1324,9 @@ plot(cumsum(frequency),
      ylab = "Cumulative proportion",
      main = "Empirical cumulative distribution")
 ```
+
+Finally, `type = "l"` joins the observations with straight lines, which is useful to show
+a sequence of values in time.
 
 The details of empirical cumulative distributions will be introduced later.
 
@@ -1453,8 +1502,8 @@ Labels are added as another layer with `labs`:
 ```{r}
 ggplot(iris, aes(x = Petal.Length, y = Sepal.Length, color = Species, shape = Species)) +
   geom_point() +
-  labs(x = "Sepal Length (cm)",
-       y = "Petal Length (cm)")
+  labs(x = "Petal length (cm)",
+       y = "Sepal length (cm)")
 ```
 
 ### Histograms
@@ -1506,7 +1555,7 @@ summary(ChickWeight)
 1. Using base R, create:
    * a scatter plot of body weight as a function of time, color by diet
    * a histogram of body weight on day 10, edit the X axis title
-   * a boxplot of final (day 21) obdy weight per diet
+   * a boxplot of final (day 21) body weight per diet
 
 2. Recreate the same three plots with `ggplot2`. Which version do you prefer for each
 plot, and why?
@@ -1518,7 +1567,7 @@ plot, and why?
 
 ```{r}
 # The scatter plot
-plot(weight~Time, data = ChickWeight, col = as.integer(Diet),
+plot(weight~Time, data = ChickWeight, col = as.numeric(Diet),
      ylab = "Weight (g)", xlab = "Time (days)")
 # The histogram
 hist(ChickWeight$weight[ChickWeight$Time == 10], xlab = "Weight (g)")
@@ -1529,15 +1578,23 @@ boxplot(weight~Diet, data = ChickWeight[ChickWeight$Time == 21,])
 2.
 
 ```{r}
-ggplot(data = ChickWeight, aes(x = Time, y = weight, col = Diet)) +
-  geom_point()
+ggplot(data = ChickWeight, aes(x = Time, y = weight, color = Diet)) +
+  geom_point() +
+  labs(x = "Time (days)", y = "Weight (g)")
 
 ggplot(data = ChickWeight[ChickWeight$Time == 10,], aes(x = weight)) +
-  geom_histogram()
+  geom_histogram() +
+  labs(x = "Weight (g)")
 
 ggplot(data = ChickWeight[ChickWeight$Time == 21,], aes(x = Diet, y = weight)) +
   geom_boxplot()
 ```
+
+The preference depends on what you need from the plot. A base R plot is a single call
+without extra packages, which is quick when you only want to look at the data. With
+`ggplot2` the colours of the diets come with a legend automatically, and changing one
+element of the plot (the labels, the number of bins) means adding or editing one layer,
+at the price of a longer call.
 ::::
 :::::
 ::::::
@@ -1563,7 +1620,8 @@ if (x > 0) {
 ```
 
 If the condition is `FALSE`, the block is simply skipped and nothing happens. An optional
-`else` block runs instead when the condition is `FALSE`:
+`else` block runs instead when the condition is `FALSE`. Inside a block, `print()` shows a
+value on the console:
 
 ```{r}
 x = -4
@@ -1661,7 +1719,7 @@ I recommend you start there even if seasoned R programmers sneered at that.
 observed) and prints `"no individuals"` if it is 0, `"few individuals"` if it is between
 1 and 5, and `"many individuals"` if it is larger than 5. Test it with different values.
 
-2. A population grows geometrically: $N_{t+1} = r \cdot N_t$, with growth rate
+2. A population grows geometrically: $N_{t+1} = r\,N_t$, with growth rate
 $r = 1.1$ and initial population size $N_0 = 20$. Use a `for` loop to simulate the
 population size over 50 years, storing the size of each year in a vector (remember to
 create the vector before the loop and to include $N_0$ in it). Plot the result.
@@ -1674,14 +1732,15 @@ whole sequence without a loop?
 1.
 
 ```{r}
-count = 3
-
-if (count == 0) {
-  print("no individuals")
-} else if (count <= 5) {
-  print("few individuals")
-} else {
-  print("many individuals")
+# Test the statement with three values of count
+for (count in c(0, 3, 8)) {
+  if (count == 0) {
+    print("no individuals")
+  } else if (count <= 5) {
+    print("few individuals")
+  } else {
+    print("many individuals")
+  }
 }
 ```
 
@@ -1704,17 +1763,12 @@ plot(0:n_years, N, type = "l",
 
 Each population size depends on the previous one, so the vectorised arithmetic of the
 previous section cannot replace the line inside the loop. However, for geometric growth we
-know a formula for the whole sequence, $N_t = N_0 \cdot r^t$, and that formula is vectorised:
+know a formula for the whole sequence, $N_t = N_0\,r^t$, and that formula is vectorised:
 
 ```{r}
 # the same sequence from the formula, without a loop
 N_formula = 20 * r^(0:n_years)
-all.equal(N, N_formula)
 ```
-
-That is, a loop like this one can be avoided only when such a formula exists. When each
-value depends on the previous one and there is no formula for the whole sequence (e.g., if
-the growth rate changed randomly from year to year), we need the loop.
 ::::
 :::::
 ::::::
@@ -1769,7 +1823,7 @@ like in the R functions we have used. For example, here is the exponential popul
 model from the Control flow section, wrapped into a reusable function:
 
 ```{r}
-population_growth = function(N0, r, years) {
+population_growth = function(N0, r, years = 50) {
   N = numeric(years + 1)
   N[1] = N0
   for (t in 2:(years + 1)) {
@@ -1779,11 +1833,12 @@ population_growth = function(N0, r, years) {
 }
 ```
 
-Now we can simulate different scenarios with a single line each:
+The argument `years` has the default value 50, so we only need to give it when we want a
+different number of years. Now we can simulate different scenarios with a single line each:
 
 ```{r}
-population_growth(N0 = 20, r = 1.1, years = 50)
-population_growth(N0 = 20, r = 0.9, years = 50)
+population_growth(N0 = 20, r = 1.1)
+population_growth(N0 = 20, r = 0.9, years = 10)
 ```
 
 Wrapping your model in a function is a habit worth developing early: it makes it trivial
@@ -1797,9 +1852,10 @@ volume ($V = \frac{4}{3}\pi r^3$). Test it with $r = 1$ and with a vector of rad
 
 2. Write a function `se` that computes the standard error of the mean of a vector,
 $\text{se} = \text{sd}(x) / \sqrt{n}$. Test it with `c(3.2, 4.1, 2.8, 3.9, 3.5)`. What
-happens if the vector contains an `NA`? Add the argument `na.rm = TRUE` to your function
-and pass it on to `sd` and `length` appropriately (hint: for the sample size you will
-need `sum(!is.na(x))` when `na.rm` is `TRUE`).
+happens if the vector contains an `NA`? Add the argument `na.rm` to your function, with
+the default value `FALSE`, pass it on to `sd` and use it to calculate the sample size
+appropriately (hint: for the sample size you will need `sum(!is.na(x))` when `na.rm` is
+`TRUE`).
 
 ::::: {.content-hidden unless-meta="show_solution"}
 :::: {.callout-tip title="Solution" collapse="true"}
@@ -1827,8 +1883,8 @@ se = function(x, na.rm = FALSE) {
   return(sd(x, na.rm = na.rm) / sqrt(n))
 }
 se(c(3.2, 4.1, 2.8, 3.9, 3.5))
-se(c(3.2, 4.1, NA, 3.9, 3.5))               # NA
-se(c(3.2, 4.1, NA, 3.9, 3.5), na.rm = TRUE) # works
+se(c(3.2, 4.1, NA, 3.9, 3.5))               # returns NA: sd() does not ignore the NA
+se(c(3.2, 4.1, NA, 3.9, 3.5), na.rm = TRUE) # ignores the NA
 ```
 ::::
 :::::
@@ -1969,9 +2025,6 @@ taken. Which species is most and least attractive to seed predators?
 
 ```{r}
 table(seedpred$species)
-
-# or with dplyr:
-summarise(group_by(seedpred, species), n = n())
 ```
 
 2.
@@ -1980,9 +2033,9 @@ summarise(group_by(seedpred, species), n = n())
 sum(seedpred$taken)
 
 summarise(group_by(seedpred, species), total_taken = sum(taken))
-
 ```
-The species "cd" lost the most seeds, "uva" the fewest.
+
+The species "cd" lost the most seeds.
 
 3.
 
@@ -1994,12 +2047,16 @@ plot(taken ~ tcum, data = psd,
 
 4.
 
+The comparison `taken > 0` is `TRUE` for the checks in which at least one seed was taken.
+When we take the mean of a logical vector, R counts `TRUE` as 1 and `FALSE` as 0, so the
+mean is the proportion of `TRUE`:
+
 ```{r}
 summarise(group_by(seedpred, species),
           prop_checks = mean(taken > 0))
 ```
 
-Species "cd" and "pol" are predated most often, while "psd" is rarely touched.
+Species "cd" is the most attractive to seed predators and "psd" the least.
 
 ::::
 :::::

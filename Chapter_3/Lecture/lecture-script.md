@@ -840,7 +840,8 @@ Negative Binomial one, which is the warning of slide 22. The 122 visits come fro
 nests, so treating them as i.i.d. is a simplification that we accept in this chapter;
 Chapter 7 covers observations nested in groups. Exercise 2 simulates samples of 10 and 1,000 leaves from
 a Beta model of leaf damage, with several seeds, to see how the properties of a sample
-behave as the sample grows. Exercise 3 uses the heights of 31 black cherry trees: two
+behave as the sample grows, and compares one large sample with the model in a histogram
+and a cumulative plot. Exercise 3 uses the heights of 31 black cherry trees: two
 estimators of the variance, compared by simulation for bias and mean squared error.
 Exercise 4 simulates the body mass of small mammals under a LogNormal model and checks the
 coverage of Wald intervals for the mean mass at two sample sizes.

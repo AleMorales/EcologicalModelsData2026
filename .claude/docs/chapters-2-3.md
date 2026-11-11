@@ -32,7 +32,13 @@ Moved from AGENTS.md. Read this before working on the pages it covers; AGENTS.md
   values compared with the model density), then four exercises to solve. Question 4 of
   Exercise 3 (Negative Binomial fit from moments) was removed by the author; the solution
   headings of Exercise 4 match its four questions. Students are told to read the relevant
-  supplement entries first.
+  supplement entries first, and questions that need a formula of an entry name it with a
+  link. Final check of 11 November (drafts awaiting the author): question 3 of Exercise 3
+  asks for a distribution within each spray (no "model with spray as a predictor");
+  Exercise 4 names `rnbinom2()` and uses `var()` only; question 1 of Exercise 5 verifies the
+  mean with `integrate()`; Exercise 6 has a new question 5 (a 2 × 2 joint table of cover and
+  seedlings, marginals and the product check of independence), the only practice of joint
+  and marginal distributions.
 
 ### Chapter 3
 
@@ -64,6 +70,10 @@ Moved from AGENTS.md. Read this before working on the pages it covers; AGENTS.md
   and the solution reports the standard error of each simulated bias. Exercise 4 (mean
   body mass and coverage, LogNormal model): Wald intervals only; the $t$ interval appears
   only in a footnote of the theory. The solution page restates the tasks of each exercise.
+  Final check of 11 November (drafts awaiting the author): Exercise 2 has a new question 4
+  (histogram, kernel density estimate and `ecdf()` of the sample against the model, seed
+  99), the only practice of empirical distributions in the practical; `table()` and
+  `quantile(type = 1)` on counts are practised only in Practice 2 of the theory.
 
 ### `Supplements/distributions.qmd`
 
@@ -83,11 +93,20 @@ Moved from AGENTS.md. Read this before working on the pages it covers; AGENTS.md
 - Examples: the Normal and Student's t entries use the shell length of mussels in a bed
   (hypothetical, $\mu=60$ mm, $\sigma=5$ mm); the Multivariate Normal adds shell width
   (30 mm, 3 mm, correlation 0.6).
+- **No example or `Practice` callout of the supplement shares its setting with an exercise**
+  (author's requirement of 11 November; rule in `STYLE_GUIDE.md`). The settings chosen on 11
+  November are hypothetical placeholders awaiting the author: Binomial mistletoe on 16 host
+  trees; Poisson mist-net captures; Conway–Maxwell–Poisson litter size; Negative Binomial
+  earthworms in soil cores; Beta-Binomial parasitised aphids (24 per plant); Exponential and
+  Gamma camera-trap waiting times (callouts: barnacle larvae settling, acorn mass); LogNormal
+  deer home range; Beta tortoise feeding fraction; Weibull callout limpet survival time;
+  Multivariate Normal callout turtle traits. The Beta-Binomial entry is parameterised with
+  the mean probability $p$ and $\kappa$, as Chapter 6.
 - RTMB: every entry names the RTMB or RTMBdist density or mass function first; the
   functions that fill in are announced once in the introduction and named in an entry
   only when they come from another package or are calculated from the mass. The page
   loads `RTMB`, `RTMBdist` and `MASS`. The Conway–Maxwell–Poisson entry uses
-  `dcompois2()` (mean and $\nu$; a clutch with a mean of 2.5 eggs; cumulative probability
+  `dcompois2()` (mean and $\nu$; a litter with a mean of 2.5 pups; cumulative probability
   as a sum of the mass; `sample()` on the mass simulates). The Uniform entry says that
   RTMB has no Uniform density for fitting.
 - Zero inflation (issue 16): two subsections, RTMBdist first (ready-made `dzi*()` functions

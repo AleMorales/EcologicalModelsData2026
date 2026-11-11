@@ -32,8 +32,9 @@ data(InsectSprays, package = "datasets")
 2. Repeat the same calculations but now do it separately for each `spray` treatment (tip: use
 the tools for data transformation we learnt in Chapter 1). Is there still evidence of overdispersion?
 
-3. Which model would you use for `count` when ignoring the `spray` treatment and which model would
-you try when doing it separately for each `spray` treatment?
+3. Which distribution would you use for `count` when ignoring the `spray` treatment and which
+distribution would you use within each `spray` treatment? Is it reasonable to treat all the counts
+together as i.i.d. observations from one distribution?
 
 ## Solution
 
@@ -55,8 +56,8 @@ c(
 )
 ```
 
-The mean is about 9.5, the variance is 51.9, and the variance-to-mean ratio is 5.5. This is
-substantial overdispersion when the treatments are pooled.
+The variance-to-mean ratio is far above one, so the pooled counts are substantially
+overdispersed.
 
 ### Question 2
 
@@ -69,12 +70,12 @@ spray_groups = group_by(InsectSprays, spray)
 
 spray_summary = summarise(
   spray_groups,
-  n = n(),
   mean = mean(count),
-  variance = var(count),
-  dispersion_ratio = variance / mean,
-  .groups = "drop"
+  variance = var(count)
 )
+
+# Variance-to-mean ratio of each spray
+spray_summary$dispersion_ratio = spray_summary$variance / spray_summary$mean
 
 spray_summary
 ```
@@ -85,10 +86,17 @@ could be explained by the fact that we were looking at different treatments pool
 
 ### Question 3
 
-Ignoring spray, a **Negative Binomial model** is a reasonable choice because the pooled
-counts are strongly overdispersed. When accounting for spray, a Poisson model with spray as
-a predictor is a useful starting point, though we might still end up using a Negative Binomial
-(we will cover formal methods of model comparison later in the book).
+Ignoring spray, a **Negative Binomial distribution** is a reasonable choice because the
+pooled counts are strongly overdispersed. Within each spray, a Poisson distribution with its
+own mean is a useful starting point because the variance-to-mean ratios are much closer to
+one, though we might still end up using a Negative Binomial distribution (we will cover
+formal methods of model comparison later in the book).
+
+Treating all the counts together as i.i.d. observations from one distribution is not
+reasonable: the sprays have different mean counts (question 2), so the counts are not
+identically distributed. Within a single spray, treating the counts as i.i.d. is more
+reasonable, although independence between experimental units is an assumption that these
+data cannot confirm.
 
 # Exercise 4: Overdispersed quadrat counts
 
@@ -98,9 +106,10 @@ Let's assume a Negative Binomial distribution with a mean ($\mu = 6$) and shape 
 
 1. Calculate the mean and variance of the model using the formulas. Then verify them
 using `dnbinom2()` and weighted sums.
-2. Generate a sample of size 500.
+2. Generate a sample of size 500 with `rnbinom2()`.
 3. Calculate the mean and variance of this sample in R.
-4. Compare the Negative Binomial distribution with a Poisson distribution having the same mean.
+4. Compare the Negative Binomial distribution with a Poisson distribution having the same mean
+(see the [Poisson entry](../../Supplements/distributions.qmd#sec-poisson) for `dpois()`).
 How do they differ? What is the variance/mean ratio of the sample? Plot their probability mass functions.
 
 ## Solution
@@ -159,25 +168,29 @@ sample_counts = rnbinom2(
 
 ### Question 3
 
-Calculate the mean and the empirical variance of the sample. The empirical variance uses the divisor $n$, as in the empirical distribution.
+Calculate the mean and the variance of the sample with `mean()` and `var()`:
 
 ```{r}
 sample_mean = mean(sample_counts)
-sample_variance = mean((sample_counts - sample_mean)^2)
+sample_variance = var(sample_counts)
 
-c(
-  mean = sample_mean,
-  empirical_variance = sample_variance,
-  variance_mean_ratio = sample_variance / sample_mean,
-  variance_using_var = var(sample_counts)
-)
+c(mean = sample_mean, variance = sample_variance)
 ```
 
-The sample summaries vary between simulations, but should be broadly consistent with a mean of 6 and a variance of 51. The variance-to-mean ratio of the model is $51/6=8.5$; the sample ratio will not necessarily equal it.
+The sample summaries vary between simulations, but should be broadly consistent with a mean of 6 and a variance of 51.
 
 ### Question 4
 
 A Poisson distribution with the same mean has variance 6, while the Negative Binomial has variance 51. The Negative Binomial therefore has more probability near zero and in the upper tail.
+
+The variance-to-mean ratio of the sample is the sample variance divided by the sample mean. For the model it is $51/6=8.5$, whereas a Poisson distribution has a ratio of one; the ratio of the sample will not necessarily equal that of the model.
+
+```{r}
+# Variance-to-mean ratio of the sample
+sample_variance / sample_mean
+```
+
+To plot the two probability mass functions, draw the first with `plot()` and add the second with `lines()`:
 
 ```{r}
 x = 0:40
@@ -185,26 +198,17 @@ x = 0:40
 negative_binomial_mass = dnbinom2(x, mu = mu, size = k)
 poisson_mass = dpois(x, lambda = mu)
 
-matplot(
-  x,
-  cbind(negative_binomial_mass, poisson_mass),
-  type = "b",
-  pch = c(16, 1),
-  lty = c(1, 2),
-  lwd = 2,
-  col = c("firebrick", "steelblue"),
-  xlab = "Count",
-  ylab = "Probability",
-  main = "Negative Binomial and Poisson probability mass"
+plot(
+  x, negative_binomial_mass,
+  type = "l", lty = 1,
+  xlab = "Count", ylab = "Probability"
 )
+lines(x, poisson_mass, lty = 2)
 
 legend(
   "topright",
   legend = c("Negative Binomial", "Poisson"),
-  col = c("firebrick", "steelblue"),
-  pch = c(16, 1),
-  lty = c(1, 2),
-  lwd = 2
+  lty = c(1, 2)
 )
 ```
 
@@ -216,7 +220,8 @@ Suppose body mass $X$ in grams follows a LogNormal model with `meanlog = log(30)
 logarithm of body mass. The formulae for the median and the mean are in the
 [LogNormal entry](../../Supplements/distributions.qmd#sec-lognormal) of the supplement.
 
-1. Calculate the median and the mean body mass of the model. Explain why they differ.
+1. Calculate the median and the mean body mass of the model. Explain why they differ. Verify the
+   mean with `integrate()`, using the limits 0 g and 1,000 g.
 2. Calculate the probability that body mass exceeds 50 g and the 95th percentile.
 3. Simulate 500 body masses with seed 202. Make density-scaled histograms on the
    original and log scales. Describe their shapes.
@@ -259,6 +264,19 @@ The median is 30 g and the mean is approximately 34 g. They differ because the d
 is skewed to the right: the large body masses in the upper tail pull the mean above the
 median.
 
+The mean is the integral of $x$ times the density. We integrate numerically between 0 g and
+1,000 g, where the omitted upper tail is negligible:
+
+```{r}
+# Integrate x times the density of the model between 0 g and 1,000 g
+integrate(
+  f = function(x) x * dlnorm(x = x, meanlog = mass_meanlog, sdlog = mass_sdlog),
+  lower = 0, upper = 1000
+)$value
+```
+
+The result agrees with the mean from the formula.
+
 ### Question 2
 
 `plnorm()` calculates the cumulative probability $P(X\leq x)$. For a body mass above 50 g
@@ -292,25 +310,19 @@ logarithms. Both use density scaling (`probability = TRUE`):
 set.seed(seed = 202)
 body_mass = rlnorm(n = 500, meanlog = mass_meanlog, sdlog = mass_sdlog)
 
-# Draw the two histograms side by side and restore the graphics settings afterwards
-old_par = par(no.readonly = TRUE)
-par(mfrow = c(1, 2))
-
+# Histogram of the body masses on the original scale
 hist(
-  x = body_mass, breaks = 25, probability = TRUE,
-  col = "grey85", border = "white",
+  x = body_mass, probability = TRUE, col = "grey85",
   xlab = "Body mass (g)", ylab = "Density (1/g)",
   main = "Original scale"
 )
 
+# Histogram of the logarithm of the body masses
 hist(
-  x = log(body_mass), breaks = 25, probability = TRUE,
-  col = "grey85", border = "white",
+  x = log(body_mass), probability = TRUE, col = "grey85",
   xlab = "Log body mass", ylab = "Density",
   main = "Log scale"
 )
-
-par(old_par)
 ```
 
 On the original scale the body masses are all positive and skewed to the right, with a few
@@ -323,8 +335,7 @@ Plot the original-scale histogram again and add the density of the model with `c
 
 ```{r}
 hist(
-  x = body_mass, breaks = 25, probability = TRUE,
-  col = "grey85", border = "white",
+  x = body_mass, probability = TRUE, col = "grey85",
   xlab = "Body mass (g)", ylab = "Density (1/g)",
   main = "Simulated body masses and LogNormal model"
 )
@@ -332,7 +343,7 @@ hist(
 # Add the density of the model that generated the sample
 curve(
   dlnorm(x = x, meanlog = mass_meanlog, sdlog = mass_sdlog),
-  add = TRUE, lwd = 2
+  add = TRUE
 )
 ```
 
@@ -355,6 +366,18 @@ in the [Beta entry](../../Supplements/distributions.qmd#sec-beta) of the supplem
    and add the Beta density of the model.
 4. A field survey also records some quadrats with exactly zero cover. Explain
    why the proposed Beta model cannot describe those observations directly.
+5. Let $V=1$ if a quadrat has a cover of at least $0.20$ and $V=0$ otherwise, and let $S=1$ if
+   seedlings of a focal species are present in the quadrat and $S=0$ otherwise. Suppose the joint
+   distribution of $V$ and $S$ is:
+
+   | $S \backslash V$ | $v = 0$ | $v = 1$ |
+   |---|---:|---:|
+   | $s = 0$ | $0.25$ | $0.35$ |
+   | $s = 1$ | $0.10$ | $0.30$ |
+
+   Calculate the marginal distribution of $V$ and of $S$, and compare each joint probability with
+   the product of the corresponding marginal probabilities. Are $V$ and $S$ independent? (See
+   [Joint distributions](../Theory.qmd#sec-joint-independence) in the theory.)
 
 ## Solution
 
@@ -416,8 +439,7 @@ c(prob_below_20_percent = prob_below_20_percent,
 
 The first result is the probability that a quadrat has less than 20% cover, which is
 approximately **0.34**. The second is the cover fraction below which 95% of the quadrats
-fall under this model, approximately **0.58** (58% cover). Note that using $<$ or $\leq$
-at 0.20 gives the same probability, because cover is a continuous random variable.
+fall under this model, approximately **0.58** (58% cover).
 
 ### Question 3
 
@@ -428,8 +450,7 @@ cover_fraction = rbeta(n = 500, shape1 = cover_a, shape2 = cover_b)
 
 # Histogram on the density scale so that it is comparable to the curve
 hist(
-  x = cover_fraction, breaks = 25, probability = TRUE,
-  col = "grey85", border = "white",
+  x = cover_fraction, probability = TRUE, col = "grey85",
   xlab = "Vegetation cover (fraction)", ylab = "Density",
   main = "Simulated cover and Beta model"
 )
@@ -437,7 +458,7 @@ hist(
 # Add the density of the model that generated the sample
 curve(
   dbeta(x = x, shape1 = cover_a, shape2 = cover_b),
-  add = TRUE, lwd = 2
+  add = TRUE
 )
 ```
 
@@ -448,9 +469,54 @@ without matching it exactly.
 
 The Beta distribution is continuous, so it assigns zero probability to any exact value,
 including a cover of exactly zero or exactly one. A sample from this model will therefore
-never contain a quadrat with zero cover, however large the sample is. Before modelling
-field observations at those boundaries, we would ask whether they represent quadrats that
-are really bare (or fully covered) and how they arose, and then extend the model to account
-for them (see the section on
-[zero-inflated distributions](../../Supplements/distributions.qmd#sec-zero_inflated) in the
-supplement).
+never contain a quadrat with zero cover, however large the sample is.
+
+### Question 5
+
+The marginal distribution of one variable is obtained by adding the joint probabilities over
+the other variable (rule of addition): $P(V=v)=\sum_s P(V=v,S=s)$ and
+$P(S=s)=\sum_v P(V=v,S=s)$. In R, the joint distribution is a matrix with one row per value of
+$S$ and one column per value of $V$, so `colSums()` gives the marginal distribution of $V$ and
+`rowSums()` that of $S$:
+
+```{r}
+# Joint probabilities: rows are s = 0, 1 and columns are v = 0, 1
+joint = matrix(
+  c(0.25, 0.35,
+    0.10, 0.30),
+  nrow = 2,
+  byrow = TRUE
+)
+rownames(joint) = c("s = 0", "s = 1")
+colnames(joint) = c("v = 0", "v = 1")
+
+marginal_v = colSums(joint)
+marginal_s = rowSums(joint)
+
+marginal_v
+marginal_s
+```
+
+If $V$ and $S$ were independent, each joint probability would equal
+$P(V=v,S=s)=P(V=v)P(S=s)$. We calculate these products and put them in a matrix with the same
+layout as `joint`:
+
+```{r}
+# Products of the marginal probabilities, in the layout of the joint table
+product = matrix(
+  c(marginal_s[1] * marginal_v[1], marginal_s[1] * marginal_v[2],
+    marginal_s[2] * marginal_v[1], marginal_s[2] * marginal_v[2]),
+  nrow = 2,
+  byrow = TRUE
+)
+rownames(product) = rownames(joint)
+colnames(product) = colnames(joint)
+
+product
+```
+
+The marginal probabilities are $P(V=1)=0.65$ and $P(S=1)=0.40$. The products differ from the
+joint probabilities: for example, $P(V=0)P(S=0)=0.35\times0.60=0.21$, whereas
+$P(V=0,S=0)=0.25$. Therefore $V$ and $S$ are not independent under this table. Seedlings are
+present more often in quadrats with a cover of at least $0.20$ ($0.30$ against
+$0.65\times0.40=0.26$ if they were independent).

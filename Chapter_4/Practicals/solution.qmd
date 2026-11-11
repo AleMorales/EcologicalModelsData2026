@@ -45,7 +45,7 @@ that come in groups, such as the visits to one nest.
 
 1. Estimate $\mu$ and $k$ with the method of moments, as in the Chapter 3 practical. Also
    calculate the fraction of quadrats without seedlings and the largest count.
-2. Write the NLL of the model with $\log\mu$ and $\log k$ as parameters, process it with
+2. Write the NLL of the model with $\log(\mu)$ and $\log(k)$ as parameters, process it with
    `MakeADFun()` and minimise it with `optim()`, using the method-of-moments estimates as
    starting values. Report the estimates on the original scale. Compare the log-likelihood
    at the maximum likelihood estimates with the log-likelihood at the method-of-moments
@@ -109,7 +109,7 @@ fraction of 0.496), while the largest count is 72 seedlings.
 
 ### Question 2
 
-The NLL is the one of the theory, with `dnbinom2()` and with $\log\mu$ and $\log k$ as
+The NLL is the one of the theory, with `dnbinom2()` and with $\log(\mu)$ and $\log(k)$ as
 parameters, so that both stay positive. Here the data are called `counts`, so that is the
 name that the list of data must use when we connect the NLL to the seedling counts. We
 start the search at the method-of-moments estimates. The function `fn` of the object
@@ -225,17 +225,15 @@ points(x = mu_mom_lily, y = k_mom_lily, pch = 17)
 
 The cutoff is 3.00. The thick contour in @fig-lily_surface joins the combinations of $\mu$
 and $k$ whose log-likelihood is 3.00 units below the maximum, and the area inside it is the
-approximate joint 95% confidence region. As for the owls in the theory, the
-contours are not tilted: with the mean as a parameter, the estimates of $\mu$ and $k$
-hardly depend on each other. The method-of-moments estimate lies inside the region, near
-its upper edge in $k$ (its relative log-likelihood is $-1.1$, as we saw in question 2). So
-for these data the method-of-moments estimates are among the combinations of parameter
+approximate joint 95% confidence region. The method-of-moments estimate lies inside the
+region, near its upper edge in $k$ (its relative log-likelihood is $-1.1$, as we saw in
+question 2), so the method-of-moments estimates are among the combinations of parameter
 values that the likelihood supports.
 
 ### Question 4
 
 For the Wald interval, `sdreport()` gives the standard errors of the estimates of
-$\log\mu$ and $\log k$. We calculate the interval for $\log k$ and transform its endpoints
+$\log(\mu)$ and $\log(k)$. We calculate the interval for $\log(k)$ and transform its endpoints
 with `exp()`:
 
 ```{r}
@@ -255,13 +253,13 @@ wald_k_lily = exp(
 wald_k_lily
 ```
 
-The standard errors are 0.126 for the estimate of $\log\mu$ and 0.117 for the estimate of
-$\log k$, and the Wald interval for $k$ goes from 0.208 to 0.329.
+The standard errors are 0.126 for the estimate of $\log(\mu)$ and 0.117 for the estimate of
+$\log(k)$, and the Wald interval for $k$ goes from 0.208 to 0.329.
 
 For the likelihood profile interval we follow the theory. `TMB::tmbprofile()` moves
-$\log k$ away from its estimate and re-estimates $\log\mu$ at each step, and `confint()`
+$\log(k)$ away from its estimate and re-estimates $\log(\mu)$ at each step, and `confint()`
 locates the two values at which the relative profile log-likelihood crosses the cutoff.
-The profile is calculated for $\log k$, so we transform the endpoints with `exp()`:
+The profile is calculated for $\log(k)$, so we transform the endpoints with `exp()`:
 
 ```{r}
 # Profile of log(k) and the endpoints of its 95% interval, transformed back.
@@ -357,8 +355,7 @@ follows both the many empty quadrats and the long tail of large counts.
 The AIC is 2731.8 for the Poisson model and 1132.5 for the Negative Binomial model. The
 difference of 1,599 units is very large compared with the two units that the additional
 parameter costs, so the Negative Binomial model is strongly preferred. AIC ranks the
-candidates that we give it. Whether there is a better description of the empty quadrats
-than the Negative Binomial model is the question of Exercise 3.
+candidates that we give it.
 
 The AICc is also 2731.8 and 1132.5 (to one decimal), so the comparison is the same. The
 correction is negligible because 256 quadrats are many more than one or two parameters.
@@ -381,8 +378,8 @@ p_0+(1-p_0)\,e^{-\lambda}, & x=0,\\[4pt]
 \end{cases}
 $$
 
-where $p_0$ (`pzero` in the code of the supplement) is the probability that a quadrat
-cannot have seedlings and $\lambda$ is the mean number of seedlings in the quadrats that
+where $p_0$ (the argument `zeroprob` of the functions of RTMBdist) is the probability that
+a quadrat cannot have seedlings and $\lambda$ is the mean number of seedlings in the quadrats that
 can have them. Use the same counts as in Exercise 2 and the same assumption of i.i.d.
 quadrats.
 
@@ -392,7 +389,7 @@ quadrats.
    for two combinations of parameter values, and that your function returns the same
    probabilities as `dzipois()` of the package RTMBdist, in which $p_0$ is the argument
    `zeroprob`.
-2. Write the NLL with `dzipois()` and with $\log\lambda$ and $\operatorname{logit}p_0$ as
+2. Write the NLL with `dzipois()` and with $\log(\lambda)$ and $\operatorname{logit}(p_0)$ as
    parameters. Choose starting values from the data (think of the fraction of empty
    quadrats and of the mean of the quadrats that are not empty) and fit the model.
    Interpret both estimates.
@@ -403,7 +400,10 @@ quadrats.
    counts. Under each model, calculate the probability of an empty quadrat and the
    probability of 20 or more seedlings, and compare them with the observed fractions. What
    does each model say about how the counts arise? Can the comparison identify the
-   ecological cause of the empty quadrats?
+   ecological cause of the empty quadrats? Hint: $P(X\geq 20)=1-P(X\leq 19)$, and the
+   cumulative probabilities $P(X\leq 19)$ come from `pzipois()` and `pnbinom2()` of
+   RTMBdist, which work like `pbinom()` in Chapter 2 (or from the sum of the mass function
+   over the counts 0 to 19).
 
 ## Solution
 
@@ -453,7 +453,7 @@ order of $10^{-17}$, the precision of the computer), so from here on we use `dzi
 ### Question 2
 
 Both parameters are constrained. The mean $\lambda$ is positive, so we search over
-$\log\lambda$, and $p_0$ is a probability, so we search over $\operatorname{logit}p_0$ and
+$\log(\lambda)$, and $p_0$ is a probability, so we search over $\operatorname{logit}(p_0)$ and
 transform it with `plogis()`. For the starting values, suppose that every empty quadrat is
 one that cannot have seedlings. Then $p_0$ is the fraction of empty quadrats and $\lambda$
 is the mean of the quadrats that have seedlings:
@@ -488,18 +488,12 @@ lambda_zip = unname(exp(zip_fit$par["log_lambda"]))
 pzero_zip = unname(plogis(zip_fit$par["logit_pzero"]))
 loglik_zip = -zip_fit$value
 c(lambda = lambda_zip, pzero = pzero_zip, loglik = loglik_zip)
-
-# Probability of a count of zero under a Poisson distribution with the estimated lambda.
-dpois(x = 0, lambda = lambda_zip)
 ```
 
 The convergence code is 0. The estimates are $\hat\lambda\approx 7.85$ seedlings per
 quadrat and $\hat p_0\approx 0.496$, and the maximum log-likelihood is $-848.0$. According
 to this model, about half of the quadrats cannot have seedlings and the other half have
-7.85 seedlings on average. The estimates are almost identical to the starting values (7.85
-and 0.496). The reason is that a Poisson distribution with a mean of 7.85 gives a
-probability of only 0.0004 to a count of zero, so the model attributes practically all the
-empty quadrats to the zero inflation.
+7.85 seedlings on average.
 
 ### Question 3
 
@@ -520,9 +514,7 @@ The AIC is 1700.1 for the zero-inflated Poisson model and 1132.5 for the Negativ
 model. Both models have $K=2$, so the term $2K$ cancels in the difference and the
 comparison comes down to the maximum log-likelihoods: the difference of 567.6 units of AIC
 is twice the difference of 283.8 units of log-likelihood ($-564.2$ against $-848.0$). The
-Negative Binomial model is strongly preferred. The Poisson model without zero inflation had
-an AIC of 2731.8 in Exercise 2, so allowing for quadrats that cannot have seedlings
-improves the Poisson model a great deal, but not enough. The AICc is 1700.1 and 1132.5.
+Negative Binomial model is strongly preferred. The AICc is 1700.1 and 1132.5.
 The correction of 0.047 units is the same for both models, because they have the same $K$
 and the same $n$, so the difference does not change either.
 
@@ -590,9 +582,7 @@ distribution (@fig-lily_zip). Ten of the 256 quadrats (3.9%) have 20 or more see
 Negative Binomial model gives a probability of 0.049 to such counts and the zero-inflated
 Poisson model 0.0001. In the latter, the quadrats that are not empty follow a Poisson
 distribution, whose variance equals its mean of 7.85, and that makes counts of 20 or more
-almost impossible. Each of those ten quadrats then contributes a very low probability to
-the likelihood, which is where the zero-inflated Poisson model loses most of its
-log-likelihood.
+almost impossible.
 
 The two models describe the origin of the counts differently. In the zero-inflated Poisson
 model there are two kinds of quadrats: those that cannot have seedlings, and those in which
@@ -605,8 +595,7 @@ seedlings are distributed in this way. As
 does not identify the source of the overdispersion, and different processes (for example,
 the dispersal of seeds around the parent plants, or differences in how suitable the
 quadrats are for germination) can produce the same distribution of counts. The two
-mechanisms could also act together, as in the zero-inflated Negative Binomial distribution
-of the supplement, which we do not fit here. To learn about the cause we would need other
+mechanisms could also act together. To learn about the cause we would need other
 measurements on the quadrats in addition to the counts.
 
 # Exercise 4: Timber volume of black cherry trees
@@ -625,14 +614,14 @@ black cherry trees. That practical used their heights. Here $X_i$ is the volume 
 tree $i$ in cubic feet (ft³), the column `Volume`, and we assume that the trees are i.i.d.
 
 1. Load the trees with `data(trees, package = "datasets")`. Write the NLL of the Gamma
-   model with `dgamma(..., log = TRUE)` and with $\log k$ and $\log r$ as parameters, and
+   model with `dgamma(..., log = TRUE)` and with $\log(k)$ and $\log(r)$ as parameters, and
    mark the data with `OBS()`, which Exercise 5 uses to simulate. Exercise 5 also relies on
    these names: call the function `gamma_nll()`, the parameters `log_shape` and `log_rate`
    (in this order) and the data `x`. Calculate
    method-of-moments estimates from the formulas of the mean and the variance, use them as
    starting values and fit the model. Report the estimates of $k$ and $r$ with their units
    and the maximum likelihood estimate of the mean volume.
-2. Calculate the correlation between the estimates of $\log k$ and $\log r$ with
+2. Calculate the correlation between the estimates of $\log(k)$ and $\log(r)$ with
    `sdreport()`. Calculate the log-likelihood on a grid of values of $k$ and $r$ (for
    example, $k$ from 1.5 to 8 and $r$ from 0.04 to 0.3/ft³) and draw the contours of the
    relative log-likelihood. What does the tilt of the contours mean?
@@ -641,7 +630,7 @@ tree $i$ in cubic feet (ft³), the column `Volume`, and we assume that the trees
    both as relative log-likelihoods. Find the range of values of $k$ for which each curve
    is within 1.92 units of the maximum (for the profile, with `confint()`). Which of the two
    ranges is a confidence interval, and why is the slice narrower? Hint: `tmbprofile()`
-   returns a data frame with a column `log_shape`, the values of $\log k$ that it visited,
+   returns a data frame with a column `log_shape`, the values of $\log(k)$ that it visited,
    and a column `value`, the NLL at each of them. By default the profile stops when the
    log-likelihood has dropped by about two units; the argument `ytol` sets that drop (for
    example, `ytol = 6`), so that the profile covers the same range as the slice.
@@ -704,18 +693,14 @@ rate_volume = unname(exp(volume_fit$par["log_rate"]))
 c(
   shape = shape_volume,
   rate_per_ft3 = rate_volume,
-  mean_ft3 = shape_volume / rate_volume,
-  sample_mean_ft3 = volume_mean,
-  nll = volume_fit$value
+  mean_ft3 = shape_volume / rate_volume
 )
 ```
 
 The convergence code is 0. The estimates are $\hat k\approx 3.89$, which has no units, and
 $\hat r\approx 0.129$/ft³. The rate has the units of one over the measurement,
 so that $k/r$ is a volume. By invariance, the MLE of the mean volume is
-$\hat k/\hat r\approx 30.2$ ft³. It equals the mean of the sample: as for the Negative
-Binomial model, the MLE of the mean of a Gamma model is the sample mean. The minimum of the NLL is
-125.7, that is, a maximum log-likelihood of $-125.7$.
+$\hat k/\hat r\approx 30.2$ ft³.
 
 ### Question 2
 
@@ -759,7 +744,7 @@ contour(
 points(x = shape_volume, y = rate_volume, pch = 16, col = "#D55E00")
 ```
 
-The correlation between the estimates of $\log k$ and $\log r$ is 0.94, and the contours of
+The correlation between the estimates of $\log(k)$ and $\log(r)$ is 0.94, and the contours of
 @fig-volume_surface are strongly tilted: a larger shape goes with a larger rate (the outer
 contours are cut by the edges of the grid). The reason is the same as for the parameters
 `size` and `prob` of the Negative Binomial distribution in the theory. The data determine
@@ -859,16 +844,16 @@ it has been replaced.
 1. Simulate 2,000 hypothetical samples, each of 31 trees, from a Gamma model whose shape
    and rate are the maximum likelihood estimates of Exercise 4, and estimate the shape in
    each sample by the method of moments and by maximum likelihood. Complete and run the
-   chunk below, which does this. Then calculate the mean, the standard deviation and the
-   mean squared error of each estimator, and compare the means with the shape that you
-   used to simulate.
+   chunk below, which does this. Check that every fit converged. Then calculate the mean,
+   the standard deviation and the mean squared error of each estimator, and compare the
+   means with the shape that you used to simulate.
 
 The function `simulate_gamma_samples()` in the chunk draws every sample with the function
 `simulate()` of an object that has placeholder data of the right length, as in the theory.
 For each sample it calculates the method-of-moments estimate of the shape, fits the model
 by maximum likelihood and stores the results in one row of the data frame `results`: the
 two estimates of the shape (`shape_ml` and `shape_mom`), the standard error of the
-estimate of $\log k$ from `sdreport()` (`se_log_shape`, which question 2 needs) and whether
+estimate of $\log(k)$ from `sdreport()` (`se_log_shape`, which question 2 needs) and whether
 the fit converged (`converged`). The sample size is an argument of the function because
 question 3 uses another one. There are five `NA` to replace: three inside the loop, which
 fit the model to one sample `x`, and two in the call at the end:
@@ -965,7 +950,7 @@ mean(covered)
 The three lines inside the loop fit the model to the sample `x` as we fitted it to the
 tree volumes in Exercise 4: `cmb()` connects `gamma_nll()` to `x`, `MakeADFun()` processes
 it with the starting values of the question, `optim()` minimises it, and `exp()` turns the
-estimate of $\log k$ into the shape. In the call we use the estimates of Exercise 4,
+estimate of $\log(k)$ into the shape. In the call we use the estimates of Exercise 4,
 `shape_volume` and `rate_volume`:
 
 ```{r}
@@ -1050,9 +1035,8 @@ c(ml = mean(trees_31$shape_ml), mom = mean(trees_31$shape_mom)) / shape_volume -
 The shape used to simulate is 3.89. Across the 2,000 hypothetical samples, the maximum
 likelihood estimates have a mean of 4.33, a standard deviation of 1.20 and an MSE of 1.63.
 The method-of-moments estimates have a mean of 4.43, a standard deviation of 1.30 and an MSE
-of 1.99. No fit failed. So with 31 trees both estimators are biased upwards, by 11% and 14%,
-and the MLE is the better of the two: it has the smaller bias, the smaller standard
-deviation and the smaller MSE. These summaries are themselves estimates from 2,000 samples
+of 1.99. No fit failed. So with 31 trees both estimators are biased upwards, by 11% and 14%.
+These summaries are themselves estimates from 2,000 samples
 and they change somewhat with the seed.
 
 ### Question 2
@@ -1074,9 +1058,7 @@ covered = lower <= shape_volume & shape_volume <= upper
 mean(covered)
 ```
 
-The coverage is 0.931. A coverage simulated with 2,000 samples has a standard error of
-about 0.006 ($\sqrt{0.93\times 0.07/2000}$), so it is below the nominal 0.95 by about three
-standard errors. With 31 trees the Wald interval is an approximation, and it contains the
+The coverage is 0.931, below the nominal 0.95. With 31 trees the Wald interval is an approximation, and it contains the
 shape slightly less often than its confidence level states.
 
 ### Question 3

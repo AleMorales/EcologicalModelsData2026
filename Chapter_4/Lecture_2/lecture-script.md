@@ -122,7 +122,7 @@ by simulation.
 
 ## Slide 6 — Asymptotic normality of the MLE
 
-In Chapter 3 we defined the Wald interval as $\hat\theta\pm z_{0.975}\widehat{\operatorname{SE}}(\hat\theta)$
+In Chapter 3 we defined the Wald interval as $\hat\theta\pm z_{0.975}\,\widehat{\operatorname{SE}}(\hat\theta)$
 and justified it with an approximately Normal sampling distribution of the estimator, and the chapter
 ended with the asymptotic normality of estimators. That result also applies to maximum likelihood
 estimators: as the sample grows, the sampling distribution of an MLE approaches a Normal distribution
@@ -157,7 +157,7 @@ named after Abraham Wald.
 
 The Normal approximation of the sampling distribution has a counterpart in the shape of the log-likelihood:
 in a large sample the log-likelihood near its maximum is close to a parabola,
-$\ell(\theta)-\ell(\hat\theta)\approx-(\theta-\hat\theta)^2/(2\widehat{\operatorname{SE}}(\hat\theta)^2)$.
+$\ell(\theta)-\ell(\hat\theta)\approx-(\theta-\hat\theta)^2/(2\,\widehat{\operatorname{SE}}(\hat\theta)^2)$.
 It is a polynomial of degree two in the parameter, with its maximum at the estimate and a width set by the
 standard error. With several parameters it is a polynomial of degree two in all of them, with a squared term
 for each parameter and a product term for each pair. The two approximations go together, and the Wald
@@ -589,7 +589,7 @@ More than one model can be plausible for the same data. Chapter 2 gave heuristic
 log-likelihoods, so it is natural to compare two models through their maximum log-likelihoods. That comparison is not fair when the models have different numbers of parameters. A model with more parameters has more freedom to adapt to the particular sample, including its accidental features.
 When one model contains the other as a special case (the Negative Binomial distribution approaches the Poisson distribution as $k$ grows), its maximum log-likelihood can never be lower.
 
-The **Akaike information criterion** (AIC) corrects the maximum log-likelihood for the number of parameters: $\mathrm{AIC}=2K-2\ell(\hat\theta)$, where $K$ is the number of estimated parameters (we write $K$ because $k$ is the shape of the Negative Binomial). The
+The **Akaike information criterion** (AIC) corrects the maximum log-likelihood for the number of parameters: $\mathrm{AIC}=2K-2\,\ell(\hat\theta)$, where $K$ is the number of estimated parameters (we write $K$ because $k$ is the shape of the Negative Binomial). The
 log-likelihood enters with a minus sign, so among models fitted to the same data the one with the lowest AIC is preferred. Like the value of a log-likelihood, the AIC of one model means nothing by itself: only differences between models fitted to the same observations, in the same units,
 are meaningful. Apart from a constant that is the same for all models, AIC estimates how far the fitted model is from the data generating process when it is used to predict new data from the same process, and the distance is the Kullback–Leibler divergence of slide 24. The maximum
 log-likelihood alone is too optimistic for that purpose because the same data were used to fit the model and to evaluate it, and the term $2K$ corrects for this. In plain English, AIC rewards a model for assigning a high probability to the data and penalises it for each parameter that it needed to do so.

@@ -114,12 +114,6 @@ prob_exactly_15 = dbinom(
 prob_exactly_15
 ```
 
-The combinatorial term can also be calculated directly in R:
-
-```{r}
-choose(25, 15)
-```
-
 ### 2. Probability that at least 15 survive
 
 “At least 15” means 15 or more:
@@ -173,7 +167,8 @@ $$
 
 ### 3. Expected number and variance of survivors
 
-For a Binomial random variable,
+For a Binomial random variable (see the
+[Binomial entry](../../Supplements/distributions.qmd#sec-binomial) of the supplement),
 
 $$
 \mu=E[X]=np
@@ -240,7 +235,8 @@ head(simulated_survivors)
 
 Each value in `simulated_survivors` is the number of survivors in one simulated group.
 
-To calculate the observed relative frequency for every possible number of survivors, use `table()`:
+To calculate the observed relative frequency for every possible number of survivors, use `table()`,
+which counts how many times each value occurs (`as.numeric()` turns the counts into a plain vector):
 
 ```{r}
 support = 0:n
@@ -261,13 +257,16 @@ comparison = data.frame(
   model = model_probability
 )
 
+# round(x, 4) rounds the values to four decimals
 round(comparison, 4)
 ```
 
 The `factor()` step ensures that all possible values from 0 to 25 are included, even if a
 value does not occur in the simulation.
 
-We can compare the observed frequencies and the model probabilities graphically:
+We can compare the observed frequencies and the model probabilities graphically. `barplot()`
+takes a matrix with one row per series (made here with `rbind()`) and `beside = TRUE` places the
+bars of the two series side by side:
 
 ```{r}
 barplot(
@@ -286,17 +285,6 @@ barplot(
 The observed frequencies will not exactly equal the model probabilities because only 1,000
 groups were simulated. They should generally be similar. With a larger number of simulated
 groups, the observed frequencies would usually become closer to the model probabilities.
-
-We can also compare the simulated and model values for the first two questions:
-
-```{r}
-c(
-  observed_exactly_15 = mean(simulated_survivors == 15),
-  model_exactly_15 = prob_exactly_15,
-  observed_at_least_15 = mean(simulated_survivors >= 15),
-  model_at_least_15 = prob_at_least_15
-)
-```
 
 
 # Exercise 2: Bill length under a Normal model
@@ -405,13 +393,13 @@ head(bill_lengths)
 ```
 
 Each value in `bill_lengths` is the bill length of one simulated penguin. We can now plot a
-histogram of the sample and add the density of the model with `curve()`:
+histogram of the sample and add the density of the model with `curve()` (its argument `add = TRUE` draws on the
+existing plot):
 
 ```{r}
 # Histogram on the density scale (probability = TRUE) so that it is comparable to the curve
 hist(
-  x = bill_lengths, breaks = 25, probability = TRUE,
-  col = "grey85", border = "white",
+  x = bill_lengths, probability = TRUE, col = "grey85",
   xlab = "Bill length (mm)", ylab = "Density (1/mm)",
   main = "Simulated bill lengths and Normal model"
 )
@@ -419,12 +407,7 @@ hist(
 # Add the density of the model that generated the sample
 curve(
   dnorm(x = x, mean = bill_mean, sd = bill_sd),
-  add = TRUE, lwd = 2
-)
-
-legend(
-  "topright", legend = "Normal density",
-  lty = 1, lwd = 2, bty = "n"
+  add = TRUE
 )
 ```
 
@@ -449,8 +432,9 @@ data(InsectSprays, package = "datasets")
 2. Repeat the same calculations but now do it separately for each `spray` treatment (tip: use
 the tools for data transformation we learnt in Chapter 1). Is there still evidence of overdispersion?
 
-3. Which model would you use for `count` when ignoring the `spray` treatment and which model would
-you try when doing it separately for each `spray` treatment?
+3. Which distribution would you use for `count` when ignoring the `spray` treatment and which
+distribution would you use within each `spray` treatment? Is it reasonable to treat all the counts
+together as i.i.d. observations from one distribution?
 
 # Exercise 4: Overdispersed quadrat counts
 
@@ -460,9 +444,10 @@ Let's assume a Negative Binomial distribution with a mean ($\mu = 6$) and shape 
 
 1. Calculate the mean and variance of the model using the formulas. Then verify them
 using `dnbinom2()` and weighted sums.
-2. Generate a sample of size 500.
+2. Generate a sample of size 500 with `rnbinom2()`.
 3. Calculate the mean and variance of this sample in R.
-4. Compare the Negative Binomial distribution with a Poisson distribution having the same mean.
+4. Compare the Negative Binomial distribution with a Poisson distribution having the same mean
+(see the [Poisson entry](../../Supplements/distributions.qmd#sec-poisson) for `dpois()`).
 How do they differ? What is the variance/mean ratio of the sample? Plot their probability mass functions.
 
 # Exercise 5: Body mass under a LogNormal model
@@ -472,7 +457,8 @@ Suppose body mass $X$ in grams follows a LogNormal model with `meanlog = log(30)
 logarithm of body mass. The formulae for the median and the mean are in the
 [LogNormal entry](../../Supplements/distributions.qmd#sec-lognormal) of the supplement.
 
-1. Calculate the median and the mean body mass of the model. Explain why they differ.
+1. Calculate the median and the mean body mass of the model. Explain why they differ. Verify the
+   mean with `integrate()`, using the limits 0 g and 1,000 g.
 2. Calculate the probability that body mass exceeds 50 g and the 95th percentile.
 3. Simulate 500 body masses with seed 202. Make density-scaled histograms on the
    original and log scales. Describe their shapes.
@@ -493,3 +479,15 @@ in the [Beta entry](../../Supplements/distributions.qmd#sec-beta) of the supplem
    and add the Beta density of the model.
 4. A field survey also records some quadrats with exactly zero cover. Explain
    why the proposed Beta model cannot describe those observations directly.
+5. Let $V=1$ if a quadrat has a cover of at least $0.20$ and $V=0$ otherwise, and let $S=1$ if
+   seedlings of a focal species are present in the quadrat and $S=0$ otherwise. Suppose the joint
+   distribution of $V$ and $S$ is:
+
+   | $S \backslash V$ | $v = 0$ | $v = 1$ |
+   |---|---:|---:|
+   | $s = 0$ | $0.25$ | $0.35$ |
+   | $s = 1$ | $0.10$ | $0.30$ |
+
+   Calculate the marginal distribution of $V$ and of $S$, and compare each joint probability with
+   the product of the corresponding marginal probabilities. Are $V$ and $S$ independent? (See
+   [Joint distributions](../Theory.qmd#sec-joint-independence) in the theory.)

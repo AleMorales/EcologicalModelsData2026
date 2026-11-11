@@ -30,7 +30,7 @@ of the Beta distribution are in the
 [Beta entry](../../Supplements/distributions.qmd#sec-beta) of the supplement.
 
 1. Set seed 123 and simulate one sample of 10 leaves and one sample of 1,000 leaves.
-   Calculate the mean, median and variance of each sample (use the variance of the
+   Calculate the mean, median (`median()`) and variance of each sample (use the variance of the
    empirical distribution, with divisor $n$, not `var()`).
 2. Repeat question 1 four times, using the seeds 11, 22, 33 and 44 (tip: use a for loop).
    How much do the sample properties vary between repetitions?
@@ -39,6 +39,12 @@ of the Beta distribution are in the
    values at the two sample sizes. Do the sample mean and the sample median approach the
    same value? What happens to the variation across repeated samples as the sample size
    increases?
+4. Set seed 99 and simulate a sample of 1,000 leaves. Draw its density-scaled histogram
+   with `hist()` (argument `probability = TRUE`) and add the kernel density estimate
+   (`lines()` of `density()`) and the model density (`curve()` of `dbeta()`, with
+   `add = TRUE`). Then draw the empirical cumulative distribution (`plot()` of `ecdf()`)
+   and add the model cumulative probability (`curve()` of `pbeta()`). Where do the sample
+   and the model differ, and why?
 
 ## Solution
 
@@ -47,7 +53,8 @@ of the Beta distribution are in the
 The observational unit is one leaf. We simulate the fraction of eaten area of each leaf with
 `rbeta()` and summarise the sample through its empirical distribution: the mean, the median
 (the 0.5 quantile of the sample) and the variance with divisor $n$,
-$\frac{1}{n}\sum_{i=1}^{n}(x_i-\bar x)^2$. The function `var()` would use $n-1$ instead.
+$\frac{1}{n}\sum_{i=1}^{n}(x_i-\overline x)^2$. The function `var()` would use $n-1$ instead.
+In the loop, `rbind()` stacks the row of each sample under the table of results.
 
 ```{r}
 # Shape parameters of the Beta model and the two sample sizes.
@@ -129,8 +136,7 @@ ranges from 0.246 to 0.251, the median from 0.223 to 0.233 and the variance from
 
 The mean and the variance of the Beta model are $E[X]=a/(a+b)$ and
 $\operatorname{Var}(X)=ab/((a+b)^2(a+b+1))$. The median has no simple formula, so we
-calculate it as the 0.5 quantile. We summarise the variation across the four repetitions
-with the standard deviation of each sample property:
+calculate it as the 0.5 quantile:
 
 ```{r}
 # Model values, which do not depend on the sample size.
@@ -146,13 +152,6 @@ model_values = data.frame(
   variance = model_variance
 )
 model_values
-
-# Standard deviation across the four repetitions for each sample size.
-aggregate(
-  cbind(mean, median, variance) ~ n,
-  data = repeated_results,
-  FUN = sd
-)
 ```
 
 The model values are the same for both sample sizes: a mean of 0.25, a median of
@@ -163,15 +162,53 @@ the sample size grows, the sample mean converges to 0.25 and the sample median t
 which is why every median in the previous question, even for 1,000 leaves, is clearly below
 0.25. Both statistics converge, but to different features of the model.
 
-The variation across repetitions decreases with the sample size for all three properties.
-The standard deviation of the sample mean across the four repetitions falls from
-approximately 0.032 for 10 leaves to 0.002 for 1,000 leaves, that of the median from 0.034
-to 0.005 and that of the variance from 0.0055 to 0.0004. In these repetitions the median
-varies more than the mean at 1,000 leaves, but four repetitions are too few to conclude
-that this holds in general. Finally, the variance with divisor $n$ has an expected value of
-$\frac{n-1}{n}\operatorname{Var}(X)$, which is approximately 0.0188 for $n=10$ and 0.0208
-for $n=1{,}000$. This explains why the variances of the small samples tend to fall slightly
-below the model value, a difference that becomes negligible as the sample size increases.
+The variation across repetitions decreases with the sample size for all three properties:
+the ranges reported in question 2 are much narrower with 1,000 leaves than with 10 leaves.
+
+### Question 4
+
+The density-scaled histogram, the kernel density estimate and the model density are all on
+the scale of a density, so they can share one plot. The empirical cumulative distribution
+and the model cumulative probability share a second plot. The argument `probability = TRUE`
+of `hist()` scales the bar heights to relative frequency divided by bin width, `density()`
+returns the kernel density estimate, which `lines()` can draw, and `ecdf()` returns the
+empirical cumulative distribution as a function that `plot()` draws as steps.
+
+```{r}
+set.seed(seed = 99)
+leaf_damage = rbeta(n = 1000, shape1 = shape_a, shape2 = shape_b)
+
+# Density-scaled histogram, kernel density estimate (dashed) and model density (solid).
+# xlim sets the range of the horizontal axis, wide enough to show the kernel density
+# estimate below 0.
+hist(
+  leaf_damage, probability = TRUE, xlim = c(-0.1, 1),
+  xlab = "Fraction of leaf area eaten", ylab = "Density", main = ""
+)
+lines(density(leaf_damage), lty = 2)
+curve(
+  dbeta(x, shape1 = shape_a, shape2 = shape_b),
+  from = 0, to = 1, add = TRUE, col = "#D55E00"
+)
+
+# Empirical cumulative distribution (steps) and model cumulative probability.
+plot(
+  ecdf(leaf_damage),
+  xlab = "Fraction of leaf area eaten", ylab = "Cumulative probability", main = ""
+)
+curve(
+  pbeta(x, shape1 = shape_a, shape2 = shape_b),
+  from = 0, to = 1, add = TRUE, col = "#D55E00"
+)
+```
+
+The bars of the histogram fluctuate around the model density, because every bar is a
+relative frequency of a finite sample, and their heights depend on the bin width that
+`hist()` chose. The kernel density estimate is smoother than the bars. Because a kernel is
+placed on every observation, it extends slightly below 0, where the Beta model has no
+density. The empirical cumulative distribution follows the model cumulative probability
+closely, with small differences that come from sampling variation; with a different seed
+they would change.
 
 # Exercise 3: Variation in tree heights
 
@@ -264,53 +301,19 @@ variance_estimates = replicate(
   }
 )
 
-# Average of each estimator across samples and its simulated bias.
+# Average of each estimator across samples (`rowMeans()` averages each row of the
+# matrix returned by `replicate()`) and its simulated bias.
 average_variance = rowMeans(variance_estimates)
 simulated_bias = average_variance - variance_mm
 
-data.frame(
-  estimator = rownames(variance_estimates),
-  average_variance_ft2 = average_variance,
-  simulated_bias_ft2 = simulated_bias,
-  row.names = NULL
-)
+average_variance
+simulated_bias
 ```
 
 The method-of-moments estimator averages approximately 37.56 ft², below the 39.29 ft² used
 to simulate. Its simulated bias is approximately $-1.73$ ft², while the expected bias is
 $-39.29/31 = -1.27$ ft². The estimator from `var()` averages approximately 38.81 ft², with
 a simulated bias of $-0.48$ ft² rather than exactly zero.
-
-The differences from the expected values are due to the finite number of hypothetical
-samples: each average is itself an estimate, and it would change with another seed. We
-can calculate how much such an average varies. The standard error of the average of 2,000
-estimates is the standard deviation of those estimates divided by $\sqrt{2000}$ (see
-[Standard errors](../Theory.qmd#sec-standard_errors)), and the simulated bias has the same
-standard error because it only subtracts a constant:
-
-```{r}
-# Standard deviation of each estimator across the hypothetical samples.
-sd_estimates = c(
-  method_of_moments = sd(variance_estimates["method_of_moments", ]),
-  with_var = sd(variance_estimates["with_var", ])
-)
-
-# Standard error of each average, and therefore of each simulated bias.
-se_simulated_bias = sd_estimates / sqrt(n_samples)
-se_simulated_bias
-
-# Distance between the simulated and the expected bias, in standard errors.
-expected_bias = c(method_of_moments = -variance_mm / n_trees, with_var = 0)
-(simulated_bias - expected_bias) / se_simulated_bias
-```
-
-The standard error is approximately 0.22 ft² for the method-of-moments estimator and
-0.23 ft² for `var()`. So both simulated biases are about two standard errors (2.1) below
-their expected values. A deviation of this size is unusual, but it is still within what
-2,000 samples can produce, and a simulation with more samples would come closer to
-the expected values. The simulation shows the bias of the
-estimators for the fitted model; the real model has an unknown variance that is probably
-somewhat different from 39.29 ft², so the bias of the real estimators will also differ.
 
 ### Question 3
 
@@ -343,7 +346,7 @@ calculate approximate 95% Wald confidence intervals for the mean mass (see
 contain it.
 
 1. Calculate the model mean and median mass in grams. Set seed 443, simulate one sample of 12
-   animals, and calculate its sample mean, sample median, and estimated standard error of the
+   animals, and calculate its sample mean, sample median (`median()`), and estimated standard error of the
    sample mean (`sd(mass) / sqrt(n)`).
 2. For this sample, calculate a 95% Wald interval for the **original-scale mean mass** using
    `qnorm()`. Interpret the interval. Why is its coverage only approximate for these
@@ -400,9 +403,7 @@ c(
 
 The sample mean is approximately 34.4 g and the sample median approximately 25.4 g, both below
 the model values. The estimated standard error is approximately 9.2 g. It describes the
-variation of the sample mean across hypothetical samples of 12 animals each, whereas the
-standard deviation of the 12 masses describes the variation among individual animals and does
-not decrease when more animals are measured.
+variation of the sample mean across hypothetical samples of 12 animals each.
 
 ### Question 2
 
@@ -439,7 +440,7 @@ mean. The fraction of `TRUE` values is the simulated coverage.
 
 ```{r}
 # Simulated coverage of the 95% Wald interval for a given number of animals.
-coverage_for_size = function(n_animals, n_samples = 2000) {
+coverage_for_size = function(n_animals, n_samples) {
   covered = replicate(
     n = n_samples,
     expr = {
@@ -453,7 +454,7 @@ coverage_for_size = function(n_animals, n_samples = 2000) {
       lower = estimate - critical_value * se
       upper = estimate + critical_value * se
       # TRUE if the interval contains the model mean.
-      lower <= true_mean && true_mean <= upper
+      lower <= true_mean & true_mean <= upper
     }
   )
   mean(covered)
@@ -461,15 +462,14 @@ coverage_for_size = function(n_animals, n_samples = 2000) {
 
 set.seed(seed = 444)
 simulated_coverage = c(
-  n_12 = coverage_for_size(n_animals = 12),
-  n_100 = coverage_for_size(n_animals = 100)
+  n_12 = coverage_for_size(n_animals = 12, n_samples = 2000),
+  n_100 = coverage_for_size(n_animals = 100, n_samples = 2000)
 )
 simulated_coverage
 ```
 
 The simulated coverage is approximately 0.864 for 12 animals and 0.924 for 100 animals, both
-below the nominal 0.95. These fractions depend on the seed: with 2,000 samples, the
-simulation error of a coverage near 0.9 is approximately 0.007. With 12 animals, a sample that
+below the nominal 0.95. With 12 animals, a sample that
 lacks the few very large masses has both a small sample mean and a small estimated standard
 error. Its interval is then too narrow and lies below the model mean, which is how most of
 the misses occur. With 100 animals the sampling distribution of the sample mean is closer to
@@ -481,5 +481,3 @@ coverage is closer to 0.95, although at this sample size it is still not equal t
 These coverages hold under the specified LogNormal model with independent animals. Real body
 masses may follow a different distribution, so the shape of the sampling distribution of the
 mean, and therefore the coverage of the Wald interval, can differ from the simulated one.
-Animals from the same site or litter would also violate the independence assumption, which
-the simulation does not explore.
