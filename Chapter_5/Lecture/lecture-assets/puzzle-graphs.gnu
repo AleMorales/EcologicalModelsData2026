@@ -236,6 +236,8 @@ set arrow 4 from 0, h2(9*log(2)/b), 0.00000 to 9*log(2)/b, h2(9*log(2)/b), 0.000
 set arrow 7 from 4*log(2)/b, 0, 0.00000 to 4*log(2)/b, h2(4*log(2)/b), 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
 set arrow 8 from 0, h2(4*log(2)/b), 0.00000 to 4*log(2)/b, h2(4*log(2)/b), 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
 
+set arrow 9 from 0, a, 0.00000 to xmax,a, 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype 2
+
  set output 'puzzle_stretchedExponential.png'
 plot h2(x) w l lw 3 lc rgb "#ee8800" ti "h_2(x)"
 
@@ -266,8 +268,10 @@ plot g(x) w l lw 3 lc rgb "#ee8800" ti "g(x)"
 
 j(x) = a*x/(b+x)**2
 j2(x) = a2*x/(b2+x**2)
+j2x(x) = a3*x/(b3+x**(1.3333333))
 jPrime(x) = a*(b**2-x**2)/(b+x)**4
 j2Prime(x) = a2*(b2-x**2)/(b2+x**2)**2
+j2xPrime(x) = a3*(b3-1./3*x**(4./3))/(b3+x**(4./3))**2
 set xrange [0:20]
 set xtics 5
 lTan=0.9
@@ -276,6 +280,8 @@ a=60.
 b=5.
 a2=30.
 b2=25.
+b3=(0.3333333)*b**(1.3333333)
+a3=a/b**2*b3
 unset arrow
 unset label
 set arrow 1 from 0, 0, 0.00000 to lTan, lTan*jPrime(0), 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
@@ -286,7 +292,7 @@ set arrow 5 from 2*b,0 to 2*b,j(2*b) nohead back nofilled linecolor rgb "#0033aa
 
 #set label 1 "12/5" at 0.3, 2.4, 0.00000 left norotate back nopoint
 set label 1 "12/5" at 0.3, 0.3, 0.00000 left norotate back nopoint
- set output 'puzzle_hassel.png'
+ set output 'puzzle_hassell.png'
 plot j(x) w l lw 3 lc rgb "#ee8800" ti "j(x)"
 
 
@@ -298,8 +304,20 @@ set label 1 "12/5" at 1.2, 0.7, 0.00000 left norotate back nopoint #color rgb "#
 set label 2 "6/5" at 1.5, 0.3, 0.00000 left norotate back nopoint #color rgb "#aa0000" 
 #set label 3 "{/Symbol @\\\\326\140}3 *5" at 8.5,1 left rotate by 90 back nopoint 
 
- set output 'puzzle_hassel-shephard.png'
-plot j(x) w l lw 3 lc rgb "#ee8800" ti "j(x)", \
-j2(x) w l lw 3 lc rgb "#aa0000" ti "j_2(x)"
+set output 'puzzle_hassell-shepherd.png'
+plot j(x) w l lw 3 lc rgb "#ee8800" ti "j(x)=ax/(b+x)^2", \
+j2(x) w l lw 3 lc rgb "#aa0000" ti "j_2(x)=ax/(b+x^2)"
+
+unset label 2
+unset arrow 6
+unset arrow 7
+unset arrow 8
+
+set arrow 6 from 9.44-lTan2,-lTan2*j2xPrime(9.44)+j2x(9.44) to 9.44+lTan2,lTan2*j2xPrime(9.44)+j2x(9.44) nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
+set arrow 7 from 9.44,0 to 9.44,j2x(9.44) nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
+
+set output 'puzzle_hassell-shepherd2.png'
+plot j(x) w l lw 3 lc rgb "#ee8800" ti "j(x)=ax/(b+x)^2", \
+j2x(x) w l lw 3 lc rgb "#aa0000" ti "j_2(x)=ax/(b+x^{4/3})"
 
 
