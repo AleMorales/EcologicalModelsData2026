@@ -253,7 +253,7 @@ unset label
 unset arrow
 g(x) = a*x*exp(-b*x)
 gPrime(x) = a*(-b*x+1)*exp(-b*x)
-a=5
+a=5.
 b=0.5
 lTan = 1.5
 set arrow 1 from 0.00000, 10*exp(-1), 0.00000 to 1/b, 10*exp(-1), 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
@@ -265,6 +265,32 @@ set label 1 "10/e" at -0.900000, 10*exp(-1), 0.00000 left norotate back nopoint
 set label 2 "5" at 0.1, 2.2, 0.00000 left norotate back nopoint
  set output 'puzzle_ricker.png'
 plot g(x) w l lw 3 lc rgb "#ee8800" ti "g(x)"
+
+unset label
+unset arrow
+set ylabel "f(x)"
+a=4
+b=0.4
+set arrow 1 from 0.7/b, g(1/b), 0.00000 to 1.3/b, g(1/b), 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
+set arrow 2 from 1/b, 0, 0.00000 to 1/b, g(1/b), 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
+set output 'ricker-max.png'
+plot g(x) w l lw 3 lc rgb "#ee8800" ti "f(x)=ax*e^{-bx}"
+
+set label 1 "1/b" at 1.1/b,0.3, 0 left norotate back nopoint
+set label 2 "a/b e^{-1}" at 1.4/b,g(1/b), 0 left norotate back nopoint
+set output 'ricker-max_withLabel.png'
+replot
+
+unset arrow
+unset label
+set arrow 3 from 2/b, 0, 0.00000 to 2/b, g(2/b), 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
+set arrow 5 from 2/b -lTan,-lTan*gPrime(2/b)+g(2/b),0 to 2/b+lTan,lTan*gPrime(2/b)+g(2/b),0 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
+#set label 1 "10/e" at -0.900000, 10*exp(-1), 0.00000 left norotate back nopoint
+set output 'ricker-inflection.png'
+plot g(x) w l lw 3 lc rgb "#ee8800" ti "f(x)=ax*e^{-bx}"
+
+
+set ylabel "y"
 
 j(x) = a*x/(b+x)**2
 j2(x) = a2*x/(b2+x**2)
