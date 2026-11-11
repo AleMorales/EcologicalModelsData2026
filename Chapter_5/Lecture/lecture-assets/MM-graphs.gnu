@@ -203,4 +203,42 @@ set label 1 "a" at 1, 9.400, 0.00000 left norotate back nopoint
  set output 'MM-limit_withLabel.png'
 replot
 
+unset arrow
+unset label
+#set arrow 1 from 0.00000, 0.00000, 0.00000 to 1, a/b, 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
+set arrow 1 from b,0 to b,f(b) nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
+set arrow 2 from 0,f(b) to b,f(b) nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
+set arrow 3 from 0.00000, a, 0.00000 to 10, a, 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype 2
+set title "Starting function"
+ set output 'MM-start.png'
+plot f(x) w l lw 3 lc rgb "#ee8800" ti "f(x) = ax/(b+x)"
+
+set title "shift up (+c)"
+set arrow 1 from b,0 to b,f(b)+1 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
+set arrow 2 from 0,f(b)+1 to b,f(b)+1 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
+set arrow 3 from 0.00000, a+1, 0.00000 to 10, a+1, 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype 2
+ set output 'MM-shift-up.png'
+plot f(x)+1 w l lw 3 lc rgb "#ee8800" ti "f(x) = ax/(b+x)+1"
+
+
+set title "shift right (x-c)"
+set arrow 1 from b+1,0 to b+1,f(b) nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
+set arrow 2 from 0,f(b) to b+1,f(b) nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
+set arrow 3 from 0.00000, a, 0.00000 to 10, a, 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype 2
+ set output 'MM-shift-right.png'
+plot a*(x-1)/(b+x-1) w l lw 3 lc rgb "#ee8800" ti "f(x) = a(x-1)/(b+x-1)"
+
+set title "scale y (c f(x))"
+set arrow 1 from b,0 to b,0.5*f(b) nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
+set arrow 2 from 0,0.5*f(b) to b,0.5*f(b) nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
+set arrow 3 from 0.00000, 0.5*a, 0.00000 to 10, 0.5*a, 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype 2
+ set output 'MM-scale-y.png'
+plot 0.5*f(x) w l lw 3 lc rgb "#ee8800" ti "f(x) = 0.5*ax/(b+x)"
+
+set arrow 1 from b/2,0 to b/2,f(b) nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
+set arrow 2 from 0,f(b) to b/2,f(b) nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
+set arrow 3 from 0.00000, a, 0.00000 to 10, a, 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype 2
+set title "scale x (f(cx))"
+ set output 'MM-scale-x.png'
+plot f(2*x) w l lw 3 lc rgb "#ee8800" ti "f(x) = a*2x/(b+2x)"
 
