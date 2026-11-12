@@ -10,7 +10,6 @@
 #    	gnuplot home:     http://www.gnuplot.info
 #    	faq, bugs, etc:   type "help FAQ"
 #    	immediate help:   type "help"  (plot window: hit 'h')
- set terminal pngcairo truecolor nocrop enhanced butt size 640,480 font "arial,14.0" 
 unset clip points
 set clip one
 unset clip two
@@ -192,8 +191,12 @@ set arrow 1 from 0.00000, d+0.5*c, 0.00000 to -a/b, d+0.5*c, 0.00000 nohead back
 set arrow 2 from -a/b, 0, 0.00000 to -a/b, d+0.5*c, 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
 set arrow 3 from 0.00000, c+d, 0.00000 to xmax, c+d, 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype 2
 #set label 2 "11" at 1,c+0.5*d
+ set terminal pngcairo truecolor nocrop enhanced butt size 640,480 font "arial,14.0" 
  set output 'puzzle_logistic.png'
 plot f(x) w l lw 3 lc rgb "#ee8800" ti "f(x)"
+set term pdf
+ set output 'puzzle_logistic.pdf'
+replot
 
 xmax = 10
 ymax= 9
@@ -219,8 +222,12 @@ set arrow 8 from 0, h(4*log(2)/b), 0.00000 to 4*log(2)/b, h(4*log(2)/b), 0.00000
 
 set arrow 9 from 0, a, 0.00000 to xmax,a, 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype 2
 
+ set terminal pngcairo truecolor nocrop enhanced butt size 640,480 font "arial,14.0" 
  set output 'puzzle_normalExponential.png'
 plot h(x) w l lw 3 lc rgb "#ee8800" ti "h_1(x)"
+set term pdf
+ set output 'puzzle_normalExponential.pdf'
+replot
 
 
 set key top right
@@ -238,8 +245,12 @@ set arrow 8 from 0, h2(4*log(2)/b), 0.00000 to 4*log(2)/b, h2(4*log(2)/b), 0.000
 
 set arrow 9 from 0, a, 0.00000 to xmax,a, 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype 2
 
+ set terminal pngcairo truecolor nocrop enhanced butt size 640,480 font "arial,14.0" 
  set output 'puzzle_stretchedExponential.png'
 plot h2(x) w l lw 3 lc rgb "#ee8800" ti "h_2(x)"
+set term pdf
+ set output 'puzzle_stretchedExponential.pdf'
+replot
 
 
 
@@ -263,8 +274,12 @@ set arrow 4 from 0, 0, 0.00000 to 0.5, 0.5*a, 0.00000 nohead back nofilled linec
 set arrow 5 from 2/b -lTan,-lTan*gPrime(2/b)+g(2/b),0 to 2/b+lTan,lTan*gPrime(2/b)+g(2/b),0 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
 set label 1 "10/e" at -0.900000, 10*exp(-1), 0.00000 left norotate back nopoint
 set label 2 "5" at 0.1, 2.2, 0.00000 left norotate back nopoint
+ set terminal pngcairo truecolor nocrop enhanced butt size 640,480 font "arial,14.0" 
  set output 'puzzle_ricker.png'
 plot g(x) w l lw 3 lc rgb "#ee8800" ti "g(x)"
+set term pdf
+ set output 'puzzle_ricker.pdf'
+replot
 
 unset label
 unset arrow
@@ -273,6 +288,7 @@ a=4
 b=0.4
 set arrow 1 from 0.7/b, g(1/b), 0.00000 to 1.3/b, g(1/b), 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
 set arrow 2 from 1/b, 0, 0.00000 to 1/b, g(1/b), 0.00000 nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
+ set terminal pngcairo truecolor nocrop enhanced butt size 640,480 font "arial,14.0" 
 set output 'ricker-max.png'
 plot g(x) w l lw 3 lc rgb "#ee8800" ti "f(x)=ax*e^{-bx}"
 
@@ -318,8 +334,12 @@ set arrow 5 from 2*b,0 to 2*b,j(2*b) nohead back nofilled linecolor rgb "#0033aa
 
 #set label 1 "12/5" at 0.3, 2.4, 0.00000 left norotate back nopoint
 set label 1 "12/5" at 0.3, 0.3, 0.00000 left norotate back nopoint
+ set terminal pngcairo truecolor nocrop enhanced butt size 640,480 font "arial,14.0" 
  set output 'puzzle_hassell.png'
 plot j(x) w l lw 3 lc rgb "#ee8800" ti "j(x)"
+set term pdf
+ set output 'puzzle_hassell.pdf'
+replot
 
 
 set arrow 6 from sqrt(3)*sqrt(b2)-lTan2,-lTan2*j2Prime(sqrt(3)*sqrt(b2))+j2(sqrt(3)*sqrt(b2)) to sqrt(3)*sqrt(b2)+lTan2,lTan2*j2Prime(sqrt(3)*sqrt(b2))+j2(sqrt(3)*sqrt(b2)) nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
@@ -330,9 +350,13 @@ set label 1 "12/5" at 1.2, 0.7, 0.00000 left norotate back nopoint #color rgb "#
 set label 2 "6/5" at 1.5, 0.3, 0.00000 left norotate back nopoint #color rgb "#aa0000" 
 #set label 3 "{/Symbol @\\\\326\140}3 *5" at 8.5,1 left rotate by 90 back nopoint 
 
+ set terminal pngcairo truecolor nocrop enhanced butt size 640,480 font "arial,14.0" 
 set output 'puzzle_hassell-shepherd.png'
 plot j(x) w l lw 3 lc rgb "#ee8800" ti "j(x)=ax/(b+x)^2", \
 j2(x) w l lw 3 lc rgb "#aa0000" ti "j_2(x)=ax/(b+x^2)"
+set term pdf
+set output 'puzzle_hassell-shepherd.pdf'
+replot
 
 unset label 2
 unset arrow 6
@@ -342,6 +366,7 @@ unset arrow 8
 set arrow 6 from 9.44-lTan2,-lTan2*j2xPrime(9.44)+j2x(9.44) to 9.44+lTan2,lTan2*j2xPrime(9.44)+j2x(9.44) nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
 set arrow 7 from 9.44,0 to 9.44,j2x(9.44) nohead back nofilled linecolor rgb "#0033aa"  linewidth 1.000 dashtype solid
 
+ set terminal pngcairo truecolor nocrop enhanced butt size 640,480 font "arial,14.0" 
 set output 'puzzle_hassell-shepherd2.png'
 plot j(x) w l lw 3 lc rgb "#ee8800" ti "j(x)=ax/(b+x)^2", \
 j2x(x) w l lw 3 lc rgb "#aa0000" ti "j_2(x)=ax/(b+x^{4/3})"
