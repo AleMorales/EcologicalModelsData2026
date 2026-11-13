@@ -149,6 +149,19 @@ elsewhere.
 - The production build renders Chapters 1 to 8 (with the lectures of Chapters 1 to 4 and 6
   to 8), Case study 1 (listed under "Theory" between Chapters 4 and 5), Case study 2
   (between Chapters 7 and 8) and six supplements.
+- The printable PDF is a Typst book in the third profile of the group, `_quarto-pdf.yml`
+  (`quarto render --profile pdf --to typst`, output in `_book-pdf/`): the theory pages,
+  the student practicals and the supplements as three parts, and the solutions of the
+  practicals as appendices; no lectures. A page added to the production build is added
+  there too. The publish workflow renders it after the site and copies it into the site
+  for the "Download PDF" link of the sidebar. Two Typst-only filters adapt the website
+  pages without changing them: `filters/typst-verb.lua` (pandoc cannot convert `\verb`
+  in mathematics) and `filters/typst-book.lua` (moves page sections one level below the
+  chapter title, makes the IDs of the solution pages unique, because one Typst document
+  allows each label once, and leaves the preface and the case studies unnumbered).
+  Author's decision of 13 November: theory chapters keep their course numbers in the
+  PDF; the case studies are unnumbered, and their figures, equations and callouts are
+  labelled C1.n and C2.n.
 - Every package loaded in a rendered page must be in `.github/workflows/publish.yml`, or
   the production build fails. Production needs `MASS`, `ggplot2`, `patchwork`, `dplyr`,
   `RTMB`, `RTMBdist`, `TMB` (for `tmbprofile()`), `quarto`, `glmmTMB` (`Salamanders`,

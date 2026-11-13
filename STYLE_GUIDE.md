@@ -531,7 +531,10 @@ one group.
 Keep fence lengths matched and the nesting intact. Collapsing a solution does not hide it
 from the student version; the conditional div does. In the separate files of later
 chapters use `# Exercise N: Topic` and `## Solution`. A `no_solution.qmd` may contain
-worked exercises (`AGENTS.md` lists them).
+worked exercises (`AGENTS.md` lists them). Practicals are titled
+`"Chapter N: Title of the chapter"` and their solutions
+`"Chapter N: Title of the chapter — solutions"` (an em dash); the PDF build finds the
+solution pages by the word "solutions" in the title.
 
 ## R coding patterns
 

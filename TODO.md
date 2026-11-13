@@ -41,7 +41,7 @@ Practical and theory reviewed by the author on 11 November.
 
 Practical (`Chapter_6/Practicals/no_solution.qmd`, `solution.qmd`):
 
-- [ ] **Open gap, needs a decision: no question fits a Beta-Binomial model** or uses
+- [x] **Open gap, needs a decision: no question fits a Beta-Binomial model** or uses
       `dbetabinom()`, although a model for overdispersed proportions is a learning goal, a
       roadmap row and recipe step 8. No data set of the practical is a proportion. Proposal
       of the agents: an extra question (about 20 minutes) on `emdbook::ReedfrogPred` with a
