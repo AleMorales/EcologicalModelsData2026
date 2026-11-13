@@ -58,9 +58,7 @@ treat as independent.
    [Normal](../../Supplements/distributions.qmd#sec-normal) observation model with a
    constant standard deviation $\sigma$. Give the units of $a$, $b$ and $\sigma$. The
    titres in these data are all positive; why can a Normal model, which allows any real
-   value, be used for them? Hint: compare the probability that a Normal distribution gives
-   to negative values with the size of its standard deviation (question 2 asks you to check
-   this with the fitted model).
+   value, be used for them?.
 2. Write the negative log-likelihood (NLL) with $\log(a)$, $\log(b)$ and $\log(\sigma)$ as
    parameters, and fit it from the values read by eye in the Chapter 5 practical. Check
    the convergence, report the estimates with their units, and calculate the gradient of
@@ -69,21 +67,15 @@ treat as independent.
    show? Use the fitted model to check your answer to question 1, and draw the fitted curve
    over the data together with the curve by eye.
 3. Calculate the standard errors and the correlation between the estimates with
-   `sdreport()`. Ask for the time of the peak, $1/b$, and the height of the peak,
-   $a/(be)$, on their original scale with `ADREPORT()`, and calculate 95% Wald intervals
-   for both. Why can these intervals be calculated on the original scale here? Then calculate the
-   likelihood profile interval of $b$ with `TMB::tmbprofile()` and `confint()`, and from
-   it an interval for the time of the peak. Compare the two intervals for the time of the
-   peak. Hint: a Wald interval is symmetric around the estimate, so on the original scale it
-   can reach beyond a bound of the quantity when the estimate lies close to that bound;
-   compare each estimate with its standard error.
+   `sdreport()`. Include the time of the peak, $1/b$, using `ADREPORT()`, and calculate its
+   95% Wald interval. Then calculate the likelihood profile interval of $b$ with
+   `TMB::tmbprofile()` and `confint()`, and from it derived a second interval for the time
+   of the peak. Compare the two intervals for the time of the peak.
 4. Simulate 1,000 hypothetical samples from the fitted model with `simulate()`, and
    calculate the scaled quantile residuals with DHARMa. Plot them, also against the day of
    the observation, and say what they show.
 5. Fit the same curve with a [Gamma](../../Supplements/distributions.qmd#sec-gamma)
-   observation model, with the curve as its mean $\mu$ and a shape $k$ (`dgamma()` takes
-   the arguments `shape` and `scale = mu / shape`, because the mean of a Gamma distribution
-   is the product of its shape and its scale).
+   observation model, with the curve as its mean $\mu$ and a shape $k$.
    How does the spread of the titres around the curve differ between the two models?
    Compare them with AIC, AICc and BIC. Why do the three criteria give the same difference
    here?
@@ -113,11 +105,11 @@ argument of an exponential and has no units, and $a$ is in units of titre/day, b
 must have the units of the titre. The standard deviation $\sigma$ measures the spread of
 the observations, so it has the units of the titre (log10 infectious doses).
 
-A Normal model gives a positive probability to negative titres, which do not occur in these
+A Normal model allow for negative titres, which do not occur in these
 data. This does not matter when that probability is negligible. The titres lie between 4.2
 and 8.5 and vary by about one unit among the observations of the same day, so if the curve
-passes near the observations its value lies many standard deviations above zero. We check
-this after the fit.
+passes near the observations its value lies many standard deviations above zero (in a
+normal distribution, 99.7% of the data lies within 3 standard deviations of the mean).
 
 ### Question 2
 
@@ -226,18 +218,16 @@ legend("bottomright", legend = c("Maximum likelihood", "By eye (Chapter 5)"),
 
 ### Question 3
 
-The time and the height of the peak are quantities calculated from the parameters, so we
+The time of the peak is not a parameter of a model but rather derived from them, so we
 ask for their standard errors with `ADREPORT()` inside the NLL, as in
-[Uncertainty of the fitted curve](../Theory.qmd#sec-delta-method). We also mark the titres
-with `OBS()`, which question 4 needs in order to simulate. We process the new NLL and fit
-it again (the estimates do not change):
+[Uncertainty of the fitted curve](../Theory.qmd#sec-delta-method). We process the new NLL
+and fit it again (the estimates do not change):
 
 ```{r}
-# The NLL with the time and the height of the peak in ADREPORT(), and the titres marked
+# The NLL with the time of the peak in ADREPORT(), and the titres marked
 # as observations for the simulations of question 4.
 normal_nll = function(parms, data) {
   getAll(parms, data)
-  titre = OBS(titre)
   a = exp(log_a)
   b = exp(log_b)
   sigma = exp(log_sigma)
@@ -245,7 +235,6 @@ normal_nll = function(parms, data) {
   peak_time = 1 / b
   peak_titre = a / (b * exp(1))
   ADREPORT(peak_time)
-  ADREPORT(peak_titre)
   mu = a * day * exp(-b * day)
   -sum(dnorm(x = titre, mean = mu, sd = sigma, log = TRUE))
 }
@@ -279,27 +268,23 @@ $\log(\hat\sigma)$. The estimates of $\log(a)$ and $\log(b)$ are strongly correl
 (0.95): a curve with a steeper initial rise (a larger $a$) must also decline sooner (a
 larger $b$) to keep its peak at the height of the observations.
 
-We asked for the time and the height of the peak on their original scale, in days and in
-units of titre, so their Wald intervals are calculated on that scale. The theory calculates
-Wald intervals on a scale on which the quantity is unbounded
-([Uncertainty of the fitted curve](../Theory.qmd#sec-delta-method)), because an interval on
-the original scale can cross the bound when the estimate is close to it. Both quantities
-are positive, but their estimates lie about 16 and 50 standard errors above zero, so here
-an interval on the original scale cannot reach the bound:
+We want to calculate Wald intervals for the time of the peak. Because this is not a parameter
+of the model we calculate it using the `ADREPORT()` inside the function which also applies
+the Delta Method (this is needed as we are optimizing `log(b)` rather than `b`). We calculate
+the Wald interval as usual:
 
 ```{r}
 # 95% Wald intervals of the time and the height of the peak, on the original scale.
 critical_value = qnorm(p = 0.975)
-peak_summary = summary(normal_sd, select = "report")
+peak_summary = summary(normal_sd)["peak_time",]
 cbind(
-  estimate = peak_summary[, "Estimate"],
-  lower = peak_summary[, "Estimate"] - critical_value * peak_summary[, "Std. Error"],
-  upper = peak_summary[, "Estimate"] + critical_value * peak_summary[, "Std. Error"]
+  estimate = peak_summary["Estimate"],
+  lower = peak_summary["Estimate"] - critical_value * peak_summary["Std. Error"],
+  upper = peak_summary["Estimate"] + critical_value * peak_summary["Std. Error"]
 )
 ```
 
-The peak is estimated on day 6.05 (95% Wald interval from 5.30 to 6.80 days) at a titre of
-7.61 (from 7.32 to 7.91).
+The peak is estimated on day 6.05 (95% Wald interval from 5.30 to 6.80 days).
 
 For the likelihood profile interval we profile $\log(b)$, transform the endpoints back
 with `exp()`, and obtain the interval for the time of the peak from that of $b$. The
@@ -318,10 +303,9 @@ b_interval
 rev(1 / b_interval)
 ```
 
-The likelihood profile interval of $b$ goes from 0.144/day to 0.186/day, almost
-symmetrically around the estimate of 0.165. The corresponding interval for the time of the
-peak goes from 5.36 to 6.95 days: it extends 0.69 days below the estimate and 0.89 days
-above it, because $1/b$ is a curve that stretches the values of $b$ below the estimate more
+The likelihood profile interval of the time of the peak goes from 5.36 to 6.95 days: it
+extends 0.69 days below the estimate and 0.89 days above it, because $1/b$ is a curve that
+stretches the values of $b$ below the estimate more
 than those above it. The Wald interval for the time of the peak (5.30 to 6.80 days) is
 symmetric by construction, because the delta method treats $1/b$ as a straight line near
 the estimate. So, compared with the profile interval, it is shifted towards earlier days.
@@ -332,8 +316,29 @@ with their width.
 
 The titres are marked with `OBS()`, so the function `simulate()` of the object draws one
 hypothetical sample of 27 titres, on the same days as the data, for the parameter values
-that we give it. We store 1,000 hypothetical samples in a matrix with one row per
-observation:
+that we give it. We rewrite the NLL function and bind it to the data (there is no need to
+fit it again):
+
+```{r}
+# Add OBS to the NLL to enable simulation
+normal_nll = function(parms, data) {
+  getAll(parms, data)
+  titre = OBS(titre)
+  a = exp(log_a)
+  b = exp(log_b)
+  sigma = exp(log_sigma)
+  # Time (days) and height (units of titre) of the peak of the curve.
+  peak_time = 1 / b
+  peak_titre = a / (b * exp(1))
+  ADREPORT(peak_time)
+  mu = a * day * exp(-b * day)
+  -sum(dnorm(x = titre, mean = mu, sd = sigma, log = TRUE))
+}
+normal_obj = MakeADFun(cmb(normal_nll, titre_data), titre_start, silent = TRUE)
+```
+
+And now we run the simulation by drawing 1,000 alternative random samples using the maximum
+likelihood estimates as plugin into the model.
 
 ```{r}
 # 1,000 hypothetical samples of the 27 titres at the estimates: one row per observation
@@ -477,7 +482,7 @@ ppm for both. By eye, the states differed in the asymptote and not in the half-m
 this exercise we fit and compare two models with a Normal observation model with a constant
 standard deviation $\sigma$, and treat the 23 observations as independent.
 
-1. Write the model with one Michaelis–Menten curve for both states, with the units of $a$,
+1. Write the model with one Michaelis–Menten curve for both states pooled together, with the units of $a$,
    $b$ and $\sigma$. Fit it, reading the starting values of $a$ and $b$ from a plot of the
    data as in the Chapter 5 practical, check the convergence, and draw the curve over the data with a different symbol for each state.
    Hint: the list of data holds the predictor and the response, as in

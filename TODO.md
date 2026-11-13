@@ -19,22 +19,11 @@ question, section or slide.
 
 ## This year
 
-### 0. Before anything is committed or published
-
-- [ ] The uncommitted working tree on `main` now holds only the changes for this year
-      (Chapters 5 to 8, case studies, supplements other than distributions, guidance
-      files) and this file (staged). Chapters 5 to 8 have not been checked by the author
-      yet. Read the diff of every file once (`git diff <file>`): the changes are drafts,
-      and the list below covers decisions, not every sentence. Commit when done.
-- [ ] Run one more full build (`quarto render --profile prod`). The last full render ended
-      with exit code 0, but three lectures and the Chapter 5 solutions page were changed
-      afterwards and rendered only individually.
-
 ### 1. Chapter 5
 
 Practical and theory reviewed by the author on 11 November.
 
-- [ ] Look at Exercise 5 on the rendered student and solutions pages of Chapter 5 (both
+- [x] Look at Exercise 5 on the rendered student and solutions pages of Chapter 5 (both
       re-rendered without warnings after the change, not yet looked at in a browser).
 
 ### 2. Chapter 6
@@ -48,18 +37,18 @@ Practical (`Chapter_6/Practicals/no_solution.qmd`, `solution.qmd`):
       Binomial and a Beta-Binomial fit, the dispersion of the residuals and AIC. A curve
       that returns a probability (`plogis()`, a band on the logit scale) is not practised
       either.
-- [ ] **Exercise 1, question 2** now also asks for `obj$gr()` at the starting values and
+- [x] **Exercise 1, question 2** now also asks for `obj$gr()` at the starting values and
       at the estimates (about 5 minutes). Confirm.
-- [ ] **Exercise 1, questions 1 and 3** carry new hints (why a Normal model can suit
+- [x] **Exercise 1, questions 1 and 3** carry new hints (why a Normal model can suit
       positive titres; when a Wald interval can be used on the original scale). Confirm the
       reasoning.
-- [ ] **Exercise 1, question 5:** the Gamma model is now presented with the mean $\mu$ and
+- [x] **Exercise 1, question 5:** the Gamma model is now presented with the mean $\mu$ and
       the shape $k$, with a clause on `scale = mu / shape`. A paragraph on the Normal model
       suiting a log10 titre was deleted because no question asks for it: restore it as a
       footnote if you want it.
-- [ ] **Exercise 2, question 1** now asks students to read the starting values of $a$ and
+- [x] **Exercise 2, question 1** now asks students to read the starting values of $a$ and
       $b$ from a plot of the data (recipe step 3). Confirm.
-- [ ] **Exercise 2, question 6:** the solution uses `plot()` and `plotResiduals()` in place
+- [x] **Exercise 2, question 6:** the solution uses `plot()` and `plotResiduals()` in place
       of `plotQQunif()`, which the chapter does not teach. Confirm.
 - [ ] **Exercise 4:** the solution of question 1 says that the function is shown once with
       both gaps filled, and the explanation of gap 2 moved to question 2. Confirm.
