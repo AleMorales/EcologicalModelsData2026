@@ -263,7 +263,7 @@ format_interval = function(estimate, interval, digits) {
   )
 }
 model_inset = paste(
-  "Model: K ~ Binomial(N, p(N))",
+  "Model: Y ~ Binomial(N, p(N))",
   "p(N) = α / (1 + α H N)",
   "",
   "Estimates (95% profile intervals):",

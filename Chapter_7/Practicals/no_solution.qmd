@@ -57,26 +57,25 @@ pine_data = list(age = pines$age, height = pines$height, tree = tree)
 
 We describe the growth of a tree with the
 [saturating exponential](../../Supplements/deterministic-functions.qmd#sec-fn-monomolecular)
-shifted along the time axis, the curve of the theory written with the symbols of a growth
-curve:
+shifted along $x$, the curve of the theory, with the age of the tree as the predictor:
 
 $$
-h(t)=A\left(1-e^{-k(t-t_0)}\right),
+\mu(x)=a\left(1-e^{-b(x-c)}\right),
 $$
 
-where $h(t)$ is the expected height at the age $t$, $A$ is the asymptote, $k$ is the rate
-at which the curve approaches it, and $t_0$ is the age at which the curve crosses zero
+where $\mu(x)$ is the expected height at the age $x$, $a$ is the asymptote, $b$ is the rate
+at which the curve approaches it, and $c$ is the age at which the curve crosses zero
 height. In the mixed model of question 3 the asymptote varies among trees, as the asymptote
 of the plants did in the theory.
 
-1. What is the observational unit, and what is the group? Give the units of $A$, $k$ and
-   $t_0$. Plot the heights against age, with a line that joins the measurements of each
+1. What is the observational unit, and what is the group? Give the units of $a$, $b$ and
+   $c$. Plot the heights against age, with a line that joins the measurements of each
    tree.
 2. Fit the model with one curve for all the trees (complete pooling) and a
    [Normal](../../Supplements/distributions.qmd#sec-normal) observation model with a
    constant standard deviation $\sigma_{\mathrm{obs}}$. Read the starting values from the
    plot, check the convergence and report the estimates with their units.
-3. Fit the model with a random asymptote, $A_j=A\,e^{u_j}$ with
+3. Fit the model with a random asymptote, $a_j=a\,e^{u_j}$ with
    $u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{tree}})$, with `random = "u"`. Check
    the convergence and report the variance components with their scales and units, with a
    likelihood profile interval for $\sigma_{\mathrm{tree}}$. At the age of 25 years, which
@@ -101,9 +100,9 @@ of the plants did in the theory.
 The observational unit is one measurement of the height of one tree at one age, and the
 group is the tree: the six measurements of a tree share its genotype and its growing
 conditions, so they tend to resemble each other more than measurements of different
-trees. The data have 14 trees with six measurements each. The asymptote $A$ is a height, so
-it is in feet. The rate $k$ multiplies an age in the exponent, which has no units, so $k$ is
-in 1/year, and $t_0$ is an age in years. We plot the measurements and join those of each
+trees. The data have 14 trees with six measurements each. The asymptote $a$ is a height, so
+it is in feet. The rate $b$ multiplies an age in the exponent, which has no units, so $b$ is
+in 1/year, and $c$ is an age in years. We plot the measurements and join those of each
 tree with a line in a `for` loop over the trees:
 
 ```{r}
@@ -125,46 +124,46 @@ factor.
 
 ### Question 2
 
-Let $H_{ij}$ be the height of tree $j$ at its $i$-th measurement, at the age $t_{ij}$. With
+Let $Y_{ij}$ be the height of tree $j$ at its $i$-th measurement, at the age $x_{ij}$. With
 complete pooling all the trees share one curve, and the heights vary around it with a
 Normal distribution:
 
 $$
-H_{ij}\sim\operatorname{Normal}\left(h(t_{ij}),\,\sigma^2_{\mathrm{obs}}\right),
+Y_{ij}\sim\operatorname{Normal}\left(\mu(x_{ij}),\,\sigma^2_{\mathrm{obs}}\right),
 \qquad
-h(t)=A\left(1-e^{-k(t-t_0)}\right),
+\mu(x)=a\left(1-e^{-b(x-c)}\right),
 $$
 
 where $\sigma_{\mathrm{obs}}$ is the standard deviation of the heights around the curve, in
 feet ($\sigma^2_{\mathrm{obs}}$ is the variance of the model). The asymptote, the rate and
-the standard deviation are positive, so we optimise their logarithms, and $t_0$ is not
+the standard deviation are positive, so we optimise their logarithms, and $c$ is not
 transformed:
 
 ```{r}
 # Negative log-likelihood with one growth curve for all the trees (complete pooling).
 pooled_nll = function(parms, data) {
   getAll(parms, data)
-  A = exp(log_A)
-  k = exp(log_k)
+  a = exp(log_asym)
+  b = exp(log_rate)
   sd_obs = exp(log_sd_obs)
   # Expected height at the age of each measurement.
-  mu = A * (1 - exp(-k * (age - t0)))
+  mu = a * (1 - exp(-b * (age - c0)))
   -sum(dnorm(x = height, mean = mu, sd = sd_obs, log = TRUE))
 }
 ```
 
 We read the starting values from @fig-pine_data. The trees are still growing at 60 ft, so we
 take an asymptote of 80 ft. The heights would reach zero shortly before the age of 3 years,
-so $t_0=2$ years. A curve of this kind reaches 63% of its asymptote, here about 50 ft, at the
-age $t_0+1/k$; the trees reach 50 ft at about 20 years, so $1/k\approx20$ years and
-$k=0.05$/year. For the standard deviation we take 2 ft:
+so $c=2$ years. A curve of this kind reaches 63% of its asymptote, here about 50 ft, at the
+age $c+1/b$; the trees reach 50 ft at about 20 years, so $1/b\approx20$ years and
+$b=0.05$/year. For the standard deviation we take 2 ft:
 
 ```{r}
 # Connect a likelihood to a data set.
 cmb = function(f, d) function(p) f(p, d)
 
 # Starting values read from the plot.
-pine_start = list(log_A = log(80), log_k = log(0.05), t0 = 2, log_sd_obs = log(2))
+pine_start = list(log_asym = log(80), log_rate = log(0.05), c0 = 2, log_sd_obs = log(2))
 
 # Process the NLL, minimise it with BFGS and check the convergence code.
 pooled_obj = MakeADFun(cmb(pooled_nll, pine_data), pine_start, silent = TRUE)
@@ -176,16 +175,16 @@ pooled_fit = optim(
 )
 pooled_fit$convergence
 
-# Estimates on the original scale: A and sd_obs in ft, k in 1/year, t0 in years.
+# Estimates on the original scale: a and sd_obs in ft, b in 1/year, c in years.
 c(
-  A = exp(pooled_fit$par[["log_A"]]),
-  k = exp(pooled_fit$par[["log_k"]]),
-  t0 = pooled_fit$par[["t0"]],
+  a = exp(pooled_fit$par[["log_asym"]]),
+  b = exp(pooled_fit$par[["log_rate"]]),
+  c = pooled_fit$par[["c0"]],
   sd_obs = exp(pooled_fit$par[["log_sd_obs"]])
 )
 ```
 
-The fit converged, with an asymptote of 102 ft, a rate of 0.039/year and $t_0=2.06$ years.
+The fit converged, with an asymptote of 102 ft, a rate of 0.039/year and $c=2.06$ years.
 The heights vary around the common curve with a standard deviation of 1.68 ft, which
 includes the differences among trees.
 
@@ -196,9 +195,9 @@ The mixed model has two levels, as the model of the theory:
 $$
 u_j\sim\operatorname{Normal}\left(0,\sigma^2_{\mathrm{tree}}\right),
 \qquad
-H_{ij}\mid u_j\sim\operatorname{Normal}\left(h_j(t_{ij}),\,\sigma^2_{\mathrm{obs}}\right),
+Y_{ij}\mid u_j\sim\operatorname{Normal}\left(\mu_j(x_{ij}),\,\sigma^2_{\mathrm{obs}}\right),
 \qquad
-h_j(t)=A\,e^{u_j}\left(1-e^{-k(t-t_0)}\right),
+\mu_j(x)=a\,e^{u_j}\left(1-e^{-b(x-c)}\right),
 $$
 
 where $u_j$ is the deviation of tree $j$ on the log scale of the asymptote and
@@ -217,10 +216,10 @@ mixed_nll = function(parms, data) {
   # Minus the log density of the deviations of the trees, before they are used.
   nll = -sum(dnorm(x = u, mean = 0, sd = sd_tree, log = TRUE))
   # Asymptote of each tree, and minus the log density of the heights for given u.
-  A = exp(log_A + u)
-  k = exp(log_k)
+  a = exp(log_asym + u)
+  b = exp(log_rate)
   sd_obs = exp(log_sd_obs)
-  mu = A[tree] * (1 - exp(-k * (age - t0)))
+  mu = a[tree] * (1 - exp(-b * (age - c0)))
   nll - sum(dnorm(x = height, mean = mu, sd = sd_obs, log = TRUE))
 }
 ```
@@ -251,12 +250,12 @@ mixed_sd = sdreport(mixed_obj)
 summary(mixed_sd, select = "fixed")
 
 # Estimates on the original scale.
-A_mle = exp(mixed_fit$par[["log_A"]])
-k_mle = exp(mixed_fit$par[["log_k"]])
-t0_mle = mixed_fit$par[["t0"]]
+a_mle = exp(mixed_fit$par[["log_asym"]])
+b_mle = exp(mixed_fit$par[["log_rate"]])
+c_mle = mixed_fit$par[["c0"]]
 sd_tree_mle = exp(mixed_fit$par[["log_sd_tree"]])
 sd_obs_mle = exp(mixed_fit$par[["log_sd_obs"]])
-c(A = A_mle, k = k_mle, t0 = t0_mle, sd_tree = sd_tree_mle, sd_obs = sd_obs_mle)
+c(a = a_mle, b = b_mle, c = c_mle, sd_tree = sd_tree_mle, sd_obs = sd_obs_mle)
 ```
 
 The fit converged. The curve hardly changes compared with complete pooling, but the
@@ -280,13 +279,13 @@ at a given age is roughly $\sigma_{\mathrm{tree}}$ times the typical height at t
 At 25 years the typical height is:
 
 ```{r}
-# Growth curve: asymptote A, rate k and age t0 at which the height is zero.
-growth = function(t, A = 1, k = 1, t0 = 0) {
-  A * (1 - exp(-k * (t - t0)))
+# Growth curve: asymptote a, rate b and age c0 at which the height is zero.
+growth = function(x, a = 1, b = 1, c0 = 0) {
+  a * (1 - exp(-b * (x - c0)))
 }
 
 # Typical height at 25 years (ft), and roughly the standard deviation among trees.
-height_25 = growth(25, A = A_mle, k = k_mle, t0 = t0_mle)
+height_25 = growth(25, a = a_mle, b = b_mle, c0 = c_mle)
 c(typical = height_25, sd_among_trees = sd_tree_mle * height_25)
 ```
 
@@ -310,29 +309,29 @@ round(tree_effects, 3)
 The predicted effects range from $-0.061$ (tree 329) to $0.075$ (tree 305), so the
 asymptotes of the trees lie between about 6% below and 8% above the median, with a standard
 error of 0.013 for every tree (all the trees have the same six ages). The curve of an
-observed tree uses its predicted asymptote $\hat A\,e^{\hat u_j}$; the typical curve has
+observed tree uses its predicted asymptote $\hat a\,e^{\hat u_j}$; the typical curve has
 $u_j=0$; and 95% of new trees have asymptotes between
-$\hat A\,e^{-1.96\,\hat\sigma_{\mathrm{tree}}}$ and
-$\hat A\,e^{1.96\,\hat\sigma_{\mathrm{tree}}}$ (@fig-pine_curves):
+$\hat a\,e^{-1.96\,\hat\sigma_{\mathrm{tree}}}$ and
+$\hat a\,e^{1.96\,\hat\sigma_{\mathrm{tree}}}$ (@fig-pine_curves):
 
 ```{r}
 #| label: fig-pine_curves
 #| fig-cap: "Height of 14 loblolly pines against age, with the curve of each tree from its predicted deviation (grey lines), the typical curve (u = 0, solid line) and the range that contains the curves of 95% of new trees at the estimates (dashed lines), under the model with a random asymptote."
 # Predicted asymptote of each tree, and the range of the asymptotes of 95% of new trees
 # (ft).
-tree_asym = A_mle * exp(tree_effects[, "Estimate"])
-new_tree_asym = A_mle * exp(qnorm(p = c(0.025, 0.975)) * sd_tree_mle)
+tree_asym = a_mle * exp(tree_effects[, "Estimate"])
+new_tree_asym = a_mle * exp(qnorm(p = c(0.025, 0.975)) * sd_tree_mle)
 new_tree_asym
 
 # Measurements, the curves of the 14 trees, the typical curve and the range of new trees.
 plot(height ~ age, data = pine_data, xlab = "Age (years)", ylab = "Height (ft)")
 for (j in seq_along(tree_asym)) {
-  curve(growth(x, A = tree_asym[j], k = k_mle, t0 = t0_mle), add = TRUE, col = "grey60")
+  curve(growth(x, a = tree_asym[j], b = b_mle, c0 = c_mle), add = TRUE, col = "grey60")
 }
-curve(growth(x, A = A_mle, k = k_mle, t0 = t0_mle), add = TRUE, col = "#D55E00")
-curve(growth(x, A = new_tree_asym[1], k = k_mle, t0 = t0_mle), add = TRUE,
+curve(growth(x, a = a_mle, b = b_mle, c0 = c_mle), add = TRUE, col = "#D55E00")
+curve(growth(x, a = new_tree_asym[1], b = b_mle, c0 = c_mle), add = TRUE,
       col = "#D55E00", lty = 2)
-curve(growth(x, A = new_tree_asym[2], k = k_mle, t0 = t0_mle), add = TRUE,
+curve(growth(x, a = new_tree_asym[2], b = b_mle, c0 = c_mle), add = TRUE,
       col = "#D55E00", lty = 2)
 legend("topleft", legend = c("Observed trees", "Typical tree", "95% of new trees"),
        col = c("grey60", "#D55E00", "#D55E00"), lty = c(1, 1, 2), bty = "n")
@@ -344,11 +343,11 @@ describes the variation among trees at the estimates and leaves out the uncertai
 estimates themselves.
 
 The estimated asymptote, 102 ft, lies far above the tallest tree in the data, 64.1 ft. The
-curve reaches 63% of its asymptote at the age of $\hat t_0+1/\hat k$:
+curve reaches 63% of its asymptote at the age of $\hat c+1/\hat b$:
 
 ```{r}
 # Age at which the typical curve reaches 63% of its asymptote (years).
-t0_mle + 1 / k_mle
+c_mle + 1 / b_mle
 ```
 
 This is about 28 years, after the last measurement at 25 years. So the measurements cover
@@ -387,7 +386,7 @@ the ages):
 #| fig-height: 4.5
 #| fig-cap: "Scaled quantile residuals of the 84 heights under the model with a random asymptote, from 1,000 hypothetical samples with new tree deviations. Left: quantile–quantile plot against a uniform distribution. Right: residuals for each value of the typical curve, which has one value for each age."
 # Expected height of each measurement on the typical curve (u = 0).
-mixed_expected = growth(pine_data$age, A = A_mle, k = k_mle, t0 = t0_mle)
+mixed_expected = growth(pine_data$age, a = a_mle, b = b_mle, c0 = c_mle)
 
 # Scaled quantile residuals and the two standard panels.
 mixed_residuals = DHARMa::createDHARMa(
@@ -425,7 +424,7 @@ c((mean_height[["5"]] - mean_height[["3"]]) / 2, (mean_height[["10"]] - mean_hei
 The mean heights grow by 3.0 ft/year between 3 and 5 years and by 3.4 ft/year between 5 and
 10 years, so the young pines first accelerate their growth before it slows down, an
 S-shaped start that the saturating exponential cannot follow, because its slope is largest
-at $t_0$. As in the theory, we read the plots as exploratory evidence and not the tests
+at $c$. As in the theory, we read the plots as exploratory evidence and not the tests
 that DHARMa prints with them.
 
 The residuals of the trees come from the sums of the six heights of each tree:
@@ -448,7 +447,7 @@ other one shows.
 
 ### Question 6
 
-The number of parameters is $K$ in the AIC. Complete pooling has $K=4$ parameters ($A$, $k$, $t_0$, $\sigma_{\mathrm{obs}}$), and the
+The number of parameters is $K$ in the AIC. Complete pooling has $K=4$ parameters ($a$, $b$, $c$, $\sigma_{\mathrm{obs}}$), and the
 mixed model $K=5$, because the 14 deviations of the trees are integrated out and cost one
 parameter, $\sigma_{\mathrm{tree}}$. Both are fitted to the same 84 heights in the same
 units, and the minimum of each NLL is minus its maximum log-likelihood (the marginal one
@@ -724,9 +723,14 @@ $$
    mining and of one unit of cover as factors by which they multiply the expected count,
    with 95% Wald intervals, the expected count at a typical unmined site of average cover
    and at a typical mined site of average cover (with its 95% Wald interval), and
-   $\hat\sigma_{\mathrm{site}}$. Compare the two models with AIC. Hint: the NLL of
+   $\hat\sigma_{\mathrm{site}}$. Fit the model with site deviations again with the
+   formula `~ mined`, without cover, and compare the three models with AIC: do the data
+   support an effect of cover? Hint: the NLL of
    question 1 gains the density of `u`, before the line that uses it, and `+ u` in the log
    mean of the sites ([Random effects in RTMB](../Theory.qmd#sec-random-effects-rtmb)). The
+   model with `~ mined` uses the same NLL with another model matrix, so only the list of
+   data and the starting values of `beta_lambda` change, as for the candidates in
+   [Comparing grouped models](../Theory.qmd#sec-grouped-comparison). The
    Wald intervals of the factors are calculated as in question 2 of Exercise 3, with
    `critical_value` of that exercise. The log of the expected count at a mined site is
    `beta_lambda[1] + beta_lambda[2]`, a combination of two coefficients: pass it to

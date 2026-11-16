@@ -115,13 +115,13 @@ the same way as the curve is (see "Choosing a distribution" in
 will revise it.
 
 Let's write the model for the reed frog experiment. Sixteen tanks were stocked with
-$N_i$ tadpoles, from 5 to 100, together with three dragonfly larvae, and $K_i$ is the number
+$N_i$ tadpoles, from 5 to 100, together with three dragonfly larvae, and $Y_i$ is the number
 of tadpoles killed in tank $i$ in 14 days. Each tadpole of a tank is either killed or not,
 so we use a [Binomial](../Supplements/distributions.qmd#sec-binomial) model with $N_i$
 trials, in which the curve gives the probability that a tadpole is killed:
 
 $$
-K_i \sim \operatorname{Binomial}\left(N_i,\,p(N_i)\right),
+Y_i \sim \operatorname{Binomial}\left(N_i,\,p(N_i)\right),
 \qquad
 p(N)=\frac{\alpha}{1+\alpha HN},
 \qquad i=1,\ldots,16,
@@ -135,7 +135,7 @@ written in terms of the number of trials and a probability. The expected number 
 then
 
 $$
-E[K_i]=N_i\,p(N_i)=\frac{\alpha N_i}{1+\alpha HN_i},
+E[Y_i]=N_i\,p(N_i)=\frac{\alpha N_i}{1+\alpha HN_i},
 $$
 
 the disc equation of Chapter 5. Under the assumptions of the disc equation, the probability
@@ -249,13 +249,14 @@ The difference is that each probability is calculated with the parameter of its 
 distribution, which the curve gives at the predictor value of that observation:
 
 $$
-\ell(\boldsymbol\beta)=\sum_{i=1}^{n}\log\left(P(Y_i=y_i\mid\boldsymbol\beta)\right),
+\ell(\boldsymbol\theta)=\sum_{i=1}^{n}\log\left(P(Y_i=y_i\mid\boldsymbol\theta)\right),
 $$
 
-where $y_i$ is the observed value of $Y_i$ and $P(Y_i=y_i\mid\boldsymbol\beta)$ is the
-probability that the model assigns to it when the parameter of its distribution is
-$f(x_i;\boldsymbol\beta)$ (any shared parameter of the distribution is added to
-$\boldsymbol\beta$). Everything else is the same as in Chapter 4: we write the negative
+where $\boldsymbol\theta$ holds all the parameters of the model (the parameters
+$\boldsymbol\beta$ of the curve and any shared parameter of the distribution), $y_i$ is the
+observed value of $Y_i$ and $P(Y_i=y_i\mid\boldsymbol\theta)$ is the probability that the
+model assigns to it when the parameter of its distribution is $f(x_i;\boldsymbol\beta)$.
+Everything else is the same as in Chapter 4: we write the negative
 log-likelihood (NLL) with two lists, transform the constrained parameters, connect the NLL
 to the data with `cmb()`, process it with `MakeADFun()`, minimise it with `optim()` and
 check the convergence. Two things are new. The list of data holds the predictor as well as
@@ -266,8 +267,8 @@ of the data, as in "Starting values by eye" in
 For the reed frog tanks the log-likelihood is
 
 $$
-\ell(\alpha,H)=\sum_{i=1}^{16}\log\left(\binom{N_i}{K_i}\,p(N_i)^{K_i}
-\left(1-p(N_i)\right)^{N_i-K_i}\right),
+\ell(\alpha,H)=\sum_{i=1}^{16}\log\left(\binom{N_i}{Y_i}\,p(N_i)^{Y_i}
+\left(1-p(N_i)\right)^{N_i-Y_i}\right),
 \qquad
 p(N_i)=\frac{\alpha}{1+\alpha HN_i}.
 $$
@@ -759,7 +760,7 @@ format_interval = function(estimate, interval, digits) {
   )
 }
 model_inset = paste(
-  "Model: K ~ Binomial(N, p(N))",
+  "Model: Y ~ Binomial(N, p(N))",
   "p(N) = α / (1 + α H N)",
   "",
   "Estimates (95% profile intervals):",
@@ -1035,9 +1036,9 @@ shape parameters of the Beta distribution, and so $a=\kappa p$ and $b=\kappa(1-p
 unit with $N$ trials the mean and the variance of the count are
 
 $$
-E[K]=Np,
+E[Y]=Np,
 \qquad
-\operatorname{Var}(K)=Np(1-p)\,\frac{\kappa+N}{\kappa+1},
+\operatorname{Var}(Y)=Np(1-p)\,\frac{\kappa+N}{\kappa+1},
 $$
 
 where $Np(1-p)$ is the variance of a Binomial distribution with the same mean. The factor
@@ -1053,13 +1054,15 @@ cycle of [Chapter 1](../Chapter_1/Theory.qmd) in which a check sends us back to 
 For the tanks,
 
 $$
-K_i \sim \operatorname{Beta-Binomial}\left(N_i,\,\kappa\,p(N_i),\,\kappa\left(1-p(N_i)\right)\right),
+Y_i \sim \operatorname{Beta-Binomial}\left(N_i,\,p(N_i),\,\kappa\right),
 \qquad
-p(N)=\frac{\alpha}{1+\alpha HN}.
+p(N)=\frac{\alpha}{1+\alpha HN},
 $$
 
-The NLL uses `dbetabinom()` of RTMBdist, whose arguments `shape1` and `shape2` are the two
-shape parameters. We include `OBS()` from the start, because we will check this model too:
+where the three parameters of the distribution are the number of trials, the mean
+probability and the precision. The NLL uses `dbetabinom()` of RTMBdist, whose arguments
+`shape1` and `shape2` are the two shape parameters, so we pass it $\kappa\,p(N_i)$ and
+$\kappa\left(1-p(N_i)\right)$. We include `OBS()` from the start, because we will check this model too:
 
 ```{r}
 # Negative log-likelihood of the Beta-Binomial model with the Holling type II curve.
@@ -1286,8 +1289,8 @@ $$
 
 where $K$ is the number of estimated parameters, $n$ the number of observations and
 $\ell(\hat\theta)$ the maximum log-likelihood, in which $\hat\theta$ stands for all the
-estimated parameters of the model (here those of $\boldsymbol\beta$ and any shared
-parameter). With 16 observations and up to three
+estimated parameters of the model ($\boldsymbol\theta$, that is, those of the curve and any
+shared parameter). With 16 observations and up to three
 parameters the correction of AICc is not negligible. The **Bayesian information criterion**
 (BIC)^[Schwarz, G. (1978), "Estimating the dimension of a model", *Annals of Statistics* 6:
 461–464. The name comes from its derivation, as a large-sample approximation in Bayesian

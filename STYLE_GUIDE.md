@@ -323,14 +323,18 @@ lecture script. Beyond the table above:
 
 - **Data and indices.** A sample without predictors is $X_1,\ldots,X_n$; a response in a
   model with a predictor or with groups is $Y_i$ or $Y_{ij}$, the predictor $x_i$. A
-  mnemonic capital defined at first use is allowed ($K_i$ killed, $H_{ij}$ height). $i$
+  mnemonic capital defined at first use is allowed ($H_{ij}$ height) unless it clashes with
+  a symbol of the same page ($K$ is the number of parameters, so the number killed is
+  $Y_i$). $i$
   indexes observations and $j$ groups, also when a group has one observation ($Y_j$,
   $u_j$). Sample means are $\overline X$ and $\overline x$ (`\overline`, not `\bar`); $s^2$
   is the sample variance with $n-1$.
 - **Distributions.** Names in `\operatorname{}`, with `\operatorname{NegBin}(\mu,k)` and
   `\operatorname{Beta-Binomial}`; `\operatorname{Normal}(\mu,\sigma^2)` takes a variance.
   Gamma: shape $k$ and rate $r$, or mean $\mu$ and shape $k$. Beta: $a$ and $b$, or a mean
-  and the precision $\kappa=a+b$. Zero inflation: $p_0$. Approximately distributed:
+  and the precision $\kappa=a+b$. A Beta-Binomial model with a curve is written with trials,
+  mean probability and precision, $\operatorname{Beta-Binomial}(N_i,p(N_i),\kappa)$, and the
+  text converts to the shapes of `dbetabinom()`. Zero inflation: $p_0$. Approximately distributed:
   `\overset{\mathrm{approx}}{\sim}`.
 - **Estimation.** $\operatorname{SE}(\hat\theta)$ is the standard deviation of the
   estimator and $\widehat{\operatorname{SE}}(\hat\theta)$ its estimate; the Wald interval
@@ -339,7 +343,12 @@ lecture script. Beyond the table above:
   ($\hat\lambda_{\mathrm{MM}}$). The NLL has no symbol of its own ($-\ell(\theta)$).
   Vectors and matrices are bold ($\boldsymbol\theta$, $\mathbf u$, the gradient
   $\mathbf g$, the Hessian $\mathbf H$) and scalars plain; $\theta_0$ is a value used to
-  generate data. $\mathrm{AIC}$, $\mathrm{AICc}$ and $\mathrm{BIC}$ are upright.
+  generate data. $\boldsymbol\theta$ holds all the parameters of a model, and the
+  log-likelihood of a model with several parameters is $\ell(\boldsymbol\theta)$. A
+  response curve is $\theta_i=f(x_i;\boldsymbol\beta)$, where $\theta_i$ is the parameter of
+  the distribution of observation $i$ and $\boldsymbol\beta$ the parameters of the curve,
+  which are part of $\boldsymbol\theta$ (Chapter 6). In formulas that hold for any number
+  of parameters (AIC, the relative log-likelihood) $\hat\theta$ stays plain, as in Chapter 4. $\mathrm{AIC}$, $\mathrm{AICc}$ and $\mathrm{BIC}$ are upright.
 - **Grouped models.** Random effects $u_j$; a coefficient of a predictor is
   $\beta_{\mathrm{name}}$ with an upright descriptive subscript, the baseline the
   transformed baseline parameter ($\log(a)$) or $\beta_0$; an indicator of a level is a

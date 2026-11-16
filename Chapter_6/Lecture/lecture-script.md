@@ -149,7 +149,7 @@ predictor. This is the change from Chapter 4. The observation model is a choice,
 as the curve is (Chapter 2, "Choosing a distribution"), and in this lecture we will revise it
 (slide 24).
 
-For the reed frogs, $K_i$ is the number killed in tank $i$, which was stocked with $N_i$
+For the reed frogs, $Y_i$ is the number killed in tank $i$, which was stocked with $N_i$
 tadpoles. Each tadpole of a tank is either killed or not, so we use a Binomial model with $N_i$
 trials, in which the curve gives the probability that a tadpole is killed,
 $p(N)=\alpha/(1+\alpha HN)$. Here $\alpha$ is the attack rate and $H$ the handling time of the
@@ -220,9 +220,10 @@ The likelihood of a response curve is calculated as in Chapter 4: the observatio
 independent, so the log-likelihood is the sum of the log probabilities (or densities) of the
 observations. The difference is that each probability is calculated with the parameter of its own
 distribution, which the curve gives at the predictor value of that observation. In the equation,
-$y_i$ is the observed value of $Y_i$ and $P(Y_i=y_i\mid\boldsymbol\beta)$ is the probability that
-the model assigns to it when the parameter of its distribution is $f(x_i;\boldsymbol\beta)$; any
-shared parameter of the distribution is added to $\boldsymbol\beta$.
+$\boldsymbol\theta$ holds all the parameters of the model: those of the curve, $\boldsymbol\beta$,
+and any shared parameter of the distribution. $y_i$ is the observed value of $Y_i$ and
+$P(Y_i=y_i\mid\boldsymbol\theta)$ is the probability that the model assigns to it when the
+parameter of its distribution is $f(x_i;\boldsymbol\beta)$.
 
 Everything else is the same as in Chapter 4: we write the negative log-likelihood (NLL) with two
 lists, transform the constrained parameters, connect the NLL to the data with `cmb()`, process it

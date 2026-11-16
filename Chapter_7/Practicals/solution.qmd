@@ -813,9 +813,14 @@ $$
    mining and of one unit of cover as factors by which they multiply the expected count,
    with 95% Wald intervals, the expected count at a typical unmined site of average cover
    and at a typical mined site of average cover (with its 95% Wald interval), and
-   $\hat\sigma_{\mathrm{site}}$. Compare the two models with AIC. Hint: the NLL of
+   $\hat\sigma_{\mathrm{site}}$. Fit the model with site deviations again with the
+   formula `~ mined`, without cover, and compare the three models with AIC: do the data
+   support an effect of cover? Hint: the NLL of
    question 1 gains the density of `u`, before the line that uses it, and `+ u` in the log
    mean of the sites ([Random effects in RTMB](../Theory.qmd#sec-random-effects-rtmb)). The
+   model with `~ mined` uses the same NLL with another model matrix, so only the list of
+   data and the starting values of `beta_lambda` change, as for the candidates in
+   [Comparing grouped models](../Theory.qmd#sec-grouped-comparison). The
    Wald intervals of the factors are calculated as in question 2 of Exercise 3, with
    `critical_value` of that exercise. The log of the expected count at a mined site is
    `beta_lambda[1] + beta_lambda[2]`, a combination of two coefficients: pass it to
@@ -1012,11 +1017,6 @@ exp(c(
   lower = mined_report[, "Estimate"] - critical_value * mined_report[, "Std. Error"],
   upper = mined_report[, "Estimate"] + critical_value * mined_report[, "Std. Error"]
 ))
-
-# AIC of the two models.
-K_salamanders = c(poisson = length(poisson_fit$par), site = length(site_poisson_fit$par))
-nll_salamanders = c(poisson = poisson_fit$value, site = site_poisson_fit$value)
-2 * K_salamanders + 2 * nll_salamanders
 ```
 
 A typical unmined site with average cover is expected to give about 1.9 spring salamanders
@@ -1029,7 +1029,62 @@ multiplies the expected count by about 1.14, but the interval runs from 0.78 to 
 data say little about the effect of cover. The sites vary around their typical value with a
 standard deviation of 0.43 on the log scale.
 
-The model with site deviations has an AIC about 3 units lower than the model without them.
+The model without cover differs only in its formula, so it uses `site_poisson_nll` with the
+model matrix of `~ mined`, which has the columns `(Intercept)` and `minedyes`. We replace
+the model matrix in a copy of the list of data and start from one zero for each of its
+columns. The reported quantity `beta_lambda[1] + beta_lambda[2]` keeps its meaning,
+because `minedyes` is still the second column:
+
+```{r}
+# List of data with the model matrix of mining only.
+mined_only_data = salamander_data
+mined_only_data$X_lambda = model.matrix(~ mined, data = site_info)
+
+# The same joint NLL with the new list of data, and its fit.
+site_mined_obj = MakeADFun(
+  cmb(site_poisson_nll, mined_only_data),
+  list(
+    beta_lambda = rep(0, ncol(mined_only_data$X_lambda)),
+    log_sd_site = log(0.5),
+    u = rep(0, 23)
+  ),
+  random = "u",
+  silent = TRUE
+)
+site_mined_fit = optim(
+  par = site_mined_obj$par,
+  fn = site_mined_obj$fn,
+  gr = site_mined_obj$gr,
+  method = "BFGS"
+)
+site_mined_fit$convergence
+```
+
+The fit converged. All three models are fitted to the same 92 counts, so we compare them
+with AIC, with $K$ the length of `par` of each fit:
+
+```{r}
+# AIC of the three models, and the difference from the lowest AIC.
+K_salamanders = c(
+  poisson = length(poisson_fit$par),
+  site = length(site_poisson_fit$par),
+  site_mined = length(site_mined_fit$par)
+)
+nll_salamanders = c(
+  poisson = poisson_fit$value,
+  site = site_poisson_fit$value,
+  site_mined = site_mined_fit$value
+)
+aic_salamanders = 2 * K_salamanders + 2 * nll_salamanders
+aic_salamanders - min(aic_salamanders)
+```
+
+The model with site deviations and mining only has the lowest AIC. Adding cover raises the
+AIC by 1.5 units: cover increases the maximum log-likelihood by only about 0.25, less than
+the cost of one parameter. So the data do not support an effect of cover, which agrees with
+its wide Wald interval above; that interval also shows that an effect of cover of a
+moderate size cannot be excluded either. The model without site deviations, which has the
+same predictors as the model with cover, has an AIC about 3 units higher than that model.
 As in Exercise 1, this comparison is at the boundary $\sigma_{\mathrm{site}}=0$ and only an
 approximate guide; the residuals of question 1 are a second reason to keep the site
 deviations.

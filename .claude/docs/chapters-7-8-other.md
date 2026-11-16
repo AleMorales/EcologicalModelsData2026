@@ -89,8 +89,10 @@ which stays until the author removes it.
   the target of 1,900; Stage 4 found nothing to cut without losing a required part (the
   author decides).
 - **Practical:** five exercises, each keeping a promise of an earlier chapter: Exercise 1
-  (worked) loblolly pines (`Loblolly`, the same curve as $A(1-e^{-k(t-t_0)})$, random
-  asymptote per tree, all four checks); 2 reed frog tanks (`emdbook::ReedfrogPred`, random
+  (worked) loblolly pines (`Loblolly`, the curve of the theory, $\mu(x)=a(1-e^{-b(x-c)})$
+  with the age as $x$ and the heights as $Y_{ij}$, code names `log_asym`, `log_rate`, `c0`
+  as in the theory, also in Exercise 1 of the Chapter 8 practical; author's decision of 16
+  November; random asymptote per tree, all four checks); 2 reed frog tanks (`emdbook::ReedfrogPred`, random
   effect on the logit per tank against the Beta-Binomial; typical against mean survival);
   3 owl nests (`glmmTMB::Owls`, Negative Binomial with a random effect per nest, predicted
   nest effects against a no-pooling fit); 4 salamander sites (`glmmTMB::Salamanders`,
@@ -116,8 +118,10 @@ which stays until the author removes it.
   and Exercise 5 question 3 explain what they need); question 2 of Exercise 4 reports the
   expected count at a mined site with `ADREPORT()`; question 5 of Exercise 2 asks on paper
   for the columns of `~ pred * size`; question 4 of Exercise 1 asks for the age at 63% of
-  the asymptote. **Open:** typical groups from a second model matrix and a fitted
-  comparison of candidates by formula are not practised.
+  the asymptote. Question 2 of Exercise 4 also fits the site model with `~ mined` (the same
+  NLL with another model matrix) and compares three models with AIC, so that a comparison
+  of candidates by formula is practised (author's decision of 16 November; awaiting the
+  author's check). **Open:** typical groups from a second model matrix are not practised.
 - **Lecture:** one of 150 minutes (31 slides, 116 minutes of slides, 14 of slack, two
   breaks of 10) with the demo above. Slide 18, "The model matrix", was added on 10
   November (4 minutes from the slack); the demo builds the predictors with

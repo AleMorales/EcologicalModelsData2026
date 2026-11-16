@@ -36,34 +36,34 @@ described all the trees with one growth curve (complete pooling) and a
 [Normal](../../Supplements/distributions.qmd#sec-normal) observation model,
 
 $$
-H_i\sim\operatorname{Normal}\left(h(t_i),\,\sigma^2_{\mathrm{obs}}\right),
+Y_i\sim\operatorname{Normal}\left(\mu(x_i),\,\sigma^2_{\mathrm{obs}}\right),
 \qquad
-h(t)=A\left(1-e^{-k(t-t_0)}\right),
+\mu(x)=a\left(1-e^{-b(x-c)}\right),
 $$
 
-where $H_i$ is the height of measurement $i$ at the age $t_i$, $A$ is the asymptote (ft),
-$k$ is the rate at which the curve approaches it (1/year), $t_0$ is the age at which the
+where $Y_i$ is the height of measurement $i$ at the age $x_i$, $a$ is the asymptote (ft),
+$b$ is the rate at which the curve approaches it (1/year), $c$ is the age at which the
 curve crosses zero height (years), and $\sigma_{\mathrm{obs}}$ is the standard deviation of
 the heights around the curve (ft). The asymptote, the rate and the standard deviation are
 optimised on the log scale. Chapter 7 read its starting values from a plot of the data, and
 the fit reached the maximum. Here we start from another reading of the same plot.
 
-1. Fit the model as in Chapter 7, from the starting values $A=80$ ft, $k=0.05$/year,
-   $t_0=2$ years and $\sigma_{\mathrm{obs}}=2$ ft. Then fit it from the same values with
-   $k=0.1$/year, a curve that reaches 63% of its asymptote 10 years after $t_0$ instead of
+1. Fit the model as in Chapter 7, from the starting values $a=80$ ft, $b=0.05$/year,
+   $c=2$ years and $\sigma_{\mathrm{obs}}=2$ ft. Then fit it from the same values with
+   $b=0.1$/year, a curve that reaches 63% of its asymptote 10 years after $c$ instead of
    20 years, which is just as plausible a reading of the plot. Compare the convergence codes,
    the minima of the NLL and the estimates on the original scale. What curve does the
    second fit describe? Plot both curves over the data. See
    [A fit that stops in the wrong place](../Theory.qmd#sec-wrong-place).
 2. Diagnose the second fit: its estimates on the optimised scale, the gradient at the
-   solution and `sdreport()`. Calculate a slice of the log-likelihood along $\log(k)$
+   solution and `sdreport()`. Calculate a slice of the log-likelihood along $\log(b)$
    through the solution, next to the same slice through the first fit, and plot both as
    relative log-likelihoods. Which checks reveal the problem, and which do not? Calculate
    the gradient at the starting values of the second fit: what does it say about the first
    step of BFGS? See [Diagnosing a fit](../Theory.qmd#sec-diagnosis) and
    [How a gradient method searches](../Theory.qmd#sec-search).
 3. Fit the model from 20 sets of random starting values within a box of plausible values:
-   $A$ from 30 to 300 ft, $k$ from 0.005 to 0.5/year, $t_0$ from $-5$ to 5 years and
+   $a$ from 30 to 300 ft, $b$ from 0.005 to 0.5/year, $c$ from $-5$ to 5 years and
    $\sigma_{\mathrm{obs}}$ from 0.5 to 20 ft, drawn uniformly on the optimised scales (set
    seed 811 before the loop). Where did the fits end, which curve does each end point
    describe, and how many reached the lowest NLL? Restart BFGS from the best fit. See
@@ -96,11 +96,11 @@ pine_data = list(age = pines$age, height = pines$height)
 # Negative log-likelihood with one growth curve for all the trees (complete pooling).
 pooled_nll = function(parms, data) {
   getAll(parms, data)
-  A = exp(log_A)
-  k = exp(log_k)
+  a = exp(log_asym)
+  b = exp(log_rate)
   sd_obs = exp(log_sd_obs)
   # Expected height at the age of each measurement.
-  mu = A * (1 - exp(-k * (age - t0)))
+  mu = a * (1 - exp(-b * (age - c0)))
   -sum(dnorm(x = height, mean = mu, sd = sd_obs, log = TRUE))
 }
 ```
@@ -113,7 +113,7 @@ the same object, with its starting values on the optimised scales given to `opti
 cmb = function(f, d) function(p) f(p, d)
 
 # Process the NLL with the starting values of Chapter 7, and fit it.
-pine_start = list(log_A = log(80), log_k = log(0.05), t0 = 2, log_sd_obs = log(2))
+pine_start = list(log_asym = log(80), log_rate = log(0.05), c0 = 2, log_sd_obs = log(2))
 pooled_obj = MakeADFun(cmb(pooled_nll, pine_data), pine_start, silent = TRUE)
 pooled_fit = optim(
   par = pooled_obj$par,
@@ -122,8 +122,8 @@ pooled_fit = optim(
   method = "BFGS"
 )
 
-# The same starting values with k = 0.1/year, on the optimised scales.
-fast_start = c(log_A = log(80), log_k = log(0.1), t0 = 2, log_sd_obs = log(2))
+# The same starting values with b = 0.1/year, on the optimised scales.
+fast_start = c(log_asym = log(80), log_rate = log(0.1), c0 = 2, log_sd_obs = log(2))
 fast_fit = optim(par = fast_start, fn = pooled_obj$fn, gr = pooled_obj$gr, method = "BFGS")
 ```
 
@@ -131,12 +131,12 @@ A small function returns the estimates of a fit on the original scale, so that w
 compare the two fits in one table:
 
 ```{r}
-# Estimates on the original scale: A and sd_obs in ft, k in 1/year, t0 in years.
+# Estimates on the original scale: a and sd_obs in ft, b in 1/year, c in years.
 pine_estimates = function(fit) {
   c(
-    A = exp(fit$par[["log_A"]]),
-    k = exp(fit$par[["log_k"]]),
-    t0 = fit$par[["t0"]],
+    a = exp(fit$par[["log_asym"]]),
+    b = exp(fit$par[["log_rate"]]),
+    c = fit$par[["c0"]],
     sd_obs = exp(fit$par[["log_sd_obs"]])
   )
 }
@@ -163,10 +163,10 @@ shows the two curves (@fig-pine_fits):
 
 ```{r}
 #| label: fig-pine_fits
-#| fig-cap: "Height of 14 loblolly pines against age, with the curve of the fit from the starting values of Chapter 7 (solid line) and of the fit from the start with k = 0.1/year (dashed line, at zero)."
-# Growth curve: asymptote A, rate k and age t0 at which the height is zero.
-growth = function(t, A = 1, k = 1, t0 = 0) {
-  A * (1 - exp(-k * (t - t0)))
+#| fig-cap: "Height of 14 loblolly pines against age, with the curve of the fit from the starting values of Chapter 7 (solid line) and of the fit from the start with b = 0.1/year (dashed line, at zero)."
+# Growth curve: asymptote a, rate b and age c0 at which the height is zero.
+growth = function(x, a = 1, b = 1, c0 = 0) {
+  a * (1 - exp(-b * (x - c0)))
 }
 
 # Measurements, and the curves of the two fits.
@@ -174,11 +174,11 @@ chapter_7_est = pine_estimates(pooled_fit)
 fast_est = pine_estimates(fast_fit)
 plot(height ~ age, data = pine_data, ylim = c(0, 65), xlab = "Age (years)",
      ylab = "Height (ft)")
-curve(growth(x, A = chapter_7_est[["A"]], k = chapter_7_est[["k"]], t0 = chapter_7_est[["t0"]]),
+curve(growth(x, a = chapter_7_est[["a"]], b = chapter_7_est[["b"]], c0 = chapter_7_est[["c"]]),
       add = TRUE, col = "#D55E00")
-curve(growth(x, A = fast_est[["A"]], k = fast_est[["k"]], t0 = fast_est[["t0"]]),
+curve(growth(x, a = fast_est[["a"]], b = fast_est[["b"]], c0 = fast_est[["c"]]),
       add = TRUE, lty = 2)
-legend("topleft", legend = c("Starting values of Chapter 7", "Start with k = 0.1/year"),
+legend("topleft", legend = c("Starting values of Chapter 7", "Start with b = 0.1/year"),
        col = c("#D55E00", "black"), lty = c(1, 2), bty = "n")
 ```
 
@@ -198,7 +198,7 @@ fast_sd = sdreport(pooled_obj, par.fixed = fast_fit$par)
 fast_sd
 ```
 
-On the optimised scales, $\log(A)$ is about $-18$ and $\log(k)$ about $-12.5$: both
+On the optimised scales, $\log(a)$ is about $-18$ and $\log(b)$ about $-12.5$: both
 parameters ran towards zero, which lies at $-\infty$ on the log scale. The gradient is tiny
 (its largest element, for $\log(\sigma_{\mathrm{obs}})$, is about $5\times10^{-6}$), so the
 gradient alone does not reveal the problem. `sdreport()` does: the Hessian is not positive
@@ -211,34 +211,34 @@ relative to the log-likelihood where its fit stopped:
 
 ```{r}
 #| label: fig-pine_slices
-#| fig-cap: "Slices of the relative log-likelihood along the rate k, through the fit from the starting values of Chapter 7 (solid line) and through the fit from the start with k = 0.1/year (dashed line); the other parameters are fixed where each fit stopped."
-# Slices along log(k) through the two fits: the other parameters stay where each fit stopped.
-log_k_grid = seq(from = log(0.02), to = log(0.08), length.out = 301)
-slice_chapter_7 = rep(NA, times = length(log_k_grid))
-slice_fast = rep(NA, times = length(log_k_grid))
-for (i in seq_along(log_k_grid)) {
+#| fig-cap: "Slices of the relative log-likelihood along the rate b, through the fit from the starting values of Chapter 7 (solid line) and through the fit from the start with b = 0.1/year (dashed line); the other parameters are fixed where each fit stopped."
+# Slices along log(b) through the two fits: the other parameters stay where each fit stopped.
+log_rate_grid = seq(from = log(0.02), to = log(0.08), length.out = 301)
+slice_chapter_7 = rep(NA, times = length(log_rate_grid))
+slice_fast = rep(NA, times = length(log_rate_grid))
+for (i in seq_along(log_rate_grid)) {
   par_chapter_7 = pooled_fit$par
-  par_chapter_7[["log_k"]] = log_k_grid[i]
+  par_chapter_7[["log_rate"]] = log_rate_grid[i]
   par_fast = fast_fit$par
-  par_fast[["log_k"]] = log_k_grid[i]
+  par_fast[["log_rate"]] = log_rate_grid[i]
   # Relative log-likelihood: the difference from the log-likelihood where the fit stopped.
   slice_chapter_7[i] = -pooled_obj$fn(par_chapter_7) + pooled_fit$value
   slice_fast[i] = -pooled_obj$fn(par_fast) + fast_fit$value
 }
 
 # Both slices against the rate, on a logarithmic axis.
-plot(exp(log_k_grid), slice_chapter_7, type = "l", log = "x", ylim = c(-20, 2),
-     col = "#D55E00", xlab = "Rate, k (1/year)", ylab = "Relative log-likelihood")
-lines(exp(log_k_grid), slice_fast, lty = 2)
-legend("bottomleft", legend = c("Starting values of Chapter 7", "Start with k = 0.1/year"),
+plot(exp(log_rate_grid), slice_chapter_7, type = "l", log = "x", ylim = c(-20, 2),
+     col = "#D55E00", xlab = "Rate, b (1/year)", ylab = "Relative log-likelihood")
+lines(exp(log_rate_grid), slice_fast, lty = 2)
+legend("bottomleft", legend = c("Starting values of Chapter 7", "Start with b = 0.1/year"),
        col = c("#D55E00", "black"), lty = c(1, 2), bty = "n")
 ```
 
 The slice through the first fit has a sharp peak at the estimate of the rate, 0.039/year
-(sharp because the asymptote and $t_0$ stay fixed, so a small change of the rate moves the
+(sharp because the asymptote and $c$ stay fixed, so a small change of the rate moves the
 whole curve away from the data). The slice through the second fit is flat: when the
-asymptote is practically zero, the curve stays at zero whatever the rate, so the NLL does not depend on $k$. The same holds for
-$t_0$, and for the asymptote itself over many orders of magnitude, because a curve of
+asymptote is practically zero, the curve stays at zero whatever the rate, so the NLL does not depend on $b$. The same holds for
+$c$, and for the asymptote itself over many orders of magnitude, because a curve of
 $10^{-8}$ ft and one of $10^{-2}$ ft are both zero compared with the heights. These flat
 directions are why the Hessian is not positive definite. So the estimates on the optimised
 scales, `sdreport()` and the slice reveal the problem, and the gradient and the convergence
@@ -247,15 +247,15 @@ code do not.
 How did the search get there? The gradient at the starting values of the second fit is:
 
 ```{r}
-# Gradient at the starting values with k = 0.1/year.
+# Gradient at the starting values with b = 0.1/year.
 pooled_obj$gr(fast_start)
 ```
 
-Its elements are large, from hundreds to thousands. With $k=0.1$/year the curve lies well above the
+Its elements are large, from hundreds to thousands. With $b=0.1$/year the curve lies well above the
 heights of the middle ages, and with a standard deviation of 2 ft every such difference
 weighs heavily in the NLL. The first step of BFGS goes along the negative gradient
 ([theory](../Theory.qmd#sec-search)), so it starts with a change of thousands of units in
-$\log(A)$. The line search shortens the step until the NLL falls, and the first point where
+$\log(a)$. The line search shortens the step until the NLL falls, and the first point where
 it falls already has an asymptote of practically zero: a curve of zero with a large standard
 deviation describes the heights better than the starting curve with $\sigma_{\mathrm{obs}}=2$
 ft. From there no slope leads back.
@@ -278,7 +278,7 @@ n_starts = 20
 multi_results = data.frame(
   nll = rep(NA, n_starts),
   convergence = NA,
-  log_A = NA, log_k = NA, t0 = NA, log_sd_obs = NA
+  log_asym = NA, log_rate = NA, c0 = NA, log_sd_obs = NA
 )
 set.seed(811)
 for (i in 1:n_starts) {
@@ -304,7 +304,7 @@ mean(pine_data$height)
 ```
 
 The asymptote of these fits is $e^{3.477}\approx32.4$ ft, the mean of the 84 heights, and
-$\log(k)$ is about 22. The last fit (551.2) ran far away. These are the failures of the
+$\log(b)$ is about 22. The last fit (551.2) ran far away. These are the failures of the
 theory again: the curve at zero, the constant curve and a search that runs away. We
 restart BFGS from the best of the 20 fits:
 
@@ -326,7 +326,7 @@ evidence that it is the global minimum.
 `nlminb()` takes the starting values, the NLL and the gradient of the same object:
 
 ```{r}
-# nlminb() from the start with k = 0.1/year.
+# nlminb() from the start with b = 0.1/year.
 fast_nlminb = nlminb(start = fast_start, objective = pooled_obj$fn, gradient = pooled_obj$gr)
 fast_nlminb[c("objective", "convergence", "message", "evaluations")]
 ```
@@ -380,7 +380,7 @@ rbind(best = pine_estimates(best_fit), chapter_7 = pine_estimates(pooled_fit))
 
 The gradient is close to zero, the Hessian is positive definite and the standard errors are
 small, so the best fit passes every check. Its estimates agree with those of Chapter 7: an
-asymptote of 102 ft, a rate of 0.039/year, $t_0=2.06$ years and a standard deviation of
+asymptote of 102 ft, a rate of 0.039/year, $c=2.06$ years and a standard deviation of
 1.68 ft. The fit of Chapter 7 had found the maximum; the second start of question 1 had
 not.
 

@@ -90,8 +90,16 @@ $u_j$ added explicitly.
   $\log(H)$, from the values read by eye in Chapter 5 ($\alpha=0.5$, $H=1/60$). The
   Michaelis–Menten form $a,b$ appears only to connect to Chapter 5 and in one sentence on
   correlation (0.98 in $a,b$ against 0.82 in $\alpha,H$). The model is written as
-  $K_i\sim\operatorname{Binomial}(N_i,p(N_i))$; the term "conditional distribution" is left
-  to Chapter 7.
+  $Y_i\sim\operatorname{Binomial}(N_i,p(N_i))$, with $Y_i$ the number killed (author's
+  decision of 16 November, because $K$ is the number of parameters; also in the lecture,
+  its script and the inset of the band figure); the term "conditional distribution" is
+  left to Chapter 7. The general response curve is $\theta_i=f(x_i;\boldsymbol\beta)$ and
+  its log-likelihood $\ell(\boldsymbol\theta)$, with $\boldsymbol\theta$ all the parameters
+  ($\boldsymbol\beta$ and any shared parameter), as in Chapters 7 and 8 (author's decision
+  of 16 November). The Beta-Binomial model is displayed with trials, mean probability and
+  precision, $\operatorname{Beta-Binomial}(N_i,p(N_i),\kappa)$, as in the symbols
+  supplement; the text converts to the shapes that `dbetabinom()` takes (author's decision
+  of 16 November).
 - **One modelling cycle on one data set:** Binomial fit → standard errors, correlation and
   likelihood profile intervals ($\alpha$, $H$, and $1/H$ by transforming the endpoints) →
   pointwise confidence band of the curve from `ADREPORT()` on a grid, on the logit scale →

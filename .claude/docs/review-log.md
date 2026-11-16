@@ -169,12 +169,9 @@ them. All dates are in 2026.
   and theory changes on 11 November, and replacing a question with `outer()` and
   `contour()` that the author dropped).
   **Open for the author** (nothing was changed): no question fits a Beta-Binomial model
-  (Chapter 6); typical groups from a second model matrix and a comparison of candidates by
-  formula are not practised (Chapter 7); `tmbprofile()`, Nelder–Mead, `optimize()`, exact
+  (Chapter 6); typical groups from a second model matrix are not practised (Chapter 7); `tmbprofile()`, Nelder–Mead, `optimize()`, exact
   against approximate gradients and identifiability have no exercise question (Chapter 8);
-  `K_i` (number killed) beside `K` (number of parameters) and `\boldsymbol\beta` for the
-  curve parameters in Chapter 6; the pine curve with `A`, `k`, `t_0` in the practicals of
-  Chapters 7 and 8; R names of estimates that break the `_mom` and `_mle` rule (`mu_hat`,
+  R names of estimates that break the `_mom` and `_mle` rule (`mu_hat`,
   `variance_mm` in Chapter 3; `shape_ml`, `sim_k_ml` in Chapter 4). The lectures of
   Chapters 1 to 4 were checked for notation only. The rules added to `STYLE_GUIDE.md`
   (exercises and solutions, examples of the distributions supplement, one symbol per
