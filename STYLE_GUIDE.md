@@ -220,7 +220,23 @@ such as `distributions.qmd#sec-negative_binomial`) follow the author's entries (
 Poisson, Negative Binomial): summary table; when the distribution is useful and what it
 assumes; the mass or density function with its symbols explained; the mean and variance
 as displayed equations; an `### Example:` that calculates a probability by hand and
-verifies it in R; a figure; a `Practice` callout with a collapsed solution.
+verifies it in R; a figure; a `Practice` callout with a collapsed solution. An example or
+`Practice` callout of the supplement never repeats an exercise of a practical or a
+`Practice` callout of a theory page: it uses another example (another data set) or other
+parameter values, so that an entry never gives an exercise away (author's decision of 11
+November). The callout of an entry may continue the example of that entry
+(`.claude/docs/chapters-2-3.md` lists the settings in use).
+
+**The glossary** (`Supplements/glossary.qmd`) defines general terms of the course
+(author's decisions of 11 November). It has no entries for named deterministic functions
+(Michaelis–Menten, Holling type II, Ricker), which live in the functions supplement, nor
+for the parameters or terms of one specific model (attack rate, handling time), nor for
+narrow technical terms (the internal steps of an optimiser such as a line search, a
+reference level, a matrix product, a distribution used only for one result); these may
+appear as examples inside a general entry. It keeps common terms that students expect to
+find or that a lecture uses (population, model, sample, quantile) even where no chapter
+defines them in bold. An entry on a concept that the chapters explain only in a detail box
+says so, and says what the main text states in its place.
 
 **Supplement entries for deterministic functions**
 (`Supplements/deterministic-functions.qmd`, `sec-fn-` IDs) have: a summary block in
@@ -301,6 +317,57 @@ with descriptive subscripts for several components ($\sigma^2_{\mathrm{group}}$,
 $\sigma^2_{\mathrm{obs}}$); describe them as variances, not precisions, and do not use
 $\tau^2$. When a density or the fitting code takes a standard deviation $\sigma$ (R's
 `sd`), say that its square is the model variance.
+
+One concept has one symbol in every chapter, practical, case study, supplement, slide and
+lecture script. Beyond the table above:
+
+- **Data and indices.** A sample without predictors is $X_1,\ldots,X_n$; a response in a
+  model with a predictor or with groups is $Y_i$ or $Y_{ij}$, the predictor $x_i$. A
+  mnemonic capital defined at first use is allowed ($H_{ij}$ height) unless it clashes with
+  a symbol of the same page ($K$ is the number of parameters, so the number killed is
+  $Y_i$). $i$
+  indexes observations and $j$ groups, also when a group has one observation ($Y_j$,
+  $u_j$). Sample means are $\overline X$ and $\overline x$ (`\overline`, not `\bar`); $s^2$
+  is the sample variance with $n-1$.
+- **Distributions.** Names in `\operatorname{}`, with `\operatorname{NegBin}(\mu,k)` and
+  `\operatorname{Beta-Binomial}`; `\operatorname{Normal}(\mu,\sigma^2)` takes a variance.
+  Gamma: shape $k$ and rate $r$, or mean $\mu$ and shape $k$. Beta: $a$ and $b$, or a mean
+  and the precision $\kappa=a+b$. A Beta-Binomial model with a curve is written with trials,
+  mean probability and precision, $\operatorname{Beta-Binomial}(N_i,p(N_i),\kappa)$, and the
+  text converts to the shapes of `dbetabinom()`. Zero inflation: $p_0$. Approximately distributed:
+  `\overset{\mathrm{approx}}{\sim}`.
+- **Estimation.** $\operatorname{SE}(\hat\theta)$ is the standard deviation of the
+  estimator and $\widehat{\operatorname{SE}}(\hat\theta)$ its estimate; the Wald interval
+  is $\hat\theta\pm z_{0.975}\,\widehat{\operatorname{SE}}(\hat\theta)$. An upright
+  subscript names the method only where two estimators are compared
+  ($\hat\lambda_{\mathrm{MM}}$). The NLL has no symbol of its own ($-\ell(\theta)$).
+  Vectors and matrices are bold ($\boldsymbol\theta$, $\mathbf u$, the gradient
+  $\mathbf g$, the Hessian $\mathbf H$) and scalars plain; $\theta_0$ is a value used to
+  generate data. $\boldsymbol\theta$ holds all the parameters of a model, and the
+  log-likelihood of a model with several parameters is $\ell(\boldsymbol\theta)$. A
+  response curve is $\theta_i=f(x_i;\boldsymbol\beta)$, where $\theta_i$ is the parameter of
+  the distribution of observation $i$ and $\boldsymbol\beta$ the parameters of the curve,
+  which are part of $\boldsymbol\theta$ (Chapter 6). In formulas that hold for any number
+  of parameters (AIC, the relative log-likelihood) $\hat\theta$ stays plain, as in Chapter 4. $\mathrm{AIC}$, $\mathrm{AICc}$ and $\mathrm{BIC}$ are upright.
+- **Grouped models.** Random effects $u_j$; a coefficient of a predictor is
+  $\beta_{\mathrm{name}}$ with an upright descriptive subscript, the baseline the
+  transformed baseline parameter ($\log(a)$) or $\beta_0$; an indicator of a level is a
+  capital with the index of its unit ($M_j$).
+- **Typography.** A product of numbers takes `\times` and a product of symbols is
+  juxtaposed, with `\,` where needed, never `\cdot`. Exponentials are $e^{-bx}$, with
+  `\exp()` only for a tall or nested exponent. `\operatorname{logit}(p)` and
+  `\operatorname{logit}^{-1}(z)` take parentheses like the logarithm. Lists take `\ldots`
+  and sums `\cdots`. Special points are $x_{\max}$, $x_{1/2}$ and $t_{1/2}$.
+
+A letter may serve two concepts in different places when each is defined where it is used
+($k$ is the shape of the Negative Binomial and of the Gamma; $a$ and $b$ are positions in
+a function and the shapes of the Beta).
+
+Keep these conventions wherever possible. The one exception: a common letter ($a$, $b$,
+$c$, $k$, $x$, $p$ and the like) may take a slightly different meaning within a specific
+exercise or example, and the text there says what it means (author's decision of 11
+November). `Supplements/symbols.qmd` gives these conventions to students and lists no
+local exceptions; when a convention here changes, change the supplement in the same edit.
 
 Use "approximately" for rounded results and asymptotic approximations. Describe
 simulation summaries as varying across samples, and do not promise monotonic improvement
@@ -425,6 +492,23 @@ progress from calculation to interpretation. Hints may refer to a tool taught ea
 without giving the answer away. Worked solutions contain the reasoning, executable code
 and an answer in the terms of the question.
 
+Two rules hold for every exercise and every `Practice` callout (author's requirements of
+11 November):
+
+- **An exercise needs only what has been taught.** Taught means explained in the main text
+  of a theory page up to that chapter, in the Chapter 1 practical, in an earlier exercise,
+  or in the exercise itself (its text or a hint). Material that appears only in a
+  statistical or technical detail box or in a footnote does not count; a supplement entry
+  counts where the practical tells students to read it and the question or a hint names
+  it. The practical of a chapter practises the skills of its learning goals, roadmap table
+  and recipe callout, and a skill left out for lack of time is recorded in `.claude/docs/`.
+- **A solution answers the question and nothing else.** Each numbered question has one
+  solution part. The solution does not add analyses, plots, checks or interpretations that
+  the question does not ask for, and leaves nothing asked unanswered. Code that a later
+  question needs may stand in an earlier part if the solution says so in a clause. A
+  function or argument that has not been taught is replaced by a taught one or explained
+  at first use.
+
 The Chapter 1 wrappers keep the metadata chunk that calls
 `quarto::write_yaml_metadata_block(show_solution = TRUE)` (`FALSE` in `no_solution.qmd`),
 followed by `{{< include material.qmd >}}`. Nested exercises and solutions follow this
@@ -456,7 +540,10 @@ one group.
 Keep fence lengths matched and the nesting intact. Collapsing a solution does not hide it
 from the student version; the conditional div does. In the separate files of later
 chapters use `# Exercise N: Topic` and `## Solution`. A `no_solution.qmd` may contain
-worked exercises (`AGENTS.md` lists them).
+worked exercises (`AGENTS.md` lists them). Practicals are titled
+`"Chapter N: Title of the chapter"` and their solutions
+`"Chapter N: Title of the chapter — solutions"` (an em dash); the PDF build finds the
+solution pages by the word "solutions" in the title.
 
 ## R coding patterns
 

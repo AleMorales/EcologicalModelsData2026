@@ -42,23 +42,24 @@ the argument `family`.
 
 ## Linear predictors and link functions
 
-A **linear predictor** is a sum of predictor values multiplied by coefficients. For one
-continuous predictor $x_i$, it is
+A **linear predictor** is a sum of predictor values multiplied by coefficients, and
+$\eta$ denotes the linear predictor of the fixed effects. For one continuous predictor
+$x_i$, it is
 
 $$
-\eta_i = a + b x_i,
+\eta_i = \beta_0 + \beta_{\mathrm{x}}\,x_i,
 $$
 
-where $a$ is the intercept and $b$ is the slope. The formula `y ~ x` requests these two
-coefficients. For a Normal linear model, the expected response is $\mu_i=\eta_i$. More
-generally, a **link function** $g$ relates the mean to the linear predictor through
-$g(\mu_i)=\eta_i$, so the inverse link gives the expected response. For example, a log
-link gives $\mu_i=\exp(a+b x_i)$, while a logit link gives a probability
-$p_i=\operatorname{logit}^{-1}(a+b x_i)$.
+where $\beta_0$ is the intercept and $\beta_{\mathrm{x}}$ is the slope. The formula `y ~ x`
+requests these two coefficients. For a Normal linear model, the expected response is
+$\mu_i=\eta_i$. More generally, a **link function** $g$ relates the mean to the linear
+predictor through $g(\mu_i)=\eta_i$, so the inverse link gives the expected response. For
+example, a log link gives $\mu_i=e^{\beta_0+\beta_{\mathrm{x}}x_i}$, while a logit link
+gives a probability $p_i=\operatorname{logit}^{-1}(\beta_0+\beta_{\mathrm{x}}x_i)$.
 
 The word "linear" refers to the coefficients. A polynomial such as
-$\eta_i=a+b x_i+c x_i^2$ is also linear in its coefficients, even though its graph is
-curved. R's formula operators specify which terms receive coefficients:
+$\eta_i=\beta_0+\beta_{\mathrm{x}}\,x_i+\beta_{\mathrm{quad}}\,x_i^2$ is also linear in its
+coefficients, even though its graph is curved. R's formula operators specify which terms receive coefficients:
 
 | Formula | Terms in the linear predictor |
 |---|---|
@@ -73,15 +74,21 @@ With the default contrasts, a factor's first level is the reference level. Its e
 response on the link scale is included in the intercept, and the other coefficients are
 differences from that level. Use `factor()` for a categorical predictor and `relevel()`
 to choose its reference. The function `I()` tells R to interpret arithmetic such as
-`x^2` literally inside a formula.
+`x^2` literally inside a formula. The functions that fit models from a formula build the
+model matrix of the fixed effects from it with `model.matrix()`, as in the
+[model matrix](../Chapter_7/Theory.qmd#sec-model-matrix) of Chapter 7, and name each
+coefficient after its column. An ordered factor would receive polynomial contrasts instead
+of differences from a reference level, so use `factor()`.
 
 ## Random effects
 
 A **random effect** is a group deviation described by a distribution, as in
 [Chapter 7](../Chapter_7/Theory.qmd#sec-conditional).
 In `glmmTMB`, `(1 | site)` adds a Normal random intercept for each site. With a continuous
-predictor, the linear predictor becomes $\eta_{ij}=a+b x_{ij}+u_j$, where $u_j$ is the
-deviation of site $j$ and $u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{site}})$.
+predictor, the linear predictor of the fixed effects is
+$\eta_{ij}=\beta_0+\beta_{\mathrm{x}}\,x_{ij}$, and the random intercept is added to it, so
+that $g(\mu_{ij})=\eta_{ij}+u_j$. Here $u_j$ is the deviation of site $j$ and
+$u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{site}})$.
 The shared intercept, slope, and among-site variance are parameters of the model.
 
 The formula `(1 + x | site)` also lets the slope vary among sites, and estimates the
@@ -114,7 +121,12 @@ description. The following methods request the corresponding calculations:
 | Likelihood profile intervals | `confint(fit, method = "profile")` |
 | Predictions and delta-method standard errors | `predict(fit, se.fit = TRUE)` |
 | Hypothetical samples | `simulate(fit)` |
-| Likelihood and information criteria | `logLik()`, `AIC()`, and `BIC()` |
+| Likelihood and information criteria | `logLik()`, `AIC()`, and `BIC()` (grouped models are compared with AIC only, as in Chapter 7) |
+
+`glmmTMB()` minimises the NLL with `nlminb()` by default, using the gradient of automatic
+differentiation, as described in
+[Chapter 8](../Chapter_8/Theory.qmd#sec-local-optimisers); the argument `optimizer` of
+`glmmTMBControl()` selects another optimiser.
 
 We use maximum likelihood throughout, which is the default (`REML = FALSE`).^[For Normal
 linear mixed models, `REML = TRUE` requests restricted maximum likelihood, an alternative
@@ -141,17 +153,17 @@ The same function fits all four model classes. Its main arguments are:
 ## Linear models
 
 A **linear model** describes independent Normal observations whose mean is a linear
-predictor. For a continuous predictor $x_i$ and a two-level factor encoded as
-$z_i\in\{0,1\}$, we can write
+predictor. For a continuous predictor $x_i$ and a two-level factor encoded by the
+indicator $M_i\in\{0,1\}$ (1 for the level that is not the reference), we can write
 
 $$
 Y_i\sim\operatorname{Normal}(\mu_i,\sigma^2),\qquad
-\mu_i=a+b x_i+c z_i,
+\mu_i=\beta_0+\beta_{\mathrm{x}}\,x_i+\beta_{\mathrm{level}}\,M_i,
 $$
 
-where $a$ is the intercept for the reference level, $b$ is the common slope, $c$ is the
-difference between levels at the same value of $x_i$, and $\sigma^2$ is the residual
-variance. The family `gaussian(link = "identity")` specifies this observation model.
+where $\beta_0$ is the intercept for the reference level, $\beta_{\mathrm{x}}$ is the common
+slope, $\beta_{\mathrm{level}}$ is the difference between levels at the same value of $x_i$,
+and $\sigma^2$ is the residual variance. The family `gaussian(link = "identity")` specifies this observation model.
 
 We return to the Gentoo penguins of Chapters 2 and 3, now asking how expected body mass
 varies with flipper length and sex. The built-in `penguins` data require R 4.5.0 or later.
@@ -198,11 +210,12 @@ A **linear mixed model** adds Normal group deviations to a linear predictor with
 observations. For a random intercept, the observation model is
 
 $$
-Y_{ij}\mid u_j\sim\operatorname{Normal}(a+b x_{ij}+u_j,\sigma^2_{\mathrm{obs}}),
+Y_{ij}\mid u_j\sim\operatorname{Normal}(\eta_{ij}+u_j,\sigma^2_{\mathrm{obs}}),
 \qquad u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{group}}),
 $$
 
-where $i$ indexes observations within group $j$. Observations are assumed independent
+where $\eta_{ij}=\beta_0+\beta_{\mathrm{x}}\,x_{ij}$ is the linear predictor of the fixed
+effects and $i$ indexes observations within group $j$. Observations are assumed independent
 conditional on their group deviations. Marginalising over a shared deviation makes
 observations from the same group correlated.
 
@@ -253,7 +266,7 @@ through a link and a linear predictor. The observations are assumed independent 
 the predictors. For counts under a Poisson model with a log link,
 
 $$
-Y_i\sim\operatorname{Poisson}(\mu_i),\qquad \log\mu_i=\eta_i.
+Y_i\sim\operatorname{Poisson}(\mu_i),\qquad \log(\mu_i)=\eta_i.
 $$
 
 We return to the insect counts in the Chapter 2 practical, now estimating one mean for
@@ -273,7 +286,7 @@ fixef(insect_poisson_fit)$cond
 
 The intercept is the log of the expected count for spray A. Each other coefficient is
 a log ratio to that mean, so exponentiating it gives the corresponding ratio of expected
-counts. For example, a coefficient of $\log 2$ would mean twice the expected count.
+counts. For example, a coefficient of $\log(2)$ would mean twice the expected count.
 
 The family also specifies the relationship between the mean and variance. The Poisson
 model has variance $\mu_i$; `nbinom2()` gives the Negative Binomial model of the course,
@@ -304,7 +317,7 @@ probability models.
 
 A **generalised linear mixed model** adds random effects to the linear predictor of a
 generalised linear model. For a Negative Binomial random-intercept model,
-$\log\mu_{ij}=\eta_{ij}+u_j$, with
+$\log(\mu_{ij})=\eta_{ij}+u_j$, with
 $u_j\sim\operatorname{Normal}(0,\sigma^2_{\mathrm{site}})$. The observation variance is
 $\mu_{ij}+\mu_{ij}^2/k$ conditional on the site effect; the Normal site distribution
 describes an additional source of variation among sites.
@@ -340,8 +353,9 @@ effect of mining.
 
 The argument **`dispformula`** models the dispersion parameter with its own linear
 predictor and a log link. For a Normal model, it describes the residual standard
-deviation: $\log\sigma_i=a_\sigma+b_\sigma x_i$. For `nbinom2()`, it describes the
-shape: $\log k_i=a_k+b_k x_i$. Its default, `~ 1`, estimates one shared value. For example,
+deviation: $\log(\sigma_i)=\log(\sigma_0)+\beta_{\mathrm{disp}}\,x_i$, where $\sigma_0$ is the
+standard deviation at $x_i=0$. For `nbinom2()`, it describes the shape:
+$\log(k_i)=\log(k_0)+\beta_{\mathrm{disp}}\,x_i$. Its default, `~ 1`, estimates one shared value. For example,
 the penguin model can allow a different residual standard deviation for each sex:
 
 ```{r}
@@ -360,8 +374,10 @@ The intercept is the log of the residual standard deviation (g) of females, and 
 is the difference between males and females on that scale, so its exponential is the ratio
 of the two standard deviations.
 
-The argument **`ziformula`** models a zero-inflation probability with a logit link,
-as described in the [distribution supplement](distributions.qmd#sec-zero_inflated).
+The argument **`ziformula`** models the zero-inflation probability. The
+[distribution supplement](distributions.qmd#sec-zero_inflated) describes zero inflation
+as an extra probability $p_0$ of a zero, and `ziformula` lets that probability depend on
+predictors through a logit link.
 Its default, `~ 0`, adds no zero-inflation. We can allow that probability to differ
 between mined and unmined sites while retaining the same conditional count model:
 
@@ -469,9 +485,9 @@ head(data.frame(
 ))
 ```
 
-With a log link, setting the random effect to zero gives $\exp(\eta_i)$, whereas averaging
+With a log link, setting the random effect to zero gives $e^{\eta_{ij}}$, whereas averaging
 the mean over the Normal site distribution gives
-$\exp(\eta_i+\sigma^2_{\mathrm{site}}/2)$. So `re.form = NA` does not perform that
+$e^{\eta_{ij}+\sigma^2_{\mathrm{site}}/2}$. So `re.form = NA` does not perform that
 response-scale averaging. Marginalisation during fitting and averaging a prediction
 over groups are separate calculations. For zero-inflated models, `type = "response"`
 also includes the zero-inflation probability; `type = "conditional"` returns the mean
@@ -497,14 +513,17 @@ insect_comparison
 
 Lower AIC ranks a candidate more favourably; the differences compare its expected
 predictive performance with that of the other candidates. AICc is the approximation
-discussed in [Chapter 4](../Chapter_4/Theory.qmd#sec-aic). Model comparison is followed
-by checks of convergence and of the observation model.
+discussed in [Chapter 4](../Chapter_4/Theory.qmd#sec-aic). Models with random effects,
+such as `salamander_fit`, are compared with AIC only, as in
+[Chapter 7](../Chapter_7/Theory.qmd), because the number of observations that AICc
+needs is ambiguous when observations are grouped. Model comparison is followed by checks
+of convergence and of the observation model.
 
 A `glmmTMB` fit stores the result of the optimiser in its element `fit` and the result of
 `sdreport()` in its element `sdr`. As in Chapter 4, `convergence` should be zero after a
-normal stop, and `pdHess` should be `TRUE` for the Hessian to give usable standard errors
-([Chapter 8](../Chapter_8/Theory.qmd#sec-diagnosis) explains how to diagnose a fit). We
-check both for the salamander fit:
+normal stop, and, as in [Chapter 8](../Chapter_8/Theory.qmd#sec-diagnosis), `pdHess`
+should be `TRUE` for the Hessian to give usable standard errors. We check both for the
+salamander fit:
 
 ```{r}
 # Convergence code of the optimiser and check of the Hessian.
@@ -539,6 +558,9 @@ salamander_residuals = DHARMa::simulateResiduals(salamander_fit, n = 1000, seed 
 plot(salamander_residuals)
 DHARMa::plotResiduals(salamander_residuals, form = Salamanders$mined)
 ```
+
+As in Chapter 6, read these plots and the dispersion statistic as exploratory evidence:
+`plot()` also prints tests with p-values, and the course does not base decisions on them.
 
 As with the models that we write ourselves, interpret the estimated effects and their
 uncertainty in terms of the ecological question, and use the checks to decide whether the

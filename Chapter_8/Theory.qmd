@@ -466,7 +466,7 @@ replaced by a **finite difference**, the change in the NLL between two nearby va
 parameter divided by the distance between them, as in
 [Chapter 5](../Chapter_5/Theory.qmd#sec-function-derivatives). `optim()` uses two
 evaluations of the NLL for each parameter, one on each side of the current value, so each
-approximate gradient of a model with $p$ parameters costs $2p$ extra evaluations. The
+approximate gradient of a model with $K$ parameters costs $2K$ extra evaluations. The
 distance between the two values is a compromise. A large distance makes the straight line
 between the two points a poor approximation of the slope at the point, and a very small one
 makes the difference of two nearly equal numbers inaccurate, because the computer rounds
@@ -569,9 +569,11 @@ them is sufficient alone:
   but not enough, because the gradient is also close to zero on a ridge and near a saddle
   point.
 - **The curvature**, from `sdreport()`. At a minimum the Hessian is positive definite (box
-  below), and `sdreport()` returns the element `pdHess`, which is `TRUE` when it is. When it
-  is not, the standard errors are `NaN`, and printing the result gives the warning "Hessian
-  of fixed effects was not positive definite". Huge standard errors are a warning sign as
+  below), and `sdreport()` returns the element `pdHess`, which is `TRUE` when it is, that is, when
+  the NLL curves upwards in every direction from the solution, as it must at a minimum. When
+  `pdHess` is `FALSE`, some direction is flat or curves downwards, the standard errors are
+  `NaN`, and printing the result gives the warning "Hessian of fixed effects was not
+  positive definite". Huge standard errors are a warning sign as
   well (@sec-identifiability). By default `sdreport()` uses the parameter
   values with the lowest NLL that the object has evaluated, so after several fits of the
   same object we pass the values of the fit to check with the argument `par.fixed`.
@@ -725,7 +727,10 @@ They give you this summary of the three fits:
 | B | 1 | 154.85 | 39.8 | 17.4 | `TRUE` | 0.21 |
 | C | 0 | 171.40 | $6.2\times10^{8}$ | $2.9\times10^{8}$ | `FALSE` | 0.000003 |
 
-Which fits found the maximum? What happened in the others, and what would you check next?
+The column `pdHess` is the element of `sdreport()`: `TRUE` when the NLL curves upwards in
+every direction from the solution, as it does at a minimum, and `FALSE` when it is flat or
+curves downwards in some direction. Which fits found the maximum? What happened in the
+others, and what would you check next?
 
 ::: {.callout-tip title="Solution" collapse="true"}
 
@@ -755,7 +760,10 @@ a figure of the data or calculated with the method of moments, as in Chapters 4 
 suffice. The CO₂ model shows that the choice matters more than it might seem: the start from
 the slow rise ends on the ridge with a standard deviation of 2 µmol/m²/s, but the same start
 with a standard deviation of 10 µmol/m²/s reaches the maximum, because the search then
-follows a different path. When a fit is in doubt, or a model is known to be difficult, we use
+follows a different path. Before any fit, it is worth evaluating `obj$fn(obj$par)` and
+`obj$gr(obj$par)` at the starting values: both should be ordinary numbers, and a `NaN` or
+an infinite value means that the model cannot be evaluated there (for example, a probability
+outside the interval from 0 to 1), so that the search cannot start. When a fit is in doubt, or a model is known to be difficult, we use
 **multiple starting values**:
 
 1. choose a box of plausible values for each parameter, in its units, and transform it to
@@ -1437,8 +1445,8 @@ the curve. From a plot of the data, a colleague reads starting values of $a=600$
 $b=0.0005$/day, $c=-100$ days and a standard deviation of 20 mm. The asymptote, the rate and
 the standard deviation are optimised on the log scale, and the location $c$ untransformed.
 Calculate the starting values on the optimised scale. Which parameter is poorly scaled, and
-what change of units would bring all four to comparable scales? Does a change of the units
-of length help?
+what change of units would bring all four to comparable scales? Which `parscale` would you
+give `optim()` instead of changing the units? Does a change of the units of length help?
 
 ::: {.callout-tip title="Solution" collapse="true"}
 
@@ -1454,7 +1462,10 @@ c(log_a = log(600), log_b = log(0.0005 * 365), c = -100 / 365, log_sd = log(20))
 With age in days the location is $-100$, while the other three lie between $-8$ and 7; a
 step of one unit is a change of one day in $c$, which hardly changes the curve, but a factor
 of $e$ in $a$, $b$ or $\sigma$. With age in years the location is $-0.27$ and all four values
-are of comparable size. The units of length do not help: a log-transformed parameter only
+are of comparable size. Instead of changing the units, `parscale` gives `optim()` the typical
+size of each parameter: with `parscale = c(1, 1, 100, 1)`, in the order of the four values
+above, the location is measured in units of 100 days and the other three in units of one,
+so that `optim()` works with four parameters of comparable size. The units of length do not help: a log-transformed parameter only
 shifts by a constant when its units change (by $\log(10)$ from millimetres to centimetres), so
 its scale stays the same. They change only the size of the NLL.
 
@@ -1524,7 +1535,7 @@ nlminb_table
 differently avoids the ridge, the curve at zero and the early plateau from these starts.
 
 The **Nelder–Mead** method, `optim(method = "Nelder-Mead")`, which is the default of
-`optim()`, uses no gradient at all. With $p$ parameters it keeps a **simplex** of $p+1$
+`optim()`, uses no gradient at all. With $K$ parameters it keeps a **simplex** of $K+1$
 points (a triangle for two parameters) and the NLL at each of them. At each step it replaces
 the worst point by its reflection through the centre of the others; if the reflected point is
 much better it tries a point further out (an expansion), and if it is worse it tries one
@@ -1642,7 +1653,7 @@ do not use them.
 
 ::: {.callout-caution collapse="true" icon=false title="Technical detail: differential evolution"}
 Let $\mathbf x_1,\ldots,\mathbf x_{NP}$ be the $NP$ members of the population, each a vector
-of the $p$ parameters. In the classical scheme, the mutant for member $i$ is
+of the $K$ parameters. In the classical scheme, the mutant for member $i$ is
 
 $$
 \mathbf v_i=\mathbf x_{r_0}+F\left(\mathbf x_{r_1}-\mathbf x_{r_2}\right),
@@ -1915,8 +1926,8 @@ what cost?
 ::: {.callout-tip title="Answer" collapse="true"}
 
 Nelder–Mead needs no gradient, and BFGS can still be used: without `gr`, `optim()`
-approximates the gradient by finite differences, at the cost of $2p$ extra evaluations of
-the NLL per gradient for $p$ parameters and some precision. For one parameter, `optimize()`
+approximates the gradient by finite differences, at the cost of $2K$ extra evaluations of
+the NLL per gradient for $K$ parameters and some precision. For one parameter, `optimize()`
 needs neither a gradient nor a starting value, and differential evolution needs only the
 NLL and a box. All of them need more evaluations, and the tools of RTMB that rely on the
 derivatives (`sdreport()`, `ADREPORT()`, the Laplace approximation) are not available.

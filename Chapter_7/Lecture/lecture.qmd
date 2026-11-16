@@ -88,14 +88,13 @@ A grouped model describes the dependence explicitly.
 ::: {.column width="38%"}
 ::: {.incremental}
 - **One curve per group:** every group measured at the same values of the predictor.
-- **The curve:** $\mu(x)=a\left(1-e^{-b(x-c)}\right)$; asymptote $a$, rate $b$, zero at
-  $x=c$.
+- **The same function** for every group, with its own parameters.
 - **The parameter that varies:** the one in which the groups differ most.
 :::
 
 ::: {.example .fragment}
-12 plants: 2 origins × 2 treatments × 3 plants, 7 concentrations, 84 measurements. The
-asymptote varies among plants.
+12 plants, 7 concentrations, 84 measurements. $\mu(x)=a\left(1-e^{-b(x-c)}\right)$; the
+asymptote $a$ varies among plants.
 :::
 :::
 ::::
@@ -148,7 +147,7 @@ Beta-Binomial (Chapter 6): Binomial for a given probability, Beta among tanks; c
 A random effect: Normal on a transformed scale; usually no closed form.
 :::
 
-## A model with a random asymptote {data-timing="240"}
+## A two-level model with a random effect {data-timing="240"}
 
 $$
 u_j\sim\operatorname{Normal}\left(0,\sigma^2_{\mathrm{group}}\right),
@@ -156,20 +155,17 @@ u_j\sim\operatorname{Normal}\left(0,\sigma^2_{\mathrm{group}}\right),
 Y_{ij}\mid u_j\sim\operatorname{Normal}\left(\mu_j(x_{ij}),\sigma^2_{\mathrm{obs}}\right)
 $$
 
-$$
-\mu_j(x)=a\,e^{u_j}\left(1-e^{-b(x-c)}\right)
-$$
-
 ::: {.incremental}
-- **$Y_{ij}$:** observation $i$ of group $j$; **$u_j$:** its deviation (log asymptote).
-- **$a_j=a\,e^{u_j}$:** always positive; deviations multiply ($u_j=0.1$: about 10% higher).
+- **$Y_{ij}$:** observation $i$ of group $j$; **$u_j$:** the deviation of group $j$.
+- **$\mu_j(x)$:** the curve of group $j$; $u_j$ acts on one parameter, on a log or logit
+  scale. A positive parameter is $a_j=a\,e^{u_j}$: deviations multiply.
 - **For a given $u_j$:** the observations of a group are independent.
 - **Marginally:** dependent, because they share $u_j$; different groups are independent.
 :::
 
 ::: {.example .fragment}
-12 plants ($j$), 7 concentrations ($i$), $\sigma^2_{\mathrm{plant}}$; $b$ and $c$ shared by
-all plants.
+$\mu_j(x)=a\,e^{u_j}\left(1-e^{-b(x-c)}\right)$; $u_j=0.1$: asymptote about 10% higher. 12
+plants ($j$), 7 concentrations ($i$), $\sigma^2_{\mathrm{plant}}$; $b$ and $c$ shared.
 :::
 
 ::: {.takeaway .fragment}
@@ -275,7 +271,7 @@ $\boldsymbol\theta$: $a$, $b$, $c$, $\sigma_{\mathrm{plant}}$ and $\sigma_{\math
 12 integrals, one for each plant.
 :::
 
-## The Laplace approximation {.figure-slide data-timing="240"}
+## The Laplace approximation {.figure-slide data-timing="180"}
 
 :::: {.columns}
 ::: {.column width="54%"}
@@ -322,7 +318,7 @@ RTMB does it for every group, at every evaluation of the NLL.
 #| eval: false
 mixed_nll = function(parms, data) {
   getAll(parms, data)
-  # The density of the deviations comes first.
+  # Density of u first; plant: group index.
   nll = -sum(dnorm(x = u, mean = 0,
                    sd = exp(log_sd_plant), log = TRUE))
   a = exp(log_asym + u)
@@ -388,12 +384,13 @@ treatment, habitat).
 - **A fixed effect** on the parameter that varies among groups, on its log scale.
 - **On the log scale** the effects add; on the original scale they multiply.
 - **Interaction:** the effect of one predictor depends on the level of the other.
+- **Derived quantities:** `ADREPORT()`; Wald interval on the log scale, back with `exp()`.
 :::
 
 ::: {.example .fragment}
-$\log(a_j)=\log(a)+\beta_{\mathrm{miss}}M_j+\beta_{\mathrm{chill}}C_j+\beta_{\mathrm{int}}M_jC_j+u_j$,
-with $M_j=1$ for Mississippi and $C_j=1$ for chilled; $\hat\sigma_{\mathrm{plant}}$ 0.34 →
-0.079. Chilling: × 0.90 (Quebec), × 0.59 (Mississippi).
+$\log(a_j)=\log(a)+\beta_{\mathrm{miss}}M_j+\beta_{\mathrm{chill}}C_j+\beta_{\mathrm{int}}M_jC_j+u_j$
+($M_j=1$ Mississippi, $C_j=1$ chilled); $\hat\sigma_{\mathrm{plant}}$ 0.34 → 0.079;
+chilling × 0.90 (Quebec), × 0.59 (Mississippi).
 :::
 
 ::: {.takeaway .fragment}
@@ -410,8 +407,8 @@ Predictors explain variation among groups; the variance describes what remains.
 ::: {.column width="50%"}
 ::: {.incremental}
 - **`model.matrix()`:** a formula and one row per group; `A * B` is `A + B + A:B`.
-- **Reference level:** the first level of each factor.
-- **`X %*% beta`:** each column times its coefficient, summed; all groups at once.
+- **Reference level:** the first level; check `levels()`, change `relevel()`.
+- **`X %*% beta`:** columns times coefficients, summed; all groups at once.
 - **Formula interfaces** build the same matrix.
 :::
 :::
@@ -529,7 +526,7 @@ $w=n\sigma^2_{\mathrm{nest}}/(n\sigma^2_{\mathrm{nest}}+\sigma^2_{\mathrm{obs}})
 of 12 plants; no model comparison.
 :::
 
-## Uncertainty of variance components and REML {data-timing="240"}
+## Uncertainty of variance components and REML {data-timing="300"}
 
 ::: {.incremental}
 - **A variance among groups** is informed by the groups, not the observations; use the
@@ -618,22 +615,22 @@ Each level can hide a problem at the other: check both.
 ## AIC for grouped models {data-timing="240"}
 
 $$
-\mathrm{AIC}=2K-2\,\ell(\hat{\boldsymbol\theta})
+\mathrm{AIC}=2K-2\,\ell(\hat\theta)
 $$
 
 ::: {.incremental}
-- **$\ell(\hat{\boldsymbol\theta})$:** the maximum marginal log-likelihood.
+- **$\ell(\hat\theta)$:** the maximum marginal log-likelihood.
+- **Differences** between models fitted to the same observations; AIC ranks.
 - **$K$:** the fixed effects and the variance parameters, not the random effects; the
   length of `par`.
-- **Boundary:** a model without random effects has $\sigma_{\mathrm{group}}=0$, at the
-  edge of the range, so AIC is then an approximate guide.
+- **Boundary:** without random effects $\sigma_{\mathrm{group}}=0$, at the edge of the
+  range: AIC is approximate.
 - **No AICc or BIC:** the number of independent observations lies somewhere between the
   number of groups and the number of observations.
 :::
 
 ::: {.example .fragment}
-Random asymptote: $K=5$, not 17; the 12 deviations cost one parameter,
-$\sigma_{\mathrm{plant}}$. And $n$: 84 measurements or 12 plants?
+Random asymptote: $K=5$, not 17. And $n$: 84 measurements or 12 plants?
 :::
 
 ## Comparing the candidates {.roadmap data-timing="180"}
@@ -649,14 +646,9 @@ $\sigma_{\mathrm{plant}}$. And $n$: 84 measurements or 12 plants?
 
 :::
 
-::: {.caption}
-ΔAIC: difference from the lowest AIC. Formulas of the log asymptote: `~ 1`,
-`~ Type + Treatment` (+) and `~ Type * Treatment` (×).
-:::
-
 ::: {.incremental}
-- **Beyond origin and treatment?** The profile interval of $\sigma_{\mathrm{plant}}$.
-- **No pooling:** predicts the same groups, so it is left out.
+- **One NLL, several formulas:** candidates that differ in their fixed effects only.
+- **Beyond the predictors?** The profile interval of $\sigma_{\mathrm{plant}}$.
 :::
 
 ::: {.takeaway .fragment}
