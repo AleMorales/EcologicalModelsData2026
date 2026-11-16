@@ -149,16 +149,22 @@ elsewhere.
 - The production build renders Chapters 1 to 8 (with the lectures of Chapters 1 to 4 and 6
   to 8), Case study 1 (listed under "Theory" between Chapters 4 and 5), Case study 2
   (between Chapters 7 and 8) and six supplements.
-- The printable PDF is a Typst book in the third profile of the group, `_quarto-pdf.yml`
-  (`quarto render --profile pdf --to typst`, output in `_book-pdf/`): the theory pages,
-  the student practicals and the supplements as three parts, and the solutions of the
-  practicals as appendices; no lectures. A page added to the production build is added
-  there too. The publish workflow renders it after the site and copies it into the site
-  for the "Download PDF" link of the sidebar. Two Typst-only filters adapt the website
-  pages without changing them: `filters/typst-verb.lua` (pandoc cannot convert `\verb`
-  in mathematics) and `filters/typst-book.lua` (moves page sections one level below the
-  chapter title, makes the IDs of the solution pages unique, because one Typst document
-  allows each label once, and leaves the preface and the case studies unnumbered).
+- The printable PDF is split into three Typst books, the profiles of the group
+  `_quarto-pdf.yml` (`quarto render --profile pdf --to typst`, output in `_book-pdf/`),
+  `_quarto-pdf-practicals.yml` (`pdf-practicals`, `_book-pdf-practicals/`) and
+  `_quarto-pdf-solutions.yml` (`pdf-solutions`, `_book-pdf-solutions/`) (author's decision
+  of 16 November): the textbook (preface, theory pages and supplements, the core
+  document), the practicals (`no_solution.qmd`, with the preface `index.qmd` as home page,
+  which Quarto requires) and the solutions (`solution.qmd`); no lectures. A page added to
+  the production build is added to the right profile too. The Typst format is shared and
+  lives in `_quarto.yml`. The publish workflow renders the three after the site and copies
+  them into the site for the download links of the sidebar. Typst-only filters adapt the
+  website pages without changing them: `filters/typst-verb.lua` (pandoc cannot convert
+  `erb` in mathematics), `filters/typst-book.lua` (moves page sections one level below
+  the chapter title, makes the IDs of the solution pages unique, because one Typst
+  document allows each label once, and leaves the preface and the case studies
+  unnumbered) and `filters/typst-external-refs.lua` (a link to a page that is in another
+  PDF becomes plain text, because Typst stops on a missing label).
   Author's decision of 13 November: theory chapters keep their course numbers in the
   PDF; the case studies are unnumbered, and their figures, equations and callouts are
   labelled C1.n and C2.n.
