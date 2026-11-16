@@ -170,6 +170,10 @@ elsewhere.
   `nlme` (`Soybean`, Case study 2), `DEoptim` (Chapter 8), `knitr` and `rmarkdown`. `VGAM`, `gtools`, `COMPoissonReg` and `GA` were removed
   because no page loads them.
 - Do not install packages during rendering.
+- The publish workflow pins Quarto (and with it Pandoc and Typst) to the author's local
+  version, 1.9.36 (author's decision of 16 November), so that what renders locally renders
+  on GitHub; `setup-r-dependencies` does not install Quarto. When the author upgrades
+  Quarto locally, change the version in `publish.yml` in the same commit.
 
 ## Repository workflow
 
