@@ -1,0 +1,1633 @@
+---
+title: "Light response of photosynthesis in *Arabidopsis* grown at two temperatures, with and without drought"
+subtitle: "Reference analysis for a possible case study after Chapter 7"
+date: 2026-11-20
+format:
+  typst:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    papersize: a4
+    margin:
+      x: 2.2cm
+      y: 2.5cm
+    fontsize: 10pt
+    fig-format: png
+    fig-dpi: 200
+execute:
+  echo: true
+  warning: true
+  message: false
+knitr:
+  opts_chunk:
+    comment: "#>"
+    R.options:
+      width: 84
+---
+
+# About this document {.unnumbered}
+
+This document is a reference analysis for the author, not a course page. It shows what
+students could do with these data with the tools of Chapters 1 to 7 (RTMB, RTMBdist,
+DHARMa and TMB), and follows the structure of the infiltration analysis in
+`Case Studies/Infiltration/` and of Case study 2: the data, an exploration, the model, the
+choice of curve, variance and random effect, the candidates for the effects of temperature
+and water, the answer, checks of the model and a simulation of the estimator.
+Alternatives are in boxes titled "Alternative" and traps in boxes titled "Pitfall";
+@sec-summary lists them all. `README.md` in this folder describes what is known and not
+known about the data.
+
+::: {.callout-note title="Possible research question (for the author to decide)"}
+How does the growth temperature (22 °C or 28 °C) change the light response of
+photosynthesis of *Arabidopsis* (its maximum rate $p_{\max}$, initial slope $\alpha$,
+curvature $\theta$ and dark respiration $r_d$), and does a week of drought change it, alone
+or together with the growth temperature? All curves were measured at the same temperature,
+so differences between the growth temperatures are acclimation, not the direct effect of
+temperature on the measurement. The answer below gives the typical value of each parameter
+in each combination of temperature and water, and the ratios between the combinations.
+:::
+
+The document needs RTMB, RTMBdist, DHARMa, TMB and knitr and takes about two minutes to
+render, most of it in the simulation of @sec-simulation. The optimisations are
+deterministic and every simulation has its own seed. Numbers in the text are calculated
+inline from the code, except descriptions of what a figure shows, which were written from
+the figures of the run of 20 November 2026 (R 4.6.1).
+
+Status: generated draft, not reviewed by the author.
+
+# The data {#sec-data}
+
+The file contains 243 measurements of net photosynthesis (`P`, µmol/m²/s of CO₂) at a
+given light intensity (`I`, µmol/m²/s of photons) on 27 light response curves
+(`Replicate`), measured on plants grown at a low or a high temperature (`T`: `LT`, 22 °C;
+`HT`, 28 °C), watered every other day (`W`: `C`, control) or not watered for 7 days before
+the measurement (`D`, drought), in five batches (`Batch`).
+
+```{r}
+photo = read.csv("PhotosynthesisArabidopsisRaw.csv")
+str(photo)
+```
+
+We store the treatments as factors with the low temperature and the control as reference
+levels. The column `T` is renamed: `T` is also R's abbreviation of `TRUE`, which makes code
+that uses it hard to read. Each value of `Replicate` is one curve (they are numbered 1 to
+27 across batches), so `Curve` is a factor of it, and `Combination` names the four
+combinations of temperature and water.
+
+```{r}
+photo$Temperature = factor(photo$T, levels = c("LT", "HT"))
+photo$Water = factor(photo$W, levels = c("C", "D"))
+photo$Batch = factor(photo$Batch)
+photo$Curve = factor(photo$Replicate)
+photo$Combination = interaction(photo$Temperature, photo$Water, sep = "-")
+levels(photo$Combination)
+
+# Colours (Okabe-Ito) and symbols of the four combinations, colours of the five batches.
+combination_colours = c("#0072B2", "#D55E00", "#009E73", "#E69F00")
+combination_symbols = c(1, 19, 2, 17)
+batch_colours = c("#000000", "#E69F00", "#56B4E9", "#009E73", "#CC79A7")
+
+# Formatting of numbers quoted in the text.
+f1 = function(x) formatC(x, format = "f", digits = 1)
+f2 = function(x) formatC(x, format = "f", digits = 2)
+f3 = function(x) formatC(x, format = "f", digits = 3)
+```
+
+# Exploratory data analysis {#sec-eda}
+
+## The design {#sec-design}
+
+Temperature, water and batch are properties of the curve, so we first make a table with one
+row per curve and count the curves in each batch and combination.
+
+```{r}
+curve_info = photo[!duplicated(photo$Curve),
+                   c("Curve", "Batch", "Temperature", "Water", "Combination")]
+rownames(curve_info) = NULL
+n_curves = table(curve_info$Batch, curve_info$Combination)
+n_curves
+colSums(n_curves)
+```
+
+Every batch has one curve of HT-C and one of HT-D. LT-C has two or three curves per batch
+(`r colSums(n_curves)[["LT-C"]]` in all) and LT-D one or two, with none in batch 4. The
+design is a two-by-two factorial in five batches, unbalanced towards the low-temperature
+controls.
+
+::: {.callout-warning title="Pitfall: the number of curves, not of measurements"}
+Temperature and water are properties of the plant, so the information about their effects
+comes from 27 curves, not from 243 measurements, and from only five curves in each of the
+combinations HT-C, LT-D and HT-D.
+:::
+
+Each curve has nine measurements at the same nominal light intensities, from 25 to 1000
+µmol/m²/s, and the recorded intensities differ from the nominal ones by hundredths of a
+µmol/m²/s at most:
+
+```{r}
+table(table(photo$Curve))
+table(round(photo$I))
+max(abs(photo$I - round(photo$I)))
+```
+
+The rows of each curve are sorted from low to high light, which is also the order in which
+the light levels were applied; the leaf was kept at each level for 5 to 8 minutes before
+the reading (README).
+
+## Light response curves {#sec-curves}
+
+@fig-curves shows each curve as a line, one panel per combination, coloured by batch.
+
+```{r}
+#| label: fig-curves
+#| fig-cap: "Net photosynthesis against light intensity, one line per curve and one
+#|   panel per combination of growth temperature (LT, HT) and water (C, control; D,
+#|   drought). The colour shows the batch."
+#| fig-width: 7.5
+#| fig-height: 6
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(2, 2), mar = c(4, 4, 2, 1))
+for (g in levels(photo$Combination)) {
+  photo_g = photo[photo$Combination == g, ]
+  plot(P ~ I, data = photo_g, type = "n", ylim = range(photo$P), main = g,
+       xlab = "Light intensity (µmol/m²/s)",
+       ylab = "Net photosynthesis (µmol/m²/s)")
+  abline(h = 0, lty = 3)
+  for (j in unique(as.character(photo_g$Curve))) {
+    photo_j = photo_g[photo_g$Curve == j, ]
+    lines(P ~ I, data = photo_j, type = "b", pch = 19, cex = 0.5,
+          col = batch_colours[photo_j$Batch[1]])
+  }
+}
+legend("bottomright", legend = paste("Batch", levels(photo$Batch)),
+       col = batch_colours, lty = 1, bty = "n", cex = 0.8)
+par(old_par)
+```
+
+Every curve rises almost linearly at low light and bends towards a plateau, which none of
+them reaches by 1000 µmol/m²/s. The curves are smooth: the measurements of a curve deviate
+little from a smooth line, while curves of the same combination differ by up to a factor
+of two at high light. Compared with the low-temperature controls (LT-C), the plants grown
+at the high temperature (HT-C) reach lower rates and differ less among themselves. Drought
+seems to change little at the low temperature (LT-D) but lowers the rates at the high
+temperature (HT-D), and by very different amounts in different plants: the two lowest
+HT-D curves are those of batches 1 and 2. One LT-C curve of batch 1 levels off far below
+the others.
+
+## Low light and respiration {#sec-low-light}
+
+The data have no measurement in the dark, so dark respiration can only be estimated by
+extending the curves to zero light. At 25 µmol/m²/s some net rates are negative (the leaf
+releases more CO₂ by respiration than it fixes):
+
+```{r}
+low = photo[round(photo$I) == 25, ]
+sum(low$P < 0)
+tapply(low$P, low$Combination, mean)
+```
+
+`r sum(low$P < 0)` of the 27 curves have a negative rate at the lowest light. A first
+estimate of the initial slope of each curve is the change in rate between 25 and 50
+µmol/m²/s divided by the change in light, and extending this line to zero light gives a
+first estimate of the dark respiration:
+
+```{r}
+first_two = split(photo[round(photo$I) %in% c(25, 50), ], ~ Curve)
+initial_slope = sapply(first_two, function(x) diff(x$P) / diff(x$I))
+respiration_line = sapply(first_two, function(x) x$I[1] * diff(x$P) / diff(x$I) - x$P[1])
+summary(initial_slope)
+summary(respiration_line)
+```
+
+The initial slopes are around `r f2(median(initial_slope))` (µmol of CO₂ per µmol of
+photons), and the line through the first two points crosses zero light at a rate of about
+−`r f1(median(respiration_line))` µmol/m²/s. Because the curves already bend between 25
+and 50 µmol/m²/s, the slope of this line is lower than the initial slope of the curve, and
+the respiration it gives is lower too.
+
+::: {.callout-warning title="Pitfall: respiration is an extrapolation"}
+Every estimate of $r_d$ in this document is the value of a curve extended from 25
+µmol/m²/s to zero light, so it depends on the shape that the curve assumes below the
+lowest measurement. In the leaf, respiration in the light can also differ from respiration
+in the dark (a known effect at low light in leaf physiology). A light response curve with a
+measurement in the dark would test this.
+:::
+
+## The spread among curves {#sec-spread-among}
+
+For each combination and light level we calculate the mean and the standard deviation of
+the rates across curves (@fig-spread-among).
+
+```{r}
+#| label: fig-spread-among
+#| fig-cap: "Standard deviation against mean of the rates across the curves of a
+#|   combination, at each of the nine light levels."
+#| fig-width: 5
+#| fig-height: 4
+light_level = round(photo$I)
+among_mean = tapply(photo$P, list(light_level, photo$Combination), mean)
+among_sd = tapply(photo$P, list(light_level, photo$Combination), sd)
+matplot(among_mean, among_sd, pch = combination_symbols, col = combination_colours,
+        xlab = "Mean rate across curves (µmol/m²/s)",
+        ylab = "Standard deviation (µmol/m²/s)")
+legend("topleft", legend = levels(photo$Combination), pch = combination_symbols,
+       col = combination_colours, bty = "n")
+# Coefficients of variation from 100 umol/m2/s upwards.
+round(among_sd / among_mean, 2)[-(1:2), ]
+```
+
+In LT-C and HT-D the standard deviation across curves grows in proportion to the mean
+rate, with coefficients of variation of about 0.16 and 0.33 from 100 µmol/m²/s upwards:
+the curves differ by a factor (a curve that is high at one light level is high at every
+light level), by a larger one in HT-D, where the drought affected some plants much more
+than others. In HT-C and LT-D the standard deviation stays between about 0.3 and 0.9
+µmol/m²/s and even falls at the highest light levels, so these curves differ more in the
+middle of the light range than at its end, a difference in shape. At the lowest light the
+standard deviation does not fall to zero with the mean, because the curves differ in their
+respiration. With five curves in three of the combinations, each standard deviation is
+itself uncertain. On the whole, the figure suggests a random effect that multiplies the
+whole curve, including the respiration (@sec-model), and @sec-choices compares it with
+other placements. It also suggests that the plants of some combinations differ more than
+those of others (@sec-sd-combination).
+
+::: {.callout-warning title="Pitfall: the spread among curves is not the measurement error"}
+@fig-spread-among shows how the curves differ from each other, which the random effect
+describes. The error of a gas exchange measurement, which could also depend on the flux,
+is the deviation of each measurement from the curve of its own leaf, and the figure says
+nothing about it. @sec-one-curve looks at it.
+:::
+
+## Batches {#sec-batches}
+
+The rate at the highest light (1000 µmol/m²/s) summarises each curve without a model. Its
+mean per batch and combination:
+
+```{r}
+high = photo[round(photo$I) == 1000, ]
+round(tapply(high$P, list(high$Batch, high$Combination), mean), 1)
+```
+
+Batch 1 is lowest or close to the lowest in LT-C and HT-C, but the differences between
+batches are small compared with the spread within LT-C (@fig-curves), except for HT-D,
+where the rate of batches 1 and 2 is about half that of batches 3 and 4. With one HT-D
+curve per batch, we cannot tell whether the drought was more severe in those batches (for
+example because the soil dried faster) or whether these plants simply responded more. The
+data contain no measure of soil water or plant water status (README).
+
+# The two curves {#sec-curve-functions}
+
+The non-rectangular hyperbola (functions supplement, `sec-fn-nonrectangular`) describes
+the gross rate of photosynthesis of a leaf as a function of light $I$:
+
+$$
+f(I) = \frac{\alpha I + p_{\max} - \sqrt{(\alpha I + p_{\max})^2 - 4\,\theta\,\alpha I\,p_{\max}}}{2\,\theta},
+$$
+
+where $\alpha$ is the initial slope (µmol of CO₂ per µmol of photons, so without units),
+$p_{\max}$ the asymptote (µmol/m²/s) and $\theta$ the sharpness of the bend ($0 < \theta
+\leq 1$). The saturating exponential (`sec-fn-monomolecular`), $a\left(1 - e^{-bI}\right)$
+with the asymptote $a = p_{\max}$ and the initial slope $ab = \alpha$, has the same two
+parameters with the same meaning:
+
+$$
+f(I) = p_{\max}\left(1 - e^{-\alpha I / p_{\max}}\right).
+$$
+
+The net rate that the instrument measures is the gross rate minus the dark respiration
+$r_d$ (µmol/m²/s), so both models of the net rate are $f(I) - r_d$, and the measured rate
+at zero light would be $-r_d$.
+
+The formula of the non-rectangular hyperbola divides by $\theta$, and the curves of
+@sec-one-curve put $\theta$ close to zero. When $\theta$ is small, the numerator is the
+difference of two nearly equal numbers, and rounding error makes the result inaccurate.
+Multiplying numerator and denominator by $\alpha I + p_{\max} + \sqrt{\cdots}$ gives the
+same function in a form without this problem:
+
+$$
+f(I) = \frac{2\,\alpha I\,p_{\max}}{\alpha I + p_{\max} + \sqrt{(\alpha I + p_{\max})^2 - 4\,\theta\,\alpha I\,p_{\max}}},
+$$
+
+which at $\theta = 0$ is the Michaelis–Menten function $\alpha I\,p_{\max}/(\alpha I +
+p_{\max})$. We use this form.
+
+```{r}
+library(RTMB)
+library(RTMBdist)
+
+# Gross rate of the two curves.
+nrh_rate = function(I, alpha, pmax, theta) {
+  s = alpha * I
+  2 * s * pmax / (s + pmax + sqrt((s + pmax)^2 - 4 * theta * s * pmax))
+}
+mono_rate = function(I, alpha, pmax) {
+  pmax * (1 - exp(-alpha * I / pmax))
+}
+
+# The textbook form, for comparison.
+nrh_textbook = function(I, alpha, pmax, theta) {
+  s = alpha * I
+  (s + pmax - sqrt((s + pmax)^2 - 4 * theta * s * pmax)) / (2 * theta)
+}
+theta_values = c(0.5, 1e-4, 1e-8, 1e-12, 1e-14)
+print(rbind(textbook = nrh_textbook(500, 0.06, 12, theta_values),
+            stable = nrh_rate(500, 0.06, 12, theta_values)), digits = 7)
+```
+
+::: {.callout-warning title="Pitfall: rounding error in the textbook formula"}
+At $\theta = 10^{-12}$ the textbook formula gives
+`r formatC(nrh_textbook(500, 0.06, 12, 1e-12), format = "f", digits = 4)` µmol/m²/s
+instead of `r formatC(nrh_rate(500, 0.06, 12, 1e-12), format = "f", digits = 4)`, and at
+$10^{-14}$ `r formatC(nrh_textbook(500, 0.06, 12, 1e-14), format = "f", digits = 4)`:
+the error grows as $\theta$ approaches zero. An optimiser that moves $\theta$ towards zero
+then works with a likelihood that is distorted by rounding error, and its gradients are
+unreliable. Students who copy the formula from a paper will meet this as soon as a fit
+puts $\theta$ near zero, which happens with these data.
+:::
+
+# One curve at a time {#sec-one-curve}
+
+## A fit for each curve
+
+To see how far the measurements of a curve deviate from a smooth curve, we fit the
+non-rectangular hyperbola to each curve on its own, with Normal deviations of constant
+standard deviation (no pooling, in the terms of Chapter 7). The parameters are estimated on
+the log scale ($\alpha$, $p_{\max}$, $r_d$, $\sigma_{\mathrm{obs}}$) and the logit scale
+($\theta$). The starting values are read from @fig-curves and @sec-low-light: an initial
+slope of 0.05, an asymptote of 12 µmol/m²/s (above the highest rates, as the curves still
+rise), a respiration of 1 µmol/m²/s, $\theta = 0.5$ and a standard deviation of 1
+µmol/m²/s.
+
+```{r}
+# Connect a likelihood to a data set.
+cmb = function(f, d) function(p) f(p, d)
+
+single_nll = function(parms, data) {
+  getAll(parms, data)
+  mu = nrh_rate(I, exp(log_alpha), exp(log_pmax), plogis(logit_theta)) - exp(log_rd)
+  -sum(dnorm(x = P, mean = mu, sd = exp(log_sd_obs), log = TRUE))
+}
+
+fit_single = function(curve_data, start) {
+  obj = MakeADFun(cmb(single_nll, curve_data), start, silent = TRUE)
+  fit = optim(par = obj$par, fn = obj$fn, gr = obj$gr, method = "BFGS")
+  list(obj = obj, fit = fit)
+}
+
+single_start = list(log_alpha = log(0.05), log_pmax = log(12), logit_theta = 0,
+                    log_rd = log(1), log_sd_obs = log(1))
+curve_names = levels(photo$Curve)
+single_fits = list()
+for (j in curve_names) {
+  rows = photo$Curve == j
+  single_fits[[j]] = fit_single(list(I = photo$I[rows], P = photo$P[rows]),
+                                single_start)
+}
+single_sd = sapply(single_fits, function(f) exp(f$fit$par[["log_sd_obs"]]))
+collapsed = curve_names[single_sd > 1]
+collapsed
+```
+
+```{r}
+#| echo: false
+# How many fits collapse when the standard deviation starts at 0.1 instead of 1.
+small_start = single_start
+small_start$log_sd_obs = log(0.1)
+n_collapsed_small = 0
+for (j in curve_names) {
+  rows = photo$Curve == j
+  f = fit_single(list(I = photo$I[rows], P = photo$P[rows]), small_start)
+  n_collapsed_small = n_collapsed_small + (exp(f$fit$par[["log_sd_obs"]]) > 1)
+}
+```
+
+All fits except `r if (length(collapsed) == 1) "one" else length(collapsed)` end with a
+standard deviation between
+`r f2(min(single_sd[!(curve_names %in% collapsed)]))` and
+`r f2(max(single_sd[!(curve_names %in% collapsed)]))` µmol/m²/s. The fit of curve `r collapsed` (HT-D, batch 1, the lowest curve) ends with
+$\alpha$ and $p_{\max}$ near zero and a standard deviation of
+`r f1(single_sd[collapsed])` µmol/m²/s: the optimiser gave up on the curve and explains the
+rates by noise. We refit it from starting values read from its own measurements (the
+initial slope and respiration of @sec-low-light, and its highest rate as asymptote):
+
+```{r}
+for (j in collapsed) {
+  rows = photo$Curve == j
+  start_j = single_start
+  start_j$log_alpha = log(initial_slope[[j]])
+  start_j$log_pmax = log(max(photo$P[rows]))
+  start_j$log_rd = log(max(respiration_line[[j]], 0.1))
+  single_fits[[j]] = fit_single(list(I = photo$I[rows], P = photo$P[rows]), start_j)
+}
+single_sd = sapply(single_fits, function(f) exp(f$fit$par[["log_sd_obs"]]))
+round(single_sd[collapsed], 3)
+```
+
+::: {.callout-warning title="Pitfall: fits of single curves collapse"}
+With the same starting values for every curve, `r length(collapsed)` of 27 fits stopped at
+a flat curve, and with a starting standard deviation of 0.1 µmol/m²/s instead of 1,
+`r n_collapsed_small` did. A small starting standard deviation makes the misfit of the
+starting curve very costly, the first step of BFGS is then very long and can land where the
+curve has disappeared. Large starting standard deviations, and starting values read from
+each curve, avoid this. The mixed models below are less sensitive, because the
+distribution of the curve effects keeps every curve near the others.
+:::
+
+## The deviations within curves {#sec-within}
+
+The residuals of these fits are the deviations of the measurements from the curve of their
+own leaf (@fig-within).
+
+```{r}
+single_par = t(sapply(single_fits, function(f) f$fit$par))
+photo$single_fitted = NA
+for (j in curve_names) {
+  rows = photo$Curve == j
+  p = single_par[j, ]
+  photo$single_fitted[rows] = nrh_rate(photo$I[rows], exp(p[["log_alpha"]]),
+                                       exp(p[["log_pmax"]]), plogis(p[["logit_theta"]])) -
+    exp(p[["log_rd"]])
+}
+photo$single_residual = photo$P - photo$single_fitted
+```
+
+```{r}
+#| label: fig-within
+#| fig-cap: "Residuals of the fits to single curves against the fitted rate (left) and
+#|   against the light intensity (right)."
+#| fig-width: 7.5
+#| fig-height: 3.4
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
+plot(single_residual ~ single_fitted, data = photo, xlab = "Fitted rate (µmol/m²/s)",
+     ylab = "Residual (µmol/m²/s)")
+abline(h = 0, lty = 3)
+plot(single_residual ~ I, data = photo, xlab = "Light intensity (µmol/m²/s)",
+     ylab = "Residual (µmol/m²/s)")
+abline(h = 0, lty = 3)
+par(old_par)
+fitted_class = cut(photo$single_fitted, breaks = c(-2, 2, 4, 6, 8, 10, 13))
+round(tapply(photo$single_residual, fitted_class, sd), 3)
+round(tapply(photo$single_residual, round(photo$I), sd), 3)
+```
+
+The residuals are small (standard deviation about `r f2(sd(photo$single_residual))`
+µmol/m²/s, against differences of several µmol/m²/s between curves) and their spread does
+not change systematically with the fitted rate or with the light intensity; the larger
+standard deviation at 500 µmol/m²/s comes from one measurement that lies about 0.5
+µmol/m²/s below its curve. So the exploration does not support a standard deviation that
+changes with the flux; we nevertheless compare a constant standard deviation with one that
+changes with the expected rate in @sec-choices. These residuals underestimate the measurement error somewhat (each
+curve has five parameters for nine points), but this affects all fitted rates alike.
+
+## The parameters of the curves {#sec-single-parameters}
+
+@fig-single-parameters shows the estimates of the four parameters of each curve.
+
+```{r}
+single = data.frame(
+  Combination = curve_info$Combination,
+  Batch = curve_info$Batch,
+  alpha = exp(single_par[, "log_alpha"]),
+  pmax = exp(single_par[, "log_pmax"]),
+  theta = plogis(single_par[, "logit_theta"]),
+  rd = exp(single_par[, "log_rd"])
+)
+round(sapply(single[, c("alpha", "pmax", "theta", "rd")], summary), 3)
+```
+
+```{r}
+#| label: fig-single-parameters
+#| fig-cap: "Estimates of the parameters of each curve, fitted on its own, by
+#|   combination: initial slope, asymptote and dark respiration (log scales) and
+#|   sharpness of the bend."
+#| fig-width: 6.5
+#| fig-height: 5.5
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(2, 2), mar = c(4, 4, 1, 1))
+parameter_labels = c(alpha = "Initial slope alpha", pmax = "p_max (µmol/m²/s)",
+                     rd = "r_d (µmol/m²/s)", theta = "theta")
+for (p in names(parameter_labels)) {
+  stripchart(single[[p]] ~ single$Combination, vertical = TRUE,
+             log = if (p == "theta") "" else "y", method = "jitter", jitter = 0.1,
+             pch = combination_symbols, col = combination_colours,
+             xlab = "Combination", ylab = parameter_labels[[p]])
+}
+par(old_par)
+```
+
+```{r}
+#| echo: false
+n_theta_zero = sum(single$theta < 0.01)
+theta_others = range(single$theta[single$theta >= 0.01])
+rd_zero = as.character(single$Combination[single$rd < 0.01])
+```
+
+Three things stand out.
+
+- **$\theta$ is poorly determined by one curve.** In `r n_theta_zero` of the 27 curves it
+  is below 0.01, at the boundary of its range (the Michaelis–Menten shape), and in the
+  others it is spread between `r f2(theta_others[1])` and `r f2(theta_others[2])`. Nine
+  points per curve, none of them beyond the bend, cannot tell a sharp bend from a gradual
+  one.
+- **Temperature and drought.** The asymptotes of HT-C lie below those of LT-C, those of
+  LT-D overlap with LT-C, and HT-D spreads from the lowest values to the range of LT-C. The
+  initial slopes are similar except in HT-D. In `r length(rd_zero)` curves
+  (`r paste(rd_zero, collapse = " and ")`) the respiration is estimated at practically
+  zero.
+- **The parameters vary together.** Within each combination, the logarithms of $\alpha$,
+  $p_{\max}$ and $r_d$ are positively correlated:
+
+```{r}
+centred = sapply(single[, c("alpha", "pmax", "rd")],
+                 function(x) log(x) - ave(log(x), single$Combination))
+round(cor(centred), 2)
+```
+
+A curve with a high asymptote tends to have a high initial slope and a high respiration,
+which is what a random effect that multiplies the whole net curve assumes. The correlations
+are far from one, so the shapes of the curves differ too (@sec-two-re).
+
+## What we take forward {#sec-forward}
+
+- **The curve:** the non-rectangular hyperbola or the saturating exponential, minus the
+  dark respiration, written with $\alpha$ and $p_{\max}$ in both.
+- **The measurements:** Normal deviations from the curve of their leaf, with a constant
+  standard deviation; one that changes with the expected rate as an alternative.
+- **The groups:** the 27 curves; they differ mostly by a factor, so a random effect that
+  multiplies the whole curve (alternatives: only $p_{\max}$, or the gross rate without
+  respiration).
+- **The predictors:** temperature, water and their interaction, properties of the curve,
+  through model matrices built from one row per curve (Chapter 7, `sec-model-matrix`); the
+  batch as a block.
+- **Not modelled:** differences in the shape of the curves (@sec-two-re), the order of the
+  measurements within a curve (@sec-serial) and the water status of the plants (README).
+
+# The model {#sec-model}
+
+## The model for the measurements
+
+The model for measurement $i$ of curve $j$, with the non-rectangular hyperbola, a constant
+standard deviation and the random effect on the whole net curve, is
+
+$$
+\begin{aligned}
+\log(\alpha_j) &= \beta_{\alpha,0} + \beta_{\alpha,\mathrm{H}}\,H_j + \beta_{\alpha,\mathrm{D}}\,D_j
+  + \beta_{\alpha,\mathrm{HD}}\,H_j D_j + u_j,\\
+\log(p_{\max,j}) &= \beta_{p,0} + \beta_{p,\mathrm{H}}\,H_j + \beta_{p,\mathrm{D}}\,D_j
+  + \beta_{p,\mathrm{HD}}\,H_j D_j + u_j,\\
+\log(r_{d,j}) &= \beta_{r,0} + \beta_{r,\mathrm{H}}\,H_j + \beta_{r,\mathrm{D}}\,D_j
+  + \beta_{r,\mathrm{HD}}\,H_j D_j + u_j,\\
+\operatorname{logit}(\theta) &= \beta_{\theta},\\
+u_j &\sim \operatorname{Normal}(0, \sigma^2_{\mathrm{curve}}),\\
+\mu_{ij} &= f(I_{ij}; \alpha_j, p_{\max,j}, \theta) - r_{d,j},\\
+P_{ij} \mid u_j &\sim \operatorname{Normal}(\mu_{ij}, \sigma^2_{\mathrm{obs}}),
+\end{aligned}
+$$
+
+where $H_j$ is 1 if plant $j$ grew at the high temperature and 0 otherwise, $D_j$ is 1 if
+it was droughted, $I_{ij}$ is the light intensity of the measurement, $f$ is the gross rate
+of @sec-curve-functions, and the measurements are independent for given $u_j$. The same
+$u_j$ in the first three lines multiplies the whole net curve of plant $j$ by $e^{u_j}$:
+the gross rate is multiplied by $e^{u_j}$ when $\alpha$ and $p_{\max}$ both are, because
+$f(I; e^u\alpha, e^u p_{\max}, \theta) = e^u f(I; \alpha, p_{\max}, \theta)$ for both
+curves. A difference in leaf properties that scales every flux of the leaf (for example in
+the amount of photosynthetic machinery per unit of leaf area) would have this effect. An
+error in the leaf area is excluded here, because every leaf filled the 6 cm² chamber.
+
+The variable-variance alternative replaces $\sigma_{\mathrm{obs}}$ by
+$\sigma_{\mathrm{obs}}\,e^{\delta\mu_{ij}}$, so that the standard deviation changes by a
+factor $e^{\delta}$ for each µmol/m²/s of expected rate. It contains the constant standard
+deviation at $\delta = 0$, inside the range of $\delta$, and it works for expected rates
+near zero or negative, where a standard deviation proportional to a power of the mean would
+not.
+
+The typical curve of a combination ($u_j = 0$) is that of its median plant. The answer
+gives the typical $\alpha$, $p_{\max}$ and $r_d$ of each combination and four ratios:
+HT/LT in the controls and in drought (the effect of the growth temperature), and drought
+over control at each temperature (the effect of drought).
+
+## Implementation
+
+The NLL needs the index of the curve of each measurement (1 to 27), the treatments of each
+curve (`curve_info`, for the model matrices of the curves) and the four combinations
+(`combinations`, one row per combination, for the typical values).
+
+```{r}
+curve_index = as.numeric(photo$Curve)
+combinations = data.frame(
+  Temperature = factor(c("LT", "HT", "LT", "HT"), levels = c("LT", "HT")),
+  Water = factor(c("C", "C", "D", "D"), levels = c("C", "D"))
+)
+rownames(combinations) = levels(photo$Combination)
+comparisons = c("HT/LT, control", "HT/LT, drought", "D/C, LT", "D/C, HT")
+
+photo_data = list(I = photo$I, P = photo$P, curve_id = curve_index)
+```
+
+One joint NLL covers every model of this document. Four choices are elements of the list
+of data:
+
+- `curve_type`: `"NRH"` (non-rectangular hyperbola) or `"mono"` (saturating exponential);
+- `variance`: `"constant"` or `"exponential"` ($\sigma_{\mathrm{obs}}\,e^{\delta\mu}$);
+- `random_on`: `"pmax"` (the random effect multiplies $p_{\max}$ only), `"gross"` (it
+  multiplies $\alpha$ and $p_{\max}$, so the gross rate) or `"net"` (it multiplies
+  $\alpha$, $p_{\max}$ and $r_d$, so the whole net curve);
+- `use_batch`: `TRUE` adds a block effect of the batch that multiplies the whole net curve,
+  like the random effect but the same for all curves of a batch.
+
+A fifth element, the model matrix `X_sd`, lets the standard deviation among curves depend
+on the combination (@sec-sd-combination); with the formula `~ 1` it is one standard
+deviation for all curves, as in Chapter 7.
+
+`ADREPORT()` gives the logarithms of the typical $\alpha$, $p_{\max}$ and $r_d$, the logit
+of the typical $\theta$ and the logarithm of the typical net rate at 1000 µmol/m²/s, for
+each combination, and the four log ratios of each of $\alpha$, $p_{\max}$ and $r_d$. With
+batches, the typical values are those of an average batch (the mean of the five batch
+effects on the log scale).
+
+```{r}
+photo_nll = function(parms, data) {
+  getAll(parms, data)
+  P = OBS(P)
+  # Minus the log density of the deviations of the curves, before they are used.
+  sd_curve = exp(X_sd %*% log_sd_curve)
+  nll = -sum(dnorm(x = u, mean = 0, sd = sd_curve, log = TRUE))
+  # Where the deviations act, and the block effect of the batches.
+  u_alpha = u
+  u_rd = u
+  if (random_on == "pmax") u_alpha = 0 * u
+  if (random_on != "net") u_rd = 0 * u
+  block = 0 * u
+  block_typical = 0
+  if (use_batch) {
+    block = X_batch %*% beta_batch
+    block_typical = sum(beta_batch) / (length(beta_batch) + 1)
+  }
+  # Parameters of each curve and typical parameters (u = 0) of each combination.
+  alpha_curve = exp(X_alpha %*% beta_alpha + u_alpha + block)
+  pmax_curve = exp(X_pmax %*% beta_pmax + u + block)
+  rd_curve = exp(X_rd %*% beta_rd + u_rd + block)
+  log_alpha = X_alpha_typical %*% beta_alpha + block_typical
+  log_pmax = X_pmax_typical %*% beta_pmax + block_typical
+  log_rd = X_rd_typical %*% beta_rd + block_typical
+  # Expected rate of each measurement and typical rate at 1000 umol/m2/s.
+  alpha_i = alpha_curve[curve_id]
+  pmax_i = pmax_curve[curve_id]
+  if (curve_type == "NRH") {
+    theta_curve = plogis(X_theta %*% beta_theta)
+    mu = nrh_rate(I, alpha_i, pmax_i, theta_curve[curve_id]) - rd_curve[curve_id]
+    logit_theta = X_theta_typical %*% beta_theta
+    gross_1000 = nrh_rate(1000, exp(log_alpha), exp(log_pmax), plogis(logit_theta))
+    ADREPORT(logit_theta)
+  } else {
+    mu = mono_rate(I, alpha_i, pmax_i) - rd_curve[curve_id]
+    gross_1000 = mono_rate(1000, exp(log_alpha), exp(log_pmax))
+  }
+  log_p1000 = log(gross_1000 - exp(log_rd))
+  # Log ratios: HT/LT in C and in D, D/C at LT and at HT.
+  log_ratio_alpha = log_alpha[c(2, 4, 3, 4)] - log_alpha[c(1, 3, 1, 2)]
+  log_ratio_pmax = log_pmax[c(2, 4, 3, 4)] - log_pmax[c(1, 3, 1, 2)]
+  log_ratio_rd = log_rd[c(2, 4, 3, 4)] - log_rd[c(1, 3, 1, 2)]
+  ADREPORT(log_alpha)
+  ADREPORT(log_pmax)
+  ADREPORT(log_rd)
+  ADREPORT(log_p1000)
+  ADREPORT(log_ratio_alpha)
+  ADREPORT(log_ratio_pmax)
+  ADREPORT(log_ratio_rd)
+  # Minus the log density of the measurements for given deviations.
+  sd_obs = exp(log_sd_obs)
+  if (variance == "exponential") sd_obs = exp(log_sd_obs + delta * mu)
+  nll - sum(dnorm(x = P, mean = mu, sd = sd_obs, log = TRUE))
+}
+```
+
+`photo_setup()` builds the list of data and the starting values for a list of formulas
+(for $\alpha$, $p_{\max}$, $\theta$ and $r_d$) and the four choices. The baselines are those
+of @sec-one-curve, every effect starts at zero, $\sigma_{\mathrm{obs}}$ at 0.5 µmol/m²/s,
+$\delta$ at zero and $\sigma_{\mathrm{curve}}$ at 0.2 (curves differ by about 20%,
+@sec-spread-among). The formula for $\theta$ is ignored for the saturating exponential.
+
+```{r}
+photo_setup = function(formulas, curve_type, variance, random_on, use_batch = FALSE,
+                       sd_formula = ~ 1) {
+  data = photo_data
+  data$curve_type = curve_type
+  data$variance = variance
+  data$random_on = random_on
+  data$use_batch = use_batch
+  data$X_sd = model.matrix(sd_formula, data = curve_info)
+  for (p in c("alpha", "pmax", "theta", "rd")) {
+    data[[paste0("X_", p)]] = model.matrix(formulas[[p]], data = curve_info)
+    data[[paste0("X_", p, "_typical")]] = model.matrix(formulas[[p]], data = combinations)
+  }
+  data$X_batch = model.matrix(~ Batch, data = curve_info)[, -1]
+  baseline = c(alpha = 0.05, pmax = 12, rd = 1)
+  start = list()
+  for (p in names(baseline)) {
+    start[[paste0("beta_", p)]] = c(log(baseline[[p]]),
+                                    rep(0, ncol(data[[paste0("X_", p)]]) - 1))
+  }
+  if (curve_type == "NRH") {
+    start$beta_theta = c(qlogis(0.5), rep(0, ncol(data$X_theta) - 1))
+  }
+  start$log_sd_obs = log(0.5)
+  if (variance == "exponential") start$delta = 0
+  if (use_batch) start$beta_batch = rep(0, ncol(data$X_batch))
+  start$log_sd_curve = rep(log(0.2), ncol(data$X_sd))
+  list(data = data, start = start)
+}
+```
+
+Three helpers complete the toolkit:
+
+- `fit_photo()` processes the joint NLL for one list of data, integrating out `u`, and
+  minimises it;
+- `aic_table()` reports, for a named list of fits, $K$, the log-likelihood, the convergence
+  code, the largest absolute gradient at the solution, AIC and the difference from the
+  lowest AIC;
+- `photo_answer()` gives the typical $\alpha$, $p_{\max}$ and $r_d$ of each combination,
+  the typical $\theta$ and net rate at 1000 µmol/m²/s, and the four ratios of $\alpha$,
+  $p_{\max}$ and $r_d$, with Wald intervals calculated on the log (or logit) scale and
+  transformed back.
+
+```{r}
+fit_photo = function(data, start) {
+  start$u = rep(0, nlevels(photo$Curve))
+  obj = MakeADFun(cmb(photo_nll, data), start, random = "u", silent = TRUE)
+  fit = optim(par = obj$par, fn = obj$fn, gr = obj$gr, method = "BFGS")
+  list(obj = obj, fit = fit)
+}
+
+aic_table = function(fits) {
+  out = data.frame(
+    model = names(fits),
+    K = sapply(fits, function(f) length(f$fit$par)),
+    loglik = sapply(fits, function(f) -f$fit$value),
+    convergence = sapply(fits, function(f) f$fit$convergence),
+    max_gradient = sapply(fits, function(f) max(abs(f$obj$gr(f$fit$par))))
+  )
+  out$aic = 2 * out$K - 2 * out$loglik
+  out$delta_aic = out$aic - min(out$aic)
+  rownames(out) = NULL
+  out
+}
+
+critical_value = qnorm(p = 0.975)
+photo_answer = function(obj) {
+  report = summary(sdreport(obj), select = "report")
+  # Estimates and Wald intervals of the rows called name, transformed back.
+  back = function(name, inverse = exp) {
+    rows = rownames(report) == name
+    estimate = report[rows, "Estimate"]
+    se = report[rows, "Std. Error"]
+    data.frame(estimate = inverse(estimate),
+               lower = inverse(estimate - critical_value * se),
+               upper = inverse(estimate + critical_value * se))
+  }
+  typical = list(alpha = back("log_alpha"), pmax = back("log_pmax"),
+                 rd = back("log_rd"), p1000 = back("log_p1000"))
+  if ("logit_theta" %in% rownames(report)) {
+    typical$theta = back("logit_theta", plogis)
+  }
+  ratios = list(alpha = back("log_ratio_alpha"), pmax = back("log_ratio_pmax"),
+                rd = back("log_ratio_rd"))
+  list(typical = typical, ratios = ratios)
+}
+
+# An estimate with its interval, as text, and a table of them.
+with_interval = function(tab, digits = 2) {
+  paste0(formatC(tab$estimate, format = "f", digits = digits), " (",
+         formatC(tab$lower, format = "f", digits = digits), " to ",
+         formatC(tab$upper, format = "f", digits = digits), ")")
+}
+show_table = function(tab, digits = 2) {
+  if ("max_gradient" %in% names(tab)) {
+    tab$max_gradient = format(signif(tab$max_gradient, 2))
+  }
+  knitr::kable(tab, digits = digits, row.names = FALSE)
+}
+```
+
+# Which curve, which variance, which random effect? {#sec-choices}
+
+The full model lets temperature, water and their interaction change every parameter of the
+curve, so that the comparison is not affected by effects that we left out. Two curves, two
+models of the variance and three placements of the random effect make twelve fits.
+
+```{r}
+full_formulas = list(alpha = ~ Temperature * Water, pmax = ~ Temperature * Water,
+                     theta = ~ Temperature * Water, rd = ~ Temperature * Water)
+
+choices = expand.grid(curve_type = c("NRH", "mono"),
+                      variance = c("constant", "exponential"),
+                      random_on = c("pmax", "gross", "net"), stringsAsFactors = FALSE)
+choice_fits = list()
+for (i in seq_len(nrow(choices))) {
+  setup = photo_setup(full_formulas, choices$curve_type[i], choices$variance[i],
+                      choices$random_on[i])
+  choice_fits[[i]] = fit_photo(setup$data, setup$start)
+}
+names(choice_fits) = paste(choices$curve_type, choices$variance, choices$random_on)
+choice_table = aic_table(choice_fits)
+show_table(choice_table[order(choice_table$aic), ], digits = 1)
+```
+
+```{r}
+#| echo: false
+# AIC differences quoted in the text.
+aic_choice = setNames(choice_table$aic, choice_table$model)
+mono_gap = aic_choice[["mono constant net"]] - aic_choice[["NRH constant net"]]
+pmax_gap = aic_choice[["NRH constant pmax"]] - aic_choice[["NRH constant net"]]
+gross_gap = aic_choice[["NRH constant gross"]] - aic_choice[["NRH constant net"]]
+variance_gap = aic_choice[["NRH exponential net"]] - aic_choice[["NRH constant net"]]
+delta_net = choice_fits[["NRH exponential net"]]$fit$par[["delta"]]
+full_report = summary(sdreport(choice_fits[["NRH constant net"]]$obj), select = "report")
+theta_full = plogis(full_report[rownames(full_report) == "logit_theta", "Estimate"])
+```
+
+`r if (all(choice_table$convergence == 0)) "All twelve fits converged." else "Not every fit converged (see the table)."`
+The non-rectangular hyperbola beats the saturating exponential by `r round(mono_gap)` AIC
+units (with constant variance and the random effect on the net curve), as the sharper bend
+of the saturating exponential does not fit the gradual approach to the plateau. The random
+effect on the whole net curve is the best placement: `r f1(gross_gap)` units better than
+on the gross rate and `r round(pmax_gap)` units better than on $p_{\max}$ only, as
+@sec-spread-among and @sec-single-parameters suggested.
+
+The standard deviation that changes with the expected rate does not improve the fit: with
+the non-rectangular hyperbola and the random effect on the net curve, $\delta$ is
+`r f3(delta_net)` and AIC is `r f1(variance_gap)` units worse than with a constant
+standard deviation. So, as in @sec-within, the data give no support for a variance that
+grows with the flux. We continue with the non-rectangular hyperbola, a constant standard
+deviation and the random effect on the whole net curve.
+
+::: {.callout-warning title="Pitfall: the curvature at the boundary"}
+In the full model, the typical $\theta$ of the high-temperature combinations goes to the
+boundary (`r paste(formatC(theta_full, format = "g", digits = 2), collapse = ", ")` for
+LT-C, HT-C, LT-D and HT-D), with enormous standard errors on the logit scale, while the
+optimiser reports convergence (with the largest gradient of the table,
+`r format(signif(choice_table$max_gradient[choice_table$model == "NRH constant net"], 2))`). Like the single curves of @sec-single-parameters, the
+data cannot determine $\theta$ separately for each combination. @sec-candidates gives the
+four combinations a common $\theta$.
+:::
+
+# Which parameters depend on temperature and water? {#sec-candidates}
+
+With the non-rectangular hyperbola, a constant standard deviation and a random effect on
+the whole net curve, the candidates have no effect of the treatments (`none`), effects of
+temperature, water and their interaction on $p_{\max}$ only (`pmax`), on $p_{\max}$ and
+$\alpha$ (`pmax_alpha`), on $p_{\max}$, $\alpha$ and $r_d$ with a common $\theta$
+(`common_theta`) and on all four parameters (`full`); `additive` has effects of
+temperature and water without interaction on $p_{\max}$, $\alpha$ and $r_d$.
+
+```{r}
+by_treatment = ~ Temperature * Water
+additive = ~ Temperature + Water
+common = ~ 1
+candidates = list(
+  none = list(alpha = common, pmax = common, theta = common, rd = common),
+  pmax = list(alpha = common, pmax = by_treatment, theta = common, rd = common),
+  pmax_alpha = list(alpha = by_treatment, pmax = by_treatment, theta = common,
+                    rd = common),
+  common_theta = list(alpha = by_treatment, pmax = by_treatment, theta = common,
+                      rd = by_treatment),
+  additive = list(alpha = additive, pmax = additive, theta = common, rd = additive),
+  full = full_formulas
+)
+candidate_setups = list()
+candidate_fits = list()
+for (m in names(candidates)) {
+  candidate_setups[[m]] = photo_setup(candidates[[m]], "NRH", "constant", "net")
+  candidate_fits[[m]] = fit_photo(candidate_setups[[m]]$data,
+                                  candidate_setups[[m]]$start)
+}
+candidate_table = aic_table(candidate_fits)
+show_table(candidate_table, digits = 1)
+```
+
+```{r}
+#| echo: false
+delta_cand = setNames(candidate_table$delta_aic, candidate_table$model)
+best_candidate = candidate_table$model[which.min(candidate_table$aic)]
+```
+
+`r if (all(candidate_table$convergence == 0)) "All six fits converged." else "Not every fit converged (see the table)."`
+The best candidate is `r best_candidate`. The treatments change more than the asymptote:
+`pmax` is `r f1(delta_cand[["pmax"]])` AIC units behind, and `pmax_alpha`, which keeps a
+common respiration, `r f1(delta_cand[["pmax_alpha"]])` units. The model without interaction
+(`additive`) is `r f1(delta_cand[["additive"]])` units behind with
+`r candidate_table$K[candidate_table$model == "common_theta"] - candidate_table$K[candidate_table$model == "additive"]`
+parameters fewer, so the data support an interaction only weakly: the effect of drought
+may or may not differ between the growth temperatures. Letting $\theta$ depend on the
+treatments (`full`) costs `r f1(delta_cand[["full"]] - delta_cand[["common_theta"]])` units
+compared with `common_theta`.
+
+We take `common_theta` as the main model, because it is the best by AIC and because the
+question asks how the effect of drought depends on the growth temperature, which needs the
+interaction.
+
+::: {.callout-tip title="Alternative"}
+Report the additive model, in which the effect of drought is the same factor at both
+temperatures. It is close in AIC, and its ratios have narrower intervals, but it cannot
+answer whether drought matters more after growth at the high temperature.
+:::
+
+## The batches {#sec-batch}
+
+The batch enters as a block effect that multiplies the whole net curve of every plant of a
+batch, with batch 1 as the reference level:
+
+```{r}
+batch_setup = photo_setup(candidates$common_theta, "NRH", "constant", "net",
+                          use_batch = TRUE)
+batch_fit = fit_photo(batch_setup$data, batch_setup$start)
+batch_table = aic_table(list(common_theta = candidate_fits$common_theta,
+                             with_batch = batch_fit))
+show_table(batch_table, digits = 1)
+batch_effects = exp(batch_fit$fit$par[names(batch_fit$fit$par) == "beta_batch"])
+names(batch_effects) = paste("Batch", 2:5)
+round(batch_effects, 2)
+```
+
+The batches 2 to 5 have curves `r round(100 * (min(batch_effects) - 1))`% to
+`r round(100 * (max(batch_effects) - 1))`% higher than batch 1, but the model with
+batches is `r f1(batch_table$delta_aic[2])` AIC units worse than the model without
+(@sec-sensitivity shows that it gives the same answer). The batch effect that matters in
+@sec-batches, the low HT-D curves of batches 1 and 2, is an interaction of batch and
+treatment that a block effect cannot describe, and with one HT-D curve per batch no model
+can separate it from the variation among plants.
+
+# The answer: the light response in each combination {#sec-answer}
+
+We take the candidate `common_theta` and calculate its `sdreport()`.
+
+```{r}
+main_data = candidate_setups$common_theta$data
+main_start = candidate_setups$common_theta$start
+main = candidate_fits$common_theta
+main_obj = main$obj
+main_fit = main$fit
+main_fit$convergence
+main_sd = sdreport(main_obj)
+main_answer = photo_answer(main_obj)
+```
+
+The typical parameters of each combination, with Wald intervals ($\alpha$ without units,
+$p_{\max}$ and $r_d$ in µmol/m²/s):
+
+```{r}
+typical_table = data.frame(
+  combination = rownames(combinations),
+  alpha = with_interval(main_answer$typical$alpha, 3),
+  p_max = with_interval(main_answer$typical$pmax, 1),
+  r_d = with_interval(main_answer$typical$rd, 2)
+)
+show_table(typical_table)
+```
+
+The ratios between combinations:
+
+```{r}
+ratio_table = data.frame(
+  comparison = comparisons,
+  alpha = with_interval(main_answer$ratios$alpha),
+  p_max = with_interval(main_answer$ratios$pmax),
+  r_d = with_interval(main_answer$ratios$rd)
+)
+show_table(ratio_table)
+```
+
+```{r}
+#| echo: false
+ty = main_answer$typical
+ra = main_answer$ratios
+theta_main = ty$theta[1, ]
+```
+
+**Growth temperature.** In the controls, the typical plant grown at 28 °C has a maximum
+rate `r round(100 * (1 - ra$pmax$estimate[1]))`% lower than one grown at 22 °C
+(`r f1(ty$pmax$estimate[2])` against `r f1(ty$pmax$estimate[1])` µmol/m²/s; ratio
+`r with_interval(ra$pmax[1, ])`), and an initial slope
+`r round(100 * (1 - ra$alpha$estimate[1]))`% lower (ratio
+`r with_interval(ra$alpha[1, ])`), while its respiration is similar (ratio
+`r with_interval(ra$rd[1, ])`). In drought the differences between the temperatures are
+larger: the maximum rate at 28 °C is `r round(100 * (1 - ra$pmax$estimate[2]))`% lower
+(`r with_interval(ra$pmax[2, ])`), the initial slope
+`r round(100 * (1 - ra$alpha$estimate[2]))`% (`r with_interval(ra$alpha[2, ])`) and the
+respiration `r round(100 * (1 - ra$rd$estimate[2]))`% (`r with_interval(ra$rd[2, ])`).
+
+**Drought.** At 22 °C, a week without water hardly changes the typical curve: the ratios
+D/C are `r f2(ra$pmax$estimate[3])` for $p_{\max}$, `r f2(ra$alpha$estimate[3])` for
+$\alpha$ and `r f2(ra$rd$estimate[3])` for $r_d$, and every interval includes 1. At 28 °C,
+drought lowers the maximum rate by `r round(100 * (1 - ra$pmax$estimate[4]))`%
+(`r with_interval(ra$pmax[4, ])`), halves the initial slope
+(`r with_interval(ra$alpha[4, ])`) and lowers the respiration by
+`r round(100 * (1 - ra$rd$estimate[4]))`% (`r with_interval(ra$rd[4, ])`). The data do
+not tell whether the plants at 28 °C are more sensitive to drought or whether their soil
+dried faster (README).
+
+**Curvature.** The common $\theta$ is `r f2(theta_main$estimate)` (Wald interval
+`r f2(theta_main$lower)` to `r f2(theta_main$upper)`, calculated on the logit scale),
+which @sec-theta-profile examines.
+
+@fig-typical shows the typical curves over the measurements.
+
+```{r}
+#| label: fig-typical
+#| fig-cap: "Measurements (points, coloured by batch) and typical curves (u = 0) of the
+#|   four combinations under the main model."
+#| fig-width: 7.5
+#| fig-height: 6
+light_grid = seq(from = 0, to = 1000, length.out = 200)
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(2, 2), mar = c(4, 4, 2, 1))
+for (g in 1:4) {
+  photo_g = photo[as.numeric(photo$Combination) == g, ]
+  plot(P ~ I, data = photo_g, ylim = range(photo$P), xlim = c(0, 1000), pch = 19,
+       cex = 0.6, col = batch_colours[photo_g$Batch], main = rownames(combinations)[g],
+       xlab = "Light intensity (µmol/m²/s)",
+       ylab = "Net photosynthesis (µmol/m²/s)")
+  lines(light_grid, nrh_rate(light_grid, ty$alpha$estimate[g], ty$pmax$estimate[g],
+                             theta_main$estimate) - ty$rd$estimate[g], lwd = 2)
+  abline(h = 0, lty = 3)
+}
+par(old_par)
+```
+
+The typical curves run through the middle of the measurements of LT-C, HT-C and LT-D. In
+HT-D the typical curve runs between the two high curves (batches 3 and 4) and the two
+lowest ones (batches 1 and 2), a compromise for a combination in which the plants differ
+by more than a factor of two.
+
+The variance components, on the scale of the measurements and among curves:
+
+```{r}
+variance_components = exp(main_fit$par[c("log_sd_obs", "log_sd_curve")])
+variance_components
+```
+
+The measurements deviate from the curve of their plant with a standard deviation of
+`r f2(variance_components[1])` µmol/m²/s, about
+`r round(variance_components[1] / sd(photo$single_residual))` times the residual standard
+deviation of the single fits of @sec-within. The difference is
+the shape of the curves: a single random effect can make a curve higher or lower, but not
+steeper at low light and flatter at high light, so the remaining differences in shape
+count as deviations of the measurements (@sec-serial, @sec-two-re). The curves of a
+combination differ by a factor with a standard deviation of `r f2(variance_components[2])`
+on the log scale: the middle 95% of plants span a factor of about
+`r f1(exp(2 * critical_value * variance_components[2]))`.
+
+## The curvature {#sec-theta-profile}
+
+A likelihood profile of $\operatorname{logit}(\theta)$, with its interval transformed
+back (the warning of `confint()` that the chunk suppresses comes from the flat part of the
+profile described below):
+
+```{r}
+#| warning: false
+main_profile_theta = TMB::tmbprofile(main_obj, name = "beta_theta", trace = FALSE)
+theta_ci = plogis(c(estimate = main_fit$par[["beta_theta"]],
+                    confint(main_profile_theta)[1, ]))
+theta_ci
+```
+
+```{r}
+#| echo: false
+# Lower limit of the interval of theta: zero when the profile never crosses the cutoff.
+theta_lower = if (is.na(theta_ci[["lower"]])) "0" else f2(theta_ci[["lower"]])
+```
+
+`r if (is.na(theta_ci[["lower"]])) "The profile never falls by 1.92 below its maximum as $\\theta$ decreases, so \x60confint()\x60 gives no lower limit: the" else "The"`
+likelihood profile interval of $\theta$ runs from `r theta_lower` to
+`r f2(theta_ci[["upper"]])`. As $\theta \to 0$ the curve becomes a Michaelis–Menten
+function, and the data fit that shape almost as well as the estimate. The data allow
+anything from the Michaelis–Menten shape to a moderately sharp bend. $\theta$ is not part
+of the comparison of the combinations, but it matters for the next point.
+
+## How far beyond the data is $p_{\max}$? {#sec-pmax}
+
+The asymptote $p_{\max}$ is the gross rate in unlimited light. From the quadratic equation
+of the non-rectangular hyperbola (functions supplement), the light at which the gross rate
+reaches a fraction $q$ of $p_{\max}$ is
+
+$$
+I_q = \frac{q\,p_{\max}\,(1 - \theta q)}{\alpha\,(1 - q)}.
+$$
+
+For the typical LT-C plant:
+
+```{r}
+light_fraction = function(q, alpha, pmax, theta) {
+  q * pmax * (1 - theta * q) / (alpha * (1 - q))
+}
+light_fraction(c(0.5, 0.9, 0.95), ty$alpha$estimate[1], ty$pmax$estimate[1],
+               theta_main$estimate)
+```
+
+```{r}
+#| echo: false
+light_90 = light_fraction(0.9, ty$alpha$estimate[1], ty$pmax$estimate[1],
+                          theta_main$estimate)
+mono_fit = choice_fits[["mono constant net"]]
+mono_answer = photo_answer(mono_fit$obj)
+```
+
+The typical LT-C plant reaches 90% of its $p_{\max}$ at about
+`r round(light_90, -2)` µmol/m²/s, beyond the highest light of the measurements. Its
+typical net rate at 1000 µmol/m²/s is `r f1(ty$p1000$estimate[1])` µmol/m²/s, against an
+asymptote of the net rate of
+`r f1(ty$pmax$estimate[1] - ty$rd$estimate[1])` µmol/m²/s ($p_{\max} - r_d$).
+
+::: {.callout-warning title="Pitfall: the asymptote depends on the curve"}
+The saturating exponential (in its full model with the random effect on the net curve)
+gives a typical $p_{\max}$ of `r f1(mono_answer$typical$pmax$estimate[1])` µmol/m²/s for
+LT-C, against `r f1(ty$pmax$estimate[1])` for the non-rectangular hyperbola, while both
+give a typical net rate at 1000 µmol/m²/s of about
+`r f1(mono_answer$typical$p1000$estimate[1])` and `r f1(ty$p1000$estimate[1])` µmol/m²/s.
+The value of $p_{\max}$ is an extrapolation whose size depends on the curve and on
+$\theta$, which the data barely determine (@sec-theta-profile). Ratios of $p_{\max}$
+between combinations are more robust than its values (@sec-sensitivity). For comparisons
+with the literature, a rate at a stated high light, inside the data, is safer. There is a
+further reason for caution: the light levels were applied from low to high with 5 to 8
+minutes at each, and at high light the stomata had probably not finished opening, so the
+rates at the highest light, and with them $p_{\max}$, are probably somewhat underestimated
+(README).
+:::
+
+# Checking the model {#sec-checks}
+
+## Scaled quantile residuals {#sec-residuals}
+
+We simulate 1,000 hypothetical samples (new curve deviations, then new measurements for
+them) and compare each measurement with the typical curve of its combination.
+
+```{r}
+n_sim = 1000
+photo_simulations = matrix(NA, nrow = length(main_data$P), ncol = n_sim)
+set.seed(seed = 2228)
+for (s in seq_len(n_sim)) {
+  photo_simulations[, s] = main_obj$simulate(main_fit$par)$P
+}
+
+combination_of_row = as.numeric(photo$Combination)
+photo_expected = nrh_rate(photo$I, ty$alpha$estimate[combination_of_row],
+                          ty$pmax$estimate[combination_of_row], theta_main$estimate) -
+  ty$rd$estimate[combination_of_row]
+
+photo_residuals = DHARMa::createDHARMa(
+  simulatedResponse = photo_simulations,
+  observedResponse = main_data$P,
+  fittedPredictedResponse = photo_expected
+)
+```
+
+```{r}
+#| label: fig-dharma
+#| fig-cap: "Scaled quantile residuals of the main model: quantile-quantile plot (left)
+#|   and residuals against the predicted rate (right)."
+#| fig-width: 9
+#| fig-height: 5
+plot(photo_residuals)
+dispersion = DHARMa::testDispersion(photo_residuals, plot = FALSE)$statistic
+dispersion
+```
+
+The quantile-quantile plot is close to the line, and the dispersion statistic is
+`r f2(dispersion)`. In the right panel the upper and lower quartiles of the residuals move
+slightly towards the median at high predicted rates: at high light the curves differ a
+little less than a common factor implies, as for HT-C and LT-D in @fig-spread-among. As in
+Chapter 6, the p-values that DHARMa prints on its
+plots are not used for decisions. These residuals compare each measurement with the
+distribution of all plants of its combination, so they mainly check the distribution of the
+curve effects; the deviations within a curve are checked in @sec-serial.
+
+@fig-dharma-light shows the residuals against light and combination.
+
+```{r}
+#| label: fig-dharma-light
+#| fig-cap: "Scaled quantile residuals against light intensity (left) and combination
+#|   (right)."
+#| fig-width: 7.5
+#| fig-height: 3.6
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(1, 2))
+DHARMa::plotResiduals(photo_residuals, form = photo$I)
+DHARMa::plotResiduals(photo_residuals, form = photo$Combination)
+par(old_par)
+```
+
+One residual per curve, from the sum of its measurements:
+
+```{r}
+curve_residuals = DHARMa::recalculateResiduals(photo_residuals, group = curve_index)
+curve_scaled = residuals(curve_residuals)
+names(curve_scaled) = curve_names
+round(sort(curve_scaled), 3)
+```
+
+```{r}
+#| echo: false
+lowest_two = names(sort(curve_scaled))[1:2]
+lowest_curve = lowest_two[1]
+describe_curve = function(j) {
+  info = curve_info[curve_info$Curve == j, ]
+  paste0("curve ", j, " (", info$Combination, ", batch ", info$Batch, ", residual ",
+         f3(curve_scaled[[j]]), ")")
+}
+```
+
+The residuals of the curves spread over the whole range. The two lowest are
+`r describe_curve(lowest_two[1])`, the lowest curve of HT-D, and
+`r describe_curve(lowest_two[2])`, the LT-C curve that levels off far below the others in
+@fig-curves. Among 27 curves, about `r f1(27 * 0.05)` residuals below 0.05 are expected
+and there are `r sum(curve_scaled < 0.05)`, which is not a clear disagreement.
+
+## Successive measurements of the same curve {#sec-serial}
+
+The residuals above come from new curve deviations, so the measurements of one curve share
+their deviation. Removing the mean of each curve (on the Normal scale) leaves the variation
+within curves; the correlation of each residual with the next one of the same curve
+measures how much neighbouring measurements resemble each other.
+
+```{r}
+next_same_curve = c(photo$Curve[-1] == photo$Curve[-nrow(photo)], FALSE)
+normal_residuals = qnorm(pmin(pmax(residuals(photo_residuals), 0.001), 0.999))
+within_curve = normal_residuals - ave(normal_residuals, photo$Curve)
+serial_cor = cor(within_curve[next_same_curve],
+                 within_curve[which(next_same_curve) + 1])
+serial_cor
+```
+
+::: {.callout-warning title="Pitfall: deviations that follow the shape of the curve"}
+The correlation is `r f2(serial_cor)`. Within a curve, a measurement above the typical
+shape is followed by another one above it: the deviations follow the shape of each plant's
+curve, which a single random effect cannot describe. In @fig-curves the measurements of a
+curve lie on a smooth line, so this is a difference in shape, not noise in the instrument.
+The model treats these deviations as independent, so it may overstate the information that
+each curve carries about the shape and give standard errors that are too small.
+@sec-two-re fits a second random effect that describes much of the difference in shape,
+and shows that the ratios and their intervals change little.
+:::
+
+## The variation among plants in each combination {#sec-sd-combination}
+
+@fig-spread-among and the right panel of @fig-dharma-light suggest that the plants of LT-C
+and HT-D differ more among themselves than those of HT-C and LT-D. A separate standard
+deviation among curves for each combination needs only another model matrix, for the
+logarithm of $\sigma_{\mathrm{curve}}$ (the formula `~ 0 + Combination` gives one column
+per combination, so each coefficient is the log standard deviation of one combination):
+
+```{r}
+sd_setup = photo_setup(candidates$common_theta, "NRH", "constant", "net",
+                       sd_formula = ~ 0 + Combination)
+sd_fit = fit_photo(sd_setup$data, sd_setup$start)
+sd_table = aic_table(list(common_sd = main, sd_by_combination = sd_fit))
+show_table(sd_table, digits = 1)
+sd_by_combination = exp(sd_fit$fit$par[names(sd_fit$fit$par) == "log_sd_curve"])
+names(sd_by_combination) = levels(photo$Combination)
+round(sd_by_combination, 3)
+sd_answer = photo_answer(sd_fit$obj)
+sd_ratio_table = data.frame(
+  comparison = comparisons,
+  alpha = with_interval(sd_answer$ratios$alpha),
+  p_max = with_interval(sd_answer$ratios$pmax),
+  r_d = with_interval(sd_answer$ratios$rd)
+)
+show_table(sd_ratio_table)
+```
+
+```{r}
+#| echo: false
+sra = sd_answer$ratios
+```
+
+The separate standard deviations improve AIC by `r f1(sd_table$aic[1] - sd_table$aic[2])`
+units with `r sd_table$K[2] - sd_table$K[1]` parameters more. The curves of HT-D differ by
+a factor with a standard deviation of `r f2(sd_by_combination[["HT-D"]])` on the log scale,
+those of LT-C by `r f2(sd_by_combination[["LT-C"]])`, and those of HT-C and LT-D by
+`r f2(sd_by_combination[["HT-C"]])` and `r f2(sd_by_combination[["LT-D"]])`, estimates
+from five curves each. The estimated ratios are practically the same as in the main
+model, but their intervals change: those that involve only the low temperature or the
+controls become narrower, and those that involve HT-D become wider. The effect of drought
+on $p_{\max}$ at 28 °C now has the interval `r with_interval(sra$pmax[4, ])`, which
+`r if (sra$pmax$upper[4] > 1) "includes 1" else "stays below 1"`.
+
+::: {.callout-warning title="Pitfall: one variance among groups for groups that differ"}
+A common $\sigma_{\mathrm{curve}}$ averages over combinations whose plants differ by very
+different amounts. The intervals of comparisons with the most variable combination (HT-D)
+are then too narrow and those of the least variable ones too wide. Drought at the high
+temperature made the plants differ more, which is itself a result: some plants lost much
+more photosynthetic capacity than others.
+:::
+
+::: {.callout-tip title="Alternative"}
+Use the model with a standard deviation among curves for each combination as the main
+model. It is better by AIC and its intervals reflect the different variability of the
+combinations, but each standard deviation rests on five curves (twelve for LT-C), and the
+model goes one step beyond Chapter 7.
+:::
+
+## Sensitivity of the answer {#sec-sensitivity}
+
+The ratios of $p_{\max}$ and $\alpha$ under five alternatives: the model with batches
+(@sec-batch), the full model with the saturating exponential (@sec-choices), the main model
+without curve `r lowest_curve` (the lowest residual of @sec-residuals), the main model
+with the variance that changes with the expected rate, and the model with a standard
+deviation among curves for each combination (@sec-sd-combination).
+
+```{r}
+subset_curves = function(data, keep) {
+  rows = data$curve_id %in% keep
+  data$I = data$I[rows]
+  data$P = data$P[rows]
+  data$curve_id = match(data$curve_id[rows], keep)
+  for (p in c("alpha", "pmax", "theta", "rd")) {
+    data[[paste0("X_", p)]] = data[[paste0("X_", p)]][keep, , drop = FALSE]
+  }
+  data$X_batch = data$X_batch[keep, , drop = FALSE]
+  data$X_sd = data$X_sd[keep, , drop = FALSE]
+  data
+}
+keep = setdiff(seq_along(curve_names), as.numeric(lowest_curve))
+without_fit = fit_photo(subset_curves(main_data, keep), main_start)
+without_fit$fit$convergence
+
+exponential_setup = photo_setup(candidates$common_theta, "NRH", "exponential", "net")
+exponential_fit = fit_photo(exponential_setup$data, exponential_setup$start)
+
+# Columns: main model, with batches, saturating exponential, without the lowest curve,
+# exponential standard deviation, standard deviation among curves for each combination.
+sensitivity_answers = list(
+  main = main_answer,
+  batch = photo_answer(batch_fit$obj),
+  mono = mono_answer,
+  drop_lowest = photo_answer(without_fit$obj),
+  exp_sd = photo_answer(exponential_fit$obj),
+  sd_comb = sd_answer
+)
+sensitivity = data.frame(
+  ratio = c(paste("p_max", comparisons), paste("alpha", comparisons)),
+  sapply(sensitivity_answers,
+         function(a) c(a$ratios$pmax$estimate, a$ratios$alpha$estimate))
+)
+show_table(sensitivity)
+```
+
+```{r}
+#| echo: false
+spread = apply(sensitivity[, -1], 1, function(x) max(x) - min(x))
+```
+
+The ratios move by at most `r f2(max(spread))` between the alternatives, less than the
+widths of their intervals. The largest changes come from leaving out curve
+`r lowest_curve`, which moves the ratios that involve HT-D towards 1, as expected when one
+of five curves is removed. Every alternative tells the same story: lower capacity after
+growth at 28 °C, little effect of drought at 22 °C and a larger one at 28 °C.
+
+# Beyond the course: two random effects per curve {#sec-two-re}
+
+Chapter 7 uses one random effect per group. Here each curve gets a second, independent
+deviation $v_j$ of $\log(\alpha_j)$ only (standard deviation $\sigma_{\alpha}$), so that the
+initial slope can vary relative to the rest of the curve: a curve can be steeper at low
+light without being higher at high light. We fit it with the constant and with the
+exponential standard deviation.
+
+```{r}
+photo_nll_2re = function(parms, data) {
+  getAll(parms, data)
+  P = OBS(P)
+  nll = -sum(dnorm(x = u, mean = 0, sd = exp(log_sd_curve), log = TRUE))
+  nll = nll - sum(dnorm(x = v, mean = 0, sd = exp(log_sd_alpha), log = TRUE))
+  alpha_curve = exp(X_alpha %*% beta_alpha + u + v)
+  pmax_curve = exp(X_pmax %*% beta_pmax + u)
+  rd_curve = exp(X_rd %*% beta_rd + u)
+  mu = nrh_rate(I, alpha_curve[curve_id], pmax_curve[curve_id], plogis(beta_theta)) -
+    rd_curve[curve_id]
+  log_alpha = X_alpha_typical %*% beta_alpha
+  log_pmax = X_pmax_typical %*% beta_pmax
+  log_rd = X_rd_typical %*% beta_rd
+  log_ratio_alpha = log_alpha[c(2, 4, 3, 4)] - log_alpha[c(1, 3, 1, 2)]
+  log_ratio_pmax = log_pmax[c(2, 4, 3, 4)] - log_pmax[c(1, 3, 1, 2)]
+  ADREPORT(log_ratio_alpha)
+  ADREPORT(log_ratio_pmax)
+  sd_obs = exp(log_sd_obs)
+  if (variance == "exponential") sd_obs = exp(log_sd_obs + delta * mu)
+  nll - sum(dnorm(x = P, mean = mu, sd = sd_obs, log = TRUE))
+}
+
+fit_2re = function(variance) {
+  data = main_data
+  data$variance = variance
+  start = main_start
+  if (variance == "exponential") start$delta = 0
+  start$log_sd_alpha = log(0.2)
+  start$u = rep(0, length(curve_names))
+  start$v = rep(0, length(curve_names))
+  obj = MakeADFun(cmb(photo_nll_2re, data), start, random = c("u", "v"), silent = TRUE)
+  fit = optim(par = obj$par, fn = obj$fn, gr = obj$gr, method = "BFGS")
+  list(obj = obj, fit = fit)
+}
+two_re = list(constant = fit_2re("constant"), exponential = fit_2re("exponential"))
+table_2re = aic_table(list(one_random_effect = main,
+                           two_random_effects = two_re$constant,
+                           two_random_effects_exponential = two_re$exponential))
+show_table(table_2re, digits = 1)
+```
+
+```{r}
+#| echo: false
+par_2re = two_re$constant$fit$par
+par_2re_exp = two_re$exponential$fit$par
+sd_2re = exp(par_2re[c("log_sd_obs", "log_sd_curve", "log_sd_alpha")])
+report_2re = summary(sdreport(two_re$exponential$obj), select = "report")
+ratios_2re = exp(report_2re[, "Estimate"])
+lower_2re = exp(report_2re[, "Estimate"] - critical_value * report_2re[, "Std. Error"])
+upper_2re = exp(report_2re[, "Estimate"] + critical_value * report_2re[, "Std. Error"])
+sd_at = function(mu) exp(par_2re_exp[["log_sd_obs"]] + par_2re_exp[["delta"]] * mu)
+```
+
+The second random effect improves AIC by
+`r round(table_2re$aic[1] - table_2re$aic[2])` units with
+`r table_2re$K[2] - table_2re$K[1]` parameter more, a far larger difference than any in
+@sec-choices and @sec-candidates. The standard deviation of the measurements falls from
+`r f2(variance_components[1])` to `r f2(sd_2re[1])` µmol/m²/s, half way to the
+`r f2(sd(photo$single_residual))` µmol/m²/s of the single fits, and the initial slopes vary
+among curves with a standard deviation of `r f2(sd_2re[3])` on the log scale, in addition
+to the common factor (now `r f2(sd_2re[2])`).
+
+The variance question now has a different answer. With two random effects, the
+exponential standard deviation improves AIC by
+`r f1(table_2re$aic[2] - table_2re$aic[3])` units, with $\delta =$
+`r f3(par_2re_exp[["delta"]])`: the standard deviation falls from
+`r f2(sd_at(0))` µmol/m²/s at an expected rate of zero to `r f2(sd_at(10))` at 10
+µmol/m²/s. The deviations are larger at low rates, not at high ones. The single fits of
+@sec-within did not show this, so it may be a misfit at low light of curves that share one
+$\theta$ (each single fit had its own) rather than noise of the instrument; the data
+cannot tell the two apart. With one random effect, the differences in shape dominated the
+deviations and hid this pattern.
+
+::: {.callout-warning title="Pitfall: the variance model depends on the model of the mean"}
+The deviations of the measurements contain everything that the model of the mean leaves
+out. A comparison of variance models is only informative once the curve and the random
+effects describe the measurements well.
+:::
+
+The ratios with two random effects and the exponential standard deviation (the best of
+the three by AIC), with Wald intervals, next to those of the main model:
+
+```{r}
+main_ratios = rbind(main_answer$ratios$alpha, main_answer$ratios$pmax)
+answer_2re = data.frame(
+  ratio = c(paste("alpha", comparisons), paste("p_max", comparisons)),
+  estimate = ratios_2re, lower = lower_2re, upper = upper_2re,
+  main_estimate = main_ratios$estimate, main_lower = main_ratios$lower,
+  main_upper = main_ratios$upper
+)
+show_table(answer_2re)
+```
+
+```{r}
+#| echo: false
+change_2re = max(abs(answer_2re$estimate - answer_2re$main_estimate))
+```
+
+The ratios change by at most `r f2(change_2re)`, and the intervals hardly change. This is
+the model a researcher would probably prefer, as it describes the curves much better. For
+students, the model with one random effect gives the same answer, and this section shows
+what it misses.
+
+# Checking the estimator by simulation {#sec-simulation}
+
+We draw 300 hypothetical samples of 27 curves from the main model (same plants, treatments
+and light levels) and fit each from the same starting values as the data. We keep the log
+ratios of $p_{\max}$ and $\alpha$ (estimates and standard errors).
+
+```{r}
+set.seed(seed = 1928)
+n_samples = 300
+sim_estimate = matrix(NA, nrow = n_samples, ncol = 8)
+sim_se = matrix(NA, nrow = n_samples, ncol = 8)
+n_failed = 0
+for (i in seq_len(n_samples)) {
+  sim_data = main_data
+  sim_data$P = main_obj$simulate(main_fit$par)$P
+  sim = fit_photo(sim_data, main_start)
+  n_failed = n_failed + (sim$fit$convergence != 0)
+  sim_report = summary(sdreport(sim$obj), select = "report")
+  rows = rownames(sim_report) %in% c("log_ratio_pmax", "log_ratio_alpha")
+  sim_estimate[i, ] = sim_report[rows, "Estimate"]
+  sim_se[i, ] = sim_report[rows, "Std. Error"]
+}
+n_failed
+```
+
+The bias, the standard deviation of the estimates, the mean standard error and the
+coverage of the 95% Wald interval for each log ratio:
+
+```{r}
+main_report = summary(main_sd, select = "report")
+used_rows = rownames(main_report) %in% c("log_ratio_pmax", "log_ratio_alpha")
+log_ratio_used = main_report[used_rows, "Estimate"]
+used_matrix = matrix(log_ratio_used, nrow = n_samples, ncol = 8, byrow = TRUE)
+covered = abs(sim_estimate - used_matrix) < critical_value * sim_se
+sim_summary = data.frame(
+  ratio = paste(rep(c("alpha", "p_max"), each = 4), comparisons),
+  bias = colMeans(sim_estimate) - log_ratio_used,
+  sd_estimates = apply(sim_estimate, 2, sd),
+  mean_se = colMeans(sim_se),
+  coverage = colMeans(covered)
+)
+show_table(sim_summary, digits = 3)
+```
+
+```{r}
+#| echo: false
+low_coverage = sim_summary[sim_summary$coverage < 0.925, ]
+se_ratio = sim_summary$mean_se / sim_summary$sd_estimates
+```
+
+`r if (n_failed == 0) "Every fit converged." else paste(n_failed, "fits did not converge.")`
+The biases are small compared with the standard errors (at most
+`r f3(max(abs(sim_summary$bias)))` on the log scale). The mean standard errors are
+`r round(100 * (1 - max(se_ratio)))`% to `r round(100 * (1 - min(se_ratio)))`% smaller
+than the standard deviations of the estimates, and the coverages lie between
+`r f1(100 * min(sim_summary$coverage))`% and `r f1(100 * max(sim_summary$coverage))`%,
+compared with the range of about 92.5% to 97.5% that 300 samples give for a coverage of
+95%. `r if (nrow(low_coverage) > 0) paste0("Below that range are ", paste(paste0(low_coverage$ratio, " (", f1(100 * low_coverage$coverage), "%)"), collapse = "; "), ".") else "None is below that range."`
+So with five curves in most combinations the Wald intervals of the ratios are roughly
+right under the model but somewhat too narrow for some ratios: the lowest coverages
+(`r paste(sim_summary$ratio[order(sim_summary$coverage)[1:2]], collapse = "; ")`)
+are closer to 90% than to 95%. @sec-serial explains what this
+check cannot see: the samples are simulated with independent deviations within curves and
+a common $\sigma_{\mathrm{curve}}$, which the real curves do not have
+(@sec-sd-combination).
+
+# Summary: alternatives, pitfalls and teaching notes {#sec-summary}
+
+**Answer.** Plants grown at 28 °C have a typical maximum rate of photosynthesis
+`r round(100 * (1 - ra$pmax$estimate[1]))`% lower than plants grown at 22 °C when both are
+watered (ratio `r with_interval(ra$pmax[1, ])`), and a lower initial slope, with a similar
+dark respiration. A week of drought hardly changes the light response of plants grown at
+22 °C, but lowers the maximum rate of plants grown at 28 °C by
+`r round(100 * (1 - ra$pmax$estimate[4]))`% and halves their initial slope; the plants at
+28 °C differ greatly in how much drought affected them, so much that with a separate
+variation among plants for each combination the interval of the drought effect on their
+maximum rate is `r with_interval(sra$pmax[4, ])` (@sec-sd-combination). The curvature
+$\theta$ is poorly determined (`r theta_lower` to `r f2(theta_ci[["upper"]])`), and
+$p_{\max}$ lies beyond the measured light range. A second random effect per curve
+describes the curves far better and gives the same ratios.
+
+**Pitfalls.**
+
+1. The column `T` hides R's `TRUE` (@sec-data).
+2. The information about the treatments comes from 27 curves, five in three of the four
+   combinations (@sec-design).
+3. Respiration is extrapolated from 25 µmol/m²/s to darkness (@sec-low-light).
+4. The spread among curves grows with the flux, but it is the variation among plants, not
+   the measurement error (@sec-spread-among).
+5. The textbook formula of the non-rectangular hyperbola loses precision as $\theta$
+   approaches zero (@sec-curve-functions).
+6. Fits of single curves collapse to a flat curve from common starting values, more often
+   with a small starting standard deviation (@sec-one-curve).
+7. $\theta$ goes to the boundary in single curves and when it depends on the treatments
+   (@sec-single-parameters, @sec-choices).
+8. $p_{\max}$ is an extrapolation that depends on the curve (@sec-pmax).
+9. The deviations within a curve are correlated (`r f2(serial_cor)`, @sec-serial),
+   because a single random effect cannot describe differences in shape.
+10. The plants of HT-D differ much more among themselves than those of HT-C and LT-D; a
+    common standard deviation among curves gives intervals that are too narrow for
+    comparisons with HT-D (@sec-sd-combination).
+11. The variance model can only be judged once the mean is right (@sec-two-re).
+12. Whether drought was more severe in some batches cannot be separated from the variation
+    among plants (@sec-batches, @sec-batch).
+13. The Wald intervals of some ratios cover less than 95% under the model, with five curves
+    per combination (@sec-simulation).
+
+**Alternatives.**
+
+- The saturating exponential (worse by `r round(mono_gap)` AIC units; @sec-choices).
+- A random effect on $p_{\max}$ only or on the gross rate (@sec-choices).
+- A standard deviation that changes with the expected rate (@sec-choices, @sec-two-re).
+- The additive model without interaction (@sec-candidates).
+- The batch as a block (@sec-batch).
+- A standard deviation among curves for each combination (@sec-sd-combination; better by
+  AIC).
+- Two random effects per curve (@sec-two-re; beyond Chapter 7).
+- Rates inside the data as the answer, such as the typical net rate at 1000 µmol/m²/s,
+  which `ADREPORT()` already gives (@sec-pmax).
+
+**Teaching notes (possible questions for students).**
+
+- Read starting values from the figures: the initial slope and respiration from the first
+  two points, the asymptote above the highest rates.
+- Derive the numerically stable form of the non-rectangular hyperbola and check it against
+  the textbook form.
+- Show that multiplying $\alpha$ and $p_{\max}$ by the same factor multiplies the gross
+  rate by that factor, and explain why this makes the random effect on the net curve a
+  natural choice.
+- Compare the random effect on $p_{\max}$ with the one on the whole net curve, with
+  @fig-spread-among as the reason.
+- Report the ratios with intervals and explain what "the effect of drought depends on the
+  growth temperature" means in terms of the interaction.
+- Compare $p_{\max}$ from the two curves and explain why it differs while the rates at
+  1000 µmol/m²/s agree.

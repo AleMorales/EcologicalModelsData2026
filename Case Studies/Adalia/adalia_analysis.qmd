@@ -1,0 +1,1462 @@
+---
+title: "Melanism in the two-spot ladybird along a transect in the Netherlands, 1980–2004"
+subtitle: "Reference analysis for a possible case study after Chapter 7"
+date: 2026-11-20
+format:
+  typst:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    papersize: a4
+    margin:
+      x: 2.2cm
+      y: 2.5cm
+    fontsize: 10pt
+    fig-format: png
+    fig-dpi: 200
+execute:
+  echo: true
+  warning: true
+  message: false
+knitr:
+  opts_chunk:
+    comment: "#>"
+    R.options:
+      width: 84
+---
+
+# About this document {.unnumbered}
+
+This document is a reference analysis for the author, not a course page. It shows what
+students could do with these data with the tools of Chapters 1 to 7 (RTMB, RTMBdist,
+DHARMa and TMB), and follows the structure of the analysis of the infiltration data in
+`Case Studies/Infiltration`: the data, an exploration, the model, the choice of curve,
+distribution and random effect, the candidates for the change over time, the answer,
+checks of the model, a second transect and a simulation of the estimator. Alternatives
+are in boxes titled "Alternative" and traps in boxes titled "Pitfall"; @sec-summary lists
+them all. `README.md` in this folder describes the sources of the data (the spreadsheet
+and the two papers), what is still not known and the suitability of the data for a case
+study; `data_description.md` describes the study for students.
+
+::: {.callout-note title="Possible research question (for the author to decide)"}
+How did the cline in the frequency of melanic two-spot ladybirds along the east–west
+transect change between 1980 and 2004: did the frequency fall inland, rise at the coast,
+or did the cline move? The answer below is the typical frequency of melanics at 10 km and
+at 60 km from the coast in each survey, and the odds ratio between the two (the height of
+the cline), quantities inside the range of every survey.
+:::
+
+The document needs RTMB, RTMBdist, DHARMa, TMB and knitr and takes about two minutes to
+render, most of it in the simulation of @sec-simulation. The optimisations are
+deterministic and every simulation has its own seed. Numbers in the text are calculated
+inline from the code, except descriptions of what a figure shows, which were written from
+the figures of the run of 20 November 2026 (R 4.6.1).
+
+Status: generated draft (20 November 2026), not reviewed by the author.
+
+# The data {#sec-data}
+
+The two-spot ladybird, *Adalia bipunctata*, has genetically determined colour morphs that
+fall into two classes: **melanics**, mostly black with red spots, and **non-melanics**
+(*typica*), red with black spots. The melanic alleles are dominant over the non-melanic
+one. Under the hypothesis of **thermal melanism**, black beetles warm up faster in sunshine
+and have an advantage where it is cool, cloudy and calm (de Jong et al. 1996, cited in
+both papers).
+
+Brakefield (1984a) described a steep cline in the frequency of melanics along a transect
+from the coast of the south-west Netherlands inland: around 10 to 20% near the coast and
+about 55% from about 50 km inland. The transect was sampled again in 1991 and 1995
+(de Jong and Brakefield 1998) and in 1998 and 2004 (Brakefield and de Jong 2011). In each
+survey, adults and pupae were collected at each locality, mainly on lime trees (*Tilia*),
+*Rosa rugosa* and *Euonymus*; pupae were reared in the laboratory, and every beetle was
+scored as melanic or non-melanic. The 1980 survey pools collections made between 1978
+and 1981 (de Jong and Brakefield 1998). From about 2002 the invasive harlequin ladybird
+*Harmonia axyridis* reduced the numbers of *A. bipunctata*, so the 2004 samples are
+smaller and five localities could not be sampled (Brakefield and de Jong 2011).
+
+The 1998 paper also resampled a second, north–south transect in 1991 or 1992 (the paper
+says 1992, the spreadsheet 1991), whose distances are measured from Delft and not from the
+coast. @sec-ns uses it as an extension.
+
+The file `adalia.csv` has one row per sample (a locality in a survey): the transect
+(`EW` or `NS`), the locality (`place`), the survey (`year`), the distance (`distance_km`,
+to the coast for EW and from Delft for NS) and the numbers of black (melanic) and red
+(non-melanic) beetles.
+
+```{r}
+adalia = read.csv("adalia.csv")
+str(adalia)
+```
+
+We analyse the east–west transect first. The localities are ordered from the coast inland,
+and each sample gets its size and its proportion of melanics.
+
+```{r}
+ew = adalia[adalia$transect == "EW", ]
+rownames(ew) = NULL
+ew$n = ew$black + ew$red
+ew$prop = ew$black / ew$n
+ew$site = factor(ew$place, levels = unique(ew$place[order(ew$distance_km)]))
+ew$year_f = factor(ew$year)
+levels(ew$year_f)
+
+# Colours (Okabe-Ito) and symbols of the five surveys.
+year_colours = c("#D55E00", "#E69F00", "#009E73", "#56B4E9", "#0072B2")
+year_symbols = c(19, 17, 15, 1, 2)
+
+# Formatting of numbers quoted in the text.
+f1 = function(x) formatC(x, format = "f", digits = 1)
+f2 = function(x) formatC(x, format = "f", digits = 2)
+pct = function(p) formatC(100 * p, format = "f", digits = 0)
+big = function(x) format(x, big.mark = ",")
+```
+
+# Exploratory data analysis {#sec-eda}
+
+## The design {#sec-design}
+
+The number of beetles in each sample, by locality (rows, from the coast inland) and survey
+(columns); a zero means that the locality was not sampled:
+
+```{r}
+sample_sizes = xtabs(n ~ site + year, data = ew)
+sample_sizes
+table(ew$year)
+summary(ew$n)
+```
+
+There are `r nrow(ew)` samples from `r nlevels(ew$site)` localities between
+`r min(ew$distance_km)` and `r max(ew$distance_km)` km from the coast, with
+`r big(sum(ew$n))` beetles in all. Only the
+`r names(which(colSums(sample_sizes > 0) == nlevels(ew$site)))` survey covers every
+locality, and the 2004 survey misses `r nlevels(ew$site) - sum(ew$year == 2004)` of them.
+The samples range from `r min(ew$n)` to `r big(max(ew$n))` beetles. The mean sample size per survey shows where the
+large ones are:
+
+```{r}
+round(tapply(ew$n, ew$year, mean))
+```
+
+::: {.callout-warning title="Pitfall: the 1980 survey is several years and very large samples"}
+The 1980 survey pools collections from 1978 to 1981, and seven of its samples have more
+than 1,000 beetles (Oude Tonge 15,217). These samples were collected over several years
+and probably from many trees, whereas the later samples have one or two hundred beetles. A
+model that treats every beetle as an independent trial gives the 1980 samples almost all
+the weight (@sec-choices).
+:::
+
+::: {.callout-warning title="Pitfall: the number of samples, not of beetles"}
+The cline is described by `r nrow(ew)` samples at `r nlevels(ew$site)` localities, not by
+`r big(sum(ew$n))` beetles. Beetles of one sample share the place and the year, and pupae
+collected from the same tree may be siblings, so they are not independent trials of one
+probability given by a smooth curve.
+:::
+
+::: {.callout-warning title="Pitfall: different localities in different surveys"}
+A mean of the proportions per survey compares different sets of localities: Waalre (the
+most inland site) is missing in 1995 and 2004, Goedereede (near the coast) in 1980, and
+six localities in 2004. A comparison of surveys must account for distance, which the model
+does.
+:::
+
+## Frequencies along the transect {#sec-transect}
+
+@fig-transect shows the proportion of melanics in each sample against the distance to the
+coast, one line per survey.
+
+```{r}
+#| label: fig-transect
+#| fig-cap: "Proportion of melanics in each sample against the distance to the coast,
+#|   one line and symbol per survey (east–west transect)."
+#| fig-width: 6.5
+#| fig-height: 4.2
+plot(prop ~ distance_km, data = ew, type = "n", ylim = c(0, 0.65),
+     xlab = "Distance to the coast (km)", ylab = "Proportion of melanics")
+for (y in seq_along(levels(ew$year_f))) {
+  ew_year = ew[ew$year_f == levels(ew$year_f)[y], ]
+  ew_year = ew_year[order(ew_year$distance_km), ]
+  lines(prop ~ distance_km, data = ew_year, col = year_colours[y])
+  points(prop ~ distance_km, data = ew_year, col = year_colours[y],
+         pch = year_symbols[y])
+}
+legend("bottomright", legend = levels(ew$year_f), col = year_colours,
+       pch = year_symbols, lty = 1, bty = "n")
+```
+
+In 1980 the proportion is about 0.1 to 0.25 within 30 km of the coast, rises steeply
+between about 30 and 50 km and stays at about 0.55 further inland: a sigmoid cline with
+two plateaus. In the later surveys the coastal samples stay at about 0.15 to 0.25, while
+the inland plateau falls (to about 0.45 in 1991, 0.3 to 0.35 in 1995 and 1998, and about
+0.25 in 2004), so that the cline becomes lower and by 2004 almost flat. The position of
+the rise does not move visibly. Two 1980 samples stand out: Middelharnis (22 km,
+`r pct(ew$prop[ew$place == "Middelharnis" & ew$year == 1980])`% of
+`r big(ew$n[ew$place == "Middelharnis" & ew$year == 1980])` beetles) lies below every coastal
+sample, and Klundert (50 km) lies well below its neighbours.
+
+::: {.callout-warning title="Pitfall: a cline is not a straight line on the logit scale"}
+A logistic regression of the proportion on distance (a GLM or GLMM with `distance` as a
+linear predictor of the logit) describes a curve that rises from 0 to 1 without
+plateaus. The cline of 1980 has a lower plateau at about 0.15 and an upper one at about
+0.55, so a linear predictor must compromise between the steep middle and the flat ends.
+@sec-linear compares the two.
+:::
+
+## How much do the samples vary? {#sec-variation}
+
+Beyond about 50 km the cline is flat, so the samples there estimate the same frequency in
+each survey. If the beetles of all these samples were independent trials with the same
+probability, the Pearson chi-square statistic of the samples (the heterogeneity
+chi-square of the papers) divided by its degrees of freedom would be about one. We
+calculate it per survey, with the standard deviation of the proportions among samples on
+the logit scale:
+
+```{r}
+plateau = ew[ew$distance_km > 50, ]
+plateau_variation = t(sapply(split(plateau, plateau$year), function(s) {
+  pooled = sum(s$black) / sum(s$n)
+  chisq = sum((s$black - s$n * pooled)^2 / (s$n * pooled * (1 - pooled)))
+  c(samples = nrow(s), mean_n = mean(s$n), pooled = pooled,
+    chisq_per_df = chisq / (nrow(s) - 1), sd_logit = sd(qlogis(s$prop)))
+}))
+round(plateau_variation, 2)
+```
+
+In 1980 the inland samples differ least on the logit scale
+(`r f2(plateau_variation["1980", "sd_logit"])`), and yet their ratio is
+`r f1(plateau_variation["1980", "chisq_per_df"])`; in 1995 the ratio is about as large
+with samples of a few hundred beetles, because the samples differ more (Tilburg 44%
+against Zevenbergen 29% of 770 beetles). In 1998 and 2004 the ratio is below one. One
+model explains this pattern: if the probability itself varies among samples with a
+standard deviation $\sigma$ on the logit scale, the variance of a proportion is roughly
+$p(1-p)/N + \left(p(1-p)\right)^2\sigma^2$, so the same $\sigma$ gives a ratio that grows
+with the sample size $N$. With thousands of beetles per sample in 1980, even small
+differences among samples dwarf the Binomial variation; with 100 to 200 beetles they are
+of similar size or smaller. This is the variance factor $(\kappa+N)/(\kappa+1)$ of the
+Beta-Binomial distribution in Chapter 6, and the reason why the model needs variation
+among samples. With three to six samples per survey, both statistics are rough, and a
+standard deviation of the logit proportions also contains the Binomial variation of the
+small samples.
+
+## What we take forward {#sec-forward}
+
+- **The curve:** a sigmoid cline with a lower (coastal) and an upper (inland) plateau.
+- **The observations:** the number of melanics out of the beetles of a sample, Binomial
+  for a given probability of the sample.
+- **The groups:** the probability varies among samples beyond the curve, with a similar
+  standard deviation on the logit scale in every survey; a random effect per sample on the
+  logit scale (as for the tadpole tanks in the Chapter 7 practical), or a Beta-Binomial
+  distribution (Chapter 6). Whether a locality keeps its deviation from one survey to the
+  next (a random effect per site) is checked in @sec-choices.
+- **The predictor:** the survey, a factor with five levels, enters as a fixed effect on the
+  parameters of the cline through model matrices (Chapter 7, `sec-model-matrix`).
+
+# The model {#sec-model}
+
+## The cline
+
+We describe the frequency of melanics at distance $d$ from the coast by a logistic
+function with two plateaus:
+
+$$
+p(d) = p_{\mathrm{coast}} + \frac{p_{\mathrm{inland}} - p_{\mathrm{coast}}}{1 + e^{-b(d - c)}},
+$$
+
+where $p_{\mathrm{coast}}$ is the frequency at the coast (the lower plateau, approached as
+$d$ decreases), $p_{\mathrm{inland}}$ the frequency inland (the upper plateau), $c$ the
+centre of the cline (km), where the frequency is half-way between the plateaus, and $b$ the
+steepness (1/km). It is the logistic function of the functions supplement
+(`sec-fn-logistic`, with asymptote $a$, steepness $b$ and midpoint $c$), scaled to
+$p_{\mathrm{inland}} - p_{\mathrm{coast}}$ and raised by $p_{\mathrm{coast}}$. Its slope
+at the centre is $(p_{\mathrm{inland}} - p_{\mathrm{coast}})\,b/4$, so the **width** of
+the cline, the step divided by the largest slope (the usual measure in studies of clines),
+is $4/b$ km. The step from 10% to 90% of the way between the plateaus takes
+$2\log(9)/b \approx 4.4/b$ km.
+
+The plateaus are probabilities, so we optimise them on the logit scale; the steepness is
+positive, so we optimise $\log(b)$; the centre is optimised on its own scale (km). From
+@fig-transect: $p_{\mathrm{coast}} \approx 0.15$, $p_{\mathrm{inland}} \approx 0.55$,
+$c \approx 40$ km (half-way up the 1980 rise) and a rise over about 25 km, so
+$b \approx 4/25 \approx 0.15$/km.
+
+```{r}
+library(RTMB)
+library(RTMBdist)
+
+cline = function(d, p_coast, p_inland, steepness, centre) {
+  p_coast + (p_inland - p_coast) / (1 + exp(-steepness * (d - centre)))
+}
+```
+
+## The model for the samples
+
+The model for sample $j$ (a locality in a survey) with $N_j$ beetles, of which $Y_j$ are
+melanic, is
+
+$$
+\begin{aligned}
+\operatorname{logit}(p_{\mathrm{coast},j}) &= \beta_{\mathrm{coast},0}
+  + \beta_{\mathrm{coast},1991}\,T_{1991,j} + \cdots + \beta_{\mathrm{coast},2004}\,T_{2004,j},\\
+\operatorname{logit}(p_{\mathrm{inland},j}) &= \beta_{\mathrm{inland},0}
+  + \beta_{\mathrm{inland},1991}\,T_{1991,j} + \cdots + \beta_{\mathrm{inland},2004}\,T_{2004,j},\\
+u_j &\sim \operatorname{Normal}(0, \sigma^2_{\mathrm{sample}}),\\
+\operatorname{logit}(p_j) &= \operatorname{logit}\left(p_{\mathrm{coast},j}
+  + \frac{p_{\mathrm{inland},j} - p_{\mathrm{coast},j}}{1 + e^{-b(d_j - c)}}\right) + u_j,\\
+Y_j \mid u_j &\sim \operatorname{Binomial}(N_j, p_j),
+\end{aligned}
+$$
+
+where $T_{1991,j}$ is 1 if sample $j$ comes from the 1991 survey and 0 otherwise (and so
+on for the other surveys; 1980 is the reference level), $d_j$ is the distance of its
+locality to the coast, and the samples are independent for given $u_j$. The beetles are
+the observations and the samples their groups, as the tadpoles and tanks of the Chapter 7
+practical. The deviation $u_j$ shifts the probability of sample $j$ on the logit scale,
+so the typical frequency of a survey ($u_j = 0$) at a distance is that of its median
+sample, which is close to the mean sample when $\sigma_{\mathrm{sample}}$ is small. This
+model, with only the plateaus depending on the survey, is the candidate `ends` of
+@sec-candidates; the other candidates change which parameters depend on the survey.
+
+The answer is the typical frequency at 10 km and at 60 km from the coast in each survey,
+$p(10)$ and $p(60)$ with $u_j = 0$, and the odds ratio between them,
+
+$$
+\mathrm{OR} = \frac{p(60)/\left(1 - p(60)\right)}{p(10)/\left(1 - p(10)\right)},
+$$
+
+the height of the cline on the odds scale (1 for a flat cline). Both distances lie inside
+the sampled range in every survey (localities at 5.6 to 11.6 km and at 55.4 to 64 km).
+
+## Implementation
+
+The list of data holds the counts, the sample sizes, the distances, the index of the
+sample (1 to `r nrow(ew)`) and of the site (1 to `r nlevels(ew$site)`) of each row, and the
+two distances of the answer. The surveys are a property of each sample, so the model
+matrices of the samples come from `ew` itself (one row per sample), and those of the
+typical values from `years`, one row per survey.
+
+```{r}
+years = data.frame(year_f = factor(levels(ew$year_f), levels = levels(ew$year_f)))
+rownames(years) = levels(ew$year_f)
+years$decades = (as.numeric(levels(ew$year_f)) - 1980) / 10
+ew$decades = (ew$year - 1980) / 10
+
+ew_data = list(black = ew$black, n = ew$n, distance = ew$distance_km,
+               sample = seq_len(nrow(ew)), site = as.numeric(ew$site),
+               answer_distance = c(10, 60))
+```
+
+`decades` (years since 1980, divided by 10) serves the candidates with a trend in
+@sec-candidates. One joint NLL covers every model of this document. Two choices are
+elements of the list of data:
+
+- `distribution`: `"Binomial"` or `"BetaBinomial"` (with the mean probability $p_j$ and
+  the precision $\kappa$, as in Chapter 6);
+- `group`: the index of the group of the random effect of each row, the sample or the
+  site, or `NULL` for no random effect (`random` is then `"none"`).
+
+`ADREPORT()` gives the logit of the typical frequency at the two distances in each survey
+and the log odds ratio between them.
+
+```{r}
+cline_nll = function(parms, data) {
+  getAll(parms, data)
+  black = OBS(black)
+  nll = 0
+  # Minus the log density of the deviations of the groups, before they are used.
+  if (random != "none") {
+    sd_group = exp(log_sd_group)
+    nll = nll - sum(dnorm(x = u, mean = 0, sd = sd_group, log = TRUE))
+  }
+  # Cline of each sample, and its probability on the logit scale.
+  p_coast = plogis(X_coast %*% beta_coast)
+  p_inland = plogis(X_inland %*% beta_inland)
+  steepness = exp(X_steepness %*% beta_steepness)
+  centre = X_centre %*% beta_centre
+  logit_p = qlogis(cline(distance, p_coast, p_inland, steepness, centre))
+  if (random != "none") {
+    logit_p = logit_p + u[group]
+  }
+  p = plogis(logit_p)
+  # Typical frequencies (u = 0) of each survey at the two distances of the answer.
+  coast_year = plogis(X_coast_year %*% beta_coast)
+  inland_year = plogis(X_inland_year %*% beta_inland)
+  steepness_year = exp(X_steepness_year %*% beta_steepness)
+  centre_year = X_centre_year %*% beta_centre
+  logit_freq_near = qlogis(cline(answer_distance[1], coast_year, inland_year,
+                                 steepness_year, centre_year))
+  logit_freq_far = qlogis(cline(answer_distance[2], coast_year, inland_year,
+                                steepness_year, centre_year))
+  log_odds_ratio = logit_freq_far - logit_freq_near
+  ADREPORT(logit_freq_near)
+  ADREPORT(logit_freq_far)
+  ADREPORT(log_odds_ratio)
+  # Minus the log probability of the counts for given deviations.
+  if (distribution == "Binomial") {
+    nll = nll - sum(dbinom(x = black, size = n, prob = p, log = TRUE))
+  } else {
+    kappa = exp(log_kappa)
+    nll = nll - sum(dbetabinom(x = black, size = n, shape1 = kappa * p,
+                               shape2 = kappa * (1 - p), log = TRUE))
+  }
+  nll
+}
+```
+
+`cline_setup()` builds the list of data and the starting values for a list of formulas
+(for the coastal and inland plateaus, the steepness and the centre), a distribution and a
+random effect (`"none"`, `"sample"` or `"site"`). The baseline values are those read from
+@fig-transect; every effect starts at zero, the standard deviation of the groups at 0.3
+(@sec-variation) and the precision at 50. Every fit in this document converged from these
+values unless the text says otherwise.
+
+```{r}
+cline_setup = function(data, sample_info, years, formulas, distribution, random) {
+  data$distribution = distribution
+  data$random = random
+  for (par in c("coast", "inland", "steepness", "centre")) {
+    data[[paste0("X_", par)]] = model.matrix(formulas[[par]], data = sample_info)
+    data[[paste0("X_", par, "_year")]] = model.matrix(formulas[[par]], data = years)
+  }
+  baseline = c(coast = qlogis(0.15), inland = qlogis(0.55),
+               steepness = log(0.15), centre = 40)
+  start = list()
+  for (par in names(baseline)) {
+    start[[paste0("beta_", par)]] = c(baseline[[par]],
+                                      rep(0, ncol(data[[paste0("X_", par)]]) - 1))
+  }
+  if (distribution == "BetaBinomial") {
+    start$log_kappa = log(50)
+  }
+  if (random != "none") {
+    data$group = data[[random]]
+    start$log_sd_group = log(0.3)
+    start$u = rep(0, max(data$group))
+  }
+  list(data = data, start = start)
+}
+```
+
+Three helpers complete the toolkit:
+
+- `fit_cline()` processes the joint NLL for one list of data, integrating out `u` when
+  the model has a random effect, and minimises it;
+- `aic_table()` reports, for a named list of fits, $K$, the log-likelihood, the
+  convergence code, the largest absolute gradient at the solution, AIC and the difference
+  from the lowest AIC;
+- `cline_answer()` gives the typical frequency at the two distances in each survey and
+  the odds ratio, with Wald intervals calculated on the logit or log scale and
+  transformed back.
+
+```{r}
+# Connect a likelihood to a data set.
+cmb = function(f, d) function(p) f(p, d)
+
+fit_cline = function(data, start) {
+  random = if (data$random == "none") NULL else "u"
+  obj = MakeADFun(cmb(cline_nll, data), start, random = random, silent = TRUE)
+  fit = optim(par = obj$par, fn = obj$fn, gr = obj$gr, method = "BFGS")
+  list(obj = obj, fit = fit)
+}
+
+aic_table = function(fits) {
+  out = data.frame(
+    model = names(fits),
+    K = sapply(fits, function(f) length(f$fit$par)),
+    loglik = sapply(fits, function(f) -f$fit$value),
+    convergence = sapply(fits, function(f) f$fit$convergence),
+    max_gradient = sapply(fits, function(f) max(abs(f$obj$gr(f$fit$par))))
+  )
+  out$aic = 2 * out$K - 2 * out$loglik
+  out$delta_aic = out$aic - min(out$aic)
+  rownames(out) = NULL
+  out
+}
+
+critical_value = qnorm(p = 0.975)
+cline_answer = function(obj, year_names = rownames(years)) {
+  report = summary(sdreport(obj), select = "report")
+  est = report[, "Estimate"]
+  se = report[, "Std. Error"]
+  rows = split(seq_along(est), rownames(report))
+  back = function(name, f) {
+    r = rows[[name]]
+    cbind(f(est[r]), f(est[r] - critical_value * se[r]),
+          f(est[r] + critical_value * se[r]))
+  }
+  out = data.frame(year = year_names,
+                   back("logit_freq_near", plogis), back("logit_freq_far", plogis),
+                   back("log_odds_ratio", exp))
+  names(out)[-1] = paste(rep(c("near", "far", "odds_ratio"), each = 3),
+                         c("estimate", "lower", "upper"), sep = "_")
+  out
+}
+
+# Print an AIC table or an answer table in the document.
+show_table = function(tab, digits = 2) {
+  if ("max_gradient" %in% names(tab)) {
+    tab$max_gradient = format(signif(tab$max_gradient, 2))
+  }
+  knitr::kable(tab, digits = digits, row.names = FALSE)
+}
+```
+
+In `cline_answer()`, "near" is the first distance of the answer (10 km) and "far" the
+second (60 km).
+
+# Which distribution, which random effect? {#sec-choices}
+
+The full model, in which the survey changes every parameter of the cline, cannot be
+fitted reliably (@sec-candidates), so the choices are compared with the candidate `ends`,
+in which both plateaus depend on the survey and the centre and steepness are shared. We
+compare a Binomial and a Beta-Binomial distribution, each without a random effect and with
+a random effect per site, and the Binomial distribution with a random effect per sample.
+(A Beta-Binomial distribution with a random effect per sample would describe the same
+variation twice.)
+
+```{r}
+ends_formulas = list(coast = ~ year_f, inland = ~ year_f, steepness = ~ 1,
+                     centre = ~ 1)
+
+choices = data.frame(
+  distribution = c("Binomial", "Binomial", "Binomial", "BetaBinomial", "BetaBinomial"),
+  random = c("none", "site", "sample", "none", "site")
+)
+choice_setups = list()
+choice_fits = list()
+for (i in seq_len(nrow(choices))) {
+  choice_setups[[i]] = cline_setup(ew_data, ew, years, ends_formulas,
+                                   choices$distribution[i], choices$random[i])
+  choice_fits[[i]] = fit_cline(choice_setups[[i]]$data, choice_setups[[i]]$start)
+}
+names(choice_fits) = paste(choices$distribution, choices$random)
+choice_table = aic_table(choice_fits)
+show_table(choice_table, digits = 1)
+```
+
+```{r}
+#| echo: false
+# Quantities quoted in the text.
+aic_choice = setNames(choice_table$aic, choice_table$model)
+delta_choice = setNames(choice_table$delta_aic, choice_table$model)
+sd_site_bb = exp(choice_fits[["BetaBinomial site"]]$fit$par[["log_sd_group"]])
+sd_sample = exp(choice_fits[["Binomial sample"]]$fit$par[["log_sd_group"]])
+sd_site_bin = exp(choice_fits[["Binomial site"]]$fit$par[["log_sd_group"]])
+kappa_bb = exp(choice_fits[["BetaBinomial none"]]$fit$par[["log_kappa"]])
+```
+
+`r if (all(choice_table$convergence == 0)) "All five fits converged." else "Not every fit converged (see the table)."`
+The Binomial model without a random effect is worse than the best by
+`r round(delta_choice[["Binomial none"]])` AIC units, and a random effect per site improves
+it a lot but not enough (still `r round(delta_choice[["Binomial site"]])` units behind).
+The random effect per sample and the Beta-Binomial distribution describe the same thing,
+a probability that varies among samples around the cline, with a logit-Normal
+distribution in one and a Beta distribution in the other; the Beta-Binomial model is
+better by `r f1(aic_choice[["Binomial sample"]] - aic_choice[["BetaBinomial none"]])` AIC
+units with the same $K$. The estimated standard deviation among samples is
+`r f2(sd_sample)` on the logit scale, and the precision of the Beta-Binomial model is
+`r round(kappa_bb)`.
+
+Adding a random effect per site to the Beta-Binomial model does not improve it at all:
+the standard deviation among sites goes to `r signif(sd_site_bb, 2)`, practically zero, and
+the log-likelihood is that of the model without it. Once the samples may vary, the
+localities show no deviation that persists from one survey to the next (@sec-two-re
+confirms this with both random effects).
+
+::: {.callout-warning title="Pitfall: a random effect per site is the obvious choice and the wrong one"}
+The localities are the obvious groups: the same 16 places were sampled repeatedly. But a
+random effect per site describes deviations that a locality keeps in every survey, and the
+data show none; what varies is the sample. With a Binomial distribution, the random
+effect per site absorbs part of the variation among samples (standard deviation
+`r f2(sd_site_bin)` on the logit scale), which still leaves the large 1980 samples far
+from the curve, and the fit is `r round(aic_choice[["Binomial site"]] - aic_choice[["Binomial sample"]])`
+AIC units worse than with a random effect per sample. With a Beta-Binomial distribution
+the variance among sites goes to zero, an estimate at the boundary of its range: the fit
+reports convergence, and only the estimate shows the problem ($\log(\sigma_{\mathrm{site}})$
+far below any plausible value, so a Wald interval of it is meaningless; Chapter 8
+material).
+:::
+
+::: {.callout-warning title="Pitfall: the Binomial model without variation among samples"}
+The estimates of the Binomial model without a random effect, next to those with a random
+effect per sample (on the optimised scales):
+
+```{r}
+binomial_fixed = summary(sdreport(choice_fits[["Binomial none"]]$obj), select = "fixed")
+sample_fixed = summary(sdreport(choice_fits[["Binomial sample"]]$obj), select = "fixed")
+# The parameters are in the same order; the random effect adds log_sd_group at the end.
+round(cbind(binomial_fixed, sample_fixed[seq_len(nrow(binomial_fixed)), ]), 3)
+```
+
+Without the random effect, the few samples of several thousand beetles decide the curve:
+the coastal plateau of 1980 is pulled down to
+`r pct(plogis(binomial_fixed[1, "Estimate"]))`% (against
+`r pct(plogis(sample_fixed[1, "Estimate"]))`% with the random effect) by the 8,256 beetles
+of Middelharnis (9%), and the centre moves from
+`r f1(sample_fixed["beta_centre", "Estimate"])` to
+`r f1(binomial_fixed["beta_centre", "Estimate"])` km with a standard error about
+`r round(sample_fixed["beta_centre", "Std. Error"] / binomial_fixed["beta_centre", "Std. Error"])`
+times smaller. The standard errors of the inland plateaus are about two to five times
+smaller,
+whereas those of the coastal plateaus are larger, because the coastal samples disagree
+with a curve that the large inland samples have fixed. The model treats 15,217 beetles
+from Oude Tonge as 15,217 independent trials of the probability given by the curve.
+:::
+
+We continue with the Binomial model with a random effect per sample, a non-linear mixed
+model of Chapter 7, although the Beta-Binomial model has the lower AIC. The two describe
+the same variation and give the same answer (@sec-sensitivity); the mixed model is the
+subject of the case study, and with it the random effect per sample and the random effect
+per site are alternatives of the same kind, which students can compare directly.
+
+::: {.callout-tip title="Alternative"}
+Use the Beta-Binomial model throughout (no random effect, so no Laplace approximation),
+and add the random effect per site to show that it collapses. Its $p_j$ is the mean
+frequency of the samples at a distance, not that of the median sample.
+:::
+
+# Is the cline non-linear? {#sec-linear}
+
+A model that a student could fit with `glmmTMB` lets the logit of the probability depend
+linearly on the distance, with an intercept and a slope per survey and a random effect per
+sample:
+$\operatorname{logit}(p_j) = \beta_{0,y(j)} + \beta_{1,y(j)}\,d_j + u_j$. We write it as
+its own short NLL.
+
+```{r}
+linear_nll = function(parms, data) {
+  getAll(parms, data)
+  black = OBS(black)
+  nll = -sum(dnorm(x = u, mean = 0, sd = exp(log_sd_group), log = TRUE))
+  logit_p = X_year %*% beta_intercept + (X_year %*% beta_slope) * distance + u[sample]
+  nll - sum(dbinom(x = black, size = n, prob = plogis(logit_p), log = TRUE))
+}
+linear_data = ew_data
+linear_data$X_year = model.matrix(~ year_f - 1, data = ew)
+linear_start = list(beta_intercept = rep(qlogis(0.15), 5), beta_slope = rep(0, 5),
+                    log_sd_group = log(0.3), u = rep(0, nrow(ew)))
+linear_obj = MakeADFun(cmb(linear_nll, linear_data), linear_start, random = "u",
+                       silent = TRUE)
+linear_fit = optim(par = linear_obj$par, fn = linear_obj$fn, gr = linear_obj$gr,
+                   method = "BFGS")
+linear_table = aic_table(list(
+  cline_ends = choice_fits[["Binomial sample"]],
+  linear = list(obj = linear_obj, fit = linear_fit)
+))
+show_table(linear_table, digits = 1)
+```
+
+The cline with plateaus is better by
+`r round(linear_table$aic[2] - linear_table$aic[1])` AIC units with
+`r linear_table$K[1] - linear_table$K[2]` parameters more. The linear predictor (a
+separate intercept and slope per survey, `~ year_f - 1` in the model matrix) cannot have
+the plateaus of 1980, and its estimate of the variation among samples is larger
+(`r f2(exp(linear_fit$par[["log_sd_group"]]))` against `r f2(sd_sample)` on the logit
+scale) because the misfit of the curve is put into the samples.
+
+**Teaching point.** This is the motivation of the course for non-linear models: the
+parameters of the cline (frequencies at the coast and inland, centre, width) are the ones
+that ecologists report and the ones that the research question is about, and the linear
+predictor has none of them.
+
+# How did the cline change? {#sec-candidates}
+
+With the Binomial distribution and a random effect per sample, the candidates differ in
+the parameters that depend on the survey:
+
+- `none`: one cline for all surveys;
+- `coast`, `inland`: only one plateau changes;
+- `ends`: both plateaus change (the main model of @sec-model);
+- `ends_centre`, `ends_steepness`: both plateaus and the centre or the steepness change;
+- `inland_trend`: the logit of the inland plateau changes linearly with time (one
+  parameter per decade instead of four survey effects), the coast stays.
+
+```{r}
+candidates = list(
+  none = list(coast = ~ 1, inland = ~ 1, steepness = ~ 1, centre = ~ 1),
+  coast = list(coast = ~ year_f, inland = ~ 1, steepness = ~ 1, centre = ~ 1),
+  inland = list(coast = ~ 1, inland = ~ year_f, steepness = ~ 1, centre = ~ 1),
+  ends = ends_formulas,
+  ends_centre = list(coast = ~ year_f, inland = ~ year_f, steepness = ~ 1,
+                     centre = ~ year_f),
+  ends_steepness = list(coast = ~ year_f, inland = ~ year_f, steepness = ~ year_f,
+                        centre = ~ 1),
+  inland_trend = list(coast = ~ 1, inland = ~ decades, steepness = ~ 1, centre = ~ 1)
+)
+candidate_setups = list()
+candidate_fits = list()
+for (m in names(candidates)) {
+  candidate_setups[[m]] = cline_setup(ew_data, ew, years, candidates[[m]],
+                                      "Binomial", "sample")
+  candidate_fits[[m]] = fit_cline(candidate_setups[[m]]$data,
+                                  candidate_setups[[m]]$start)
+}
+candidate_table = aic_table(candidate_fits)
+show_table(candidate_table, digits = 1)
+```
+
+```{r}
+#| echo: false
+delta_cand = setNames(candidate_table$delta_aic, candidate_table$model)
+```
+
+`r if (all(candidate_table$convergence == 0)) "All seven fits converged." else "Not every fit converged (see the table)."`
+A single cline for all surveys (`none`) is worse than the best by
+`r round(delta_cand[["none"]])` AIC units, and a change of the coastal plateau alone
+(`coast`) does not help at all: its log-likelihood is
+`r f1(candidate_table$loglik[2] - candidate_table$loglik[1])` units higher for four more
+parameters. A change of the
+inland plateau carries almost all of the improvement: `inland` is
+`r f1(delta_cand[["inland"]])` units behind the best, and letting the coastal plateau
+change as well (`ends`) costs `r f1(delta_cand[["ends"]] - delta_cand[["inland"]])` units.
+A centre or a steepness per survey does not improve `ends`
+(`r f1(delta_cand[["ends_centre"]] - delta_cand[["ends"]])` and
+`r f1(delta_cand[["ends_steepness"]] - delta_cand[["ends"]])` units more). The trend model
+is `r if (delta_cand[["inland_trend"]] == 0) "the best" else paste(f1(delta_cand[["inland_trend"]]), "units behind the best")`:
+a steady decline of the inland plateau on the logit scale describes the five surveys as
+well as a separate value for each.
+
+The answer uses `ends`, in which both plateaus can change, because the question asks which
+end of the cline changed; with `inland`, the constancy of the coast would be an assumption
+and not a result. AIC shows that this freedom costs little and that the data give no
+reason to let the cline move or change its width.
+
+::: {.callout-warning title="Pitfall: the centre and the width of a flat cline"}
+When the two plateaus are close, the centre and the steepness hardly change the curve, so
+the data cannot estimate them. The full model, with every parameter of the cline
+depending on the survey:
+
+```{r}
+full_formulas = list(coast = ~ year_f, inland = ~ year_f, steepness = ~ year_f,
+                     centre = ~ year_f)
+full_setup = cline_setup(ew_data, ew, years, full_formulas, "Binomial", "sample")
+full_fit = fit_cline(full_setup$data, full_setup$start)
+full_fit$fit$convergence
+max(abs(full_fit$obj$gr(full_fit$fit$par)))
+full_fixed = summary(sdreport(full_fit$obj), select = "fixed")
+round(full_fixed[grepl("steepness|centre", rownames(full_fixed)), ], 2)
+```
+
+`optim()` stops at its limit of iterations (convergence code
+`r full_fit$fit$convergence`) with a gradient far from zero, and the effects of the later
+surveys on the centre have standard errors as large as or larger than the effects
+themselves (`r round(max(full_fixed[grepl("centre", rownames(full_fixed)), "Std. Error"]))`
+km at the most). The steepness of the 1995 and 2004 clines and their centres are hardly
+constrained, because their plateaus are close. The parameters of the shape of a cline are
+only defined while the cline exists, which is why `ends` shares them across surveys. This
+is practical non-identifiability (Chapter 8).
+:::
+
+# The answer: frequencies at the coast and inland {#sec-answer}
+
+We take the candidate `ends` and calculate its `sdreport()`.
+
+```{r}
+ends_data = candidate_setups$ends$data
+ends_start = candidate_setups$ends$start
+ends = candidate_fits$ends
+ends_obj = ends$obj
+ends_fit = ends$fit
+ends_fit$convergence
+ends_sd = sdreport(ends_obj)
+```
+
+The typical frequency of melanics at 10 km ("near") and 60 km ("far") from the coast in
+each survey, and the odds ratio between them, with 95% Wald intervals:
+
+```{r}
+ends_answer = cline_answer(ends_obj)
+show_table(ends_answer)
+```
+
+```{r}
+#| echo: false
+# Estimate and interval of a column group of row r of an answer table, in percent.
+answer_pct = function(tab, what, r) {
+  paste0(pct(tab[r, paste0(what, "_estimate")]), "% (",
+         pct(tab[r, paste0(what, "_lower")]), " to ",
+         pct(tab[r, paste0(what, "_upper")]), "%)")
+}
+answer_or = function(tab, r) {
+  paste0(f2(tab$odds_ratio_estimate[r]), " (", f2(tab$odds_ratio_lower[r]), " to ",
+         f2(tab$odds_ratio_upper[r]), ")")
+}
+```
+
+At 60 km from the coast, the typical frequency of melanics fell from
+`r answer_pct(ends_answer, "far", 1)` in 1980 to `r answer_pct(ends_answer, "far", 2)` in
+1991, `r answer_pct(ends_answer, "far", 3)` in 1995, `r answer_pct(ends_answer, "far", 4)`
+in 1998 and `r answer_pct(ends_answer, "far", 5)` in 2004. At 10 km it stayed between
+`r pct(min(ends_answer$near_estimate))`% and `r pct(max(ends_answer$near_estimate))`%,
+with intervals that overlap in every survey. The odds ratio between 60 and 10 km, the
+height of the cline, fell from `r answer_or(ends_answer, 1)` in 1980 to
+`r answer_or(ends_answer, 5)` in 2004. The cline did not move; it became lower because the
+inland populations lost melanics, and by 2004 the difference between coast and inland is
+`r if (ends_answer$odds_ratio_lower[5] > 1) "small but still clear" else "within the uncertainty of the data"`.
+
+The difference in percentage points between 60 and 10 km (point estimates only; an
+interval for a difference of probabilities should come from a transformed scale, as for
+the odds ratio):
+
+```{r}
+height_points = 100 * (ends_answer$far_estimate - ends_answer$near_estimate)
+names(height_points) = ends_answer$year
+round(height_points, 1)
+```
+
+::: {.callout-note title="Comparison with the papers (for the author)"}
+Brakefield and de Jong (2011, Figure 2b) summarise the height of the cline as the
+difference between the median percentage of melanics of the five most westerly and the
+five most easterly localities: about 40 points in 1980 and about 4 in 2004 (read from
+the figure). Their medians use whichever localities were sampled, so they do not refer to
+fixed distances, but the pattern agrees with the differences above. Their statistical
+analysis is a general linear model of the arcsine-square-root transformed percentages
+with survey as a factor and distance as a linear covariate, which gives every sample the
+same weight (35 or 15,217 beetles) and cannot describe the plateaus; it reports
+significant effects of survey and distance. They also note that the 2004 samples are
+heterogeneous mainly because of Goedereede (8.6%, 13 of 152). The 1998 paper fits the
+curves by eye and tests the change at each locality with chi-square tests. Neither paper
+estimates the parameters of the cline. The results should not be given to students
+before they analyse the data.
+:::
+
+The estimates on the optimised scales, labelled by parameter and column of the model
+matrix:
+
+```{r}
+ends_fixed = summary(ends_sd, select = "fixed")
+rownames(ends_fixed) = c(paste0("coast_", colnames(ends_data$X_coast)),
+                         paste0("inland_", colnames(ends_data$X_inland)),
+                         "log_steepness", "centre", "log_sd_sample")
+round(ends_fixed, 3)
+```
+
+The typical plateaus of each survey on the original scale, and the shared centre (km),
+steepness (1/km) and width $4/b$ (km):
+
+```{r}
+ends_par = split(ends_fit$par, names(ends_fit$par))
+year_plateaus = data.frame(
+  coast = plogis(ends_data$X_coast_year %*% ends_par$beta_coast),
+  inland = plogis(ends_data$X_inland_year %*% ends_par$beta_inland),
+  row.names = rownames(years)
+)
+round(year_plateaus, 3)
+steepness_ends = exp(ends_par$beta_steepness)
+centre_ends = ends_par$beta_centre
+c(centre = centre_ends, steepness = steepness_ends, width = 4 / steepness_ends)
+```
+
+The centre lies `r f1(centre_ends)` km from the coast (standard error
+`r f1(ends_fixed["centre", "Std. Error"])` km) and the width is
+`r round(4 / steepness_ends)` km. The inland plateau, which lies beyond about
+`r round(centre_ends + 2.2 / steepness_ends)` km (where 90% of the step is reached),
+fell from `r pct(year_plateaus$inland[1])`% to `r pct(year_plateaus$inland[5])`%; the
+coastal plateau stayed between `r pct(min(year_plateaus$coast))`% and
+`r pct(max(year_plateaus$coast))`%. The plateaus are close to the frequencies at 10 and
+60 km, as they should be for a cline whose rise lies between the two distances.
+
+The standard deviation among samples, with a likelihood profile interval (calculated on
+the log scale and transformed back):
+
+```{r}
+ends_profile_sd = TMB::tmbprofile(ends_obj, name = "log_sd_group", trace = FALSE)
+sd_sample_ci = exp(c(estimate = ends_fit$par[["log_sd_group"]],
+                     confint(ends_profile_sd)[1, ]))
+sd_sample_ci
+```
+
+The probability of a sample varies around the cline with a standard deviation of
+`r f2(sd_sample_ci[1])` on the logit scale (profile interval `r f2(sd_sample_ci[2])` to
+`r f2(sd_sample_ci[3])`). At a frequency of 0.3, a deviation of one standard deviation
+changes the frequency by about `r round(100 * 0.3 * 0.7 * sd_sample_ci[1])` percentage
+points ($p(1-p)\sigma$), so samples at the same distance in the same survey typically
+differ by a few percentage points: much more than the Binomial variation of a sample of
+thousands, and comparable with that of a sample of 150 (about
+`r round(100 * sqrt(0.3 * 0.7 / 150))` points).
+
+@fig-typical shows the typical clines of the five surveys over the samples.
+
+```{r}
+#| label: fig-typical
+#| fig-cap: "Proportion of melanics in each sample (points) and typical clines (u = 0)
+#|   of the five surveys under the model `ends`, one panel per survey. The dotted lines
+#|   mark 10 and 60 km."
+#| fig-width: 7.5
+#| fig-height: 4.8
+distance_grid = seq(from = 0, to = 120, length.out = 241)
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(2, 3), mar = c(4, 4, 2, 1))
+for (y in seq_along(levels(ew$year_f))) {
+  ew_year = ew[ew$year_f == levels(ew$year_f)[y], ]
+  plot(prop ~ distance_km, data = ew_year, xlim = c(0, 120), ylim = c(0, 0.65),
+       col = year_colours[y], pch = year_symbols[y], main = levels(ew$year_f)[y],
+       xlab = "Distance to the coast (km)", ylab = "Proportion of melanics")
+  lines(distance_grid, cline(distance_grid, year_plateaus$coast[y],
+                             year_plateaus$inland[y], steepness_ends, centre_ends),
+        lwd = 2)
+  abline(v = c(10, 60), lty = 3, col = "grey50")
+}
+par(old_par)
+```
+
+The typical clines pass through the middle of the samples in every survey. The 1980 rise
+between 30 and 50 km is steep, and the two low samples of 1980 (Middelharnis and Klundert)
+lie below the curve; the later clines are lower versions of the same shape.
+
+## A steady decline? {#sec-trend}
+
+The candidate `inland_trend` summarises the change as a constant rate on the logit scale.
+Its estimates:
+
+```{r}
+trend = candidate_fits$inland_trend
+trend_fixed = summary(sdreport(trend$obj), select = "fixed")
+rownames(trend_fixed) = c("coast", "inland_1980", "inland_per_decade",
+                          "log_steepness", "centre", "log_sd_sample")
+round(trend_fixed, 3)
+trend_factor = exp(trend_fixed["inland_per_decade", "Estimate"] +
+                     c(estimate = 0, lower = -1, upper = 1) * critical_value *
+                     trend_fixed["inland_per_decade", "Std. Error"])
+trend_factor
+```
+
+Under this model the odds of a melanic inland were multiplied by
+`r f2(trend_factor[1])` per decade (95% Wald interval `r f2(trend_factor[2])` to
+`r f2(trend_factor[3])`), while the coastal plateau stayed at
+`r pct(plogis(trend_fixed["coast", "Estimate"]))`%. Brakefield and de Jong (2011) turn a
+decline from 55 to 20% over about 50 generations into a selection coefficient against
+melanics of 0.036 with a population-genetic model; that calculation is beyond this course,
+but the trend parameter is the statistical counterpart of the rate that it needs.
+
+::: {.callout-tip title="Alternative"}
+Report the trend model as the answer: one parameter for the rate of change, with a
+likelihood profile interval (`TMB::tmbprofile()` of the third element of `beta_inland`).
+It assumes a steady change on the logit scale; the AIC table shows that the data do not
+contradict it.
+:::
+
+::: {.callout-warning title="Pitfall: a change over time is not a test of the climate"}
+The data contain the survey years and not the climate. The papers relate the decay of the
+cline to warmer and sunnier springs inland (thermal melanism), but any other change
+between 1980 and 2004 that affected the inland populations more than the coastal ones
+(gene flow, predators, parasites, land use) would produce the same pattern. A model of
+these data can describe how the cline changed and how fast; it cannot show why.
+:::
+
+# Checking the model {#sec-checks}
+
+## Scaled quantile residuals {#sec-residuals}
+
+We simulate 1,000 hypothetical samples (new deviations of the samples, then new counts
+for them) and compare each count with the typical cline of its survey at its distance.
+Every sample is a group of one row, so the residuals are residuals of samples.
+
+```{r}
+n_sim = 1000
+ew_simulations = matrix(NA, nrow = nrow(ew), ncol = n_sim)
+set.seed(seed = 1984)
+for (s in seq_len(n_sim)) {
+  ew_simulations[, s] = ends_obj$simulate(ends_fit$par)$black
+}
+
+year_of_sample = as.numeric(ew$year_f)
+ew_expected = ew$n * cline(ew$distance_km, year_plateaus$coast[year_of_sample],
+                           year_plateaus$inland[year_of_sample], steepness_ends,
+                           centre_ends)
+
+ew_residuals = DHARMa::createDHARMa(
+  simulatedResponse = ew_simulations,
+  observedResponse = ew$black,
+  fittedPredictedResponse = ew_expected,
+  integerResponse = TRUE
+)
+```
+
+```{r}
+#| label: fig-dharma
+#| fig-cap: "Scaled quantile residuals of the model `ends`: quantile-quantile plot (left)
+#|   and residuals against the expected number of melanics (right)."
+#| fig-width: 9
+#| fig-height: 5
+plot(ew_residuals)
+dispersion_ends = DHARMa::testDispersion(ew_residuals, plot = FALSE)$statistic
+dispersion_ends
+```
+
+The quantile-quantile plot follows the line, and the residuals show no trend against the
+(rank-transformed) predictions. @fig-dharma-distance shows the residuals against the
+distance and the survey.
+
+```{r}
+#| label: fig-dharma-distance
+#| fig-cap: "Scaled quantile residuals against the distance to the coast (left) and the
+#|   survey (right)."
+#| fig-width: 7.5
+#| fig-height: 3.6
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(1, 2))
+DHARMa::plotResiduals(ew_residuals, form = ew$distance_km, rank = FALSE)
+DHARMa::plotResiduals(ew_residuals, form = ew$year_f)
+par(old_par)
+```
+
+The residuals of the samples (one per sample, the lowest and the highest):
+
+```{r}
+sample_scaled = residuals(ew_residuals)
+names(sample_scaled) = paste(ew$place, ew$year)
+round(head(sort(sample_scaled), 4), 3)
+round(tail(sort(sample_scaled), 4), 3)
+```
+
+```{r}
+#| echo: false
+n_extreme = sum(sample_scaled < 0.025 | sample_scaled > 0.975)
+```
+
+Against the distance, the upper quartile of the residuals lies a little above 0.75 near the
+coast (DHARMa draws it in red): the coastal samples are more often above the typical cline
+than the model expects, which suggests that the coastal plateau is slightly too low,
+pulled down by the low samples of Middelharnis and Dirksland. The surveys look similar.
+`r n_extreme` of the `r nrow(ew)` samples have a residual below 0.025 or above 0.975,
+against about `r round(0.05 * nrow(ew), 1)` expected; the two lowest are the low 1980
+samples of Middelharnis and Klundert. As in Chapter 6, the p-values that DHARMa prints on
+its plots are not used for decisions: they test exact agreement, not whether the
+disagreement matters for the question.
+
+The dispersion statistic is `r f2(dispersion_ends)`. It compares squared deviations of
+counts, so the largest samples dominate it. The share of each sample in the squared
+deviations of the observed counts from the mean of the simulations, and the same ratio
+of observed to simulated variance on the logit scale of the proportions:
+
+```{r}
+sim_mean = rowMeans(ew_simulations)
+squared_deviation = (ew$black - sim_mean)^2
+share = squared_deviation / sum(squared_deviation)
+names(share) = paste(ew$place, ew$year)
+round(sort(share, decreasing = TRUE)[1:3], 2)
+
+# Simulated proportions on the logit scale, kept away from 0 and 1.
+logit_simulated = qlogis(pmin(pmax(ew_simulations / ew$n, 1e-4), 1 - 1e-4))
+dispersion_logit = sum((qlogis(ew$prop) - rowMeans(logit_simulated))^2) /
+  sum(apply(logit_simulated, 1, var))
+dispersion_logit
+```
+
+```{r}
+#| echo: false
+top_share = sort(share, decreasing = TRUE)
+```
+
+`r names(top_share)[1]` and `r names(top_share)[2]`, the two largest samples, account for
+`r pct(sum(top_share[1:2]))`% of the squared deviations. On the logit scale, where every
+sample counts alike, the ratio is `r f2(dispersion_logit)`: the samples vary around the
+typical clines about as much as the model expects. As in the analysis of the
+infiltration data, read DHARMa's dispersion statistic with care when the groups differ
+this much in size.
+
+## Do localities keep their deviation? {#sec-site-residuals}
+
+One residual per locality, from the sum of its counts over the surveys, shows whether a
+locality is consistently above or below the cline (which the random effect per site
+would describe):
+
+```{r}
+site_residuals = DHARMa::recalculateResiduals(ew_residuals, group = ew_data$site)
+site_scaled = residuals(site_residuals)
+names(site_scaled) = levels(ew$site)
+round(sort(site_scaled), 3)
+```
+
+The sums are dominated by the large 1980 samples, so a locality with a low 1980 sample
+(Middelharnis, Klundert) has a low residual whatever happened later. The deviations of
+the samples of one locality in successive surveys:
+
+```{r}
+ends_random = summary(ends_sd, select = "random")
+sample_effects = xtabs(ends_random[, "Estimate"] ~ ew$site + ew$year)
+sample_effects[sample_sizes == 0] = NA
+round(sample_effects, 2)
+site_cor = cor(sample_effects[, "1991"], sample_effects[, "1995"],
+               use = "complete.obs")
+site_cor
+```
+
+The predicted effects of the samples (logit scale) are small after 1980 and of varying
+sign at most localities; a few keep their sign (Stellendam above the cline, Dirksland
+below it), with effects of 0.1 to 0.2. The correlation between the 1991 and 1995 effects
+of the same localities is `r f2(site_cor)`. This is the same conclusion as the collapse of
+the random effect per site in @sec-choices. Note that predicted effects of small samples are
+shrunk towards zero (Chapter 7), so a table of them understates the variation among
+samples.
+
+## Sensitivity of the answer {#sec-sensitivity}
+
+The answer (the odds ratio between 60 and 10 km in each survey) under four variants: the
+main model, the Beta-Binomial model of @sec-choices, the main model fitted to the 67
+samples of the spreadsheet only (without the three samples added from Table 1 of the 2011
+paper, see `README.md`), and the model with a centre per survey (`ends_centre`).
+
+```{r}
+subset_rows = function(data, rows) {
+  for (name in c("black", "n", "distance", "sample", "site")) {
+    data[[name]] = data[[name]][rows]
+  }
+  for (name in grep("^X_[a-z]+$", names(data), value = TRUE)) {
+    data[[name]] = data[[name]][rows, , drop = FALSE]
+  }
+  data$sample = seq_along(rows)
+  if (data$random != "none") {
+    data$group = data$sample
+  }
+  data
+}
+from_table_1 = (ew$place == "Oudenbosch") | (ew$place == "Waalre" & ew$year == 1998)
+spreadsheet_data = subset_rows(ends_data, which(!from_table_1))
+spreadsheet_start = ends_start
+spreadsheet_start$u = rep(0, sum(!from_table_1))
+spreadsheet_fit = fit_cline(spreadsheet_data, spreadsheet_start)
+spreadsheet_fit$fit$convergence
+
+betabinomial_fit = choice_fits[["BetaBinomial none"]]
+sensitivity = data.frame(
+  year = ends_answer$year,
+  main = ends_answer$odds_ratio_estimate,
+  beta_binomial = cline_answer(betabinomial_fit$obj)$odds_ratio_estimate,
+  spreadsheet = cline_answer(spreadsheet_fit$obj)$odds_ratio_estimate,
+  centre_per_survey = cline_answer(candidate_fits$ends_centre$obj)$odds_ratio_estimate
+)
+show_table(sensitivity)
+```
+
+```{r}
+#| echo: false
+sens_range = apply(sensitivity[, -1], 1, range)
+```
+
+The odds ratios agree closely under the four variants (in 1980 between
+`r f2(sens_range[1, 1])` and `r f2(sens_range[2, 1])`, in 2004 between
+`r f2(sens_range[1, 5])` and `r f2(sens_range[2, 5])`), much closer than their intervals.
+The three samples from Table 1 do not change the answer.
+
+# The north–south transect {#sec-ns}
+
+The second transect runs south from Delft, near the coast, and was sampled in 1980 and in
+1991 (the 1998 paper says 1992); one locality (Numansdorp) was sampled again in 2004. The
+distance is measured from Delft, so it is not the distance to the coast of the east–west
+transect and the two clines cannot be compared position by position. Willemstad is a
+locality of both transects, and its 1980 sample is the same sample in both (2,565 melanics
+and 3,144 non-melanics).
+
+```{r}
+ns = adalia[adalia$transect == "NS" & adalia$year < 2000, ]
+rownames(ns) = NULL
+ns$n = ns$black + ns$red
+ns$prop = ns$black / ns$n
+ns$site = factor(ns$place, levels = unique(ns$place[order(ns$distance_km)]))
+ns$year_f = factor(ns$year)
+xtabs(n ~ site + year, data = ns)
+```
+
+```{r}
+#| label: fig-ns
+#| fig-cap: "Proportion of melanics in each sample of the north–south transect against
+#|   the distance from Delft, 1980 and 1991."
+#| fig-width: 6
+#| fig-height: 4
+plot(prop ~ distance_km, data = ns, type = "n", ylim = c(0, 0.65),
+     xlab = "Distance from Delft (km)", ylab = "Proportion of melanics")
+for (y in 1:2) {
+  ns_year = ns[ns$year_f == levels(ns$year_f)[y], ]
+  ns_year = ns_year[order(ns_year$distance_km), ]
+  lines(prop ~ distance_km, data = ns_year, col = year_colours[y])
+  points(prop ~ distance_km, data = ns_year, col = year_colours[y],
+         pch = year_symbols[y])
+}
+legend("bottomright", legend = levels(ns$year_f), col = year_colours[1:2],
+       pch = year_symbols[1:2], lty = 1, bty = "n")
+```
+
+In 1980 the proportion rises from about 0.03 at Delft to about 0.45 to 0.55 beyond 35 km;
+in 1991 the samples near Delft are higher (0.07 to 0.16) and those beyond 35 km mostly
+lower. The last locality, Antwerpen (Belgium, 86.5 km), lies 30 km beyond the others.
+
+The same model with 5 km and 45 km from Delft as the distances of the answer (both inside
+the sampled range in both surveys), the same baseline values, and the candidates `none`,
+`coast`, `inland` and `ends`:
+
+```{r}
+ns_years = data.frame(year_f = factor(levels(ns$year_f), levels = levels(ns$year_f)))
+rownames(ns_years) = levels(ns$year_f)
+ns_data = list(black = ns$black, n = ns$n, distance = ns$distance_km,
+               sample = seq_len(nrow(ns)), site = as.numeric(ns$site),
+               answer_distance = c(5, 45))
+ns_fits = list()
+for (m in c("none", "coast", "inland", "ends")) {
+  setup = cline_setup(ns_data, ns, ns_years, candidates[[m]], "Binomial", "sample")
+  ns_fits[[m]] = fit_cline(setup$data, setup$start)
+}
+ns_table = aic_table(ns_fits)
+show_table(ns_table, digits = 1)
+ns_answer = cline_answer(ns_fits$ends$obj, year_names = rownames(ns_years))
+show_table(ns_answer)
+```
+
+```{r}
+#| echo: false
+delta_ns = setNames(ns_table$delta_aic, ns_table$model)
+```
+
+On this transect the change is at the coastal end: `coast` is
+`r f1(delta_ns[["coast"]])` AIC units from the best and `inland`
+`r f1(delta_ns[["inland"]])`. Under `ends`, the typical frequency 5 km from Delft rose
+from `r answer_pct(ns_answer, "near", 1)` to `r answer_pct(ns_answer, "near", 2)`, and
+45 km from Delft it changed from `r answer_pct(ns_answer, "far", 1)` to
+`r answer_pct(ns_answer, "far", 2)`. The odds ratio between the two distances fell from
+`r answer_or(ns_answer, 1)` to `r answer_or(ns_answer, 2)`. Both clines became shallower,
+the east–west one because melanics declined inland and this one mainly because they
+increased near Delft. This agrees with the 1998 paper, which reports significant
+increases at some western localities and decreases in the south-east.
+
+::: {.callout-tip title="Alternative: one model for both transects"}
+Fit both transects in one model, with plateaus per transect and survey and a centre and
+steepness per transect, and ask whether the change between 1980 and 1991 is the same on
+both. The distances have different origins, so only the plateaus can be compared. The
+Willemstad sample of 1980 must then be used once, not twice.
+:::
+
+# Beyond the course: deviations of sites and of samples {#sec-two-re}
+
+Chapter 7 uses one random effect per group. Here the samples get a deviation $u_j$
+(standard deviation $\sigma_{\mathrm{sample}}$) and the localities a deviation $v_s$
+(standard deviation $\sigma_{\mathrm{site}}$), nested: the samples of a locality share
+its $v_s$.
+
+```{r}
+cline_nll_2re = function(parms, data) {
+  getAll(parms, data)
+  black = OBS(black)
+  nll = -sum(dnorm(x = u, mean = 0, sd = exp(log_sd_sample), log = TRUE))
+  nll = nll - sum(dnorm(x = v, mean = 0, sd = exp(log_sd_site), log = TRUE))
+  p_coast = plogis(X_coast %*% beta_coast)
+  p_inland = plogis(X_inland %*% beta_inland)
+  logit_p = qlogis(cline(distance, p_coast, p_inland, exp(beta_steepness),
+                         beta_centre)) + u[sample] + v[site]
+  nll - sum(dbinom(x = black, size = n, prob = plogis(logit_p), log = TRUE))
+}
+start_2re = ends_start
+start_2re$log_sd_group = NULL
+start_2re$log_sd_sample = log(0.3)
+start_2re$log_sd_site = log(0.3)
+start_2re$u = rep(0, nrow(ew))
+start_2re$v = rep(0, nlevels(ew$site))
+obj_2re = MakeADFun(cmb(cline_nll_2re, ends_data), start_2re, random = c("u", "v"),
+                    silent = TRUE)
+fit_2re = optim(par = obj_2re$par, fn = obj_2re$fn, gr = obj_2re$gr, method = "BFGS")
+table_2re = aic_table(list(sample_only = ends,
+                           sample_and_site = list(obj = obj_2re, fit = fit_2re)))
+show_table(table_2re, digits = 1)
+sd_2re = exp(fit_2re$par[c("log_sd_sample", "log_sd_site")])
+sd_2re
+```
+
+The standard deviation among localities goes to `r signif(sd_2re[2], 2)` and that among
+samples stays at `r f2(sd_2re[1])`: the localities show no persistent deviation, and the
+model with both random effects is worse by the two units of its extra parameter. The
+correlation between the deviations of a locality in successive surveys, which ecologists
+might expect from local adaptation or a lasting local climate, is not supported by these
+data.
+
+# Checking the estimator by simulation {#sec-simulation}
+
+We draw 300 hypothetical samples of the 70 samples from the fitted model `ends` (same
+localities, surveys and numbers of beetles) and fit each from the same starting values as
+the data. We keep the log odds ratios between 60 and 10 km (estimates and standard
+errors) and the standard deviation among samples.
+
+```{r}
+set.seed(seed = 2011)
+n_samples = 300
+sim_log_or = matrix(NA, nrow = n_samples, ncol = 5)
+sim_se = matrix(NA, nrow = n_samples, ncol = 5)
+sim_sd_sample = rep(NA, n_samples)
+n_failed = 0
+for (i in seq_len(n_samples)) {
+  sim_data = ends_data
+  sim_data$black = ends_obj$simulate(ends_fit$par)$black
+  sim = fit_cline(sim_data, ends_start)
+  n_failed = n_failed + (sim$fit$convergence != 0)
+  sim_report = summary(sdreport(sim$obj), select = "report")
+  or_rows = rownames(sim_report) == "log_odds_ratio"
+  sim_log_or[i, ] = sim_report[or_rows, "Estimate"]
+  sim_se[i, ] = sim_report[or_rows, "Std. Error"]
+  sim_sd_sample[i] = exp(sim$fit$par[["log_sd_group"]])
+}
+n_failed
+```
+
+The bias, the standard deviation of the estimates, the mean standard error and the
+coverage of the 95% Wald interval for the log odds ratio of each survey:
+
+```{r}
+ends_report = summary(ends_sd, select = "report")
+log_or_used = ends_report[rownames(ends_report) == "log_odds_ratio", "Estimate"]
+log_or_matrix = matrix(log_or_used, nrow = n_samples, ncol = 5, byrow = TRUE)
+covered = abs(sim_log_or - log_or_matrix) < critical_value * sim_se
+sim_summary = data.frame(
+  year = rownames(years),
+  bias = colMeans(sim_log_or) - log_or_used,
+  sd_estimates = apply(sim_log_or, 2, sd),
+  mean_se = colMeans(sim_se),
+  coverage = colMeans(covered)
+)
+show_table(sim_summary, digits = 3)
+```
+
+`r if (n_failed == 0) "Every fit converged." else paste(n_failed, "fits did not converge.")`
+The biases are small compared with the standard errors (largest absolute bias
+`r formatC(max(abs(sim_summary$bias)), format = "f", digits = 3)`, against standard errors of
+`r f2(min(sim_summary$mean_se))` to `r f2(max(sim_summary$mean_se))`). The standard errors,
+however, are on average
+`r round(100 * (1 - mean(sim_summary$mean_se / sim_summary$sd_estimates)))`% smaller than
+the standard deviations of the estimates, and the coverages lie between
+`r f1(100 * min(sim_summary$coverage))`% and `r f1(100 * max(sim_summary$coverage))`%,
+`r if (max(sim_summary$coverage) < 0.925) "all below" else "partly below"` the range of
+about 92.5% to 97.5% that 300 samples give for a coverage of 95%. The Wald intervals of the
+height of the cline are somewhat too narrow: a nominal 95% interval covers about 90%.
+
+The standard deviation among samples used to simulate, and the mean and median of its
+estimates:
+
+```{r}
+sd_sample_check = c(simulated = exp(ends_fit$par[["log_sd_group"]]),
+                    mean = mean(sim_sd_sample), median = median(sim_sd_sample))
+sd_sample_check
+```
+
+The estimates of the standard deviation among samples are on average
+`r round(100 * abs(1 - sd_sample_check[["mean"]] / sd_sample_check[["simulated"]]))`%
+`r if (sd_sample_check[["mean"]] < sd_sample_check[["simulated"]]) "too small" else "too large"`
+(`r f2(sd_sample_check[["mean"]])` against `r f2(sd_sample_check[["simulated"]])`). This is
+the bias of the maximum likelihood estimate of a variance (Chapter 7, REML): the 70
+samples are 70 groups, but the cline uses 12 fixed effects, and each sample has one count,
+so the deviations of the samples are estimated from the same counts as the cline. A
+standard deviation that is too small makes the standard errors of the cline too small,
+which explains part of the low coverage. A REML fit integrates out the fixed effects as
+well:
+
+```{r}
+reml_obj = MakeADFun(cmb(cline_nll, ends_data), ends_start,
+                     random = c("u", "beta_coast", "beta_inland", "beta_steepness",
+                                "beta_centre"),
+                     silent = TRUE)
+reml_fit = optim(par = reml_obj$par, fn = reml_obj$fn, gr = reml_obj$gr,
+                 method = "BFGS")
+reml_fit$convergence
+sd_sample_reml = exp(reml_fit$par[["log_sd_group"]])
+sd_sample_reml
+```
+
+The REML estimate is `r f2(sd_sample_reml)` against `r f2(sd_sample_check[["simulated"]])`
+by maximum likelihood: larger, in the direction and of roughly the size that the
+simulation suggests.
+
+::: {.callout-warning title="Pitfall: Wald intervals that are slightly too narrow"}
+Under the model itself, the Wald intervals of the odds ratios cover about 90% instead of
+95%, partly because the standard deviation among samples is underestimated. The intervals
+of @sec-answer should be read as somewhat optimistic. The conclusions do not change: the
+1980 and 2004 intervals of the odds ratio are far apart.
+:::
+
+# Summary: alternatives, pitfalls and teaching notes {#sec-summary}
+
+**Answer.** Along the east–west transect, the typical frequency of melanics 60 km from the
+coast fell from `r answer_pct(ends_answer, "far", 1)` in 1980 to
+`r answer_pct(ends_answer, "far", 5)` in 2004, while 10 km from the coast it stayed at
+about `r pct(mean(ends_answer$near_estimate))`%. The odds ratio between the two, the
+height of the cline, fell from `r answer_or(ends_answer, 1)` to
+`r answer_or(ends_answer, 5)`. The centre (`r f1(centre_ends)` km) and the width
+(`r round(4 / steepness_ends)` km) did not change detectably. On the north–south transect
+the cline also became shallower between 1980 and 1991, but mainly because melanics
+increased near Delft.
+
+**Pitfalls.**
+
+1. The 1980 survey pools 1978 to 1981 and has samples of up to 15,217 beetles; a Binomial
+   model without variation among samples gives them nearly all the weight and standard
+   errors that are far too small (@sec-design, @sec-choices).
+2. The information comes from `r nrow(ew)` samples, not `r big(sum(ew$n))` beetles; the
+   heterogeneity chi-square grows with the sample size for the same variation on the
+   logit scale (@sec-variation), and DHARMa's dispersion statistic is dominated by the two
+   largest samples (@sec-residuals).
+3. Different localities were sampled in different surveys (six missing in 2004, after the
+   invasion of the harlequin ladybird), so raw means per survey are not comparable
+   (@sec-design).
+4. A logistic regression with distance as a linear predictor (a GLMM) cannot describe the
+   two plateaus (@sec-linear).
+5. The random effect per site, the obvious grouping, collapses to zero; the variation is
+   among samples (@sec-choices, @sec-two-re). An estimate at the boundary with a converged
+   fit is Chapter 8 material.
+6. The centre and steepness of a flat cline are not identifiable; they must be shared
+   across surveys (@sec-candidates).
+7. The typical frequency of the mixed model ($u_j = 0$) is that of the median sample; the
+   Beta-Binomial mean $p$ is the mean sample. The difference is small here
+   ($\sigma_{\mathrm{sample}} =$ `r f2(sd_sample_ci[1])`).
+8. The distances of the two transects have different origins (coast and Delft), the 1980
+   Willemstad sample is in both, and the year of the second north–south survey is 1991 in
+   the spreadsheet and 1992 in the paper (@sec-ns).
+9. The spreadsheet lacks three samples of Table 1 of the 2011 paper; `adalia.csv`
+   contains them (`README.md`; they do not change the answer, @sec-sensitivity).
+10. The data show a change over time, not its cause; the climate is not in the data
+    (@sec-trend).
+11. Middelharnis in 1980 (9% of 8,256 beetles) lies below the coastal plateau; a cline
+    cannot dip, and only the variation among samples accommodates it.
+12. The maximum likelihood estimate of the standard deviation among samples is about
+    `r round(100 * abs(1 - sd_sample_check[["mean"]] / sd_sample_check[["simulated"]]))`%
+    too small, and the Wald intervals of the odds ratios cover about 90% instead of 95%
+    (@sec-simulation).
+
+**Alternatives.**
+
+- The Beta-Binomial distribution instead of the random effect per sample (better by
+  `r f1(aic_choice[["Binomial sample"]] - aic_choice[["BetaBinomial none"]])` AIC units,
+  same answer; @sec-choices, @sec-sensitivity).
+- A REML estimate of the standard deviation among samples (@sec-simulation).
+- The trend model with one rate of change of the inland plateau (@sec-trend).
+- The candidate `inland` (best by AIC among the survey-factor models), if the question is
+  only about the inland frequency.
+- Other answer quantities inside the data: the plateaus themselves (close to the
+  frequencies at 10 and 60 km here), or the difference between surveys at 60 km (one more
+  line of `ADREPORT()`).
+- One model for both transects (@sec-ns).
+- Both random effects (@sec-two-re; beyond Chapter 7).
+
+**Teaching notes (possible questions for students).**
+
+- Read starting values for the cline from @fig-transect, and derive the width $4/b$ from
+  the slope at the centre.
+- Calculate the heterogeneity statistic and the standard deviation on the logit scale per
+  survey, and explain why one grows with the sample size and the other does not.
+- Compare a random effect per site with one per sample, and explain what each assumes
+  about the localities.
+- Compare the cline with a linear predictor of the logit, and explain why the parameters
+  of the cline answer the question better.
+- Compare candidates for the change over time and explain why the answer uses `ends`
+  although `inland` has a lower AIC.
+- Report the frequencies at 10 and 60 km with intervals, and discuss what the data can and
+  cannot say about the cause of the change.
+
+# References {.unnumbered}
+
+- Brakefield, P. M. (1984a). Ecological studies on the polymorphic ladybird *Adalia
+  bipunctata* in The Netherlands. I. Population biology and geographical variation of
+  melanism. *Journal of Animal Ecology* 53: 761–774.
+- Brakefield, P. M. and de Jong, P. W. (2011). A steep cline in ladybird melanism has
+  decayed over 25 years: a genetic response to climate change? *Heredity* 107: 574–578.
+  doi:10.1038/hdy.2011.49
+- de Jong, P. W. and Brakefield, P. M. (1998). Climate and change in clines for melanism
+  in the two-spot ladybird, *Adalia bipunctata* (Coleoptera: Coccinellidae). *Proceedings
+  of the Royal Society of London B* 265: 39–43.
+- de Jong, P. W., Gussekloo, S. W. S. and Brakefield, P. M. (1996). Differences in
+  thermal balance, body temperature and activity between non-melanic and melanic two-spot
+  ladybird beetles (*Adalia bipunctata*) under controlled conditions. *Journal of
+  Experimental Biology* 199: 2655–2666.

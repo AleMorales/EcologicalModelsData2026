@@ -1,0 +1,1461 @@
+---
+title: "Water infiltration and soil degradation in the Upper Athi River basin (Kenya)"
+subtitle: "Reference analysis for a possible case study after Chapter 7"
+date: 2026-11-19
+format:
+  typst:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    papersize: a4
+    margin:
+      x: 2.2cm
+      y: 2.5cm
+    fontsize: 10pt
+    fig-format: png
+    fig-dpi: 200
+execute:
+  echo: true
+  warning: true
+  message: false
+knitr:
+  opts_chunk:
+    comment: "#>"
+    R.options:
+      width: 84
+---
+
+# About this document {.unnumbered}
+
+This document is a reference analysis for the author, not a course page. It shows what
+students could do with these data with the tools of Chapters 1 to 7 (RTMB, RTMBdist,
+DHARMa and TMB), and follows the structure of Case study 2: the data, an exploration, the
+model, the choice of curve, distribution and random effect, the candidates for the effect
+of the degradation class, the answer, checks of the model and a simulation of the estimator.
+Alternatives are in boxes titled "Alternative" and traps in boxes titled "Pitfall";
+@sec-summary lists them all. `README.md` in this folder describes the source of the data,
+the paper, the dissertation from which the data come (Omuto 2006) and what is still not
+known about the data; `data_description.md` describes the study for students.
+
+::: {.callout-note title="Possible research question (for the author to decide)"}
+Do the plots of the three degradation classes take up different amounts of water, and does the
+way their infiltration rate declines differ? The answer below is the ratio of the typical
+depth of water that infiltrates in the first 30 minutes, a quantity within the range of
+every run.
+:::
+
+The document needs RTMB, RTMBdist, DHARMa, TMB and knitr (HydroMe is not needed: the data
+are in the CSV) and takes about a minute to render, most of it in the simulation of
+@sec-simulation. The optimisations are deterministic and every simulation has its own
+seed. Numbers in the text are calculated inline from the code, except descriptions of
+what a figure shows, which were written from the figures of the run of 19 November 2026
+(R 4.6.1).
+
+Status: generated draft, not reviewed by the author. Written on 19 November 2026 from the
+data and the paper alone; the passages on the study, the measurements and the classes
+were updated on 20 November 2026 from the dissertation. The code and the results did not
+change.
+
+# The data {#sec-data}
+
+The data come from a survey of physical soil degradation in the Upper Athi River basin
+(eastern Kenya) between December 2002 and March 2003 (Omuto 2006, Chapter 3). Infiltration
+was measured with a single-ring infiltrometer (inner diameter 30 cm) on a pre-wetted soil
+surface by the falling-head method: the fall of the water level in the ring was read at
+successive times. The survey measured 180 plots of 30 m × 30 m in 45 randomly placed
+blocks of 1 km², four plots per block, at three positions per plot (P1, P2 and P3, at 5,
+15 and 25 m along the slope). Before the measurements each plot was assigned by eye to one
+of three classes of physical degradation:
+
+- `E0`, non-degraded: no visible sign of degradation;
+- `E1`, moderately degraded: signs of degradation of the soil in place (a surface crust or
+  seal, compaction);
+- `E2`, severely degraded: several signs, including erosion (sheet, rill or gully).
+
+The column that holds these classes is called `Erosion`, but only E2 involves erosion, so
+this document speaks of **degradation classes**.
+
+The file contains 1,105 readings of the infiltration rate (`Rate`, cm/min) over successive
+time intervals (`Time`, min, the end of the interval) on 30 plots (`PlotNo`) in the three
+classes (`Erosion`: E0, E1, E2). `Sample` is the row number and `Cumrate` the running sum
+of `Rate` within a plot (@sec-reading shows that it is not a depth).
+
+```{r}
+infil = read.csv("infiltration.csv", stringsAsFactors = TRUE)
+str(infil)
+```
+
+`read.csv()` orders the levels of `PlotNo` alphabetically (`10lP3` before `1lP3`). We
+order them by plot number instead, which is also the order of the rows in the file
+(sorted by plot and time). E0 is the reference level of `Erosion`.
+
+```{r}
+infil$PlotNo = factor(infil$PlotNo, levels = unique(infil$PlotNo))
+levels(infil$Erosion)
+
+# Colours (Okabe-Ito) and symbols of the three degradation classes.
+erosion_colours = c("#0072B2", "#E69F00", "#009E73")
+erosion_symbols = c(1, 19, 17)
+
+# Formatting of numbers quoted in the text.
+f1 = function(x) formatC(x, format = "f", digits = 1)
+f2 = function(x) formatC(x, format = "f", digits = 2)
+```
+
+# Exploratory data analysis {#sec-eda}
+
+## The design {#sec-design}
+
+The degradation class is a property of the plot, so we first make a table with one row per
+plot and count the plots in each class.
+
+```{r}
+plots = infil[!duplicated(infil$PlotNo), c("PlotNo", "Erosion")]
+n_class = table(plots$Erosion)
+n_class
+```
+
+There are `r n_class[["E0"]]` plots in E0, `r n_class[["E1"]]` in E1 and only
+`r n_class[["E2"]]` in E2. The survey as a whole had 26, 107 and 47 plots in the three
+classes (14%, 59% and 26%), so E2 is under-represented here (13%). How the 30 plots were
+chosen from the 180 is not documented. Every plot name ends in `lP3`, which probably
+means position P3 (25 m along the slope): the data would then be one run at the same
+position on each plot. This is our reading of the names; no source says so.
+
+::: {.callout-warning title="Pitfall: the number of plots, not of readings"}
+The class is a property of the plot, so the information about the classes comes from 30
+plots, not from 1,105 readings. With `r n_class[["E2"]]` plots in E2, any statement about
+E2 rests on four runs.
+:::
+
+::: {.callout-warning title="Pitfall: plots of the same block"}
+The survey placed four plots in each block of 1 km², and the data do not say which block a
+plot belongs to. If some of the 30 plots share a block, they may be more alike than plots
+of different blocks (soil, slope, land use), and the model, which treats the plots as
+independent, overstates the information about the classes. Without the block, the data
+cannot show whether this matters.
+:::
+
+Next, the number of readings per plot, the duration of each run (the time of the last
+reading, per plot and its range per class) and the time of the first reading of each plot:
+
+```{r}
+n_readings = table(infil$PlotNo)
+summary(as.vector(n_readings))
+duration = tapply(infil$Time, infil$PlotNo, max)
+summary(duration)
+tapply(duration, plots$Erosion, range)
+first_time = tapply(infil$Time, infil$PlotNo, min)
+table(first_time)
+```
+
+Runs have `r min(n_readings)` to `r max(n_readings)` readings and last from
+`r min(duration)` to `r max(duration)` minutes, with similar ranges in the three classes.
+`r sum(first_time == 1)` plots were first read after 1 minute, the other three after 2, 3
+and 4 minutes. Every run covers the first `r min(duration)` minutes, which is why the
+answer uses the depth infiltrated in the first 30 minutes.
+
+## What a reading is {#sec-reading}
+
+Each reading closes an interval that starts at the previous reading of the same plot (or at
+time 0 for the first one). `ave()` applies a function within each plot and returns a vector
+in the order of the rows, so it gives the start of every interval:
+
+```{r}
+infil$Start = ave(infil$Time, infil$PlotNo, FUN = function(t) c(0, head(t, -1)))
+infil$Interval = infil$Time - infil$Start
+table(infil$Interval)
+```
+
+Readings are taken every minute at first (`r sum(infil$Interval == 1)` intervals) and every
+two minutes later (`r sum(infil$Interval == 2)`), with a few longer intervals of 3 to 10
+minutes and two of half a minute.
+
+The water that entered the soil during an interval is the rate (cm/min) times the length of
+the interval (min), or ten times that in millimetres. It is always a whole number of
+millimetres:
+
+```{r}
+infil$Drop_mm = infil$Rate * infil$Interval * 10
+all(abs(infil$Drop_mm - round(infil$Drop_mm)) < 1e-6)
+table(round(infil$Drop_mm))
+```
+
+So each `Rate` is a water depth read to the nearest millimetre and divided by the length of
+the interval: it is the mean rate over the interval, not the rate at its end. This is what
+the falling-head method gives: the fall of the water level in the ring between two
+readings (here recorded in whole millimetres), divided by the time between them.
+
+The cumulative depth of infiltrated water (cm) is the running sum of rate times interval.
+The column `Cumrate` of the file is the running sum of the rates alone, without the
+lengths of the intervals. The second line below checks that, and the third shows the
+readings of plot 1lP3 around the change from 1-minute to 2-minute intervals:
+
+```{r}
+infil$Depth = ave(infil$Rate * infil$Interval, infil$PlotNo, FUN = cumsum)
+all(abs(infil$Cumrate - ave(infil$Rate, infil$PlotNo, FUN = cumsum)) < 1e-6)
+infil[infil$PlotNo == "1lP3", c("Time", "Interval", "Rate", "Cumrate", "Depth")][18:24, ]
+```
+
+::: {.callout-warning title="Pitfall: Cumrate is not the cumulative infiltration"}
+`Cumrate` equals `Depth` while the intervals last 1 minute and falls behind as soon as they
+last 2 minutes (at 28 min in plot 1lP3: 27.6 against 30.8 cm). A student who fits a
+cumulative infiltration equation (Philip's $I(t) = S\sqrt{t} + At$, or the integral of
+Horton's equation) to `Cumrate` fits the wrong quantity. Use `Depth`, or fit the rates as
+below.
+:::
+
+The resolution of a reading is the smallest possible change of the rate, one millimetre
+over the interval (0.1 cm divided by the interval, in cm/min). Compared with the rates
+themselves:
+
+```{r}
+infil$Resolution = 0.1 / infil$Interval
+summary(infil$Resolution / infil$Rate)
+prop_coarse = mean(infil$Resolution / infil$Rate >= 0.25)
+prop_coarse
+```
+
+::: {.callout-warning title="Pitfall: coarse readings"}
+For `r round(100 * prop_coarse)`% of the readings, one millimetre more or less changes the
+rate by a quarter or more. Low rates can only take a few values (0.05, 0.1, 0.15 cm/min
+over 2 minutes), which shows as horizontal bands in the figures below and in the residuals.
+A continuous distribution treats them as exact; with a coefficient of variation around 0.3
+(@sec-spread) this is a rough but usable approximation.
+:::
+
+## Infiltration curves of the plots {#sec-curves}
+
+@fig-curves shows the readings of each plot as a line, one panel per degradation class, on the
+original scale (top) and the log scale (bottom).
+
+```{r}
+#| label: fig-curves
+#| fig-cap: "Infiltration rate against time, one line per plot, on the original (top)
+#|   and log (bottom) scale."
+#| fig-width: 7.5
+#| fig-height: 5.5
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(2, 3), mar = c(4, 4, 2, 1))
+for (log_axis in c("", "y")) {
+  for (e in seq_along(levels(infil$Erosion))) {
+    infil_class = infil[infil$Erosion == levels(infil$Erosion)[e], ]
+    plot(Rate ~ Time, data = infil_class, type = "n", log = log_axis,
+         ylim = range(infil$Rate), main = levels(infil$Erosion)[e],
+         xlab = "Time (min)", ylab = "Infiltration rate (cm/min)")
+    for (p in unique(as.character(infil_class$PlotNo))) {
+      lines(Rate ~ Time, data = infil_class[infil_class$PlotNo == p, ],
+            col = erosion_colours[e])
+    }
+  }
+}
+par(old_par)
+```
+
+In every class the rate falls quickly during the first 10 to 20 minutes and then levels
+off, with a lot of noise from reading to reading. The plots differ by more than a factor of
+ten in their late rates (0.04 to 0.9 cm/min; @sec-plot-summaries), and on the log scale the
+curves of different plots look roughly parallel: a plot that infiltrates fast does so at
+every time. This suggests a random effect that multiplies the whole curve of a plot
+(@sec-model). Two E0 plots (4lP3, 13lP3) start higher than all but one of the other plots.
+
+@fig-depth shows the cumulative depth against time, all classes in one panel.
+
+```{r}
+#| label: fig-depth
+#| fig-cap: "Cumulative depth of infiltrated water against time, one line per plot."
+#| fig-width: 5.5
+#| fig-height: 4.2
+plot(Depth ~ Time, data = infil, type = "n", xlab = "Time (min)",
+     ylab = "Cumulative infiltration (cm)")
+for (p in levels(infil$PlotNo)) {
+  infil_plot = infil[infil$PlotNo == p, ]
+  lines(Depth ~ Time, data = infil_plot,
+        col = erosion_colours[infil_plot$Erosion[1]])
+}
+legend("topleft", legend = levels(infil$Erosion), col = erosion_colours, lty = 1,
+       bty = "n")
+```
+
+The cumulative depths are smooth (the noise of single readings averages out) and become
+nearly straight lines after about 20 minutes, with a slope equal to the late rate. The
+classes overlap completely.
+
+## Rates that rise at the start {#sec-rises}
+
+The two curves of the paper can only fall. We count the plots whose highest rate is not
+their first reading, and print the time of the highest rate in those plots:
+
+```{r}
+time_of_max = tapply(seq_len(nrow(infil)), infil$PlotNo,
+                     function(rows) infil$Time[rows][which.max(infil$Rate[rows])])
+rises = time_of_max > first_time
+sum(rises)
+time_of_max[rises]
+```
+
+In `r sum(rises)` plots the rate rises before it falls, mostly between the first reading
+and 2 to 6 minutes (in 5lP3, 6lP3 and 30lP3 the highest reading comes later, at 41, 21 and
+13 minutes, a single high reading in a noisy run). Neither curve can rise. The cause is not
+known. The surface was wetted before the run, so a dry surface that repels water at first
+is an unlikely cause; the settling of the water level after the ring was filled, or air
+trapped in the soil, are possible explanations.
+
+::: {.callout-tip title="Alternative"}
+Drop the first reading of each plot (@sec-no-first).
+:::
+
+## The shape of the decline {#sec-shape}
+
+The paper (Table 1) gives two equations for the rate:
+
+$$
+\text{Horton: } f(t) = f_c + (f_0 - f_c)\,e^{-kt},
+\qquad
+\text{Philip: } f(t) = f_c + \frac{S}{2\sqrt{t}},
+$$
+
+where $f_c$ is the steady rate (cm/min), $f_0$ the initial rate (cm/min), $k$ the decay rate
+(1/min) and $S$ the sorptivity (cm/min^0.5^). Horton's curve starts at $f_0$ and levels off
+at $f_c$. Philip's curve is infinite at $t = 0$ and approaches $f_c$ slowly; it is a straight
+line against $1/\sqrt{t}$, with intercept $f_c$ and slope $S/2$. The bottom row of
+@fig-curves shows the Horton shape (a fall that flattens on the log scale); @fig-philip
+shows the Philip shape.
+
+```{r}
+#| label: fig-philip
+#| fig-cap: "Infiltration rate against the inverse square root of time, one line per
+#|   plot. Philip's equation is a straight line in this figure."
+#| fig-width: 7.5
+#| fig-height: 2.9
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(1, 3), mar = c(4, 4, 2, 1))
+for (e in seq_along(levels(infil$Erosion))) {
+  infil_class = infil[infil$Erosion == levels(infil$Erosion)[e], ]
+  plot(Rate ~ I(1 / sqrt(Time)), data = infil_class, type = "n", xlim = c(0, 1),
+       ylim = range(infil$Rate), main = levels(infil$Erosion)[e],
+       xlab = "1 / sqrt(time) (1/min^0.5)", ylab = "Infiltration rate (cm/min)")
+  for (p in unique(as.character(infil_class$PlotNo))) {
+    lines(Rate ~ I(1 / sqrt(Time)), data = infil_class[infil_class$PlotNo == p, ],
+          col = erosion_colours[e])
+  }
+}
+par(old_par)
+```
+
+Against $1/\sqrt{t}$ the rates rise from the late readings (left) to the early ones
+(right), roughly along straight lines but with much noise, and the first readings
+(right-hand end) bend down in the plots with an early rise. Both shapes are plausible from
+the figures; the likelihood compares them in @sec-choices. A practical point for students:
+Philip's equation is infinite at $t = 0$, so the readings at $t = 1$ min carry a lot of
+weight in deciding between the curves.
+
+## One summary per plot {#sec-plot-summaries}
+
+For each plot we calculate the mean rate in the first 5 minutes (early), the mean of the
+last five readings (late), their ratio, and the depth infiltrated in the first 30 minutes,
+interpolated linearly between readings (every run lasted at least 33 minutes):
+
+```{r}
+by_plot = split(infil, infil$PlotNo)
+plot_summary = data.frame(
+  erosion = sapply(by_plot, function(p) as.character(p$Erosion[1])),
+  n = sapply(by_plot, nrow),
+  duration = sapply(by_plot, function(p) max(p$Time)),
+  early = sapply(by_plot, function(p) mean(p$Rate[p$Time <= 5])),
+  late = sapply(by_plot, function(p) mean(tail(p$Rate, 5))),
+  depth_30 = sapply(by_plot,
+                    function(p) approx(c(0, p$Time), c(0, p$Depth), xout = 30)$y)
+)
+plot_summary$late_to_early = plot_summary$late / plot_summary$early
+knitr::kable(plot_summary[order(plot_summary$erosion), ], digits = 3)
+```
+
+The summaries are positive and skewed, so we summarise each class by geometric means:
+
+```{r}
+geometric_means = sapply(
+  plot_summary[, c("early", "late", "late_to_early", "depth_30")],
+  function(x) tapply(x, plot_summary$erosion, function(v) exp(mean(log(v))))
+)
+round(geometric_means, 3)
+```
+
+@fig-summaries shows the same summaries with one point per plot, on a log scale.
+
+```{r}
+#| label: fig-summaries
+#| fig-cap: "Summaries of each plot by degradation class (log scale): mean rate in the first
+#|   5 minutes, mean of the last five readings, their ratio and the depth infiltrated in
+#|   the first 30 minutes."
+#| fig-width: 6.5
+#| fig-height: 5.5
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(2, 2), mar = c(4, 4, 2, 1))
+summary_labels = c(early = "Early rate (cm/min)", late = "Late rate (cm/min)",
+                   late_to_early = "Late / early rate",
+                   depth_30 = "Depth in 30 min (cm)")
+for (s in names(summary_labels)) {
+  stripchart(plot_summary[[s]] ~ plot_summary$erosion, vertical = TRUE, log = "y",
+             method = "jitter", jitter = 0.1, pch = erosion_symbols,
+             col = erosion_colours, xlab = "Degradation class",
+             ylab = summary_labels[[s]])
+}
+par(old_par)
+```
+
+This is the most useful figure for the research question. Within every class the plots
+spread over a factor of about ten (depth in 30 minutes from
+`r f1(min(plot_summary$depth_30))` to `r round(max(plot_summary$depth_30))` cm), and the
+classes overlap almost completely. The geometric means of the depth in 30 minutes are
+`r f1(geometric_means["E0", "depth_30"])` cm (E0),
+`r f1(geometric_means["E1", "depth_30"])` cm (E1) and
+`r f1(geometric_means["E2", "depth_30"])` cm (E2), differences that are small compared with
+the spread among plots. The ratio of late to early rate, which describes the shape of the
+decline and not its level, differs more consistently:
+`r f2(geometric_means["E0", "late_to_early"])` in E0,
+`r f2(geometric_means["E1", "late_to_early"])` in E1 and
+`r f2(geometric_means["E2", "late_to_early"])` in E2. The E0 plots lose a larger fraction of
+their early rate. @sec-candidates returns to this distinction between level and shape,
+which turns out to matter for the model.
+
+Did the runs stop when the rate had levelled off, and does that differ between classes?
+@fig-duration plots the length of each run against its late rate.
+
+```{r}
+#| label: fig-duration
+#| fig-cap: "Duration of each run against its late rate (log scale)."
+#| fig-width: 5
+#| fig-height: 4
+plot(duration ~ late, data = plot_summary, log = "x",
+     col = erosion_colours[factor(plot_summary$erosion)],
+     pch = erosion_symbols[factor(plot_summary$erosion)],
+     xlab = "Late rate (cm/min)", ylab = "Duration of the run (min)")
+legend("topright", legend = levels(infil$Erosion), col = erosion_colours,
+       pch = erosion_symbols, bty = "n")
+```
+
+There is no clear relation between the duration of a run and its late rate or class, so
+the different lengths of the runs do not seem to depend on the outcome. Neither the paper
+nor the dissertation says when a run was stopped.
+
+## The spread of the readings {#sec-spread}
+
+Within each plot, the last ten readings vary around a nearly constant rate. Their standard
+deviation against their mean (@fig-spread) shows how the spread depends on the rate.
+
+```{r}
+#| label: fig-spread
+#| fig-cap: "Standard deviation against mean of the last ten readings of each plot
+#|   (log scales)."
+#| fig-width: 5
+#| fig-height: 4
+late_mean = sapply(by_plot, function(p) mean(tail(p$Rate, 10)))
+late_sd = sapply(by_plot, function(p) sd(tail(p$Rate, 10)))
+plot(late_sd ~ late_mean, log = "xy",
+     col = erosion_colours[factor(plot_summary$erosion)],
+     pch = erosion_symbols[factor(plot_summary$erosion)],
+     xlab = "Mean of the last ten readings (cm/min)",
+     ylab = "Standard deviation (cm/min)")
+late_cv = late_sd / late_mean
+summary(late_cv)
+```
+
+On log axes the points follow a line of slope about one: the standard deviation grows in
+proportion to the mean, with a median coefficient of variation of `r f2(median(late_cv))`
+(half of the plots between `r f2(quantile(late_cv, 0.25))` and
+`r f2(quantile(late_cv, 0.75))`). A Normal distribution with a constant standard deviation
+would be a poor model; the Gamma and LogNormal distributions with a constant coefficient
+of variation, as in Case study 2, are the natural candidates. (This is also why the paper
+fits `log(Rate)`.)
+
+## What we take forward {#sec-forward}
+
+- **The curve:** a fall that levels off, Horton or Philip (the paper's equations).
+- **The readings:** positive, with a roughly constant coefficient of variation: Gamma or
+  LogNormal with a mean and a coefficient of variation.
+- **The groups:** the readings of a plot share its curve; plots differ by a factor of ten
+  with roughly parallel curves on the log scale, so a random effect that multiplies the
+  whole curve (alternative: one that multiplies the steady rate $f_c$ only).
+- **The predictor:** the degradation class, a property of the plot, enters as a fixed effect
+  through model matrices built from one row per plot (Chapter 7, `sec-model-matrix`).
+- **Not modelled:** the early rises (@sec-no-first checks them), the resolution of the
+  readings, and the similarity of successive readings (@sec-serial).
+
+# The model {#sec-model}
+
+## Curves and cumulative depths
+
+Besides the rates, we need the cumulative depth of each curve, its integral from 0 to $t$:
+
+$$
+\text{Horton: } D(t) = f_c\,t + \frac{b}{k}\left(1 - e^{-kt}\right),
+\qquad
+\text{Philip: } D(t) = f_c\,t + S\sqrt{t}.
+$$
+
+We write Horton's curve with $b = f_0 - f_c$, the excess of the initial rate over the steady
+rate (cm/min), which keeps $f_0$ above $f_c$ when both $f_c$ and $b$ are estimated on the
+log scale. In the code, `b` is $f_0 - f_c$ for Horton and the sorptivity $S$ for Philip.
+
+```{r}
+library(RTMB)
+library(RTMBdist)
+
+horton_rate = function(t, fc, b, k) fc + b * exp(-k * t)
+horton_depth = function(t, fc, b, k) fc * t + b * (1 - exp(-k * t)) / k
+philip_rate = function(t, fc, b) fc + 0.5 * b / sqrt(t)
+philip_depth = function(t, fc, b) fc * t + b * sqrt(t)
+```
+
+## The model for the readings
+
+The model for reading $i$ of plot $j$, with the Horton curve, LogNormal readings and the
+random effect on the whole curve, is
+
+$$
+\begin{aligned}
+\log(f_{c,j}) &= \beta_{c,0} + \beta_{c,1}\,C_{1j} + \beta_{c,2}\,C_{2j} + u_j,\\
+\log(b_j) &= \beta_{b,0} + \beta_{b,1}\,C_{1j} + \beta_{b,2}\,C_{2j} + u_j,\\
+u_j &\sim \operatorname{Normal}(0, \sigma^2_{\mathrm{plot}}),\\
+\mu_{ij} &= f_{c,j} + b_j\,e^{-k t_{ij}},\\
+R_{ij} \mid u_j &\sim \operatorname{LogNormal}\text{ with mean } \mu_{ij}
+  \text{ and coefficient of variation } v,
+\end{aligned}
+$$
+
+where $C_{1j}$ and $C_{2j}$ are 1 if plot $j$ is in class E1 or E2 and 0 otherwise,
+$t_{ij}$ is the time of the reading and the readings are independent for given $u_j$. The
+LogNormal distribution with mean $\mu$ and coefficient of variation $v$ has
+$\sigma_{\log} = \sqrt{\log(1 + v^2)}$ and $\mu_{\log} = \log(\mu) - \sigma^2_{\log}/2$.
+
+The same $u_j$ in the first two lines multiplies the whole curve of plot $j$ by
+$e^{u_j}$. The typical curve of a class ($u_j = 0$) is that of its median plot, not of its
+mean plot, which lies a factor $e^{\sigma^2_{\mathrm{plot}}/2}$ higher at every time;
+ratios between classes are the same for both. The answer is the typical depth infiltrated
+in the first 30 minutes in each class, $D(30)$ with $u_j = 0$, and the ratios E1/E0 and
+E2/E0 of these depths.
+
+## Implementation
+
+The NLL needs the index of the plot of each reading (1 to 30), the degradation class of each
+plot (`plot_info`, one row per plot, for the model matrices of the plots) and the three
+classes (`classes`, one row per class, for the typical values). The list of data holds the
+readings, the start and end of each interval, the plot index and the time over which we
+compare the classes (min).
+
+```{r}
+plot_names = levels(infil$PlotNo)
+plot_index = as.numeric(infil$PlotNo)
+first_row = match(seq_along(plot_names), plot_index)
+plot_info = infil[first_row, "Erosion", drop = FALSE]
+classes = data.frame(Erosion = factor(levels(infil$Erosion),
+                                      levels = levels(infil$Erosion)))
+rownames(classes) = levels(infil$Erosion)
+
+infil_data = list(rate = infil$Rate, t_start = infil$Start, t_end = infil$Time,
+                  plot = plot_index, depth_time = 30)
+```
+
+One joint NLL covers every model of this document. Four choices are elements of the list
+of data:
+
+- `curve`: `"Horton"` or `"Philip"`;
+- `distribution`: `"Gamma"` or `"LogNormal"`, both with a constant coefficient of
+  variation;
+- `random_on`: `"steady"` (the random effect multiplies $f_c$ only) or `"curve"` (it
+  multiplies $f_c$ and $b$, so the whole curve of a plot is a constant factor higher or
+  lower);
+- `interval_mean`: `FALSE` compares a reading with the rate at the end of its interval,
+  `TRUE` with the mean rate over the interval (the change in depth divided by its length),
+  which is what a reading is (@sec-reading).
+
+`ADREPORT()` gives the log of the typical depth in the first 30 minutes of each class and
+the log ratios E1/E0 and E2/E0.
+
+```{r}
+infil_nll = function(parms, data) {
+  getAll(parms, data)
+  rate = OBS(rate)
+  # Minus the log density of the deviations of the plots, before they are used.
+  sd_plot = exp(log_sd_plot)
+  nll = -sum(dnorm(x = u, mean = 0, sd = sd_plot, log = TRUE))
+  # Parameters of each plot and typical parameters (u = 0) of each class.
+  fc_plot = exp(X_fc %*% beta_fc + u)
+  if (random_on == "curve") {
+    b_plot = exp(X_b %*% beta_b + u)
+  } else {
+    b_plot = exp(X_b %*% beta_b)
+  }
+  fc_class = exp(X_fc_class %*% beta_fc)
+  b_class = exp(X_b_class %*% beta_b)
+  fc_i = fc_plot[plot]
+  b_i = b_plot[plot]
+  # Expected reading and typical depth in the first 30 minutes.
+  if (curve == "Horton") {
+    k_plot = exp(X_k %*% beta_k)
+    k_i = k_plot[plot]
+    if (interval_mean) {
+      mu = (horton_depth(t_end, fc_i, b_i, k_i) -
+              horton_depth(t_start, fc_i, b_i, k_i)) / (t_end - t_start)
+    } else {
+      mu = horton_rate(t_end, fc_i, b_i, k_i)
+    }
+    depth_class = horton_depth(depth_time, fc_class, b_class,
+                               exp(X_k_class %*% beta_k))
+  } else {
+    if (interval_mean) {
+      mu = (philip_depth(t_end, fc_i, b_i) - philip_depth(t_start, fc_i, b_i)) /
+        (t_end - t_start)
+    } else {
+      mu = philip_rate(t_end, fc_i, b_i)
+    }
+    depth_class = philip_depth(depth_time, fc_class, b_class)
+  }
+  log_depth = log(depth_class)
+  log_depth_ratio = log_depth[2:3] - log_depth[1]
+  ADREPORT(log_depth)
+  ADREPORT(log_depth_ratio)
+  # Minus the log density of the readings for given deviations.
+  cv = exp(log_cv)
+  if (distribution == "Gamma") {
+    nll = nll - sum(dgamma2(x = rate, mean = mu, sd = cv * mu, log = TRUE))
+  } else {
+    sdlog = sqrt(log(1 + cv^2))
+    nll = nll - sum(dlnorm(x = rate, meanlog = log(mu) - sdlog^2 / 2,
+                           sdlog = sdlog, log = TRUE))
+  }
+  nll
+}
+```
+
+`infil_setup()` builds the list of data and the starting values for a list of formulas
+(for $f_c$, $b$ and $k$), a curve, a distribution, the placement of the random effect and
+the type of mean. The baseline values come from @sec-eda: late rates around 0.2 cm/min,
+rates around 1 cm/min after a minute and most of the decline within 20 to 30 minutes ($k$
+about 0.1/min); for Philip, $f_c + S/2 = 1$ at one minute gives $S$ about 1.8 cm/min^0.5^
+with $f_c = 0.1$ cm/min. Every effect starts at zero, the coefficient of variation at 0.3
+(@sec-spread) and the standard deviation among plots at 0.5. Every fit in this document
+converged from these values. The formula for $k$ is ignored for Philip.
+
+```{r}
+infil_setup = function(data, plot_info, classes, formulas, curve, distribution,
+                       random_on, interval_mean = FALSE) {
+  data$curve = curve
+  data$distribution = distribution
+  data$random_on = random_on
+  data$interval_mean = interval_mean
+  data$X_fc = model.matrix(formulas$fc, data = plot_info)
+  data$X_b = model.matrix(formulas$b, data = plot_info)
+  data$X_fc_class = model.matrix(formulas$fc, data = classes)
+  data$X_b_class = model.matrix(formulas$b, data = classes)
+  if (curve == "Horton") {
+    baseline = c(fc = 0.2, b = 0.8, k = 0.1)
+  } else {
+    baseline = c(fc = 0.1, b = 1.8)
+  }
+  start = list(
+    beta_fc = c(log(baseline[["fc"]]), rep(0, ncol(data$X_fc) - 1)),
+    beta_b = c(log(baseline[["b"]]), rep(0, ncol(data$X_b) - 1)),
+    log_cv = log(0.3),
+    log_sd_plot = log(0.5)
+  )
+  if (curve == "Horton") {
+    data$X_k = model.matrix(formulas$k, data = plot_info)
+    data$X_k_class = model.matrix(formulas$k, data = classes)
+    start$beta_k = c(log(baseline[["k"]]), rep(0, ncol(data$X_k) - 1))
+  }
+  list(data = data, start = start)
+}
+```
+
+Three helpers complete the toolkit:
+
+- `fit_infil()` processes the joint NLL for one list of data, integrating out `u`, and
+  minimises it;
+- `aic_table()` reports, for a named list of fits, $K$, the log-likelihood, the
+  convergence code, the largest absolute gradient at the solution, AIC and the difference
+  from the lowest AIC;
+- `depth_answer()` gives the typical depth in 30 minutes per class (cm) and the ratios
+  E1/E0 and E2/E0, with Wald intervals calculated on the log scale and transformed back.
+
+```{r}
+# Connect a likelihood to a data set.
+cmb = function(f, d) function(p) f(p, d)
+
+fit_infil = function(data, start) {
+  start$u = rep(0, max(data$plot))
+  obj = MakeADFun(cmb(infil_nll, data), start, random = "u", silent = TRUE)
+  fit = optim(par = obj$par, fn = obj$fn, gr = obj$gr, method = "BFGS")
+  list(obj = obj, fit = fit)
+}
+
+aic_table = function(fits) {
+  out = data.frame(
+    model = names(fits),
+    K = sapply(fits, function(f) length(f$fit$par)),
+    loglik = sapply(fits, function(f) -f$fit$value),
+    convergence = sapply(fits, function(f) f$fit$convergence),
+    max_gradient = sapply(fits, function(f) max(abs(f$obj$gr(f$fit$par))))
+  )
+  out$aic = 2 * out$K - 2 * out$loglik
+  out$delta_aic = out$aic - min(out$aic)
+  rownames(out) = NULL
+  out
+}
+
+critical_value = qnorm(p = 0.975)
+depth_answer = function(obj) {
+  report = summary(sdreport(obj), select = "report")
+  data.frame(
+    quantity = c("depth E0", "depth E1", "depth E2", "ratio E1/E0", "ratio E2/E0"),
+    estimate = exp(report[, "Estimate"]),
+    lower = exp(report[, "Estimate"] - critical_value * report[, "Std. Error"]),
+    upper = exp(report[, "Estimate"] + critical_value * report[, "Std. Error"])
+  )
+}
+
+# Print an AIC table or an answer table in the document.
+show_table = function(tab, digits = 2) {
+  if ("max_gradient" %in% names(tab)) {
+    tab$max_gradient = format(signif(tab$max_gradient, 2))
+  }
+  knitr::kable(tab, digits = digits, row.names = FALSE)
+}
+```
+
+# Which curve, which distribution, which random effect? {#sec-choices}
+
+The full model lets the degradation class change every parameter of the curve, so that the
+comparison is not affected by effects that we left out (as in Case study 2). Two curves,
+two distributions and two placements of the random effect make eight fits.
+
+```{r}
+full_formulas = list(fc = ~ Erosion, b = ~ Erosion, k = ~ Erosion)
+
+choices = expand.grid(curve = c("Horton", "Philip"),
+                      distribution = c("Gamma", "LogNormal"),
+                      random_on = c("steady", "curve"), stringsAsFactors = FALSE)
+choice_fits = list()
+for (i in seq_len(nrow(choices))) {
+  setup = infil_setup(infil_data, plot_info, classes, full_formulas,
+                      choices$curve[i], choices$distribution[i],
+                      choices$random_on[i])
+  choice_fits[[i]] = fit_infil(setup$data, setup$start)
+}
+names(choice_fits) = paste(choices$curve, choices$distribution, choices$random_on)
+choice_table = aic_table(choice_fits)
+show_table(choice_table[order(choice_table$aic), ], digits = 1)
+```
+
+```{r}
+#| echo: false
+# AIC differences quoted in the text.
+aic_choice = setNames(choice_table$aic, choice_table$model)
+re_gap = aic_choice[1:4] - aic_choice[5:8]
+gamma_gap_philip = aic_choice[["Philip Gamma curve"]] -
+  aic_choice[["Philip LogNormal curve"]]
+gamma_gap_horton = aic_choice[["Horton Gamma curve"]] -
+  aic_choice[["Horton LogNormal curve"]]
+philip_gap = aic_choice[["Horton LogNormal curve"]] -
+  aic_choice[["Philip LogNormal curve"]]
+```
+
+`r if (all(choice_table$convergence == 0)) "All eight fits converged." else "Not every fit converged (see the table)."`
+The placement of the random effect matters most: a random effect on the whole curve beats
+one on $f_c$ only by `r round(min(re_gap))` to `r round(max(re_gap))` AIC units for every
+curve and distribution, as the parallel curves of @fig-curves suggested. With the random
+effect on the whole curve, LogNormal beats Gamma (by `r round(gamma_gap_philip)` units for
+Philip, `r round(gamma_gap_horton)` for Horton), and Philip beats Horton (by
+`r f1(philip_gap)` units with LogNormal readings).
+
+We nevertheless continue with Horton and LogNormal, and use Philip as a check in
+@sec-philip, for a reason that only shows there: with effects of the class on $f_c$,
+Philip's steady rate of E0 runs off to zero (log($f_c$) near −10 with a standard error of
+40), an estimate at the boundary that is Chapter 8 material. Horton's parameters all stay
+inside their range, and the answer is the same with both curves. Horton's fit is also the
+more useful one for students, because $f_0$, $f_c$ and $k$ can be read from the figures of
+@sec-eda as starting values, and the curve is the falling exponential of the functions
+supplement with an offset.
+
+::: {.callout-tip title="Alternative"}
+Follow the AIC and use Philip, discuss the boundary estimate of $f_c$ for E0, and answer
+with the depth in 30 minutes, which the boundary does not affect.
+:::
+
+# Which parameters depend on the degradation class? {#sec-candidates}
+
+With the Horton curve, LogNormal readings and a random effect on the whole curve, the
+candidates have no effect of the class (`none`), an effect on $f_c$ only (`steady`), on
+$b = f_0 - f_c$ only (`excess`), on both (`both`), and on all three parameters (`full`).
+
+```{r}
+candidates = list(
+  none = list(fc = ~ 1, b = ~ 1, k = ~ 1),
+  steady = list(fc = ~ Erosion, b = ~ 1, k = ~ 1),
+  excess = list(fc = ~ 1, b = ~ Erosion, k = ~ 1),
+  both = list(fc = ~ Erosion, b = ~ Erosion, k = ~ 1),
+  full = full_formulas
+)
+candidate_setups = list()
+candidate_fits = list()
+for (m in names(candidates)) {
+  candidate_setups[[m]] = infil_setup(infil_data, plot_info, classes, candidates[[m]],
+                                      "Horton", "LogNormal", "curve")
+  candidate_fits[[m]] = fit_infil(candidate_setups[[m]]$data,
+                                  candidate_setups[[m]]$start)
+}
+candidate_table = aic_table(candidate_fits)
+show_table(candidate_table, digits = 1)
+```
+
+The typical depth in 30 minutes per class (rows) under each candidate (columns):
+
+```{r}
+candidate_depths = sapply(candidate_fits,
+                          function(f) depth_answer(f$obj)$estimate[1:3])
+rownames(candidate_depths) = rownames(classes)
+round(candidate_depths, 2)
+```
+
+```{r}
+#| echo: false
+delta_cand = setNames(candidate_table$delta_aic, candidate_table$model)
+```
+
+`r if (all(candidate_table$convergence == 0)) "All five fits converged." else "Not every fit converged (see the table)."`
+The candidate `none` is worse than the best by `r f1(delta_cand[["none"]])` AIC units, so
+the classes differ in some way. `steady` and `excess` are tied
+(`r f1(abs(delta_cand[["steady"]] - delta_cand[["excess"]]))` units apart), and `both` and
+`full` are `r f1(delta_cand[["both"]])` and `r f1(delta_cand[["full"]])` units behind the
+best.
+
+::: {.callout-warning title="Pitfall: two tied candidates give opposite answers"}
+Under `steady` the typical E0 plot takes up the least water in 30 minutes
+(`r f1(candidate_depths["E0", "steady"])` cm against
+`r f1(candidate_depths["E1", "steady"])` cm in E1), under `excess` the most
+(`r f1(candidate_depths["E0", "excess"])` against
+`r f1(candidate_depths["E1", "excess"])` cm).
+
+The reason is the random effect on the whole curve. It already gives every plot its own
+level, so an effect of the class on one parameter changes mainly the shape of the curve
+(the ratio of $f_c$ to $f_0 - f_c$: in E0 the rate falls further from its start,
+@sec-plot-summaries), and the level of each class then follows from the parameter that the
+formula happens to name. Both candidates describe the same shape difference equally well,
+which is why their AIC is the same, and neither has a free parameter for the level.
+
+A question about the level needs a model in which the class can change the level and the
+shape separately: `both`. Its typical depths (`r f1(candidate_depths["E0", "both"])`,
+`r f1(candidate_depths["E1", "both"])` and `r f1(candidate_depths["E2", "both"])` cm) are
+close to the geometric means of the plots in @sec-plot-summaries
+(`r f1(geometric_means["E0", "depth_30"])`, `r f1(geometric_means["E1", "depth_30"])` and
+`r f1(geometric_means["E2", "depth_30"])` cm), which those of `steady` and `excess` are
+not.
+:::
+
+**Teaching point.** AIC ranks the candidates as descriptions of the data; it does not tell
+which candidate can answer the question. The question decides that the level must be free,
+and AIC then shows that the extra freedom costs little (`r f1(delta_cand[["both"]])`
+units).
+
+::: {.callout-tip title="Alternative: a level-shape parameterisation"}
+Reparameterise the curve as level times shape, for example
+$f(t) = r_{30}\left(p + (1 - p)\,e^{-k(t - 30)}\right)$, with $r_{30}$ the rate at 30
+minutes and $p = f_c/r_{30}$, and put the class effects on $\log(r_{30})$ and
+$\operatorname{logit}(p)$. This makes the level a parameter. In a quick trial (not part of
+this document) it reproduced the same AIC pattern, but the Horton version stopped at a
+false optimum from simple starting values, and Philip's $p$ for E0 again went to the
+boundary, so it is not used here.
+:::
+
+# The answer: how much water do the classes take up? {#sec-answer}
+
+We take the candidate `both` and calculate its `sdreport()`.
+
+```{r}
+both_data = candidate_setups$both$data
+both_start = candidate_setups$both$start
+both = candidate_fits$both
+both_obj = both$obj
+both_fit = both$fit
+both_fit$convergence
+both_sd = sdreport(both_obj)
+```
+
+The typical depth in the first 30 minutes per class and the ratios, with Wald intervals:
+
+```{r}
+both_answer = depth_answer(both_obj)
+show_table(both_answer)
+```
+
+```{r}
+#| echo: false
+# Estimate and interval of row r of an answer table, as text.
+answer_text = function(tab, r) {
+  paste0(f2(tab$estimate[r]), " (", f2(tab$lower[r]), " to ", f2(tab$upper[r]), ")")
+}
+```
+
+The typical E0 plot takes up `r f1(both_answer$estimate[1])` cm of water in the first 30
+minutes (95% interval `r f1(both_answer$lower[1])` to `r f1(both_answer$upper[1])` cm),
+the typical E1 plot `r f1(both_answer$estimate[2])` cm (`r f1(both_answer$lower[2])` to
+`r f1(both_answer$upper[2])`) and the typical E2 plot `r f1(both_answer$estimate[3])` cm
+(`r f1(both_answer$lower[3])` to `r f1(both_answer$upper[3])`). The ratio E1/E0 is
+`r answer_text(both_answer, 4)` and the ratio E2/E0 `r answer_text(both_answer, 5)`. The
+data are compatible with no difference and with differences of a factor of two in either
+direction. The reason is visible in @fig-summaries: the plots of a class differ by a
+factor of ten, and there are only `r n_class[["E0"]]`, `r n_class[["E1"]]` and
+`r n_class[["E2"]]` of them. The honest answer is that these 30 runs cannot tell whether
+the degradation classes take up different amounts of water.
+
+::: {.callout-note title="Comparison with the dissertation (for the author)"}
+The dissertation fitted Philip's equation with `nlme` to all 180 plots, with the class as a
+covariate of the fixed effects (Omuto 2006, Table 4.5). Both parameters decrease from E0 to
+E2: steady rates of 0.47, 0.21 and 0.10 cm/min and sorptivities of 5.37, 2.48 and 1.23
+cm/min^0.5^, reported as significantly different between classes (Table 4.6 gives the
+steady rate in cm/hour, so its unit is uncertain). With six times as many plots, 47 of
+them in E2, the classes separate clearly there. These data cannot tell whether the
+difference from our answer comes from the smaller sample, from the selection of the 30
+plots or from the model (Philip with errors of constant standard deviation on the rate
+there; a plot effect on the whole curve and LogNormal readings here). The dissertation's
+result should not be given to students before they analyse the data.
+:::
+
+::: {.callout-warning title="Pitfall: narrow intervals from a model that fixes the ratio"}
+A student who reports the `steady` or `excess` model, the best by AIC, gets narrow
+intervals for a ratio that the model fixes by its formula (in the trial with the
+level-shape parameterisation, the "shape only" model gave standard errors of 0.02 to 0.05
+on the log scale, against
+`r f2(summary(both_sd, select = "report")[4, "Std. Error"])` and
+`r f2(summary(both_sd, select = "report")[5, "Std. Error"])` here).
+:::
+
+The estimates on the optimised scales, labelled by parameter and column of the model
+matrix:
+
+```{r}
+both_fixed = summary(both_sd, select = "fixed")
+rownames(both_fixed) = c(paste0("fc_", colnames(both_data$X_fc)),
+                         paste0("b_", colnames(both_data$X_b)),
+                         "log_cv", "log_sd_plot", "log_k")
+round(both_fixed, 3)
+```
+
+The typical parameters of the classes on the original scale, $f_c$ and $f_0 = f_c + b$
+(cm/min) and $k$ (1/min):
+
+```{r}
+both_par = split(both_fit$par, names(both_fit$par))
+class_parameters = data.frame(
+  fc = exp(both_data$X_fc_class %*% both_par$beta_fc),
+  f0 = exp(both_data$X_fc_class %*% both_par$beta_fc) +
+    exp(both_data$X_b_class %*% both_par$beta_b),
+  k = exp(both_par$beta_k),
+  row.names = rownames(classes)
+)
+round(class_parameters, 3)
+```
+
+The typical steady rates are `r f2(class_parameters$fc[1])` (E0),
+`r f2(class_parameters$fc[2])` (E1) and `r f2(class_parameters$fc[3])` cm/min (E2), and
+the typical initial rates `r f2(class_parameters$f0[1])`, `r f2(class_parameters$f0[2])`
+and `r f2(class_parameters$f0[3])` cm/min. The decay rate is
+`r f2(class_parameters$k[1])`/min, so the excess $f_0 - f_c$ falls to a tenth of its
+initial value after about `r round(log(10) / class_parameters$k[1])` minutes
+($\log(10)/k$). Every effect of a class has a standard error of
+`r f2(min(both_fixed[c(2, 3, 5, 6), "Std. Error"]))` to
+`r f2(max(both_fixed[c(2, 3, 5, 6), "Std. Error"]))` on the log scale, as large as or
+larger than the effect itself.
+
+The coefficient of variation of the readings, and the standard deviation among plots with
+a likelihood profile interval (calculated on the log scale and transformed back):
+
+```{r}
+cv_both = exp(both_fit$par[["log_cv"]])
+cv_both
+both_profile_sd = TMB::tmbprofile(both_obj, name = "log_sd_plot", trace = FALSE)
+sd_plot_ci = exp(c(estimate = both_fit$par[["log_sd_plot"]],
+                   confint(both_profile_sd)[1, ]))
+sd_plot_ci
+```
+
+The readings vary around the curve of their plot with a coefficient of variation of
+`r f2(cv_both)`, more than the median of `r f2(median(late_cv))` among the late readings in
+@sec-spread; the early readings may vary more, and the shape of some plots differs from
+the typical curve (@sec-two-re). The standard deviation among plots is
+`r f2(sd_plot_ci[1])` on the log scale (profile interval `r f2(sd_plot_ci[2])` to
+`r f2(sd_plot_ci[3])`): the middle 95% of plots of a class span a factor of
+$e^{2 \times 1.96 \times `r f2(sd_plot_ci[1])`}$, about
+`r round(exp(2 * critical_value * sd_plot_ci[1]))`. This variation, not the readings,
+limits the answer.
+
+@fig-typical shows the typical curves of the three classes over the readings.
+
+```{r}
+#| label: fig-typical
+#| fig-cap: "Readings (points) and typical curves (u = 0) of the three degradation classes
+#|   under the model `both`, on the log scale."
+#| fig-width: 7.5
+#| fig-height: 2.9
+time_grid = seq(from = 0.5, to = 90, length.out = 300)
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(1, 3), mar = c(4, 4, 2, 1))
+for (e in 1:3) {
+  infil_class = infil[infil$Erosion == levels(infil$Erosion)[e], ]
+  plot(Rate ~ Time, data = infil_class, log = "y", ylim = range(infil$Rate),
+       col = erosion_colours[e], pch = erosion_symbols[e], cex = 0.7,
+       main = levels(infil$Erosion)[e], xlab = "Time (min)",
+       ylab = "Infiltration rate (cm/min)")
+  lines(time_grid, horton_rate(time_grid, class_parameters$fc[e],
+                               class_parameters$f0[e] - class_parameters$fc[e],
+                               class_parameters$k[e]), lwd = 2)
+}
+par(old_par)
+```
+
+The typical curves run through the middle of the readings on the log scale (they are the
+curves of the median plot). The horizontal bands of points at 0.05, 0.1, 0.15 and
+0.2 cm/min are the resolution of the readings (@sec-reading).
+
+# Checking the model {#sec-checks}
+
+## Scaled quantile residuals {#sec-residuals}
+
+We simulate 1,000 hypothetical samples (new plot deviations, then new readings for them)
+and compare each reading with the typical curve of its class at the time of the reading.
+
+```{r}
+n_sim = 1000
+infil_simulations = matrix(NA, nrow = length(both_data$rate), ncol = n_sim)
+set.seed(seed = 2009)
+for (s in seq_len(n_sim)) {
+  infil_simulations[, s] = both_obj$simulate(both_fit$par)$rate
+}
+
+class_of_reading = as.numeric(infil$Erosion)
+infil_expected = horton_rate(infil$Time, class_parameters$fc[class_of_reading],
+                             class_parameters$f0[class_of_reading] -
+                               class_parameters$fc[class_of_reading],
+                             class_parameters$k[class_of_reading])
+
+infil_residuals = DHARMa::createDHARMa(
+  simulatedResponse = infil_simulations,
+  observedResponse = both_data$rate,
+  fittedPredictedResponse = infil_expected
+)
+```
+
+```{r}
+#| label: fig-dharma
+#| fig-cap: "Scaled quantile residuals of the model `both`: quantile-quantile plot (left)
+#|   and residuals against the predicted rate (right)."
+#| fig-width: 9
+#| fig-height: 5
+plot(infil_residuals)
+dispersion_rate = DHARMa::testDispersion(infil_residuals, plot = FALSE)$statistic
+dispersion_rate
+```
+
+The quantile-quantile plot is close to the line but slightly S-shaped. In the right panel
+the quartiles of the residuals lie a little above their expected values over most of the
+range, and below them at the lowest predictions (late readings of the class curves with
+the lowest steady rates), where the median residual drops to about 0.4. The dispersion
+statistic is `r f2(dispersion_rate)`: the readings vary around the typical curves about
+half as much (as a variance, on the scale of the rates) as in the simulated samples. As in
+Chapter 6, the p-values that DHARMa prints on its plots are not used for decisions: with
+1,105 readings a small p-value does not say how much the disagreement matters.
+
+The dispersion statistic works on the scale of the rates, where the plots with the highest
+simulated rates dominate the simulated variance. The same comparison on the log scale,
+where the model is LogNormal at both levels:
+
+```{r}
+log_deviation = log(both_data$rate) - log(infil_expected)
+log_simulated = log(infil_simulations) - log(infil_expected)
+dispersion_log = var(log_deviation) / mean(apply(log_simulated, 2, var))
+dispersion_log
+```
+
+On the log scale the ratio is `r f2(dispersion_log)`: the readings vary around the typical
+curves about as much as the model expects. The low statistic on the scale of the rates
+mostly reflects the long right tail of the simulated plots (a plot two standard deviations
+above the typical one is $e^{2 \times `r f2(sd_plot_ci[1])`}$, about
+`r f1(exp(2 * sd_plot_ci[1]))` times faster at every time), which dominates the simulated
+variance of the rates.
+
+::: {.callout-warning title="Pitfall: the dispersion statistic with a large variance among groups"}
+With a LogNormal model and a large variance among groups, read DHARMa's dispersion
+statistic with care; the quantile residuals themselves are unaffected.
+:::
+
+@fig-dharma-time shows the residuals against time and against the degradation class.
+
+```{r}
+#| label: fig-dharma-time
+#| fig-cap: "Scaled quantile residuals against time (left) and degradation class (right)."
+#| fig-width: 7.5
+#| fig-height: 3.6
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(1, 2))
+DHARMa::plotResiduals(infil_residuals, form = infil$Time)
+DHARMa::plotResiduals(infil_residuals, form = infil$Erosion)
+par(old_par)
+```
+
+Against time, the median residual is a little above 0.5 at the start and the lower
+quartile drifts from about 0.35 to 0.25: early in a run the readings are higher than the
+model expects more often than late in a run. The classes look similar.
+
+One residual per plot, from the sum of its readings:
+
+```{r}
+plot_residuals = DHARMa::recalculateResiduals(infil_residuals, group = both_data$plot)
+plot_scaled = residuals(plot_residuals)
+names(plot_scaled) = plot_names
+round(sort(plot_scaled), 3)
+```
+
+```{r}
+#| echo: false
+lowest_plots = names(sort(plot_scaled))[1:3]
+```
+
+The residuals of the plots spread over the whole range, from
+`r f2(min(plot_scaled))` (`r names(which.min(plot_scaled))`) to
+`r f2(max(plot_scaled))` (`r names(which.max(plot_scaled))`). The three lowest
+(`r paste(lowest_plots, collapse = ", ")`, all below
+`r f2(ceiling(100 * max(sort(plot_scaled)[1:3])) / 100)`) are the three plots with the
+lowest late rates (`r f2(min(plot_summary[lowest_plots, "late"]))` to
+`r f2(max(plot_summary[lowest_plots, "late"]))` cm/min), and
+`r names(which.max(plot_scaled))` has the highest. Among 30 plots, three below 0.06 is a
+little more than expected (about two), but not a clear disagreement: the Normal
+distribution of the plot deviations covers the range of plots.
+
+## Successive readings of the same plot {#sec-serial}
+
+The residuals above come from new plot deviations, so the readings of one plot share their
+deviation. Removing the mean of each plot (on the Normal scale) leaves the variation within
+plots; the correlation of each residual with the next one of the same plot measures how
+much successive readings resemble each other.
+
+```{r}
+next_same_plot = c(infil$PlotNo[-1] == infil$PlotNo[-nrow(infil)], FALSE)
+normal_residuals = qnorm(pmin(pmax(residuals(infil_residuals), 0.001), 0.999))
+within_plot = normal_residuals - ave(normal_residuals, infil$PlotNo)
+serial_cor = cor(within_plot[next_same_plot], within_plot[which(next_same_plot) + 1])
+serial_cor
+```
+
+::: {.callout-warning title="Pitfall: correlated successive readings"}
+The correlation is `r f2(serial_cor)`. Successive readings of a run are not independent
+for a given plot deviation, as the model assumes: a reading above the curve tends to be
+followed by another (the curve of a plot also differs in shape from the typical one,
+@sec-two-re). Within-plot quantities ($k$ and the coefficient of variation) therefore have
+standard errors that are too small. The comparison of the classes rests mainly on the
+variation among plots, which the model represents, so it is less affected. The course has
+no tools for serial correlation, and the simulation of @sec-simulation cannot reveal its
+effect, because it simulates from the model without it. Students can be asked to calculate
+this correlation and discuss it.
+:::
+
+## Rate at the end or mean rate over the interval? {#sec-interval-mean}
+
+A reading is the mean rate over its interval (@sec-reading), so the expected reading is
+the change in depth over the interval divided by its length.
+
+```{r}
+interval_setup = infil_setup(infil_data, plot_info, classes, candidates$both,
+                             "Horton", "LogNormal", "curve", interval_mean = TRUE)
+interval_fit = fit_infil(interval_setup$data, interval_setup$start)
+interval_table = aic_table(list(end_rate = both, interval_mean = interval_fit))
+show_table(interval_table, digits = 1)
+interval_answer = depth_answer(interval_fit$obj)
+```
+
+The interval mean is better by `r f1(interval_table$aic[1] - interval_table$aic[2])` AIC
+units (same $K$), a small difference, because the curve changes slowly within one or two
+minutes except at the very start. The answer changes little (table in @sec-philip).
+
+::: {.callout-tip title="Alternative"}
+Use the interval mean in the main model. It is what the falling-head method measures, so
+it is the more faithful choice; it needs the cumulative depth function, which students can
+derive by integrating the rate (a good exercise).
+:::
+
+## Without the first reading of each plot {#sec-no-first}
+
+`subset_rows()` keeps only the given readings (the plots do not change). We refit `both`
+without the first reading of each plot, which removes most of the early rises of
+@sec-rises.
+
+```{r}
+subset_rows = function(data, rows) {
+  data$rate = data$rate[rows]
+  data$t_start = data$t_start[rows]
+  data$t_end = data$t_end[rows]
+  data$plot = data$plot[rows]
+  data
+}
+not_first = !(seq_len(nrow(infil)) %in% first_row)
+no_first_fit = fit_infil(subset_rows(both_data, not_first), both_start)
+no_first_fit$fit$convergence
+no_first_answer = depth_answer(no_first_fit$obj)
+```
+
+The answer changes little (table in @sec-philip).
+
+## Philip's curve {#sec-philip}
+
+```{r}
+philip_setup = infil_setup(infil_data, plot_info, classes, candidates$both, "Philip",
+                           "LogNormal", "curve")
+philip_fit = fit_infil(philip_setup$data, philip_setup$start)
+philip_table = aic_table(list(horton = both, philip = philip_fit))
+show_table(philip_table, digits = 1)
+philip_answer = depth_answer(philip_fit$obj)
+philip_fixed = summary(sdreport(philip_fit$obj), select = "fixed")
+rownames(philip_fixed) = c(paste0("fc_", colnames(philip_setup$data$X_fc)),
+                           paste0("S_", colnames(philip_setup$data$X_b)),
+                           "log_cv", "log_sd_plot")
+round(philip_fixed, 3)
+```
+
+Philip is better by `r f1(philip_table$aic[1] - philip_table$aic[2])` AIC units with one
+parameter fewer.
+
+::: {.callout-warning title="Pitfall: an estimate at the boundary with a converged fit"}
+Philip's steady rate of E0 is at the boundary: log($f_c$) of E0 is
+`r f2(philip_fixed["fc_(Intercept)", "Estimate"])` ($f_c$ practically zero) with a standard
+error of `r f1(philip_fixed["fc_(Intercept)", "Std. Error"])`, and the effects of E1 and E2
+on log($f_c$) are just as large and uncertain. The optimiser reports convergence; only the
+estimates and standard errors show the problem. For E0 the Philip curve explains the whole
+decline by sorptivity, with no steady component. Likelihood profiles and Wald intervals of
+these coefficients are meaningless, but the depth in 30 minutes is unaffected. With all
+180 plots, the dissertation estimated the steady rate of E0 at 0.47 cm/min, the highest of
+the three classes (@sec-answer), so the boundary comes from these 30 plots and this model.
+:::
+
+The answer under the four variants of this section:
+
+```{r}
+sensitivity = data.frame(
+  quantity = both_answer$quantity,
+  main = both_answer$estimate,
+  interval_mean = interval_answer$estimate,
+  without_first = no_first_answer$estimate,
+  philip = philip_answer$estimate
+)
+show_table(sensitivity)
+```
+
+```{r}
+#| echo: false
+ratio_range_1 = range(unlist(sensitivity[4, -1]))
+ratio_range_2 = range(unlist(sensitivity[5, -1]))
+philip_shift = range(sensitivity$philip[1:3] - sensitivity$main[1:3])
+```
+
+The ratios hardly move (E1/E0 from `r f2(ratio_range_1[1])` to `r f2(ratio_range_1[2])`,
+E2/E0 from `r f2(ratio_range_2[1])` to `r f2(ratio_range_2[2])`), far less than their
+intervals. Philip's typical depths are `r f1(philip_shift[1])` to
+`r f1(philip_shift[2])` cm higher in every class: the curves differ in the first minutes,
+where Philip's rate is infinite. Like the asymptotes in Case study 2, parameters beyond the
+data ($f_c$ as $t$ grows, $f_0$ at $t = 0$) depend on the curve, and quantities inside the
+data (ratios of depth in 30 minutes) do not.
+
+# Beyond the course: two random effects per plot {#sec-two-re}
+
+Chapter 7 uses one random effect per group. Here the plots get independent deviations of
+$\log(f_c)$ ($u_j$, standard deviation $\sigma_{c}$) and of $\log(b)$ ($v_j$, standard
+deviation $\sigma_{b}$), so that the shape of the curve can vary between plots too.
+
+```{r}
+infil_nll_2re = function(parms, data) {
+  getAll(parms, data)
+  rate = OBS(rate)
+  nll = -sum(dnorm(x = u, mean = 0, sd = exp(log_sd_fc), log = TRUE))
+  nll = nll - sum(dnorm(x = v, mean = 0, sd = exp(log_sd_b), log = TRUE))
+  fc_plot = exp(X_fc %*% beta_fc + u)
+  b_plot = exp(X_b %*% beta_b + v)
+  k_plot = exp(X_k %*% beta_k)
+  mu = horton_rate(t_end, fc_plot[plot], b_plot[plot], k_plot[plot])
+  depth_class = horton_depth(depth_time, exp(X_fc_class %*% beta_fc),
+                             exp(X_b_class %*% beta_b), exp(X_k_class %*% beta_k))
+  log_depth = log(depth_class)
+  log_depth_ratio = log_depth[2:3] - log_depth[1]
+  ADREPORT(log_depth)
+  ADREPORT(log_depth_ratio)
+  sdlog = sqrt(log(1 + exp(log_cv)^2))
+  nll - sum(dlnorm(x = rate, meanlog = log(mu) - sdlog^2 / 2, sdlog = sdlog,
+                   log = TRUE))
+}
+start_2re = both_start
+start_2re$log_sd_plot = NULL
+start_2re$log_sd_fc = log(0.5)
+start_2re$log_sd_b = log(0.5)
+start_2re$u = rep(0, length(plot_names))
+start_2re$v = rep(0, length(plot_names))
+obj_2re = MakeADFun(cmb(infil_nll_2re, both_data), start_2re,
+                    random = c("u", "v"), silent = TRUE)
+fit_2re = optim(par = obj_2re$par, fn = obj_2re$fn, gr = obj_2re$gr,
+                method = "BFGS")
+table_2re = aic_table(list(one_random_effect = both,
+                           two_random_effects = list(obj = obj_2re, fit = fit_2re)))
+show_table(table_2re, digits = 1)
+sd_2re = exp(fit_2re$par[c("log_sd_fc", "log_sd_b")])
+sd_2re
+answer_2re = depth_answer(obj_2re)
+show_table(answer_2re)
+```
+
+Two random effects are better by `r round(table_2re$aic[1] - table_2re$aic[2])` AIC units
+with one parameter more: the plots differ in the shape of their decline, not only in its
+level (standard deviations of `r f2(sd_2re[1])` for $\log(f_c)$ and `r f2(sd_2re[2])` for
+$\log(f_0 - f_c)$). The answer is the same (ratios `r f2(answer_2re$estimate[4])` and
+`r f2(answer_2re$estimate[5])`) with narrower intervals (`r f2(answer_2re$lower[4])` to
+`r f2(answer_2re$upper[4])` and `r f2(answer_2re$lower[5])` to
+`r f2(answer_2re$upper[5])`), which still include 1. Independent deviations are an
+assumption; a correlation between them (as in the paper's `nlme` example for water
+retention) is a further step beyond the course. This is the model a researcher would
+probably prefer; for students the model with one random effect answers the question in the
+same way.
+
+# Checking the estimator by simulation {#sec-simulation}
+
+We draw 300 hypothetical samples of 30 plots from the fitted model `both` (same plots,
+classes and times) and fit each from the same starting values as the data. We keep the log
+ratios of the typical depth (estimates and standard errors) and the standard deviation
+among plots.
+
+```{r}
+set.seed(seed = 1940)
+n_samples = 300
+sim_log_ratio = matrix(NA, nrow = n_samples, ncol = 2)
+sim_se = matrix(NA, nrow = n_samples, ncol = 2)
+sim_sd_plot = rep(NA, n_samples)
+n_failed = 0
+for (i in seq_len(n_samples)) {
+  sim_data = both_data
+  sim_data$rate = both_obj$simulate(both_fit$par)$rate
+  sim = fit_infil(sim_data, both_start)
+  n_failed = n_failed + (sim$fit$convergence != 0)
+  sim_report = summary(sdreport(sim$obj), select = "report")
+  sim_log_ratio[i, ] = sim_report[4:5, "Estimate"]
+  sim_se[i, ] = sim_report[4:5, "Std. Error"]
+  sim_sd_plot[i] = exp(sim$fit$par[["log_sd_plot"]])
+}
+n_failed
+```
+
+The bias, the standard deviation of the estimates, the mean standard error and the
+coverage of the 95% Wald interval for the log ratios E1/E0 (row 1) and E2/E0 (row 2):
+
+```{r}
+log_ratio_used = summary(both_sd, select = "report")[4:5, "Estimate"]
+log_ratio_matrix = matrix(log_ratio_used, nrow = n_samples, ncol = 2, byrow = TRUE)
+covered = abs(sim_log_ratio - log_ratio_matrix) < critical_value * sim_se
+sim_summary = data.frame(
+  ratio = c("E1/E0", "E2/E0"),
+  bias = colMeans(sim_log_ratio) - log_ratio_used,
+  sd_estimates = apply(sim_log_ratio, 2, sd),
+  mean_se = colMeans(sim_se),
+  coverage = colMeans(covered)
+)
+show_table(sim_summary, digits = 3)
+```
+
+`r if (n_failed == 0) "Every fit converged." else paste(n_failed, "fits did not converge.")`
+The bias is small compared with the standard error
+(`r formatC(sim_summary$bias[1], format = "f", digits = 3)` and
+`r formatC(sim_summary$bias[2], format = "f", digits = 3)` against `r f2(sim_summary$mean_se[1])` and
+`r f2(sim_summary$mean_se[2])`), the standard errors agree with the standard deviations of
+the estimates, and the coverages, `r f1(100 * sim_summary$coverage[1])`% and
+`r f1(100 * sim_summary$coverage[2])`%, are close to the range of about 92.5% to 97.5% that
+300 samples give for a coverage of 95%. So with 30 plots the Wald intervals of the ratios
+work, under the model; @sec-serial explains what this check cannot see.
+
+The standard deviation among plots used to simulate, and the mean and median of its
+estimates:
+
+```{r}
+sd_plot_check = c(simulated = exp(both_fit$par[["log_sd_plot"]]),
+                  mean = mean(sim_sd_plot), median = median(sim_sd_plot))
+sd_plot_check
+```
+
+The estimates of the standard deviation among plots are about
+`r round(100 * (1 - sd_plot_check[["mean"]] / sd_plot_check[["simulated"]]))`% too small on
+average (`r f2(sd_plot_check[["mean"]])` against `r f2(sd_plot_check[["simulated"]])`):
+the bias of maximum likelihood variances (Chapter 7, REML). It does not matter for the
+ratios.
+
+# Summary: alternatives, pitfalls and teaching notes {#sec-summary}
+
+**Answer.** The typical depth of water taken up in the first 30 minutes is
+`r f1(both_answer$estimate[1])` cm (E0), `r f1(both_answer$estimate[2])` cm (E1) and
+`r f1(both_answer$estimate[3])` cm (E2), with ratios E1/E0 = `r answer_text(both_answer, 4)`
+and E2/E0 = `r answer_text(both_answer, 5)`. The classes differ in the shape of the decline
+(E0 loses a larger fraction of its initial rate), but the 30 plots cannot tell whether
+they differ in the amount of water they take up. The variation among plots of a class (a
+factor of about `r round(exp(2 * critical_value * sd_plot_ci[1]))` for the middle 95%)
+dwarfs any difference between classes. With all 180 plots of the survey, the dissertation
+found clear differences between the classes (@sec-answer).
+
+**Pitfalls.**
+
+1. `Cumrate` is the running sum of the rates, not the cumulative depth (@sec-reading).
+2. Readings are whole millimetres over 1 to 10 minutes: low rates take few values and the
+   resolution is coarse (@sec-reading). The rates are means over intervals of unequal
+   length (@sec-interval-mean).
+3. `r sum(rises)` plots rise before they fall (@sec-rises); no curve of the paper can
+   rise.
+4. The information about the classes comes from 30 plots (`r n_class[["E0"]]`,
+   `r n_class[["E1"]]` and `r n_class[["E2"]]`), not from 1,105 readings (@sec-design).
+5. A random effect on $f_c$ only is much worse than one on the whole curve
+   (@sec-choices).
+6. With a random effect on the whole curve, a class effect on one parameter fixes the
+   level difference by assumption: two candidates tie on AIC and give opposite answers
+   (@sec-candidates). The question, not AIC alone, decides which effects must be in the
+   model.
+7. Philip's $f_c$ of E0 goes to the boundary with "converged" fits (@sec-philip; Chapter 8
+   material).
+8. Successive readings are correlated within plots (`r f2(serial_cor)`, @sec-serial); the
+   course has no tool for this, and the simulation check cannot detect its effect.
+9. The classes are visual classes of physical degradation (@sec-data), assigned by eye
+   before the measurements; only E2 involves erosion, although the column is called
+   `Erosion`. The class is an observed property of each plot, not a treatment, so
+   differences between classes, if any, would not show that degradation causes them. The
+   30 plots were selected from 180 in an undocumented way, E2 is under-represented, and
+   plots may share a block (@sec-design).
+10. The paper's own example fits Philip's equation to `log(Rate)` with `nls()` (Section
+    3.1 of the paper), so its $f_c = -1.64$ is on the log scale
+    ($e^{-1.64} \approx 0.19$ cm/min), which students may misread as a negative rate.
+
+**Alternatives.**
+
+- Philip's curve (lower AIC, boundary estimate; @sec-choices and @sec-philip).
+- Gamma readings (worse by `r round(gamma_gap_philip)` to `r round(gamma_gap_horton)` AIC
+  units; @sec-choices).
+- Interval means instead of end rates (@sec-interval-mean).
+- Without the first readings (@sec-no-first).
+- Two independent random effects (@sec-two-re; beyond Chapter 7).
+- A level-shape parameterisation (@sec-candidates; unstable here).
+- Other answer quantities inside the data: the typical rate at 30 minutes, or the ratio of
+  the rate at 30 minutes to the rate at 1 minute (a measure of shape, which is where the
+  classes do differ). Both are one line of `ADREPORT()`.
+- Fitting the cumulative depth instead of the rates is not recommended: successive depths
+  share all earlier readings, so they are strongly dependent.
+
+**Teaching notes (possible questions for students).**
+
+- Show that rate × interval is a whole number of millimetres and explain what a reading is;
+  calculate the cumulative depth correctly.
+- Derive the depth function of each curve by integrating the rate.
+- Read starting values for Horton from the figures ($f_c$ from the late rates, $f_0$ from
+  the first readings, $k$ from the time at which most of the decline is over).
+- Compare a random effect on $f_c$ with one on the whole curve, and explain the difference
+  with the parallel curves on the log scale.
+- Compare `steady`, `excess` and `both` and explain why the first two disagree.
+- Report the ratio of depths with intervals and explain why the answer is "the data cannot
+  tell" (and why that is a result).

@@ -143,6 +143,24 @@ elsewhere.
 
 ## Builds and packages
 
+- `Case Studies/` holds the author's reference material for possible case studies (data,
+  README, an analysis document rendered to PDF). It is tracked by git but not published: no
+  profile lists it, and `_quarto-dev.yml`, which renders every `.qmd`, excludes it with
+  `"!Case Studies/"`; do not add it to a render list or sidebar. Each case folder has its
+  own `_quarto.yml` (`type: default`), so its document renders from that folder with Typst
+  and without the website's profiles and filters. `Case Studies/Infiltration/` (author's
+  request of 19 November; generated draft, unreviewed) holds the infiltration data of the
+  archived package HydroMe as a CSV, a candidate for a final case study after Chapter 7;
+  HydroMe is not a dependency of the course. `Case Studies/Photosynthesis/` (author's
+  request of 20 November; generated draft, unreviewed) holds the author's light response
+  curves of *Arabidopsis* (growth temperature by drought, five batches), another candidate
+  after Chapter 7; its README records the model choices and what is not known about the
+  data. `Case Studies/Adalia/` (author's request of 20 November; generated draft,
+  unreviewed) holds the counts of melanic two-spot ladybirds along two Dutch transects,
+  1980–2004 (de Jong and Brakefield 1998; Brakefield and de Jong 2011), a third candidate
+  after Chapter 7 (a cline with a random effect per sample); `adalia.csv` adds three
+  samples from Table 1 of the 2011 paper that the author's spreadsheet lacks (author's
+  decision), as its README records.
 - Settings shared by every build belong in `_quarto.yml`; the complete render and sidebar
   lists belong in the mutually exclusive `_quarto-dev.yml` and `_quarto-prod.yml`, so
   that profile merging cannot duplicate navigation.
