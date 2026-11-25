@@ -160,7 +160,12 @@ elsewhere.
   1980–2004 (de Jong and Brakefield 1998; Brakefield and de Jong 2011), a third candidate
   after Chapter 7 (a cline with a random effect per sample); `adalia.csv` adds three
   samples from Table 1 of the 2011 paper that the author's spreadsheet lacks (author's
-  decision), as its README records.
+  decision), as its README records. `Case Studies/Allometry/` (author's request of 25
+  November; generated draft, unreviewed) holds destructive harvests of 62 cocoa trees in 12
+  fields at four sites (Goudsmit et al., unpublished manuscript), a fourth candidate after
+  Chapter 7 (a power law with a random effect per field and management as predictors);
+  `allometry.csv` keeps the values of the spreadsheet, and the README lists the doubtful
+  records and the confounding of management with site.
 - Settings shared by every build belong in `_quarto.yml`; the complete render and sidebar
   lists belong in the mutually exclusive `_quarto-dev.yml` and `_quarto-prod.yml`, so
   that profile merging cannot duplicate navigation.

@@ -1,0 +1,1742 @@
+---
+title: "Stem diameter, aboveground biomass and management of cocoa trees"
+subtitle: "Reference analysis for a possible case study after Chapter 7"
+date: 2026-11-25
+format:
+  typst:
+    toc: true
+    toc-depth: 2
+    number-sections: true
+    papersize: a4
+    margin:
+      x: 2.2cm
+      y: 2.5cm
+    fontsize: 10pt
+    fig-format: png
+    fig-dpi: 200
+execute:
+  echo: true
+  warning: true
+  message: false
+knitr:
+  opts_chunk:
+    comment: "#>"
+    R.options:
+      width: 84
+---
+
+# About this document {.unnumbered}
+
+This document is a reference analysis for the author, not a course page. It shows what
+students could do with the cocoa allometry data with the tools of Chapters 1 to 7 (RTMB,
+RTMBdist, DHARMa and TMB), and follows the structure of the analyses in
+`Case Studies/Adalia` and `Case Studies/Infiltration`: the data, an exploration, the
+model, the choice of curve, distribution and random effect, the candidates for the effect
+of management, the answer, checks of the model, an extension to tree height and a
+simulation of the estimator. Alternatives are in boxes titled "Alternative" and traps in
+boxes titled "Pitfall"; @sec-summary lists them all. `README.md` in this folder describes
+the sources of the data and what is still not known about them; `data_description.md`
+describes the study for students.
+
+The data come from an unpublished manuscript by Goudsmit et al., which fitted cubic
+polynomials of the logarithm of the diameter with `lme4` and added management as
+predictors. Its Figure 3, aboveground biomass against stem diameter for four management
+scenarios, is the figure that this analysis tries to improve on (@sec-figure3).
+
+::: {.callout-note title="Possible research question (for the author to decide)"}
+Does the relation between stem diameter and aboveground biomass of cocoa trees differ with
+management (shade, planting density), and can these data show it? The answer below is the
+typical mean aboveground biomass of shaded and of unshaded trees with stem diameters of 4
+and 16 cm, both inside the range of the shaded and of the unshaded trees, the ratio
+between the two, and the same quantities per site.
+:::
+
+The document needs RTMB, RTMBdist, DHARMa, TMB and knitr and takes about one minute to
+render, most of it in the simulation of @sec-simulation. The optimisations are
+deterministic and every simulation has its own seed. Numbers in the text are calculated
+inline from the code, except descriptions of what a figure shows, which were written from
+the figures of the run of 25 November 2026 (R 4.6.1).
+
+Status: generated draft (25 November 2026), not reviewed by the author.
+
+# The data {#sec-data}
+
+Cocoa (*Theobroma cacao*) trees were harvested in 12 fields at four sites (Table 1 of the
+manuscript): a research station near Divo in Côte d'Ivoire (CIV1; fields of 1.5, 5, 10 and
+19 years), a research centre at Tiassalé in Côte d'Ivoire (CIV2; trees of 2 and 3.25
+years), a commercial farm in the province of Guayas in Ecuador (ECU; 1, 6 and 11 years)
+and the Cocoa Research Institute of Nigeria at Ibadan (NGA; 8, 12 and 47 years). Before
+harvest, the stem diameter was measured 20 cm above the ground and the height of the tree
+from the ground to its highest point; the tree was then cut and separated into wood and
+leaves, and their dry mass determined from subsamples. Aboveground biomass (AGB) is the sum
+of the wood and the leaves. The sites differ in planting material (CCN51 in Ecuador, hybrid
+mixtures in Côte d'Ivoire, TC series and Amazon mixtures in Nigeria), climate and
+management; the Ecuadorian trees are hedged and irrigated.
+
+The file `allometry.csv` has one row per tree: the tree code (`tree`), the site, the field
+(`field`, site and age), the age (`age_years`), the diameter at 20 cm (`dia20_cm`), the
+height (`height_m`), the dry masses of wood, leaves, aboveground biomass and roots (kg),
+and the management of the field: shade trees (`shade`, yes or no), planting density
+(`density_ha`, trees/ha), irrigation and fertilisation (yes or no). `make_allometry_csv.R`
+builds it from the spreadsheet `CocoaAllometry.xlsx`.
+
+```{r}
+allo = read.csv("allometry.csv")
+str(allo[, c("tree", "site", "field", "age_years", "dia20_cm", "height_m", "wood_kg",
+             "leaf_kg", "agb_kg", "shade", "density_ha", "irrigation", "fertilisation")])
+```
+
+The factors get explicit levels (the reference level first), the fields are ordered by
+site and age as in the file, and the planting density is centred at 1,200 trees/ha and
+expressed in hundreds of trees/ha (`density_100`), so that its coefficient is the change
+for 100 trees/ha more.
+
+```{r}
+allo$site = factor(allo$site)
+allo$field = factor(allo$field, levels = unique(allo$field))
+for (v in c("shade", "irrigation", "fertilisation")) {
+  allo[[v]] = factor(allo[[v]], levels = c("no", "yes"))
+}
+allo$density_100 = (allo$density_ha - 1200) / 100
+
+# Colours (Okabe-Ito) of the four sites; filled symbols for shaded trees.
+site_colours = c(CIV1 = "#E69F00", CIV2 = "#56B4E9", ECU = "#009E73", NGA = "#CC79A7")
+shade_symbols = c(no = 1, yes = 19)
+
+# Formatting of numbers quoted in the text.
+f0 = function(x) formatC(x, format = "f", digits = 0)
+f1 = function(x) formatC(x, format = "f", digits = 1)
+f2 = function(x) formatC(x, format = "f", digits = 2)
+```
+
+# Exploratory data analysis {#sec-eda}
+
+## The fields and their management {#sec-design}
+
+One row per field, with the number of trees, the range of diameters and the management:
+
+```{r}
+fields = data.frame(
+  site = tapply(as.character(allo$site), allo$field, unique),
+  age = tapply(allo$age_years, allo$field, unique),
+  trees = as.vector(table(allo$field)),
+  dia_min = tapply(allo$dia20_cm, allo$field, min),
+  dia_max = tapply(allo$dia20_cm, allo$field, max),
+  shade = tapply(as.character(allo$shade), allo$field, unique),
+  density = tapply(allo$density_ha, allo$field, unique),
+  irrigation = tapply(as.character(allo$irrigation), allo$field, unique),
+  fertilised = tapply(allo$fertilisation == "yes", allo$field, sum)
+)
+fields
+```
+
+There are `r nrow(allo)` trees in `r nlevels(allo$field)` fields, with 3 to
+`r max(fields$trees)` trees per field. Every management variable except fertilisation is
+a property of the field, and almost every one is a property of the site:
+
+- **irrigation** is "yes" exactly at CIV2 and ECU;
+- **shade** is "yes" at CIV2, NGA and in the oldest CIV1 field (CIV1_19, 3 trees), the
+  only contrast within a site;
+- **planting density** is `r paste(sort(unique(fields$density)), collapse = ", ")`
+  trees/ha; it is constant within CIV1, CIV2 and NGA, and within ECU the 11-year field has
+  1,130 and the younger fields 1,500 trees/ha, a contrast confounded with age;
+- **fertilisation** is "no" at CIV1 and "yes" at CIV2 and ECU, and in each NGA field 3 of
+  the 6 trees were fertilised: the only contrast within a field.
+
+::: {.callout-warning title="Pitfall: management is a property of the site"}
+With four sites, a variable that takes one value per site is the site under another name.
+The shaded trees are those of CIV2 and NGA (plus one CIV1 field), the unshaded those of
+ECU and the younger CIV1 fields; a "shade effect" estimated from these data is a
+difference between countries, planting material, climate, collectors and years as much as
+between shaded and unshaded trees. Only three contrasts lie within a site: shade in CIV1
+(one field of 3 trees against three fields), density in ECU (one field, which is also the
+oldest) and fertilisation in NGA (within fields). @sec-candidates fits the site itself as
+a candidate.
+:::
+
+::: {.callout-warning title="Pitfall: the field descriptions do not agree everywhere"}
+Table 1 of the manuscript describes the CIV1 field of 1.5 years as intercropped with
+plantain and shaded, but the spreadsheet gives shade "no" for its trees (@sec-sensitivity
+fits both). The two CIV2 fields (2 and 3.25 years) have the same GPS position in Table 1
+and were sampled in 2019 and 2020, so they may be the same plantation sampled twice;
+Table 1 gives the second age as 3 years. The wood density (0.39 g/cm³) is the same value
+from the literature for every tree, so the term $\log(\mathrm{WD})$ of the manuscript's
+equations is part of the intercept.
+:::
+
+## Biomass against diameter {#sec-scatter}
+
+@fig-scatter shows the aboveground biomass against the diameter on the original and on
+logarithmic axes.
+
+```{r}
+#| label: fig-scatter
+#| fig-cap: "Aboveground biomass against stem diameter at 20 cm, on the original scale
+#|   (left) and on logarithmic axes (right). Colours mark the sites; filled symbols are
+#|   shaded trees. The three labelled trees are discussed in the text."
+#| fig-width: 8
+#| fig-height: 4
+flagged = allo$tree %in% c("F9", "D4", "D5")
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
+plot(agb_kg ~ dia20_cm, data = allo, col = site_colours[as.character(allo$site)],
+     pch = shade_symbols[as.character(allo$shade)],
+     xlab = "Stem diameter at 20 cm (cm)", ylab = "Aboveground biomass (kg)")
+# Label only F9 here; D4 and D5 overlap on this scale.
+text(allo$dia20_cm[allo$tree == "F9"], allo$agb_kg[allo$tree == "F9"], "F9", pos = 3,
+     cex = 0.7)
+legend("topleft", legend = names(site_colours), col = site_colours, pch = 15, bty = "n")
+plot(agb_kg ~ dia20_cm, data = allo, log = "xy",
+     col = site_colours[as.character(allo$site)],
+     pch = shade_symbols[as.character(allo$shade)],
+     xlab = "Stem diameter at 20 cm (cm)", ylab = "Aboveground biomass (kg)")
+text(allo$dia20_cm[flagged], allo$agb_kg[flagged], allo$tree[flagged], pos = 4,
+     cex = 0.7)
+legend("topleft", legend = c("unshaded", "shaded"), pch = shade_symbols, bty = "n")
+par(old_par)
+```
+
+On logarithmic axes the trees lie close to a straight line over two orders of magnitude of
+diameter and three of biomass, which is what a power law predicts (@sec-model). On the
+original scale the spread of the biomass grows with the diameter. Three trees stand apart:
+F9 (CIV1, 37 cm) has far less biomass than any tree of similar diameter, and the two
+smallest trees, D4 and D5 (ECU, 1 year), have as much biomass as trees twice their
+diameter. The young trees of each site form clusters, and the shaded trees (filled) leave
+a gap between the CIV2 trees, up to about 9 cm, and the NGA and CIV1_19 trees, from about
+15 cm.
+
+## Implausible records {#sec-records}
+
+A simple check of plausibility compares the wood mass of a tree with the mass of a
+cylinder with the diameter of its stem and the height of the tree, made of wood of density
+0.39 g/cm³ (the value used in the manuscript):
+
+$$
+F = \frac{W}{\rho\,\frac{\pi}{4}\,D^2\,H},
+$$
+
+where $W$ is the dry mass of the wood (g), $\rho = 0.39$ g/cm³, $D$ the diameter (cm) and
+$H$ the height (cm). The stem tapers, so $F$ (a form factor) is usually below 1; branches
+add wood, so a bushy tree can exceed 1, but not by a factor of ten.
+
+```{r}
+cylinder_kg = 0.39 * pi / 4 * allo$dia20_cm^2 * (100 * allo$height_m) / 1000
+allo$form_factor = allo$wood_kg / cylinder_kg
+form_order = order(allo$form_factor)
+show_cols = c("tree", "field", "dia20_cm", "height_m", "wood_kg", "agb_kg", "form_factor")
+knitr::kable(allo[form_order[c(1:3, (nrow(allo) - 3):nrow(allo))], show_cols],
+             digits = 2, row.names = FALSE)
+```
+
+```{r}
+#| echo: false
+ff = setNames(allo$form_factor, allo$tree)
+ff_others = ff[!names(ff) %in% c("F9", "D4", "D5")]
+ecu_young = ff[allo$site == "ECU" & allo$age_years < 10 &
+                 !names(ff) %in% c("D4", "D5", "D10")]
+ecu_11 = ff[allo$field == "ECU_11" & names(ff) != "D14"]
+```
+
+All trees but three have a form factor between `r f2(min(ff_others))` and
+`r f2(max(ff_others))`; the young, hedged and bushy ECU trees of 1 and 6 years have most of
+the highest values (`r f2(min(ecu_young))` to `r f2(max(ecu_young))`, without D4, D5 and
+D10). F9 has `r f2(ff[["F9"]])`, and D4 and
+D5 have `r f1(ff[["D4"]])` and `r f1(ff[["D5"]])`. The manuscript excluded F9 as an
+outlier ("probably because of dieback or an unreported management intervention"), but
+calls it "the oldest tree" of Côte d'Ivoire, whereas it is 10 years old and the CIV1_19
+trees are older. For D4 and D5, a diameter of about 0.7 cm with 0.16 to 0.17 kg of wood
+would need a wood density of several g/cm³; a typing error in the diameter (or in the
+mass) is more likely than such trees. We exclude all three from the main analysis: the
+main data set has `r nrow(allo) - 3` trees. @sec-sensitivity repeats the analysis with the
+`r nrow(allo) - 1` trees of the manuscript (only F9 excluded).
+
+```{r}
+main = allo[!allo$tree %in% c("F9", "D4", "D5"), ]
+main = droplevels(main)
+rownames(main) = NULL
+```
+
+::: {.callout-warning title="Pitfall: other records that do not add up"}
+These do not justify an exclusion but should be known:
+
+- **T17** (CIV2, 3.25 years) has `r allo$agb_kg[allo$tree == "T17"]` kg of aboveground
+  biomass, but its wood and leaves sum to
+  `r allo$wood_kg[allo$tree == "T17"] + allo$leaf_kg[allo$tree == "T17"]` kg; every other
+  tree adds up. We use the recorded AGB.
+- **F11 and F12** (CIV1_19) have the same wood mass
+  (`r allo$wood_kg[allo$tree == "F11"]` kg) with diameters of
+  `r allo$dia20_cm[allo$tree == "F11"]` and `r allo$dia20_cm[allo$tree == "F12"]` cm,
+  perhaps a copied value.
+- **D10 and D14** (ECU) look as if their diameters were swapped. D10 (6 years,
+  `r allo$dia20_cm[allo$tree == "D10"]` cm, `r f1(allo$agb_kg[allo$tree == "D10"])` kg) is
+  the thickest tree of its field with less biomass than a tree of 8.6 cm, and D14 (11
+  years, `r allo$dia20_cm[allo$tree == "D14"]` cm, `r f1(allo$agb_kg[allo$tree == "D14"])`
+  kg) the thinnest of its field with as much biomass as trees of 15 to 17 cm. Their form
+  factors (`r f2(ff[["D10"]])` and `r f2(ff[["D14"]])`) are the lowest and the highest of
+  the ECU trees of 6 and 11 years (the other trees of the 11-year field have
+  `r f2(min(ecu_11))` to `r f2(max(ecu_11))`). With the two diameters exchanged, each tree
+  fits its field. This cannot be verified from the data, so it is a sensitivity
+  check (@sec-sensitivity) and not a correction.
+:::
+
+## What we take forward
+
+- **The curve:** a power law of the diameter (a straight line on logarithmic axes).
+- **The observations:** positive biomasses whose spread grows with the mean, so a
+  LogNormal or Gamma distribution rather than a Normal one with constant variance.
+- **The groups:** trees of one field share age, planting material, management, collector
+  and year of sampling, so they are not independent; a random effect per field.
+- **The predictors:** shade, density, irrigation and fertilisation, and the site, as fixed
+  effects on the parameters of the power law through model matrices (Chapter 7,
+  `sec-model-matrix`).
+
+# The model {#sec-model}
+
+## The power law
+
+The mean aboveground biomass of a tree with diameter $D$ (cm) is described by a power law
+(functions supplement, `sec-fn-power`), written with a reference diameter of 10 cm:
+
+$$
+\mu(D) = a\left(\frac{D}{10}\right)^{b},
+$$
+
+where $b$ is the allometric exponent (no units: an increase of 1% in the diameter
+increases the mean biomass by about $b$%) and $a$ is the mean biomass (kg) of a tree with
+a diameter of 10 cm. This is the form $y_0(x/x_0)^b$ of the supplement, so here $a$ is
+the value at 10 cm and not at 1 cm. The reference makes $a$ interpretable and inside the
+data, and it makes the estimates of $\log(a)$ and $b$ much less correlated than with the
+reference 1 cm, which is far below most trees. For a cylinder of constant shape and wood
+density, biomass grows with $D^3$; for a cylinder of constant height with $D^2$.
+
+On logarithmic axes the power law is a straight line, $\log(\mu) = \log(a) + b\log(D/10)$.
+The manuscript fitted this line (its equation 1) and cubic polynomials of $\log(D)$ to
+$\log(\mathrm{AGB})$ with Normal errors. A line fitted to the logarithm of the biomass
+describes the median and not the mean: if $\log(Y)$ is Normal with mean $m$ and standard
+deviation $\sigma$, $Y$ is LogNormal with median $e^{m}$ and mean $e^{m + \sigma^2/2}$. The
+"correction factor" $e^{\sigma^2/2}$ of the manuscript (Clifford et al. 2013) converts the
+median into the mean. We write the LogNormal distribution with its mean $\mu$ instead
+(`meanlog = log(mu) - sdlog^2 / 2`, as in the infiltration analysis), so that the curve is
+the mean and needs no correction.
+
+## The model for the trees
+
+For tree $i$ in field $j$, with aboveground biomass $Y_{ij}$ (kg) and diameter $D_{ij}$
+(cm), the model with shade on both parameters of the power law is
+
+$$
+\begin{aligned}
+u_j &\sim \operatorname{Normal}(0, \sigma^2_{\mathrm{field}}),\\
+\log(a_j) &= \beta_{a,0} + \beta_{a,\mathrm{shade}}\,S_j + u_j,\\
+b_j &= \beta_{b,0} + \beta_{b,\mathrm{shade}}\,S_j,\\
+\mu_{ij} &= a_j\left(\frac{D_{ij}}{10}\right)^{b_j},\\
+\log(Y_{ij}) \mid u_j &\sim \operatorname{Normal}\left(\log(\mu_{ij}) - \sigma^2/2,\ \sigma^2\right),
+\end{aligned}
+$$
+
+where $S_j$ is 1 if field $j$ is shaded and 0 otherwise, $\sigma$ is the standard
+deviation of $\log(Y_{ij})$ among trees of one field with the same diameter, and the trees
+are independent for given $u_j$. The last line says that $Y_{ij}$ is LogNormal with mean
+$\mu_{ij}$. The deviation $u_j$ of a field multiplies the mean biomass of all its trees by
+$e^{u_j}$, whatever their diameter. Other candidates replace $S_j$ by other predictors, or
+let them change only $\log(a)$ (@sec-candidates).
+
+The answer is the typical mean biomass ($u_j = 0$) of shaded and of unshaded trees with
+diameters of 4 and 16 cm, and the ratio shaded/unshaded at each diameter. With $u_j = 0$,
+the curve is that of the median field; the mean over fields is $e^{\sigma^2_{\mathrm{field}}/2}$
+times higher.
+
+## Implementation
+
+One joint NLL covers every model of this document. Three choices are elements of the list
+of data:
+
+- `distribution`: `"LogNormal"`, `"Gamma"` (mean $\mu$ and shape $k$), `"Normal"` (constant
+  standard deviation) or `"NormalPower"` (standard deviation $\sigma\mu^{\delta}$, so that the
+  variance is a power of the mean);
+- `random`: the grouping of the random effect, `"field"`, `"site"` or `"none"`;
+- `degree`: 1 for the power law; 2 or 3 add the terms $c_2\log(D/10)^2$ and
+  $c_3\log(D/10)^3$ to $\log(\mu)$, the quadratic and cubic polynomials of the manuscript
+  (its equations 2 and 5).
+
+The predictors enter through the model matrices `X_a` and `X_b`. Fertilisation varies
+within NGA fields, so the matrices have one row per tree (and not one per field). Two more
+matrices, `X_a_answer` and `X_b_answer`, come from a data frame with one row per
+combination of predictor and diameter of the answer (`answer_dia`), and `ADREPORT()` gives
+the logarithm of the typical mean there (`log_mu_answer`) and, through the matrix
+`answer_contrast`, differences of these logarithms (`log_ratio`).
+
+```{r}
+#| message: false
+#| warning: false
+library(RTMB)
+library(RTMBdist)
+```
+
+```{r}
+allo_nll = function(parms, data) {
+  getAll(parms, data)
+  agb = OBS(agb)
+  nll = 0
+  # Minus the log density of the deviations of the groups, before they are used.
+  if (random != "none") {
+    nll = nll - sum(dnorm(x = u, mean = 0, sd = exp(log_sd_group), log = TRUE))
+  }
+  # Logarithm of the mean biomass of each tree.
+  log_dia = log(dia / 10)
+  log_a = X_a %*% beta_a
+  if (random != "none") {
+    log_a = log_a + u[group]
+  }
+  log_mu = log_a + (X_b %*% beta_b) * log_dia
+  # Typical mean biomass (u = 0) at the combinations of the answer.
+  log_dia_answer = log(answer_dia / 10)
+  log_mu_answer = X_a_answer %*% beta_a + (X_b_answer %*% beta_b) * log_dia_answer
+  # Polynomial terms of the manuscript's equations.
+  if (degree > 1) {
+    for (k in 2:degree) {
+      log_mu = log_mu + beta_poly[k - 1] * log_dia^k
+      log_mu_answer = log_mu_answer + beta_poly[k - 1] * log_dia_answer^k
+    }
+  }
+  ADREPORT(log_mu_answer)
+  if (nrow(answer_contrast) > 0) {
+    log_ratio = answer_contrast %*% log_mu_answer
+    ADREPORT(log_ratio)
+  }
+  mu = exp(log_mu)
+  # Minus the log density of the biomasses for given deviations.
+  if (distribution == "LogNormal") {
+    sdlog = exp(log_disp)
+    nll = nll - sum(dlnorm(x = agb, meanlog = log(mu) - sdlog^2 / 2, sdlog = sdlog,
+                           log = TRUE))
+  } else if (distribution == "Gamma") {
+    shape = exp(log_disp)
+    nll = nll - sum(dgamma(x = agb, shape = shape, scale = mu / shape, log = TRUE))
+  } else if (distribution == "Normal") {
+    nll = nll - sum(dnorm(x = agb, mean = mu, sd = exp(log_disp), log = TRUE))
+  } else {
+    nll = nll - sum(dnorm(x = agb, mean = mu, sd = exp(log_disp) * mu^power,
+                          log = TRUE))
+  }
+  nll
+}
+```
+
+`allo_setup()` builds the list of data and the starting values for a data frame of trees,
+a list of formulas (for $\log(a)$ and $b$), the three choices above and, optionally, the
+data frame and contrast matrix of the answer. The baseline starting values are
+$a = 10$ kg (a tree of 10 cm in @fig-scatter) and $b = 2$; every effect starts at zero.
+
+```{r}
+allo_setup = function(trees, formulas = list(a = ~ 1, b = ~ 1),
+                      distribution = "LogNormal", random = "field", degree = 1,
+                      answer_info = trees[1, ], answer_contrast = NULL) {
+  data = list(agb = trees$agb_kg, dia = trees$dia20_cm, distribution = distribution,
+              random = random, degree = degree,
+              X_a = model.matrix(formulas$a, data = trees),
+              X_b = model.matrix(formulas$b, data = trees),
+              X_a_answer = model.matrix(formulas$a, data = answer_info),
+              X_b_answer = model.matrix(formulas$b, data = answer_info),
+              answer_dia = answer_info$dia20_cm)
+  if (is.null(answer_contrast)) {
+    answer_contrast = matrix(0, nrow = 0, ncol = nrow(answer_info))
+  }
+  data$answer_contrast = answer_contrast
+  start = list(beta_a = c(log(10), rep(0, ncol(data$X_a) - 1)),
+               beta_b = c(2, rep(0, ncol(data$X_b) - 1)))
+  if (degree > 1) {
+    start$beta_poly = rep(0, degree - 1)
+  }
+  start$log_disp = switch(distribution, LogNormal = log(0.3), Gamma = log(10),
+                          Normal = log(5), NormalPower = log(0.3))
+  if (distribution == "NormalPower") {
+    start$power = 1
+  }
+  if (random != "none") {
+    data$group = as.numeric(droplevels(trees[[random]]))
+    start$log_sd_group = log(0.3)
+    start$u = rep(0, max(data$group))
+  }
+  list(data = data, start = start)
+}
+```
+
+`fit_allo()` processes the joint NLL, integrating out `u` when the model has a random
+effect, and minimises it. For several models of @sec-candidates the likelihood has two
+maxima, one with a small and one with a large variation among fields (@sec-two-maxima), so
+`fit_allo()` starts the standard deviation among groups at three values (0.05, 0.3 and 1),
+keeps the fit with the lowest NLL and records the difference between the highest and the
+lowest NLL that the three starts reached (`nll_gap`, zero when they agree). Chapter 8
+draws such starting values at random; three fixed values keep this document
+deterministic. With `reml = TRUE`, the fixed effects are integrated out as well (REML,
+Chapter 7).
+
+```{r}
+# Connect a likelihood to a data set.
+cmb = function(f, d) function(p) f(p, d)
+
+fit_allo = function(setup, nll = allo_nll, sd_starts = c(0.05, 0.3, 1), reml = FALSE) {
+  random = NULL
+  if (setup$data$random != "none") {
+    random = "u"
+  } else {
+    sd_starts = NA
+  }
+  if (reml) {
+    random = c(random, grep("^beta", names(setup$start), value = TRUE))
+  }
+  best = NULL
+  values = c()
+  for (s in sd_starts) {
+    start = setup$start
+    if (!is.na(s)) {
+      start$log_sd_group = log(s)
+    }
+    obj = MakeADFun(cmb(nll, setup$data), start, random = random, silent = TRUE)
+    fit = optim(par = obj$par, fn = obj$fn, gr = obj$gr, method = "BFGS")
+    values = c(values, fit$value)
+    if (is.null(best) || fit$value < best$fit$value) {
+      best = list(obj = obj, fit = fit)
+    }
+  }
+  best$nll_gap = max(values) - min(values)
+  best
+}
+```
+
+Three helpers complete the toolkit:
+
+- `aic_table()` reports, for a named list of fits, $K$, the log-likelihood, the
+  convergence code, the largest absolute gradient at the solution, `nll_gap`, the
+  standard deviation among groups, AIC and the difference from the lowest AIC;
+- `allo_answer()` gives the typical mean biomass at the combinations of the answer, and
+  `allo_ratio()` the ratios, with Wald intervals calculated on the log scale and
+  transformed back;
+- `show_table()` prints a table in the document.
+
+```{r}
+aic_table = function(fits) {
+  out = data.frame(
+    model = names(fits),
+    K = sapply(fits, function(f) length(f$fit$par)),
+    loglik = sapply(fits, function(f) -f$fit$value),
+    convergence = sapply(fits, function(f) f$fit$convergence),
+    max_gradient = sapply(fits, function(f) max(abs(f$obj$gr(f$fit$par)))),
+    nll_gap = sapply(fits, function(f) f$nll_gap),
+    sd_group = sapply(fits, function(f) {
+      if ("log_sd_group" %in% names(f$fit$par)) exp(f$fit$par[["log_sd_group"]]) else NA
+    })
+  )
+  out$aic = 2 * out$K - 2 * out$loglik
+  out$delta_aic = out$aic - min(out$aic)
+  rownames(out) = NULL
+  out
+}
+
+critical_value = qnorm(p = 0.975)
+report_rows = function(fit, name) {
+  report = summary(sdreport(fit$obj), select = "report")
+  report[rownames(report) == name, , drop = FALSE]
+}
+allo_answer = function(fit, answer_info) {
+  r = report_rows(fit, "log_mu_answer")
+  out = answer_info
+  out$agb_kg = exp(r[, "Estimate"])
+  out$lower = exp(r[, "Estimate"] - critical_value * r[, "Std. Error"])
+  out$upper = exp(r[, "Estimate"] + critical_value * r[, "Std. Error"])
+  rownames(out) = NULL
+  out
+}
+allo_ratio = function(fit, dia) {
+  r = report_rows(fit, "log_ratio")
+  data.frame(dia20_cm = dia, ratio = exp(r[, "Estimate"]),
+             lower = exp(r[, "Estimate"] - critical_value * r[, "Std. Error"]),
+             upper = exp(r[, "Estimate"] + critical_value * r[, "Std. Error"]))
+}
+
+# Print an AIC table or an answer table in the document.
+show_table = function(tab, digits = 2) {
+  for (col in intersect(c("max_gradient", "nll_gap"), names(tab))) {
+    tab[[col]] = format(signif(tab[[col]], 2))
+  }
+  knitr::kable(tab, digits = digits, row.names = FALSE)
+}
+```
+
+# Which curve, distribution and random effect? {#sec-choices}
+
+We compare, for the power law without predictors, four distributions with a random effect
+per field, the LogNormal distribution with a random effect per site and without a random
+effect, and the quadratic and cubic polynomials of $\log(D/10)$ with the LogNormal
+distribution and a random effect per field.
+
+```{r}
+choices = data.frame(
+  distribution = c("LogNormal", "Gamma", "Normal", "NormalPower", "LogNormal",
+                   "LogNormal", "LogNormal", "LogNormal"),
+  random = c("field", "field", "field", "field", "site", "none", "field", "field"),
+  degree = c(1, 1, 1, 1, 1, 1, 2, 3)
+)
+choice_fits = list()
+for (i in seq_len(nrow(choices))) {
+  setup = allo_setup(main, distribution = choices$distribution[i],
+                     random = choices$random[i], degree = choices$degree[i])
+  choice_fits[[i]] = fit_allo(setup)
+}
+names(choice_fits) = paste(choices$distribution, choices$random,
+                           c("power", "quadratic", "cubic")[choices$degree])
+choice_table = aic_table(choice_fits)
+show_table(choice_table, digits = 1)
+```
+
+```{r}
+#| echo: false
+delta_choice = setNames(choice_table$delta_aic, choice_table$model)
+aic_choice = setNames(choice_table$aic, choice_table$model)
+power_fit = choice_fits[[1]]
+power_par = power_fit$fit$par
+sigma_power = exp(power_par[["log_disp"]])
+sd_field_power = exp(power_par[["log_sd_group"]])
+power_sd = summary(sdreport(power_fit$obj), select = "fixed")
+```
+
+`r if (all(choice_table$convergence == 0)) "All eight fits converged" else "Not every fit converged (see the table)"`,
+and the three starting values of the standard deviation among groups reached the same
+maximum in every fit (`nll_gap` below
+`r if (max(choice_table$nll_gap) < 0.001) "0.001" else f2(max(choice_table$nll_gap))`). The LogNormal and Gamma distributions are
+within `r f1(abs(aic_choice[["LogNormal field power"]] - aic_choice[["Gamma field power"]]))` AIC
+units of each other, and the Normal distribution with a variance that is a power of the
+mean is as good (its power $\delta$ is estimated at
+`r f2(choice_fits[[4]]$fit$par[["power"]])`, so the standard deviation is almost
+proportional to the mean, as in the LogNormal and Gamma distributions). The Normal
+distribution with constant variance is
+`r f0(aic_choice[["Normal field power"]] - aic_choice[["LogNormal field power"]])` AIC units worse
+than the LogNormal. We use the LogNormal distribution, which is the model behind the
+log-log regressions of the allometric literature. Its standard deviation of
+$\log(Y_{ij})$ is $\sigma =$ `r f2(sigma_power)`, so the manuscript's correction factor
+would be $e^{\sigma^2/2} =$ `r f2(exp(sigma_power^2 / 2))`.
+
+A random effect per field is better than one per site
+(`r f1(aic_choice[["LogNormal site power"]] - aic_choice[["LogNormal field power"]])` AIC units) and
+than none (`r f1(aic_choice[["LogNormal none power"]] - aic_choice[["LogNormal field power"]])`
+units). The standard deviation among fields is `r f2(sd_field_power)` on the log scale:
+the mean biomass of the trees of a typical field lies within a factor of about
+`r f1(exp(2 * sd_field_power))` above or below the typical curve. Trees of one field share
+their age, planting material, management, collector and year of sampling, so they deviate
+from the curve together; a site has fields of different ages and its random effect cannot
+describe that. With only four levels, a random effect per site would also be poorly
+estimated.
+
+The quadratic and cubic polynomials improve the log-likelihood by
+`r f1(choice_table$loglik[7] - choice_table$loglik[1])` and
+`r f1(choice_table$loglik[8] - choice_table$loglik[1])` units for one and two parameters
+more, and their AIC is within `r f1(max(abs(choice_table$aic[7:8] - choice_table$aic[1])))`
+units of that of the power law. On these `r nrow(main)` trees, the data give no clear
+reason to bend the straight line on logarithmic axes. The estimates of the power law:
+
+```{r}
+round(power_sd, 3)
+```
+
+The exponent is `r f2(power_par[["beta_b"]])` (standard error
+`r f2(power_sd["beta_b", "Std. Error"])`), and a tree of 10 cm has a typical mean biomass
+of `r f1(exp(power_par[["beta_a"]]))` kg.
+
+::: {.callout-warning title="Pitfall: a Normal distribution with constant variance"}
+The biomass of the trees ranges from `r min(main$agb_kg)` to `r max(main$agb_kg)` kg, and
+the spread among trees of similar diameter grows with their size (@fig-scatter). A Normal
+distribution with constant variance gives the large trees almost all the weight and
+treats a deviation of 1 kg in a tree of 0.2 kg like one in a tree of 80 kg. The
+manuscript avoids this by fitting the logarithm of the biomass; a non-linear model fitted
+on the original scale must choose a distribution whose variance grows with the mean.
+:::
+
+::: {.callout-tip title="Alternative: nested random effects (beyond Chapter 7)"}
+Fields are nested in sites, so a model could have a deviation $v_s$ per site and a
+deviation $u_j$ per field. A short NLL with both:
+
+```{r}
+allo_nll_2re = function(parms, data) {
+  getAll(parms, data)
+  agb = OBS(agb)
+  nll = -sum(dnorm(x = u, mean = 0, sd = exp(log_sd_group), log = TRUE))
+  nll = nll - sum(dnorm(x = v, mean = 0, sd = exp(log_sd_site), log = TRUE))
+  mu = exp(beta_a + u[group] + v[site_index] + beta_b * log(dia / 10))
+  sdlog = exp(log_disp)
+  nll - sum(dlnorm(x = agb, meanlog = log(mu) - sdlog^2 / 2, sdlog = sdlog, log = TRUE))
+}
+setup_2re = allo_setup(main)
+setup_2re$data$site_index = as.numeric(main$site)
+setup_2re$start$log_sd_site = log(0.3)
+setup_2re$start$v = rep(0, nlevels(main$site))
+obj_2re = MakeADFun(cmb(allo_nll_2re, setup_2re$data), setup_2re$start,
+                    random = c("u", "v"), silent = TRUE)
+fit_2re = optim(par = obj_2re$par, fn = obj_2re$fn, gr = obj_2re$gr, method = "BFGS")
+c(convergence = fit_2re$convergence,
+  delta_aic = (2 * length(fit_2re$par) + 2 * fit_2re$value) - aic_choice[[1]],
+  exp(fit_2re$par[c("log_sd_group", "log_sd_site")]))
+```
+
+The second random effect does not improve AIC (the difference is
+`r f2((2 * length(fit_2re$par) + 2 * fit_2re$value) - aic_choice[[1]])` units): the
+variation is split between sites (standard deviation
+`r f2(exp(fit_2re$par[["log_sd_site"]]))`) and fields within sites
+(`r f2(exp(fit_2re$par[["log_sd_group"]]))`), and four sites cannot tell the two apart
+well.
+:::
+
+## The cubic polynomial of the manuscript {#sec-cubic}
+
+The manuscript selected its equation 5, a cubic polynomial of $\log(D)$, as the best
+base equation, with a large lead over the power law (its Table 5). On the
+`r nrow(main)` trees of the main data set, the cubic is no better than the power law. On
+the `r nrow(allo) - 1` trees of the manuscript (with D4 and D5):
+
+```{r}
+manuscript_trees = droplevels(allo[allo$tree != "F9", ])
+cubic_compare = list(
+  power = fit_allo(allo_setup(manuscript_trees)),
+  quadratic = fit_allo(allo_setup(manuscript_trees, degree = 2)),
+  cubic = fit_allo(allo_setup(manuscript_trees, degree = 3))
+)
+cubic_table = aic_table(cubic_compare)
+show_table(cubic_table, digits = 1)
+```
+
+Now the cubic is `r f1(cubic_table$aic[1] - cubic_table$aic[3])` AIC units better than the
+power law: the curvature comes from the two small trees D4 and D5, which are much heavier
+than the line through the other small trees predicts. The slope of the cubic on
+logarithmic axes, $b + 2c_2\log(D/10) + 3c_3\log(D/10)^2$, is zero where the curve turns:
+
+```{r}
+cubic_par = cubic_compare$cubic$fit$par
+cubic_b = cubic_par[["beta_b"]]
+cubic_poly = cubic_par[names(cubic_par) == "beta_poly"]
+# Roots of the slope, a quadratic polynomial of log(D / 10).
+turning_log = Re(polyroot(c(cubic_b, 2 * cubic_poly[1], 3 * cubic_poly[2])))
+turning_dia = sort(10 * exp(turning_log))
+turning_dia
+range(manuscript_trees$dia20_cm)
+```
+
+```{r}
+#| echo: false
+main_cubic = choice_fits[[8]]$fit$par
+main_turning = sort(10 * exp(Re(polyroot(c(main_cubic[["beta_b"]],
+  2 * main_cubic[names(main_cubic) == "beta_poly"][1],
+  3 * main_cubic[names(main_cubic) == "beta_poly"][2])))))
+```
+
+The fitted cubic has a minimum at `r f1(turning_dia[1])` cm, inside the range of the
+data (below it the biomass rises as the diameter falls, to pass through D4 and D5), and a
+maximum at `r f1(turning_dia[2])` cm, just above the largest tree: beyond it, thicker trees
+would have less biomass. On the main data set the turning points lie at
+`r f1(main_turning[1])` and `r f1(main_turning[2])` cm, outside the data.
+
+@fig-cubic shows both fits.
+
+```{r}
+#| label: fig-cubic
+#| fig-cap: "The cubic polynomial of log(D/10) (solid) and the power law (dashed), typical
+#|   curves (u = 0) fitted to the 61 trees of the manuscript, on logarithmic axes (left)
+#|   and on the original scale up to 45 cm (right). D4 and D5 are the two open circles
+#|   at the lower left."
+#| fig-width: 8
+#| fig-height: 4
+typical_curve = function(par, dia) {
+  log_dia = log(dia / 10)
+  out = par[["beta_a"]] + par[["beta_b"]] * log_dia
+  poly = par[names(par) == "beta_poly"]
+  for (k in seq_along(poly)) {
+    out = out + poly[k] * log_dia^(k + 1)
+  }
+  exp(out)
+}
+dia_grid = exp(seq(from = log(0.5), to = log(45), length.out = 200))
+power_61 = cubic_compare$power$fit$par
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(1, 2), mar = c(4, 4, 1, 1))
+plot(agb_kg ~ dia20_cm, data = manuscript_trees, log = "xy",
+     pch = ifelse(manuscript_trees$tree %in% c("D4", "D5"), 1, 19), col = "grey40",
+     xlab = "Stem diameter at 20 cm (cm)", ylab = "Aboveground biomass (kg)")
+lines(dia_grid, typical_curve(cubic_par, dia_grid), lwd = 2)
+lines(dia_grid, typical_curve(power_61, dia_grid), lty = 2, lwd = 2)
+plot(agb_kg ~ dia20_cm, data = manuscript_trees, xlim = c(0, 45), ylim = c(0, 140),
+     pch = 19, col = "grey40",
+     xlab = "Stem diameter at 20 cm (cm)", ylab = "Aboveground biomass (kg)")
+lines(dia_grid, typical_curve(cubic_par, dia_grid), lwd = 2)
+lines(dia_grid, typical_curve(power_61, dia_grid), lty = 2, lwd = 2)
+par(old_par)
+```
+
+::: {.callout-warning title="Pitfall: a cubic polynomial on logarithmic axes"}
+A polynomial of $\log(D)$ is flexible but not monotonic: it can make biomass fall as the
+diameter grows, which no tree does. In the manuscript's Figure 3, the base model turns (according to its text) at
+about 35 cm, and the curves for high planting density (with and without shade) reach a
+maximum at about 25 cm and then fall, inside the range of the data. The curvature that
+the cubic captures comes from a few records (D4 and D5 here), and the extra parameters
+describe them rather than the trees in general. A power law cannot turn; if the data
+called for a bend, a monotonic curve with a bend (a power law whose exponent changes
+smoothly, or a saturating function) would be the non-linear alternative (Picard et al.
+2015 discuss alternatives to the power law).
+:::
+
+# Does management change the allometry? {#sec-candidates}
+
+With the LogNormal distribution and a random effect per field, the candidates differ in
+the predictors of $\log(a)$ and $b$:
+
+- `none`: one power law for all trees;
+- `shade`, `density`, `irrigation`, `fertilisation`: the predictor changes $\log(a)$ only
+  (curves parallel on logarithmic axes);
+- `shade_b`, `density_b`, `irrigation_b`: the predictor changes $\log(a)$ and $b$;
+- `shade_density_b`: shade and density both change $\log(a)$ and $b$ (the closest to the
+  manuscript's final model);
+- `site`, `site_b`: the site changes $\log(a)$, or $\log(a)$ and $b$;
+- `site_fert`: as `site_b`, with fertilisation on $\log(a)$; given the site, its effect is
+  the contrast within the NGA fields;
+- `site_shade_density`: as `site_b`, with shade and density on $\log(a)$; given the site,
+  their effects come from the contrasts within CIV1 and ECU.
+
+The manuscript's interaction between density and the cross-sectional area of the stem
+(proportional to $D^2$) lets the effect of density change with the size of the tree, which
+is what density on $b$ does here.
+
+```{r}
+candidates = list(
+  none = list(a = ~ 1, b = ~ 1),
+  shade = list(a = ~ shade, b = ~ 1),
+  density = list(a = ~ density_100, b = ~ 1),
+  irrigation = list(a = ~ irrigation, b = ~ 1),
+  fertilisation = list(a = ~ fertilisation, b = ~ 1),
+  shade_b = list(a = ~ shade, b = ~ shade),
+  density_b = list(a = ~ density_100, b = ~ density_100),
+  irrigation_b = list(a = ~ irrigation, b = ~ irrigation),
+  shade_density_b = list(a = ~ shade + density_100, b = ~ shade + density_100),
+  site = list(a = ~ site, b = ~ 1),
+  site_b = list(a = ~ site, b = ~ site),
+  site_fert = list(a = ~ site + fertilisation, b = ~ site),
+  site_shade_density = list(a = ~ site + shade + density_100, b = ~ site)
+)
+fit_candidates = function(trees, candidates) {
+  fits = list()
+  for (m in names(candidates)) {
+    fits[[m]] = fit_allo(allo_setup(trees, formulas = candidates[[m]]))
+  }
+  fits
+}
+candidate_fits = fit_candidates(main, candidates)
+candidate_table = aic_table(candidate_fits)
+show_table(candidate_table, digits = 1)
+```
+
+```{r}
+#| echo: false
+delta_cand = setNames(candidate_table$delta_aic, candidate_table$model)
+aic_cand = setNames(candidate_table$aic, candidate_table$model)
+gap_cand = setNames(candidate_table$nll_gap, candidate_table$model)
+sd_cand = setNames(candidate_table$sd_group, candidate_table$model)
+best_mgmt = c("shade_b", "density_b", "shade_density_b")[
+  which.min(aic_cand[c("shade_b", "density_b", "shade_density_b")])]
+```
+
+`r if (all(candidate_table$convergence == 0)) "All fits converged" else "Not every fit converged (see the table)"`
+(largest absolute gradient `r f2(max(candidate_table$max_gradient))`). A management
+variable on $\log(a)$ alone helps little: density lowers AIC by
+`r f1(aic_cand[["none"]] - aic_cand[["density"]])` units and irrigation by
+`r f1(aic_cand[["none"]] - aic_cand[["irrigation"]])`, while shade and fertilisation change
+it by `r f1(aic_cand[["shade"]] - aic_cand[["none"]])` and
+`r f1(aic_cand[["fertilisation"]] - aic_cand[["none"]])` units. On both parameters, shade and
+density help a lot (`shade_b` is `r f1(aic_cand[["none"]] - aic_cand[["shade_b"]])` and
+`density_b` `r f1(aic_cand[["none"]] - aic_cand[["density_b"]])` units better than `none`),
+irrigation does not. But the site on both parameters (`site_b`) is better still:
+`r f1(aic_cand[[best_mgmt]] - aic_cand[["site_b"]])` units better than the best model
+with management only (`r best_mgmt`). Adding fertilisation to `site_b` changes AIC by
+`r f1(aic_cand[["site_fert"]] - aic_cand[["site_b"]])` units, and shade with density
+by `r f1(aic_cand[["site_shade_density"]] - aic_cand[["site_b"]])`.
+
+The effects of management given the site, from the within-site contrasts, on the log scale
+of $a$:
+
+```{r}
+within_site = rbind(
+  fertilisation = summary(sdreport(candidate_fits$site_fert$obj),
+                          select = "fixed")[5, ],
+  shade = summary(sdreport(candidate_fits$site_shade_density$obj),
+                  select = "fixed")[5, ],
+  density_100 = summary(sdreport(candidate_fits$site_shade_density$obj),
+                        select = "fixed")[6, ]
+)
+round(within_site, 3)
+```
+
+Fertilisation within NGA multiplies the mean biomass by
+`r f2(exp(within_site["fertilisation", 1]))` (95% Wald interval
+`r f2(exp(within_site["fertilisation", 1] - critical_value * within_site["fertilisation", 2]))`
+to
+`r f2(exp(within_site["fertilisation", 1] + critical_value * within_site["fertilisation", 2]))`):
+no effect is detectable. The shade effect within CIV1 rests on one field of 3 trees and
+has a standard error (`r f2(within_site["shade", 2])`) larger than the effect
+(`r f2(within_site["shade", 1])`). The density effect within ECU
+(`r f2(within_site["density_100", 1])` per 100 trees/ha, standard error
+`r f2(within_site["density_100", 2])`) rests on one field with fewer trees per hectare that
+is also the oldest, and it has the sign opposite to the manuscript's (here less biomass at
+higher density). These are the only estimates of management in these data that are not
+differences between sites, and none of them can be separated from age or from a single
+field.
+
+::: {.callout-warning title="Pitfall: the site explains more than any management variable"}
+Each management variable on $\log(a)$ and $b$ splits the 12 fields into two or three
+groups of sites. The site on both parameters fits better than any such split, so the data
+prefer differences among sites that no management variable describes. When a management
+variable improves the fit over `none`, the improvement is evidence that sites differ, not
+that the variable is the reason. The manuscript compared models with and without
+management, but never with the site (`dataset`) as a fixed effect, which was its random
+effect; with four levels the variance among sites is poorly estimated, and the fixed
+management effects take over the differences among sites.
+:::
+
+## Two maxima of the likelihood {#sec-two-maxima}
+
+For several candidates the three starting values reach different maxima (`nll_gap` above
+0.05 in the table): `r paste0("\x60", names(gap_cand)[gap_cand > 0.05], "\x60", collapse = ", ")`.
+Gaps of about 0.01 are fits that stop at slightly different points near a standard
+deviation of zero, where the likelihood is flat. The two fits of `shade_b` from a small
+and from a large starting value:
+
+```{r}
+shade_setup = allo_setup(main, formulas = candidates$shade_b)
+shade_small = fit_allo(shade_setup, sd_starts = 0.05)
+shade_large = fit_allo(shade_setup, sd_starts = 1)
+shade_modes = rbind(small = c(shade_small$fit$par, nll = shade_small$fit$value),
+                    large = c(shade_large$fit$par, nll = shade_large$fit$value))
+colnames(shade_modes) = c("log_a", "log_a_shade", "b", "b_shade", "log_sigma",
+                          "log_sd_field", "nll")
+round(shade_modes, 3)
+```
+
+With a small standard deviation among fields (`r f2(exp(shade_modes["small", "log_sd_field"]))`),
+the exponents come from the whole range of diameters, across fields: about
+`r f1(shade_modes["small", "b"])` for unshaded and
+`r f1(shade_modes["small", "b"] + shade_modes["small", "b_shade"])` for shaded trees. With a
+large one (`r f2(exp(shade_modes["large", "log_sd_field"]))`), each field gets its own
+level, and the exponents describe mostly how biomass changes with diameter **within** a
+field: `r f1(shade_modes["large", "b"])` for unshaded and
+`r f1(shade_modes["large", "b"] + shade_modes["large", "b_shade"])` for shaded trees. The
+second fit is better by `r f2(shade_modes["small", "nll"] - shade_modes["large", "nll"])`
+log-likelihood units. The slopes of $\log(\mathrm{AGB})$ on $\log(D)$ within each field
+(least squares, only to describe the data):
+
+```{r}
+within_slope = rep(NA, nlevels(main$field))
+names(within_slope) = levels(main$field)
+for (f in levels(main$field)) {
+  trees_f = main[main$field == f, ]
+  within_slope[f] = coef(lm(log(agb_kg) ~ log(dia20_cm), data = trees_f))[2]
+}
+round(within_slope, 2)
+```
+
+Within the CIV1 and ECU fields (unshaded, except CIV1_19), the biomass changes little with
+the diameter (slopes from `r f2(min(within_slope[grepl("CIV1|ECU", names(within_slope))]))`
+to `r f2(max(within_slope[grepl("CIV1|ECU", names(within_slope))]))`); within the CIV2
+fields and the NGA fields of 12 and 47 years it changes with an exponent of about 2.5 to
+3.
+The fields have 3 to 9 trees and narrow ranges of diameter, so these slopes are noisy, and
+an error in a diameter (D10, D14) flattens them; the ECU trees are also hedged at about
+3 m, which may cap their biomass. Across fields, older fields have both thicker and much
+heavier trees.
+
+::: {.callout-warning title="Pitfall: a random effect on the level changes the meaning of the exponent"}
+When the predictor varies mostly between groups (here the diameter between fields of
+different ages), a random effect per group on the level lets the model explain the
+differences between groups by the group effects, and the exponent then describes the
+relation within groups. Whether it does depends on the estimated variance among groups,
+and the likelihood can have one maximum for each interpretation. `optim()` reports
+convergence at both, so the only signs are different results from different starting
+values (Chapter 8) and a standard deviation among fields that jumps between candidates
+(`sd_group` in the table). The estimates of the management effects depend on which
+maximum is found.
+:::
+
+## Exponents within and between fields {#sec-field-mean}
+
+The field mean of $\log(D/10)$, $\overline{L}_j$, as a predictor of $\log(a)$ separates the
+two relations: $\log(\mu_{ij}) = \beta_{a,0} + \gamma\,\overline{L}_j + u_j + b\log(D_{ij}/10)$,
+so $b$ is the exponent within fields and $b + \gamma$ the exponent between fields (for
+trees typical of their field). It is a predictor of the field built with the model
+matrix, so `allo_nll()` needs no change:
+
+```{r}
+add_field_mean = function(trees) {
+  trees$log_dia_field = ave(log(trees$dia20_cm / 10), trees$field)
+  trees
+}
+main = add_field_mean(main)
+candidates_fm = list()
+for (m in names(candidates)) {
+  candidates_fm[[m]] = list(a = update(candidates[[m]]$a, ~ . + log_dia_field),
+                            b = candidates[[m]]$b)
+}
+fm_fits = fit_candidates(main, candidates_fm)
+fm_table = aic_table(fm_fits)
+show_table(fm_table[, c("model", "K", "loglik", "convergence", "nll_gap", "sd_group",
+                        "aic", "delta_aic")], digits = 1)
+fm_none = summary(sdreport(fm_fits$none$obj), select = "fixed")
+round(fm_none, 3)
+```
+
+```{r}
+#| echo: false
+aic_fm = setNames(fm_table$aic, fm_table$model)
+best_mgmt_fm = c("shade_b", "density_b", "shade_density_b")[
+  which.min(aic_fm[c("shade_b", "density_b", "shade_density_b")])]
+```
+
+The field mean improves `none` by `r f1(aic_cand[["none"]] - aic_fm[["none"]])` AIC units
+and `site_b` by `r f1(aic_cand[["site_b"]] - aic_fm[["site_b"]])`, and every candidate
+now has a single maximum (`nll_gap` below
+`r if (max(fm_table$nll_gap) < 0.001) "0.001" else f2(max(fm_table$nll_gap))`). Without
+predictors, the exponent within fields is `r f2(fm_none["beta_b", 1])` and between fields
+`r f2(fm_none["beta_b", 1] + fm_none[2, 1])`. The ranking of the candidates does not
+change: `site_b` is `r f1(aic_fm[[best_mgmt_fm]] - aic_fm[["site_b"]])` AIC units better
+than the best model with management only (`r best_mgmt_fm`). The term is a property of
+the sample of trees in a field, so a prediction for a new tree needs the mean diameter of
+its field; it is also close to a proxy for age. Whether the allometry of interest is the
+relation within a stand or the relation along the development of stands is a question for
+the author (and for the case study), and it changes the exponent more than any
+management variable does.
+
+# The answer: shaded and unshaded trees {#sec-answer}
+
+The diameters of the answer must lie inside the data of both groups:
+
+```{r}
+tapply(main$dia20_cm, main$shade, range)
+sort(main$dia20_cm[main$shade == "yes"])
+```
+
+The shaded trees cover `r min(main$dia20_cm[main$shade == "yes"])` to
+`r max(main$dia20_cm[main$shade == "yes"])` cm, but with no tree between
+`r max(main$dia20_cm[main$shade == "yes" & main$dia20_cm < 12])` and
+`r min(main$dia20_cm[main$shade == "yes" & main$dia20_cm > 12])` cm: the small shaded trees
+are all from CIV2 and the large ones from NGA and CIV1_19. We use 4 cm (inside the CIV2
+trees and the youngest CIV1 and ECU trees) and 16 cm (inside the NGA, CIV1 and ECU_11
+trees).
+
+```{r}
+answer_dia = c(4, 16)
+shade_info = expand.grid(shade = factor(c("no", "yes"), levels = c("no", "yes")),
+                         dia20_cm = answer_dia)
+# Log ratio shaded/unshaded at each diameter.
+shade_contrast = rbind(c(-1, 1, 0, 0), c(0, 0, -1, 1))
+shade_info
+shade_answer_setup = allo_setup(main, formulas = candidates$shade_b,
+                                answer_info = shade_info,
+                                answer_contrast = shade_contrast)
+shade_fit = fit_allo(shade_answer_setup)
+c(convergence = shade_fit$fit$convergence, nll_gap = shade_fit$nll_gap,
+  sd_field = exp(shade_fit$fit$par[["log_sd_group"]]))
+shade_answer = allo_answer(shade_fit, shade_info)
+shade_ratio = allo_ratio(shade_fit, answer_dia)
+show_table(shade_answer)
+show_table(shade_ratio)
+```
+
+```{r}
+#| echo: false
+ans_txt = function(tab, r) {
+  paste0(f1(tab$agb_kg[r]), " kg (", f1(tab$lower[r]), " to ", f1(tab$upper[r]), ")")
+}
+ratio_txt = function(tab, r) {
+  paste0(f2(tab$ratio[r]), " (", f2(tab$lower[r]), " to ", f2(tab$upper[r]), ")")
+}
+```
+
+Under `shade_b` (at its better maximum), a typical unshaded tree of 4 cm has a mean
+biomass of `r ans_txt(shade_answer, 1)` and a shaded one `r ans_txt(shade_answer, 2)`; at
+16 cm the values are `r ans_txt(shade_answer, 3)` and `r ans_txt(shade_answer, 4)`. The
+ratio shaded/unshaded is `r ratio_txt(shade_ratio, 1)` at 4 cm and
+`r ratio_txt(shade_ratio, 2)` at 16 cm. Taken at face value, shaded trees are lighter
+than unshaded ones at 4 cm and heavier at 16 cm, although the interval at 16 cm includes
+1.
+
+This fit lies at the maximum with a large variation among fields (standard deviation
+`r f2(exp(shade_fit$fit$par[["log_sd_group"]]))`, @sec-two-maxima), where the exponent of
+the unshaded trees, `r f2(shade_fit$fit$par[3])`, is mostly the slope within the CIV1 and
+ECU fields. Its typical unshaded curve is the curve of a median field with that slope, and
+the deviations of the fields (a factor of
+`r f1(exp(exp(shade_fit$fit$par[["log_sd_group"]])))` for one standard deviation) carry
+the rest, so the curve says little about how biomass grows from small to large unshaded
+trees. @sec-sensitivity gives the ratios with the field mean of $\log(D/10)$ as a
+predictor (@sec-field-mean), which separates the two slopes.
+
+The same quantities per site, under `site_b`:
+
+```{r}
+site_info = expand.grid(site = factor(levels(main$site), levels = levels(main$site)),
+                        dia20_cm = answer_dia)
+site_fit = fit_allo(allo_setup(main, formulas = candidates$site_b,
+                               answer_info = site_info))
+c(convergence = site_fit$fit$convergence, nll_gap = site_fit$nll_gap,
+  sd_field = exp(site_fit$fit$par[["log_sd_group"]]))
+site_answer = allo_answer(site_fit, site_info)
+# Is the diameter inside the range of the trees of the site?
+site_min = tapply(main$dia20_cm, main$site, min)
+site_max = tapply(main$dia20_cm, main$site, max)
+site_answer$inside = site_answer$dia20_cm >= site_min[as.character(site_answer$site)] &
+  site_answer$dia20_cm <= site_max[as.character(site_answer$site)]
+site_answer$shade = c(CIV1 = "no (CIV1_19 yes)", CIV2 = "yes", ECU = "no",
+                      NGA = "yes")[as.character(site_answer$site)]
+show_table(site_answer[site_answer$inside, ])
+site_b_par = site_fit$fit$par[names(site_fit$fit$par) == "beta_b"]
+site_exponents = site_b_par[1] + c(0, site_b_par[-1])
+names(site_exponents) = levels(main$site)
+round(site_exponents, 2)
+```
+
+```{r}
+#| echo: false
+sa = site_answer
+sa_row = function(s, d) which(sa$site == s & sa$dia20_cm == d)
+```
+
+At 4 cm, only CIV1, CIV2 and ECU have trees around this diameter (NGA has none below
+`r min(main$dia20_cm[main$site == "NGA"])` cm), and at 16 cm only CIV1, ECU and NGA (CIV2
+has none above `r max(main$dia20_cm[main$site == "CIV2"])` cm). The "shade effect" at 4 cm
+is therefore the difference between CIV2 (`r ans_txt(sa, sa_row("CIV2", 4))`) and CIV1
+and ECU (`r ans_txt(sa, sa_row("CIV1", 4))` and `r ans_txt(sa, sa_row("ECU", 4))`), and
+at 16 cm the difference between NGA (`r ans_txt(sa, sa_row("NGA", 16))`) and CIV1 and ECU
+(`r ans_txt(sa, sa_row("CIV1", 16))` and `r ans_txt(sa, sa_row("ECU", 16))`). The
+exponents of the sites under `site_b` range from `r f2(min(site_exponents))` to
+`r f2(max(site_exponents))`; at this maximum of `site_b` the standard deviation among
+fields is `r signif(exp(site_fit$fit$par[["log_sd_group"]]), 2)`, so the exponents are
+those across fields.
+
+**The answer, honestly.** The relation between diameter and biomass differs among sites,
+and among fields within sites. Shaded and unshaded trees differ in these data, but the
+shaded trees are the trees of CIV2 and NGA, and the difference is a difference between
+sites; the data cannot attribute it to shade, density, irrigation or fertilisation rather
+than to country, planting material, climate, age structure or collector. The only
+contrasts within sites show no detectable effect of management (@sec-candidates).
+
+## Figure 3 of the manuscript, redrawn {#sec-figure3}
+
+@fig-answer shows the data with the typical curves of `shade_b` and of `site_b`, each
+drawn only over the range of diameters of its group.
+
+```{r}
+#| label: fig-answer
+#| fig-cap: "Aboveground biomass against stem diameter with typical curves (u = 0), each
+#|   over the diameter range of its group: shaded (solid) and unshaded (dashed) trees
+#|   under shade_b (top), and the four sites under site_b (bottom), on the original scale
+#|   (left) and on logarithmic axes (right). Colours mark the sites, filled symbols the
+#|   shaded trees."
+#| fig-width: 8
+#| fig-height: 7.5
+curve_from_fit = function(fit, setup_formulas, info) {
+  # Typical mean biomass for the rows of info (one row per diameter).
+  par = fit$fit$par
+  X_a = model.matrix(setup_formulas$a, data = info)
+  X_b = model.matrix(setup_formulas$b, data = info)
+  exp(X_a %*% par[names(par) == "beta_a"] +
+        (X_b %*% par[names(par) == "beta_b"]) * log(info$dia20_cm / 10))
+}
+draw_panel = function(log_axes, groups, group_var, formulas, fit, ltys, cols) {
+  plot(agb_kg ~ dia20_cm, data = main, log = if (log_axes) "xy" else "",
+       col = site_colours[as.character(main$site)],
+       pch = shade_symbols[as.character(main$shade)],
+       xlab = "Stem diameter at 20 cm (cm)", ylab = "Aboveground biomass (kg)")
+  for (g in seq_along(groups)) {
+    in_group = main[[group_var]] == groups[g]
+    dia = exp(seq(from = log(min(main$dia20_cm[in_group])),
+                  to = log(max(main$dia20_cm[in_group])), length.out = 100))
+    info = data.frame(dia20_cm = dia)
+    info[[group_var]] = factor(groups[g], levels = levels(main[[group_var]]))
+    lines(dia, curve_from_fit(fit, formulas, info), lty = ltys[g], col = cols[g],
+          lwd = 2)
+  }
+}
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(2, 2), mar = c(4, 4, 1, 1))
+for (log_axes in c(FALSE, TRUE)) {
+  draw_panel(log_axes, c("no", "yes"), "shade", candidates$shade_b, shade_fit,
+             ltys = c(2, 1), cols = c("black", "black"))
+}
+legend("topleft", legend = c("unshaded", "shaded"), lty = c(2, 1), lwd = 2, bty = "n")
+for (log_axes in c(FALSE, TRUE)) {
+  draw_panel(log_axes, levels(main$site), "site", candidates$site_b, site_fit,
+             ltys = rep(1, 4), cols = site_colours)
+}
+legend("topleft", legend = names(site_colours), col = site_colours, lty = 1, lwd = 2,
+       bty = "n")
+par(old_par)
+```
+
+The typical curve of the unshaded trees is much flatter than the unshaded trees
+themselves: it lies above the smallest and far below the largest unshaded trees, because
+at this maximum of `shade_b` it is the curve of a median field with the slope within
+fields (@sec-two-maxima). The curve of the shaded trees passes through the CIV2 trees and
+then the NGA trees, and bridges the gap between them, where there are no shaded trees.
+The site curves cover different ranges of diameter and overlap only in part: at 4 cm the
+ECU curve lies highest and the CIV2 curve lowest, at 16 cm the CIV1 curve lies above the
+NGA and ECU curves (the table above), and the ECU curve is the flattest. The shade curves
+join pieces of different site curves.
+
+::: {.callout-warning title="Pitfall: predictions outside the data"}
+Figure 3 of the manuscript draws curves for "low (1000 trees/ha) and high (1400
+trees/ha)" planting densities with and without shade, from 0 to 32 cm. In the data,
+shaded fields have 1,100, 1,111 or 1,333 trees/ha and unshaded fields 1,130, 1,333 or
+1,500; no field has 1,000 or 1,400 trees/ha, and shaded trees at a high density do not
+exist. Shaded trees between about 9 and 15 cm do not exist either. A model with
+management predictors predicts for combinations of predictors and diameters, and both
+must lie inside the data: the predictor space, not only the range of diameters, limits
+what the model can say. Curves drawn only over the data of each group, as in
+@fig-answer of this document, show this directly.
+:::
+
+::: {.callout-note title="For the author: the manuscript's scaled equation"}
+The curves of the manuscript's Figure 3 cannot be reproduced reliably from its published
+equation: the table of scaling constants of Supplement 2 labels its columns $\ln(\mathrm{CSA})$,
+$\ln(\mathrm{dia20})$ and $\ln(\text{planting density})$, but the means 174.64 and
+1209.66 are on the original scale; its formula for the cross-sectional area
+($\mathrm{dia20}/2\times\pi$) is not an area; and the equation writes $\ln(\mathrm{dia}^2)$
+and $\ln(\mathrm{dia}^3)$ for $(\ln \mathrm{dia})^2$ and $(\ln \mathrm{dia})^3$. This
+document therefore does not redraw the manuscript's curves.
+:::
+
+# Checking the model {#sec-checks}
+
+## Scaled quantile residuals {#sec-residuals}
+
+We simulate 1,000 hypothetical samples from `shade_b` (new deviations of the fields, then
+new biomasses) and compare each tree with the typical curve of its group.
+
+```{r}
+n_sim = 1000
+shade_obj = shade_fit$obj
+shade_par = shade_fit$fit$par
+allo_simulations = matrix(NA, nrow = nrow(main), ncol = n_sim)
+set.seed(seed = 2026)
+for (s in seq_len(n_sim)) {
+  allo_simulations[, s] = shade_obj$simulate(shade_par)$agb
+}
+shade_expected = as.vector(curve_from_fit(shade_fit, candidates$shade_b, main))
+
+allo_residuals = DHARMa::createDHARMa(
+  simulatedResponse = allo_simulations,
+  observedResponse = main$agb_kg,
+  fittedPredictedResponse = shade_expected
+)
+```
+
+`obj$simulate()` works with `dlnorm()` of RTMB, so no simulation by hand is needed.
+
+```{r}
+#| label: fig-dharma
+#| fig-cap: "Scaled quantile residuals of shade_b, one per tree: quantile-quantile plot
+#|   (left) and residuals against the (rank-transformed) typical mean (right)."
+#| fig-width: 9
+#| fig-height: 5
+plot(allo_residuals)
+```
+
+```{r}
+#| label: fig-dharma-site
+#| fig-cap: "Scaled quantile residuals of shade_b, one per tree, against the site (left),
+#|   and one per field (right) against the site of the field."
+#| fig-width: 7.5
+#| fig-height: 3.6
+field_index = as.numeric(main$field)
+field_residuals = DHARMa::recalculateResiduals(allo_residuals, group = field_index)
+field_site = factor(tapply(as.character(main$site), main$field, unique))
+old_par = par(no.readonly = TRUE)
+par(mfrow = c(1, 2))
+DHARMa::plotResiduals(allo_residuals, form = main$site)
+DHARMa::plotResiduals(field_residuals, form = field_site)
+par(old_par)
+field_scaled = residuals(field_residuals)
+names(field_scaled) = levels(main$field)
+round(sort(field_scaled), 3)
+```
+
+The quantile-quantile plot follows the line: the LogNormal distribution with a random
+effect per field describes the spread of the trees. Against the typical mean, the
+residuals are low for the smallest predictions and high in the middle (DHARMa draws its
+quantile curves in red): the flat typical curve of the unshaded trees lies above the
+small and below the large unshaded trees (@fig-answer), and the deviations of the fields,
+which the simulations draw anew, cannot follow the diameter. Against the site, the
+residuals of the trees differ: the box of CIV2 lies below 0.5 and that of NGA (both
+shaded) above, which is the difference between sites that the shade effect cannot absorb;
+the CIV1 residuals spread over almost the whole range.
+The residuals per field add up the trees of each field, and with 12 fields of 3 to 9 trees
+they are rough. As in Chapter 6, the p-values that DHARMa prints on its plots are not used
+for decisions: they test exact agreement, not whether the disagreement matters for the
+question.
+
+## The standard deviation among fields {#sec-profile}
+
+The standard deviation among fields of the power law without predictors (@sec-choices),
+with a likelihood profile interval calculated on the log scale and transformed back:
+
+```{r}
+power_profile_sd = TMB::tmbprofile(power_fit$obj, name = "log_sd_group", trace = FALSE)
+sd_field_ci = exp(c(estimate = power_par[["log_sd_group"]],
+                    confint(power_profile_sd)[1, ]))
+sd_field_ci
+```
+
+```{r}
+#| label: fig-profile
+#| fig-cap: "Likelihood profile of the logarithm of the standard deviation among fields
+#|   (power law without predictors), on the relative log-likelihood scale. The dashed line
+#|   marks the cutoff of 1.92."
+#| fig-width: 5
+#| fig-height: 3.5
+plot(power_profile_sd$log_sd_group, -(power_profile_sd$value - power_fit$fit$value),
+     type = "l", xlab = "log(standard deviation among fields)",
+     ylab = "Relative log-likelihood")
+abline(h = -1.92, lty = 2)
+```
+
+The standard deviation among fields is `r f2(sd_field_ci[1])` (profile interval
+`r f2(sd_field_ci[2])` to `r f2(sd_field_ci[3])`) on the log scale of the biomass, against
+`r f2(sigma_power)` among trees within a field. With 12 fields, the interval spans a
+factor of about `r f0(sd_field_ci[3] / sd_field_ci[2])`. For `shade_b` and `site_b` a
+profile of the same parameter is not useful: their likelihoods have two maxima in this
+parameter (@sec-two-maxima), and one of them lies near zero, at the boundary.
+
+The maximum likelihood estimate of a variance among few groups is biased downwards
+(Chapter 7). REML integrates out the fixed effects as well:
+
+```{r}
+reml_models = c("none", "shade_b", "site_b")
+reml_sd = matrix(NA, nrow = 3, ncol = 3,
+                 dimnames = list(reml_models, c("ml", "reml", "reml_nll_gap")))
+for (m in reml_models) {
+  reml_fit = fit_allo(allo_setup(main, formulas = candidates[[m]]), reml = TRUE)
+  reml_sd[m, ] = c(sd_cand[[m]], exp(reml_fit$fit$par[["log_sd_group"]]),
+                   reml_fit$nll_gap)
+}
+round(reml_sd, 3)
+```
+
+Without predictors, REML gives `r f2(reml_sd["none", "reml"])` against
+`r f2(reml_sd["none", "ml"])` by maximum likelihood. For `shade_b` and `site_b` the REML
+estimates (`r f2(reml_sd["shade_b", "reml"])` and `r f2(reml_sd["site_b", "reml"])`) lie
+at the maximum with a large variation among fields, whatever the maximum likelihood fit
+chose: with 12 fields and 4 or 8 fixed effects, the information left for the variance
+among fields is small.
+
+## Sensitivity of the answer {#sec-sensitivity}
+
+The comparison of the candidates and the answer under five variants: the main data set,
+the `r nrow(manuscript_trees)` trees of the manuscript, the main data set with the
+diameters of D10 and D14 exchanged, the main data set with the CIV1 field of 1.5 years
+shaded (Table 1 of the manuscript), and the main data set with the field mean of
+$\log(D/10)$ (@sec-field-mean). For each: the AIC of `shade_b`, `density_b` and
+`shade_density_b` relative to `site_b` (positive means worse than the site), the
+standard deviation among fields and `nll_gap` of `shade_b`, and the ratio shaded/unshaded
+at 4 and 16 cm under `shade_b`.
+
+```{r}
+sensitivity_row = function(trees, field_mean = FALSE) {
+  trees = add_field_mean(droplevels(trees))
+  forms = candidates[c("shade_b", "density_b", "shade_density_b", "site_b")]
+  info = shade_info
+  if (field_mean) {
+    for (m in names(forms)) {
+      forms[[m]]$a = update(forms[[m]]$a, ~ . + log_dia_field)
+    }
+    # A tree typical of its field: the field mean equals its own log(D / 10).
+    info$log_dia_field = log(info$dia20_cm / 10)
+  }
+  fits = list()
+  for (m in names(forms)) {
+    fits[[m]] = fit_allo(allo_setup(trees, formulas = forms[[m]]))
+  }
+  # Refit shade_b with the answer.
+  fits$shade_b = fit_allo(allo_setup(trees, formulas = forms$shade_b, answer_info = info,
+                                     answer_contrast = shade_contrast))
+  tab = aic_table(fits)
+  aic = setNames(tab$aic, tab$model)
+  ratio = allo_ratio(fits$shade_b, answer_dia)
+  data.frame(
+    shade_b = aic[["shade_b"]] - aic[["site_b"]],
+    density_b = aic[["density_b"]] - aic[["site_b"]],
+    shade_density_b = aic[["shade_density_b"]] - aic[["site_b"]],
+    sd_field = tab$sd_group[1], nll_gap = tab$nll_gap[1],
+    ratio_4 = ratio$ratio[1], lower_4 = ratio$lower[1], upper_4 = ratio$upper[1],
+    ratio_16 = ratio$ratio[2], lower_16 = ratio$lower[2], upper_16 = ratio$upper[2]
+  )
+}
+swapped = main
+swap_rows = match(c("D10", "D14"), swapped$tree)
+swapped$dia20_cm[swap_rows] = swapped$dia20_cm[rev(swap_rows)]
+civ1_shaded = main
+civ1_shaded$shade[civ1_shaded$field == "CIV1_1.5"] = "yes"
+sensitivity = rbind(
+  main = sensitivity_row(main),
+  manuscript_61 = sensitivity_row(manuscript_trees),
+  swap_D10_D14 = sensitivity_row(swapped),
+  CIV1_1.5_shaded = sensitivity_row(civ1_shaded),
+  field_mean = sensitivity_row(main, field_mean = TRUE)
+)
+sensitivity = data.frame(variant = rownames(sensitivity), sensitivity)
+show_table(sensitivity[, c("variant", "shade_b", "density_b", "shade_density_b",
+                           "sd_field", "nll_gap")])
+show_table(sensitivity[, c("variant", "ratio_4", "lower_4", "upper_4", "ratio_16",
+                           "lower_16", "upper_16")])
+```
+
+```{r}
+#| echo: false
+sens = sensitivity
+rownames(sens) = sens$variant
+mgmt_cols = c("shade_b", "density_b", "shade_density_b")
+sens_best = apply(sens[, mgmt_cols], 1, min)
+```
+
+The verdict of AIC depends on the variant. With the main data set, the 61 trees and the
+field mean, the site on both parameters is better than every management model (by at least
+`r f1(min(sens_best[c("main", "manuscript_61", "field_mean")]))` AIC units). With D10 and
+D14 exchanged, `shade_density_b` is `r f1(-sens["swap_D10_D14", "shade_density_b"])`
+units better than `site_b`, and with the CIV1 field of 1.5 years shaded, the best
+management model is `r f1(sens_best[["CIV1_1.5_shaded"]])` units behind the site. The
+ratio shaded/unshaded at 4 cm ranges from `r f2(min(sens$ratio_4))` to
+`r f2(max(sens$ratio_4))` and at 16 cm from `r f2(min(sens$ratio_16))` to
+`r f2(max(sens$ratio_16))` across the variants, and the standard deviation among fields of
+`shade_b` from `r signif(min(sens$sd_field), 2)` to `r f2(max(sens$sd_field))`. Two
+uncertain diameters, one disputed description of a field and the choice between two maxima
+of the likelihood decide whether management "explains" the allometry: the data cannot
+carry the conclusion.
+
+# Extension: height and diameter {#sec-height}
+
+Supplement 3 of the manuscript shows that shaded trees are more slender (taller for their
+diameter). The height of a tree cannot grow without bound with its diameter, so a
+saturating curve is a natural model, non-linear in its parameters and with a random effect
+per field: the saturating exponential (functions supplement, `sec-fn-monomolecular`),
+
+$$
+h(D) = H_{\max}\left(1 - e^{-D/s}\right),
+$$
+
+where $H_{\max}$ is the asymptotic height (m) and $s$ (cm) the diameter at which the
+height reaches $1 - e^{-1} \approx 63\%$ of $H_{\max}$; the initial slope is $H_{\max}/s$
+(m/cm). The Michaelis–Menten function $H_{\max}D/(s + D)$, with $s$ the half-maximum,
+is the alternative curve. The random effect per field and the predictors act on
+$\log(H_{\max})$; $s$ is shared.
+
+```{r}
+height_nll = function(parms, data) {
+  getAll(parms, data)
+  height = OBS(height)
+  # Minus the log density of the deviations of the fields, before they are used.
+  nll = -sum(dnorm(x = u, mean = 0, sd = exp(log_sd_group), log = TRUE))
+  h_max = exp(X_h %*% beta_h + u[group])
+  s = exp(log_s)
+  if (curve == "exponential") {
+    mu = h_max * (1 - exp(-dia / s))
+  } else {
+    mu = h_max * dia / (s + dia)
+  }
+  # Minus the log density of the heights for given deviations.
+  if (distribution == "LogNormal") {
+    sdlog = exp(log_disp)
+    nll = nll - sum(dlnorm(x = height, meanlog = log(mu) - sdlog^2 / 2, sdlog = sdlog,
+                           log = TRUE))
+  } else if (distribution == "Gamma") {
+    shape = exp(log_disp)
+    nll = nll - sum(dgamma(x = height, shape = shape, scale = mu / shape, log = TRUE))
+  } else {
+    nll = nll - sum(dnorm(x = height, mean = mu, sd = exp(log_disp), log = TRUE))
+  }
+  nll
+}
+height_setup = function(trees, formula = ~ 1, curve = "exponential",
+                        distribution = "LogNormal") {
+  data = list(height = trees$height_m, dia = trees$dia20_cm, curve = curve,
+              distribution = distribution, random = "field",
+              X_h = model.matrix(formula, data = trees),
+              group = as.numeric(droplevels(trees$field)))
+  start = list(beta_h = c(log(7), rep(0, ncol(data$X_h) - 1)), log_s = log(10),
+               log_disp = switch(distribution, LogNormal = log(0.1), Gamma = log(100),
+                                 Normal = log(0.5)),
+               log_sd_group = log(0.3), u = rep(0, nlevels(droplevels(trees$field))))
+  list(data = data, start = start)
+}
+```
+
+The starting values come from @fig-scatter and the heights in the data: trees approach
+about 7 m, and reach most of it by about 10 cm. First the curve and the distribution,
+without predictors:
+
+```{r}
+height_choices = expand.grid(curve = c("exponential", "michaelis_menten"),
+                             distribution = c("LogNormal", "Gamma", "Normal"),
+                             stringsAsFactors = FALSE)
+height_choice_fits = list()
+for (i in seq_len(nrow(height_choices))) {
+  setup = height_setup(main, curve = height_choices$curve[i],
+                       distribution = height_choices$distribution[i])
+  height_choice_fits[[i]] = fit_allo(setup, nll = height_nll)
+}
+names(height_choice_fits) = paste(height_choices$curve, height_choices$distribution)
+height_choice_table = aic_table(height_choice_fits)
+show_table(height_choice_table, digits = 1)
+```
+
+```{r}
+#| echo: false
+hc = height_choice_table
+hc_best = hc$model[which.min(hc$aic)]
+hc_best_curve = height_choices$curve[which.min(hc$aic)]
+hc_best_dist = height_choices$distribution[which.min(hc$aic)]
+curve_names = c(exponential = "saturating exponential",
+                michaelis_menten = "Michaelis–Menten")
+```
+
+`r if (all(hc$convergence == 0)) "All six fits converged." else "Not every fit converged (see the table)."`
+The best combination is the `r curve_names[[hc_best_curve]]`
+curve with the `r hc_best_dist` distribution. With this curve, the other two
+distributions are both about
+`r f1(max(hc$delta_aic[height_choices$curve == hc_best_curve]))` AIC units worse, and the
+other curve is `r f1(min(hc$delta_aic[height_choices$curve != hc_best_curve]))` units
+behind at best, so the two curves describe the heights about equally well. Heights range
+only from `r min(main$height_m)` to `r max(main$height_m)` m, a much narrower range than
+the biomasses, and a constant variance is enough here.
+Then the predictors of $H_{\max}$, with this curve and distribution:
+
+```{r}
+height_candidates = list(none = ~ 1, shade = ~ shade, density = ~ density_100,
+                         irrigation = ~ irrigation, site = ~ site)
+height_fits = list()
+for (m in names(height_candidates)) {
+  height_fits[[m]] = fit_allo(height_setup(main, formula = height_candidates[[m]],
+                                           curve = hc_best_curve,
+                                           distribution = hc_best_dist),
+                              nll = height_nll)
+}
+height_table = aic_table(height_fits)
+show_table(height_table, digits = 1)
+height_site = height_fits$site$fit$par
+site_hmax = exp(height_site[names(height_site) == "beta_h"][1] +
+                  c(0, height_site[names(height_site) == "beta_h"][-1]))
+names(site_hmax) = levels(main$site)
+round(c(site_hmax, s_cm = exp(height_site[["log_s"]])), 2)
+```
+
+```{r}
+#| echo: false
+aic_h = setNames(height_table$aic, height_table$model)
+height_shade = summary(sdreport(height_fits$shade$obj), select = "fixed")
+```
+
+`r if (all(height_table$convergence == 0)) "All five fits converged." else "Not every fit converged (see the table)."`
+The site is `r f1(aic_h[["none"]] - aic_h[["site"]])` AIC units better than no predictor
+and `r f1(min(aic_h[c("shade", "density", "irrigation")]) - aic_h[["site"]])` units better
+than the best management variable,
+`r c("shade", "density", "irrigation")[which.min(aic_h[c("shade", "density", "irrigation")])]`
+(irrigation is "yes" exactly at CIV2 and ECU). The typical asymptotic heights of the sites are
+`r paste(paste0(names(site_hmax), " ", f1(site_hmax), " m"), collapse = ", ")`: the
+hedged ECU trees are no taller than
+`r max(main$height_m[main$site == "ECU"])` m. Shade multiplies $H_{\max}$ by
+`r f2(exp(height_shade[2, 1]))` (95% Wald interval
+`r f2(exp(height_shade[2, 1] - critical_value * height_shade[2, 2]))` to
+`r f2(exp(height_shade[2, 1] + critical_value * height_shade[2, 2]))`), but the
+unshaded trees include the hedged ECU trees, so this is again largely a difference
+between sites, and hedging limits the height of the ECU trees.
+
+```{r}
+#| label: fig-height
+#| fig-cap: "Height against stem diameter with the typical curves (u = 0) of the four
+#|   sites under the height model with the site on the asymptotic height, each over the
+#|   diameter range of its site."
+#| fig-width: 6
+#| fig-height: 4.2
+height_curve = function(dia, h_max, s) {
+  if (hc_best_curve == "exponential") h_max * (1 - exp(-dia / s)) else h_max * dia / (s + dia)
+}
+plot(height_m ~ dia20_cm, data = main, col = site_colours[as.character(main$site)],
+     pch = shade_symbols[as.character(main$shade)],
+     xlab = "Stem diameter at 20 cm (cm)", ylab = "Height (m)")
+for (s in levels(main$site)) {
+  dia = seq(from = site_min[[s]], to = site_max[[s]], length.out = 100)
+  lines(dia, height_curve(dia, site_hmax[[s]], exp(height_site[["log_s"]])),
+        col = site_colours[[s]], lwd = 2)
+}
+legend("bottomright", legend = names(site_colours), col = site_colours, lty = 1, lwd = 2,
+       bty = "n")
+```
+
+The ECU curve lies lowest over its whole range and is nearly flat beyond about 15 cm;
+the NGA trees are the tallest, and the CIV1 and CIV2 curves lie between. The slenderness of the shaded trees in the
+manuscript's Supplement 3 is, in these data, mostly the contrast between hedged ECU trees
+and the trees of the other sites.
+
+::: {.callout-tip title="Alternative: height in the biomass model"}
+The manuscript's equation 3 adds $\log(H)$ to the log-log regression, and its Table 5
+shows a large improvement. Height is a response of the tree to its environment and
+management (pruning, shade), so including it answers a different question (biomass for a
+given diameter and height); it may also explain why biomass changes little with diameter
+within the hedged ECU fields (@sec-two-maxima).
+:::
+
+# Checking the estimator by simulation {#sec-simulation}
+
+With 12 fields, can the data detect a shade effect, and are the Wald intervals of the
+ratio shaded/unshaded reliable? We simulate 250 hypothetical samples from the power law
+without predictors (@sec-choices), in which shade has no effect, with the trees,
+diameters and fields of the main data set, and fit `none` and `shade_b` to each. We keep
+whether the 95% Wald interval of the log ratio at 4 and 16 cm contains zero (the value
+used to simulate), whether AIC prefers `shade_b` by more than 2 units, the standard
+deviation among fields of `shade_b` and its `nll_gap`.
+
+```{r}
+n_samples = 250
+sim_setup_none = allo_setup(main)
+sim_setup_shade = shade_answer_setup
+sim_covered = matrix(NA, nrow = n_samples, ncol = 2)
+sim_prefers_shade = rep(NA, n_samples)
+sim_sd_field = rep(NA, n_samples)
+sim_gap = rep(NA, n_samples)
+n_failed = 0
+set.seed(seed = 1932)
+for (i in seq_len(n_samples)) {
+  agb_sim = power_fit$obj$simulate(power_par)$agb
+  sim_setup_none$data$agb = agb_sim
+  sim_setup_shade$data$agb = agb_sim
+  sim_none = fit_allo(sim_setup_none)
+  sim_shade = fit_allo(sim_setup_shade)
+  n_failed = n_failed + (sim_none$fit$convergence != 0) +
+    (sim_shade$fit$convergence != 0)
+  log_ratio = report_rows(sim_shade, "log_ratio")
+  sim_covered[i, ] = abs(log_ratio[, "Estimate"]) <
+    critical_value * log_ratio[, "Std. Error"]
+  aic_none = 2 * length(sim_none$fit$par) + 2 * sim_none$fit$value
+  aic_shade = 2 * length(sim_shade$fit$par) + 2 * sim_shade$fit$value
+  sim_prefers_shade[i] = aic_shade < aic_none - 2
+  sim_sd_field[i] = exp(sim_shade$fit$par[["log_sd_group"]])
+  sim_gap[i] = sim_shade$nll_gap
+}
+n_failed
+c(coverage_4 = mean(sim_covered[, 1]), coverage_16 = mean(sim_covered[, 2]),
+  prefers_shade = mean(sim_prefers_shade), two_maxima = mean(sim_gap > 0.05),
+  sd_near_zero = mean(sim_sd_field < 0.01))
+summary(sim_sd_field)
+```
+
+```{r}
+#| echo: false
+cov_lo = 0.95 - 1.96 * sqrt(0.95 * 0.05 / n_samples)
+```
+
+`r if (n_failed == 0) "Every fit converged." else paste(n_failed, "fits did not converge.")`
+Although shade has no effect in the simulated data, the 95% Wald intervals of the ratio
+contain 1 in `r f1(100 * mean(sim_covered[, 1]))`% of the samples at 4 cm and
+`r f1(100 * mean(sim_covered[, 2]))`% at 16 cm
+(`r if (max(colMeans(sim_covered)) < cov_lo) "both below" else "against"` the lower limit
+of about `r f1(100 * cov_lo)`% that `r n_samples` samples allow for a coverage of 95%), and
+AIC prefers `shade_b` over `none` by more than 2 units in
+`r f1(100 * mean(sim_prefers_shade))`% of the samples. In
+`r f1(100 * mean(sim_gap > 0.05))`% of the samples the fit of `shade_b` has two maxima, and
+in `r f1(100 * mean(sim_sd_field < 0.01))`% the standard deviation among fields goes to
+practically zero; its median is `r f2(median(sim_sd_field))` against
+`r f2(sd_field_power)` used to simulate. With 6 shaded and 6 unshaded fields, the
+variation among fields is underestimated, and with it the uncertainty of an effect that
+is a contrast between fields.
+
+::: {.callout-warning title="Pitfall: the number of fields, not of trees"}
+A management effect that is constant within fields is estimated from the
+`r nlevels(main$field)` fields, not from the `r nrow(main)` trees, and with so few groups
+the Wald intervals are too narrow and the variance among fields is
+underestimated (@sec-simulation, @sec-profile). Here the shaded and unshaded fields also belong to
+different sites, which no simulation from the model can repair.
+:::
+
+# Summary: alternatives, pitfalls and teaching notes {#sec-summary}
+
+**Answer.** On logarithmic axes, the aboveground biomass of cocoa trees is close to a
+straight line of the stem diameter (a power law with exponent
+`r f2(power_par[["beta_b"]])` across all fields; a LogNormal distribution with a
+standard deviation of `r f2(sigma_power)` on the log scale and a random effect per field
+with a standard deviation of `r f2(sd_field_power)`). Shaded and unshaded trees differ:
+under `shade_b`, the ratio shaded/unshaded of the typical mean biomass is
+`r ratio_txt(shade_ratio, 1)` at 4 cm and `r ratio_txt(shade_ratio, 2)` at 16 cm. But the
+site on both parameters of the power law fits better than any management variable, the
+small shaded trees are all from CIV2 and the large ones from NGA, the only contrasts
+within sites show no detectable effect of management, and the verdict of AIC changes with
+two uncertain diameters and one disputed field description. The data show that the
+allometry differs among sites and fields; they cannot attribute the differences to shade,
+planting density, irrigation or fertilisation.
+
+**Pitfalls.**
+
+1. Management is almost a property of the site; only three small contrasts lie within
+   sites (@sec-design).
+2. Three records are implausible by a simple form factor (F9, D4, D5), and five more do
+   not add up or look swapped (T17, F11 and F12, D10 and D14) (@sec-records).
+3. The descriptions of fields disagree between Table 1 and the spreadsheet (shade in
+   CIV1_1.5; the two CIV2 fields may be one) (@sec-design).
+4. A Normal distribution with constant variance is far worse than a LogNormal or Gamma
+   one (@sec-choices).
+5. A line fitted to the logarithm of the biomass describes the median; the LogNormal with
+   its mean as a parameter needs no correction factor (@sec-model).
+6. A cubic polynomial of $\log(D)$ turns down within or near the data, and its curvature
+   comes from D4 and D5 (@sec-cubic).
+7. The site fits better than any management variable; the manuscript never compared
+   them (@sec-candidates).
+8. The likelihood of several candidates has two maxima, one with little variation among
+   fields (exponents across fields) and one with much (exponents within fields), and
+   `optim()` reports convergence at both (@sec-two-maxima).
+9. The exponent within fields (`r f2(fm_none["beta_b", 1])`) differs from that between
+   fields (`r f2(fm_none["beta_b", 1] + fm_none[2, 1])`) (@sec-field-mean).
+10. Predictions must stay inside the data in diameter and in the combinations of
+    predictors; the manuscript's scenarios of 1,000 and 1,400 trees/ha with shade lie
+    outside (@sec-figure3).
+11. With 12 fields, Wald intervals of a contrast between fields are too narrow and AIC
+    finds a shade effect that does not exist in about
+    `r f0(100 * mean(sim_prefers_shade))`% of simulated samples (@sec-simulation).
+12. Shade appears to make trees taller, but the unshaded trees include the hedged ECU
+    trees (@sec-height).
+
+**Alternatives.**
+
+- The Gamma distribution, or a Normal distribution with variance as a power of the mean
+  (same fit; @sec-choices).
+- The field mean of $\log(D/10)$ as a predictor, which separates the exponents within and
+  between fields and removes the second maximum (@sec-field-mean).
+- Nested random effects of site and field (@sec-choices; beyond Chapter 7).
+- REML for the variance among fields (@sec-profile).
+- Height as a second predictor of biomass, for a different question (@sec-height).
+- A monotonic curve with a bend instead of a polynomial, if a bend is needed (@sec-cubic).
+
+**Teaching notes (possible questions for students).**
+
+- Calculate the form factor and decide which records are implausible, and say what the
+  decision does to the answer.
+- Explain why the LogNormal mean differs from the curve of a log-log regression, and
+  connect it to the "correction factor".
+- Compare a random effect per field and per site, and explain what each assumes about the
+  trees.
+- Fit the cubic of the manuscript and find where it turns.
+- Compare management with the site as a fixed effect, and explain what the comparison
+  says about the research question.
+- Fit `shade_b` from different starting values of the standard deviation among fields,
+  and explain the two maxima.
+- Redraw the manuscript's Figure 3 with each curve over the data of its group.
+
+# References {.unnumbered}
+
+- Clifford, D., Cressie, N., England, J. R., Roxburgh, S. H. and Paul, K. I. (2013).
+  Correction factors for unbiased, efficient estimation and prediction of biomass from
+  log–log allometric models. *Forest Ecology and Management* 310: 375–381.
+- Goudsmit, E., Rozendaal, D. M. A., Tosto, A., Hougni, D.-G., Morales Sierra, A.,
+  Vasquez Zambrano, E., Adet, L., Anten, N. and Slingerland, M. (unpublished manuscript).
+  Challenges in aboveground biomass predictions for cacao using allometric equations:
+  effects of model selection and management practices. With a supplement.
+- Picard, N., Rutishauser, E., Ploton, P., Ngomanda, A. and Henry, M. (2015). Should tree
+  biomass allometry be restricted to power models? *Forest Ecology and Management* 353:
+  156–163.
